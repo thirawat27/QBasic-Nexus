@@ -1,0 +1,86 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "buildQB64",
+            "type": "shell",
+            "command": "qb64",
+            "args": [
+                "-x",
+                "${file}",
+                "-o",
+                "${fileBasenameNoExtension}"
+            ],
+            "windows": {
+                "command": "qb64.exe",
+                "args": [
+                    "-x",
+                    "${file}",
+                    "-o",
+                    "${fileBasenameNoExtension}.exe"
+                ]
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            }
+        },
+        {
+            "label": "runQB64",
+            "type": "shell",
+            "command": "${fileDirname}/${fileBasenameNoExtension}",
+            "windows": {
+                "command": "${fileDirname}/${fileBasenameNoExtension}.exe"
+            },
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [],
+            "dependsOn": "buildQB64",
+            "group": {
+                "kind": "test"
+            }
+        },
+        {
+            "label": "buildQB64pe",
+            "type": "shell",
+            "command": "qb64pe",
+            "args": [
+                "-x",
+                "${file}",
+                "-o",
+                "${fileBasenameNoExtension}"
+            ],
+            "windows": {
+                "command": "qb64pe.exe",
+                "args": [
+                    "-x",
+                    "${file}",
+                    "-o",
+                    "${fileBasenameNoExtension}.exe"
+                ]
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            }
+        },
+        {
+            "label": "runQB64pe",
+            "type": "shell",
+            "command": "${fileDirname}/${fileBasenameNoExtension}",
+            "windows": {
+                "command": "${fileDirname}/${fileBasenameNoExtension}.exe"
+            },
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [],
+            "dependsOn": "buildQB64pe",
+            "group": {
+                "kind": "test"
+            }
+        }
+    ],
+    "extensionVersion": "1.1.4"
+}
