@@ -1,4 +1,10 @@
-.vscode/**
-.vscode-test/**
-.gitignore
-vsc-extension-quickstart.md
+# Ignore build artifacts and large directories
+.vscode/**/tasks.json
+.vscode/**/launch.json
+node_modules/
+.git/
+
+# --- ส่วนที่เพิ่มเข้ามาเพื่อแก้ปัญหา ---
+# Tell vsce to completely ignore the compilers directory
+# It will still be included in the .vsix package, but vsce won't try to read its contents.
+compilers/
