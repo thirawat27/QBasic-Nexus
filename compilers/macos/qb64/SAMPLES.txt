@@ -1,0 +1,3 @@
+The collection of sample programs previous distributed with QB64 is now available at https://qb64.com/archive.html
+
+More programs and useful code routines at https://qb64.com/samples.html

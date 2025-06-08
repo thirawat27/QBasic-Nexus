@@ -1,0 +1,6 @@
+if(oldstr5752){
+if(oldstr5752->fixed)qbs_set(oldstr5752,_FUNC_IDEZTAKEPATH_STRING_F);
+qbs_free(_FUNC_IDEZTAKEPATH_STRING_F);
+}
+qbs_free(_FUNC_IDEZTAKEPATH_STRING_P);
+qbs_free(_FUNC_IDEZTAKEPATH_STRING_A);

@@ -1,0 +1,4 @@
+if(oldstr3786){
+if(oldstr3786->fixed)qbs_set(oldstr3786,_FUNC_SCASE_STRING_T);
+qbs_free(_FUNC_SCASE_STRING_T);
+}

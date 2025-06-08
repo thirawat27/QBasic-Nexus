@@ -1,0 +1,4 @@
+if(oldstr6475){
+if(oldstr6475->fixed)qbs_set(oldstr6475,_SUB_DEBUGPRINT_STRING_TEXT);
+qbs_free(_SUB_DEBUGPRINT_STRING_TEXT);
+}

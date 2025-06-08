@@ -1,0 +1,6 @@
+09-04-202213:37:30--------------------
+ 5 
+Illegal function call
+ 26307 
+ 145 
+wiki_methods.bas

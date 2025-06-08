@@ -1,0 +1,4 @@
+if(oldstr3672){
+if(oldstr3672->fixed)qbs_set(oldstr3672,_SUB_GIVE_ERROR_STRING_A);
+qbs_free(_SUB_GIVE_ERROR_STRING_A);
+}
