@@ -4,7 +4,7 @@
   "description": "Add syntax highlighting, code snippets, and a QB64 compiler for QBasic in VSCode.",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.50.0"
   },
   "main": "./extension.js",
   "categories": [
