@@ -1,0 +1,8 @@
+if(oldstr6335){
+if(oldstr6335->fixed)qbs_set(oldstr6335,_FUNC_WIKI_STRING_PAGENAME);
+qbs_free(_FUNC_WIKI_STRING_PAGENAME);
+}
+qbs_free(_FUNC_WIKI_STRING_PAGENAME2);
+qbs_free(_FUNC_WIKI_STRING_A);
+qbs_free(_FUNC_WIKI_STRING_URL);
+qbs_free(_FUNC_WIKI_STRING_OUTPUTFILE);

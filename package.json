@@ -25,14 +25,8 @@
     "languages": [
       {
         "id": "qbasic",
-        "aliases": [
-          "QuickBASIC",
-          "qbasic"
-        ],
-        "extensions": [
-          ".bas",
-          ".bi"
-        ],
+        "aliases": ["QuickBASIC", "qbasic"],
+        "extensions": [".bas", ".bi"],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -73,8 +67,5 @@
         "path": "./snippets/qbasic.json"
       }
     ]
-  },
-  "devDependencies": {
-    "esbuild": "^0.25.5"
   }
 }

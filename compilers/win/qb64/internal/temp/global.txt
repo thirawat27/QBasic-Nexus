@@ -1,7 +1,7 @@
-int16 *__INTEGER_WEIGHT=NULL;
-double *__DOUBLE_HEIGHT=NULL;
-int16 *__INTEGER_HEALTHY=NULL;
-float *__SINGLE_RESULT=NULL;
+int16 *__INTEGER_NUM=NULL;
+int16 *__INTEGER_NUM1=NULL;
+int16 *__INTEGER_NUM2=NULL;
+int16 *__INTEGER_NUM3=NULL;
 int32 console=0;
 int32 screen_hide_startup=0;
 int32 asserts=0;

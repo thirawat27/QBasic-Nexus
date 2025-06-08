@@ -1,0 +1,41 @@
+qbs*oldstr5238=NULL;
+if(_SUB_FINDQUOTECOMMENT_STRING_TEXT->tmp||_SUB_FINDQUOTECOMMENT_STRING_TEXT->fixed||_SUB_FINDQUOTECOMMENT_STRING_TEXT->readonly){
+oldstr5238=_SUB_FINDQUOTECOMMENT_STRING_TEXT;
+if (oldstr5238->cmem_descriptor){
+_SUB_FINDQUOTECOMMENT_STRING_TEXT=qbs_new_cmem(oldstr5238->len,0);
+}else{
+_SUB_FINDQUOTECOMMENT_STRING_TEXT=qbs_new(oldstr5238->len,0);
+}
+memcpy(_SUB_FINDQUOTECOMMENT_STRING_TEXT->chr,oldstr5238->chr,oldstr5238->len);
+}
+int32 *_SUB_FINDQUOTECOMMENT_LONG_CURSOR=NULL;
+if(_SUB_FINDQUOTECOMMENT_LONG_CURSOR==NULL){
+_SUB_FINDQUOTECOMMENT_LONG_CURSOR=(int32*)mem_static_malloc(4);
+*_SUB_FINDQUOTECOMMENT_LONG_CURSOR=0;
+}
+byte_element_struct *byte_element_5239=NULL;
+if (!byte_element_5239){
+if ((mem_static_pointer+=12)<mem_static_limit) byte_element_5239=(byte_element_struct*)(mem_static_pointer-12); else byte_element_5239=(byte_element_struct*)mem_static_malloc(12);
+}
+byte_element_struct *byte_element_5240=NULL;
+if (!byte_element_5240){
+if ((mem_static_pointer+=12)<mem_static_limit) byte_element_5240=(byte_element_struct*)(mem_static_pointer-12); else byte_element_5240=(byte_element_struct*)mem_static_malloc(12);
+}
+int32 *_SUB_FINDQUOTECOMMENT_LONG_FIND_K=NULL;
+if(_SUB_FINDQUOTECOMMENT_LONG_FIND_K==NULL){
+_SUB_FINDQUOTECOMMENT_LONG_FIND_K=(int32*)mem_static_malloc(4);
+*_SUB_FINDQUOTECOMMENT_LONG_FIND_K=0;
+}
+int64 fornext_value5242;
+int64 fornext_finalvalue5242;
+int64 fornext_step5242;
+uint8 fornext_step_negative5242;
+static qbs *sc_5243=qbs_new(0,0);
+byte_element_struct *byte_element_5244=NULL;
+if (!byte_element_5244){
+if ((mem_static_pointer+=12)<mem_static_limit) byte_element_5244=(byte_element_struct*)(mem_static_pointer-12); else byte_element_5244=(byte_element_struct*)mem_static_malloc(12);
+}
+byte_element_struct *byte_element_5245=NULL;
+if (!byte_element_5245){
+if ((mem_static_pointer+=12)<mem_static_limit) byte_element_5245=(byte_element_struct*)(mem_static_pointer-12); else byte_element_5245=(byte_element_struct*)mem_static_malloc(12);
+}

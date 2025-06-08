@@ -1,0 +1,15 @@
+qbs*oldstr6475=NULL;
+if(_SUB_DEBUGPRINT_STRING_TEXT->tmp||_SUB_DEBUGPRINT_STRING_TEXT->fixed||_SUB_DEBUGPRINT_STRING_TEXT->readonly){
+oldstr6475=_SUB_DEBUGPRINT_STRING_TEXT;
+if (oldstr6475->cmem_descriptor){
+_SUB_DEBUGPRINT_STRING_TEXT=qbs_new_cmem(oldstr6475->len,0);
+}else{
+_SUB_DEBUGPRINT_STRING_TEXT=qbs_new(oldstr6475->len,0);
+}
+memcpy(_SUB_DEBUGPRINT_STRING_TEXT->chr,oldstr6475->chr,oldstr6475->len);
+}
+int32 *_SUB_DEBUGPRINT_LONG_FN=NULL;
+if(_SUB_DEBUGPRINT_LONG_FN==NULL){
+_SUB_DEBUGPRINT_LONG_FN=(int32*)mem_static_malloc(4);
+*_SUB_DEBUGPRINT_LONG_FN=0;
+}

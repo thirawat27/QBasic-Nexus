@@ -1,0 +1,14 @@
+if(oldstr3772){
+if(oldstr3772->fixed)qbs_set(oldstr3772,_SUB_ADDWARNING_STRING_INCFILENAME);
+qbs_free(_SUB_ADDWARNING_STRING_INCFILENAME);
+}
+if(oldstr3773){
+if(oldstr3773->fixed)qbs_set(oldstr3773,_SUB_ADDWARNING_STRING_HEADER);
+qbs_free(_SUB_ADDWARNING_STRING_HEADER);
+}
+if(oldstr3774){
+if(oldstr3774->fixed)qbs_set(oldstr3774,_SUB_ADDWARNING_STRING_TEXT);
+qbs_free(_SUB_ADDWARNING_STRING_TEXT);
+}
+qbs_free(_SUB_ADDWARNING_STRING_THISSOURCE);
+qbs_free(_SUB_ADDWARNING_STRING_THISINCNAME);
