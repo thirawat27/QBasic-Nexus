@@ -3,6 +3,12 @@
   "displayName": "QBasic Nexus",
   "description": "Add syntax highlighting, code snippets, and a QB64 compiler for QBasic in VSCode.",
   "version": "0.0.1",
+  "publisher": "thirawat27",
+  "icon": "image/QBasicNexus.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thirawat27/qbasic-nexus"
+  },
   "engines": {
     "vscode": "^1.50.0"
   },

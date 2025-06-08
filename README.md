@@ -1,65 +1,112 @@
-# qbasic-nexus README
+<div align="center">
+  <img src="/image/QBasicNexus.png" alt="QBasicNexus Icon" width="250" height="250" />
+</div>
+<div align="center">
+  <h1>QBasic Nexus ⚙️</h1>
+</div>
 
-This is the README for your extension "qbasic-nexus". After writing up a brief description, we recommend including the following sections.
 
-## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+This extension bundles the QB64 compiler for Windows, macOS, and Linux, enabling you to get started with QBasic development without any separate installation of QB64.
 
-For example if there is an image subfolder under your extension project workspace:
+ <!-- You can replace this with a real screenshot of the extension in action -->
 
-\!\[feature X\]\(images/feature-x.png\)
+## ✨ Features
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+*   **Compile & Run**: Compile your QBasic code and run it in the integrated terminal with a single command.
+*   **Compile Only**: Compile your code to create a standalone executable file (`.exe` on Windows).
+*   **Cross-Platform Support**: Works on Windows, macOS, and Linux.
+*   **Bundled Compiler**: No need to install QB64 separately. The necessary compilers are included with the extension.
+*   **Status Bar Integration**: Easily access the compile command from an icon in the status bar whenever a `.bas` or `.bi`file is open.
+*   **Detailed Output Panel**: View detailed logs, progress, and errors from the compilation process in a dedicated "QB64 Compiler" output channel.
+*   **Integrated Terminal Execution**: Runs the compiled program directly in the VS Code integrated terminal.
 
-## Requirements
+## ⚙️ Prerequisites
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+For the bundled QB64 compiler to work correctly, some system-level tools are required.
 
-## Extension Settings
+*   **Windows**:
+    *   No prerequisites needed. It works out of the box!
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+*   **macOS**:
+    *   **Xcode Command Line Tools** must be installed.
+    *   To install them, open a Terminal and run:
+        ```sh
+        xcode-select --install
+        ```
 
-For example:
+*   **Linux (Debian/Ubuntu-based)**:
+    *   The **build-essential** package (which includes `g++` and other necessary tools) must be installed.
+    *   To install it, open a Terminal and run:
+        ```sh
+        sudo apt-get update && sudo apt-get install build-essential
+        ```
 
-This extension contributes the following settings:
+## 🚀 Getting Started
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+1.  Install this extension from the VS Code Marketplace.
+2.  Open a QBasic file with a `.bas` or `.bi`  extension.
+3.  When a `.bas` or `.bi` file is active, you will see a **`🔥 Compile .BAS (QBasic)`** icon appear in the Status Bar (usually at the bottom-left).
+4.  You can execute commands in two ways:
 
-## Known Issues
+    *   **Method 1: Using the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`)**
+        *   To **Compile and Run🚀** : Type `QBLegacy.compileAndRun` and press Enter.
+        *   To **Compile Only🌀** : Type `QBLegacy.compile` and press Enter.
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+    *   **Method 2: Clicking the Status Bar Icon**
+        *   Clicking the **`🔥 Compile .BAS (QBasic)`** icon in the status bar will trigger the **Compile Only🌀** command.
 
-## Release Notes
+## 📦 Available Commands
 
-Users appreciate release notes as you update your extension.
+*   `QBLegacy.compile`:
+    *   **Title**: Compile QBasic File
+    *   **Action**: Compiles the currently active `.bas` or `.bi` file and creates an executable file (e.g., `program.exe` on Windows or `program` on macOS/Linux) in the same directory.
 
-### 1.0.0
+*   `QBLegacy.compileAndRun`:
+    *   **Title**: Compile and Run QBasic File
+    *   **Action**: First, it compiles the file. If successful, it automatically opens a new terminal named "QB64 Run" and executes the program.
 
-Initial release of ...
+## 📄 Understanding the Output
 
-### 1.0.1
+*   **Output Panel**:
+    *   All compilation results (compiler messages, COMPILE SUCCESSFUL `✅` or COMPILE FAILED `❌` status) are displayed in the **Output** panel under the **"QB64 Compiler"** channel.
+    *   If compilation fails, this panel will provide detailed error messages to help you debug your code.
 
-Fixed issue #.
+*   **Terminal Panel**:
+    *   When using the "Compile and Run" command, the output from your running QBasic program (e.g., from `PRINT` statements) will be displayed in the **Terminal** panel under the **"QB64 Run"** tab.
 
-### 1.1.0
+*   **Executable File**:
+    *   The compiled application file will be created in the same directory as your source `.bas` or `.bi` file.
 
-Added features X, Y, and Z.
+## 🛠️ Configuration
 
----
+This extension is currently not configurable. All settings are pre-defined for ease of use.
 
-## Working with Markdown
+## 📄 License
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+This theme is licensed under the MIT License:
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
 
-## For more information
+```
+MIT License
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+Copyright (c) 2025 Tiny BMI API
 
-**Enjoy!**
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
