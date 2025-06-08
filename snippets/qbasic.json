@@ -1,0 +1,308 @@
+{
+	"New QB64 Program": {
+		"prefix": "newqb64",
+		"body": [
+			"' Program: ${1:MyProgram}",
+			"' Author:  ${2:Your Name}",
+			"' Date:    ${CURRENT_MONTH_NAME} ${CURRENT_DATE}, ${CURRENT_YEAR}",
+			"",
+			"SCREEN _NEWIMAGE(800, 600, 32)",
+			"CLS",
+			"",
+			"PRINT \"Hello, QB64!\"",
+			"",
+			"$0"
+		],
+		"description": "Creates a standard boilerplate for a new QB64 program."
+	},
+	"For...Next Loop": {
+		"prefix": "for",
+		"body": [
+			"FOR ${1:counter} = ${2:1} TO ${3:10}",
+			"\t$0",
+			"NEXT ${1:counter}"
+		],
+		"description": "Creates a For...Next loop."
+	},
+	"For...Next Loop with Step": {
+		"prefix": "forstep",
+		"body": [
+			"FOR ${1:counter} = ${2:1} TO ${3:10} STEP ${4:2}",
+			"\t$0",
+			"NEXT ${1:counter}"
+		],
+		"description": "Creates a For...Next loop with a custom Step."
+	},
+	"If...Then Statement": {
+		"prefix": "if",
+		"body": [
+			"IF ${1:condition} THEN",
+			"\t$0",
+			"END IF"
+		],
+		"description": "Creates an If...Then block."
+	},
+	"If...Then...Else Statement": {
+		"prefix": "ifelse",
+		"body": [
+			"IF ${1:condition} THEN",
+			"\t${2:statements}",
+			"ELSE",
+			"\t${0:statements}",
+			"END IF"
+		],
+		"description": "Creates an If...Then...Else block."
+	},
+	"Select Case": {
+		"prefix": "select",
+		"body": [
+			"SELECT CASE ${1:variable}",
+			"\tCASE ${2:value1}",
+			"\t\t${3:statements}",
+			"\tCASE IS > ${4:value2}",
+			"\t\t${5:statements}",
+			"\tCASE ELSE",
+			"\t\t${0:statements}",
+			"END SELECT"
+		],
+		"description": "Creates a Select Case block."
+	},
+	"Do...Loop While": {
+		"prefix": "doloopw",
+		"body": [
+			"DO",
+			"\t$0",
+			"LOOP WHILE ${1:condition}"
+		],
+		"description": "Creates a Do...Loop While block (checks condition at the end)."
+	},
+	"Do While...Loop": {
+		"prefix": "dowhile",
+		"body": [
+			"DO WHILE ${1:condition}",
+			"\t$0",
+			"LOOP"
+		],
+		"description": "Creates a Do While...Loop block (checks condition at the start)."
+	},
+	"Sub Procedure": {
+		"prefix": "sub",
+		"body": [
+			"SUB ${1:ProcedureName} (${2:parameters})",
+			"\t$0",
+			"END SUB"
+		],
+		"description": "Creates a Sub procedure."
+	},
+	"Function Procedure": {
+		"prefix": "function",
+		"body": [
+			"FUNCTION ${1:FunctionName} (${2:parameters})",
+			"\t$0",
+			"END FUNCTION"
+		],
+		"description": "Creates a Function procedure."
+	},
+	"Declare Sub": {
+		"prefix": "declaresub",
+		"body": [
+			"DECLARE SUB ${1:ProcedureName} (${2:parameters})"
+		],
+		"description": "Declares a Sub procedure."
+	},
+	"Declare Function": {
+		"prefix": "declarefunction",
+		"body": [
+			"DECLARE FUNCTION ${1:FunctionName} (${2:parameters})"
+		],
+		"description": "Declares a Function procedure."
+	},
+	"Dimension Array (1D)": {
+		"prefix": "dim",
+		"body": [
+			"DIM ${1:arrayName}(${2:10}) AS ${3|INTEGER,LONG,SINGLE,DOUBLE,STRING,_INTEGER64|}"
+		],
+		"description": "Declares a one-dimensional array (DIM)."
+	},
+	"Dimension Array (2D)": {
+		"prefix": "dim2d",
+		"body": [
+			"DIM ${1:arrayName}(${2:10}, ${3:10}) AS ${4|INTEGER,LONG,SINGLE,DOUBLE,STRING,_INTEGER64|}"
+		],
+		"description": "Declares a two-dimensional array (DIM)."
+	},
+	"Type Definition": {
+		"prefix": "type",
+		"body": [
+			"TYPE ${1:TypeName}",
+			"\t${2:element1} AS STRING",
+			"\t${3:element2} AS INTEGER",
+			"\t$0",
+			"END TYPE"
+		],
+		"description": "Creates a user-defined Type block."
+	},
+	"Data and Read Loop": {
+		"prefix": "dataread",
+		"body": [
+			"RESTORE MyData",
+			"FOR i = 1 TO ${1:5}",
+			"\tREAD ${2:variable}",
+			"\tPRINT ${2:variable}",
+			"NEXT i",
+			"",
+			"MyData:",
+			"DATA ${3:value1}, ${4:value2}, ${5:value3}, ${6:value4}, ${7:value5}",
+			"$0"
+		],
+		"description": "Creates a DATA block and a loop to READ from it."
+	},
+	"Print Statement": {
+		"prefix": "print",
+		"body": [
+			"PRINT \"$0\""
+		],
+		"description": "Prints a string to the screen."
+	},
+	"Input Statement": {
+		"prefix": "input",
+		"body": [
+			"INPUT \"${1:Enter a value:}\", ${2:variable}"
+		],
+		"description": "Gets input from the user."
+	},
+	"Line Input Statement": {
+		"prefix": "lineinput",
+		"body": [
+			"LINE INPUT \"${1:Enter a sentence:}\"; ${2:stringVariable$}"
+		],
+		"description": "Gets a full line of text input from the user."
+	},
+	"Locate": {
+		"prefix": "locate",
+		"body": [
+			"LOCATE ${1:row}, ${2:column}"
+		],
+		"description": "Moves the text cursor to a specified position."
+	},
+	"CLS - Clear Screen": {
+		"prefix": "cls",
+		"body": [
+			"CLS"
+		],
+		"description": "Clears the screen."
+	},
+	"Open File for Input": {
+		"prefix": "openinput",
+		"body": [
+			"OPEN \"${1:filename.txt}\" FOR INPUT AS #${2:1}"
+		],
+		"description": "Opens a file for reading."
+	},
+	"Open File for Output": {
+		"prefix": "openoutput",
+		"body": [
+			"OPEN \"${1:filename.txt}\" FOR OUTPUT AS #${2:1}"
+		],
+		"description": "Opens a file for writing (overwrites)."
+	},
+	"Open File for Append": {
+		"prefix": "openappend",
+		"body": [
+			"OPEN \"${1:filename.txt}\" FOR APPEND AS #${2:1}"
+		],
+		"description": "Opens a file for writing (adds to end)."
+	},
+	"Read from File Loop": {
+		"prefix": "readfile",
+		"body": [
+			"OPEN \"${1:filename.txt}\" FOR INPUT AS #1",
+			"DO UNTIL EOF(1)",
+			"\tLINE INPUT #1, ${2:line$}",
+			"\tPRINT ${2:line$}",
+			"LOOP",
+			"CLOSE #1",
+			"$0"
+		],
+		"description": "A complete loop for reading a text file line by line."
+	},
+	"Set Screen Mode": {
+		"prefix": "screen",
+		"body": [
+			"SCREEN ${1|_NEWIMAGE(800, 600, 32),12,13,9,7}"
+		],
+		"description": "Sets the screen mode (QB64 and classic modes)."
+	},
+	"Draw Line": {
+		"prefix": "line",
+		"body": [
+			"LINE (${1:x1}, ${2:y1})-(${3:x2}, ${4:y2}), ${5:color}"
+		],
+		"description": "Draws a line on the screen."
+	},
+	"Draw Box": {
+		"prefix": "box",
+		"body": [
+			"LINE (${1:x1}, ${2:y1})-(${3:x2}, ${4:y2}), ${5:color}, B"
+		],
+		"description": "Draws a box on the screen."
+	},
+	"Draw Circle": {
+		"prefix": "circle",
+		"body": [
+			"CIRCLE (${1:x}, ${2:y}), ${3:radius}, ${4:color}"
+		],
+		"description": "Draws a circle on the screen."
+	},
+	"Paint Area": {
+		"prefix": "paint",
+		"body": [
+			"PAINT (${1:x}, ${2:y}), ${3:fillColor}, ${4:borderColor}"
+		],
+		"description": "Fills an area with color."
+	},
+	"Sound": {
+		"prefix": "sound",
+		"body": [
+			"SOUND ${1:frequency}, ${2:duration}"
+		],
+		"description": "Produces a sound of a certain frequency and duration."
+	},
+	"Play Music String": {
+		"prefix": "play",
+		"body": [
+			"PLAY \"${1:L4 C D E F G A B}\""
+		],
+		"description": "Plays music using a string of commands."
+	},
+	"On Error Goto": {
+		"prefix": "onerror",
+		"body": [
+			"ON ERROR GOTO ${1:ErrorHandler}",
+			"",
+			"$0",
+			"",
+			"END",
+			"",
+			"${1:ErrorHandler}:",
+			"\tPRINT \"An error occurred: \"; ERR",
+			"\tRESUME NEXT"
+		],
+		"description": "Creates a basic error handling routine."
+	},
+	"Load and Display Image": {
+		"prefix": "qb64image",
+		"body": [
+			"DIM imageHandle AS LONG",
+			"imageHandle = _LOADIMAGE(\"${1:image.png}\")",
+			"IF imageHandle = 0 THEN",
+			"\tPRINT \"Error loading image.\"",
+			"\tEND",
+			"END IF",
+			"",
+			"_PUTIMAGE (${2:0}, ${3:0}), imageHandle",
+			"$0"
+		],
+		"description": "Loads and displays an image using QB64 commands."
+	}
+}

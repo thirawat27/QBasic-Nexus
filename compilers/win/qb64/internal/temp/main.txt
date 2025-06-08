@@ -1,0 +1,184 @@
+S_0:;
+do{
+if(!qbevent)break;evnt(1);}while(r);
+do{
+if(!qbevent)break;evnt(2);}while(r);
+do{
+qbg_sub_color( 5 ,NULL,NULL,1);
+if(!qbevent)break;evnt(5);}while(r);
+do{
+qbg_sub_locate( 2 , 35 ,NULL,NULL,NULL,3);
+if(!qbevent)break;evnt(6);}while(r);
+do{
+tqbs=qbs_new(0,0);
+qbs_set(tqbs,qbs_new_txt_len("BMI Calculator",14));
+if (new_error) goto skip1;
+makefit(tqbs);
+qbs_print(tqbs,0);
+qbs_print(nothingstring,1);
+skip1:
+qbs_free(tqbs);
+qbs_cleanup(qbs_tmp_base,0);
+if(!qbevent)break;evnt(6);}while(r);
+do{
+qbg_sub_locate( 4 , 35 ,NULL,NULL,NULL,3);
+if(!qbevent)break;evnt(7);}while(r);
+do{
+qbs_print(qbs_new_txt_len("Enter weight : ",15),0);
+qbs_input_variabletypes[1]=16;
+qbs_input_variableoffsets[1]=&(*__INTEGER_WEIGHT);
+qbs_input(1,1);
+if (stop_program) end();
+qbs_cleanup(qbs_tmp_base,0);
+if(!qbevent)break;evnt(7);}while(r);
+do{
+sub_beep();
+if(!qbevent)break;evnt(8);}while(r);
+do{
+qbg_sub_locate( 6 , 35 ,NULL,NULL,NULL,3);
+if(!qbevent)break;evnt(9);}while(r);
+do{
+qbs_print(qbs_new_txt_len("Enter height : ",15),0);
+qbs_input_variabletypes[1]=536870976;
+qbs_input_variableoffsets[1]=&(*__DOUBLE_HEIGHT);
+qbs_input(1,1);
+if (stop_program) end();
+qbs_cleanup(qbs_tmp_base,0);
+if(!qbevent)break;evnt(9);}while(r);
+do{
+sub_beep();
+if(!qbevent)break;evnt(10);}while(r);
+do{
+if(!qbevent)break;evnt(11);}while(r);
+do{
+if(!qbevent)break;evnt(12);}while(r);
+do{
+*__SINGLE_RESULT=*__INTEGER_WEIGHT/ (*__DOUBLE_HEIGHT**__DOUBLE_HEIGHT);
+if(!qbevent)break;evnt(14);}while(r);
+S_15:;
+if ((-(((float)(*__SINGLE_RESULT))<=((float)( 18.4E+0 ))))||new_error){
+if(qbevent){evnt(16);if(r)goto S_15;}
+do{
+qbg_sub_color( 9 ,NULL,NULL,1);
+if(!qbevent)break;evnt(17);}while(r);
+do{
+qbg_sub_locate( 8 , 35 ,NULL,NULL,NULL,3);
+if(!qbevent)break;evnt(18);}while(r);
+do{
+tqbs=qbs_new(0,0);
+qbs_set(tqbs,qbs_new_txt_len("underweight",11));
+if (new_error) goto skip2;
+makefit(tqbs);
+qbs_print(tqbs,0);
+qbs_print(nothingstring,1);
+skip2:
+qbs_free(tqbs);
+qbs_cleanup(qbs_tmp_base,0);
+if(!qbevent)break;evnt(18);}while(r);
+S_19:;
+}else{
+if ((-(((float)(*__SINGLE_RESULT))>=((float)( 18.5E+0 ))))&(-(((float)(*__SINGLE_RESULT))<=((float)( 22.9E+0 ))))){
+if(qbevent){evnt(19);if(r)goto S_19;}
+do{
+qbg_sub_color( 2 ,NULL,NULL,1);
+if(!qbevent)break;evnt(20);}while(r);
+do{
+qbg_sub_locate( 8 , 35 ,NULL,NULL,NULL,3);
+if(!qbevent)break;evnt(21);}while(r);
+do{
+tqbs=qbs_new(0,0);
+qbs_set(tqbs,qbs_new_txt_len("healthy",7));
+if (new_error) goto skip3;
+makefit(tqbs);
+qbs_print(tqbs,0);
+qbs_print(nothingstring,1);
+skip3:
+qbs_free(tqbs);
+qbs_cleanup(qbs_tmp_base,0);
+if(!qbevent)break;evnt(21);}while(r);
+S_23:;
+}else{
+if ((-(*__SINGLE_RESULT>= 23 ))&(-(((float)(*__SINGLE_RESULT))<=((float)( 24.9E+0 ))))){
+if(qbevent){evnt(22);if(r)goto S_23;}
+do{
+qbg_sub_color( 14 ,NULL,NULL,1);
+if(!qbevent)break;evnt(23);}while(r);
+do{
+qbg_sub_locate( 8 , 35 ,NULL,NULL,NULL,3);
+if(!qbevent)break;evnt(24);}while(r);
+do{
+tqbs=qbs_new(0,0);
+qbs_set(tqbs,qbs_new_txt_len("overweight",10));
+if (new_error) goto skip4;
+makefit(tqbs);
+qbs_print(tqbs,0);
+qbs_print(nothingstring,1);
+skip4:
+qbs_free(tqbs);
+qbs_cleanup(qbs_tmp_base,0);
+if(!qbevent)break;evnt(24);}while(r);
+S_27:;
+}else{
+if ((-(*__SINGLE_RESULT>= 25 ))&(-(((float)(*__SINGLE_RESULT))<=((float)( 29.9E+0 ))))){
+if(qbevent){evnt(25);if(r)goto S_27;}
+do{
+qbg_sub_color( 12 ,NULL,NULL,1);
+if(!qbevent)break;evnt(26);}while(r);
+do{
+qbg_sub_locate( 8 , 35 ,NULL,NULL,NULL,3);
+if(!qbevent)break;evnt(27);}while(r);
+do{
+tqbs=qbs_new(0,0);
+qbs_set(tqbs,qbs_new_txt_len("obesity degree 1",16));
+if (new_error) goto skip5;
+makefit(tqbs);
+qbs_print(tqbs,0);
+qbs_print(nothingstring,1);
+skip5:
+qbs_free(tqbs);
+qbs_cleanup(qbs_tmp_base,0);
+if(!qbevent)break;evnt(27);}while(r);
+}else{
+do{
+qbg_sub_color( 13 ,NULL,NULL,1);
+if(!qbevent)break;evnt(29);}while(r);
+do{
+qbg_sub_locate( 8 , 35 ,NULL,NULL,NULL,3);
+if(!qbevent)break;evnt(30);}while(r);
+do{
+tqbs=qbs_new(0,0);
+qbs_set(tqbs,qbs_new_txt_len("obesity degree 2",16));
+if (new_error) goto skip6;
+makefit(tqbs);
+qbs_print(tqbs,0);
+qbs_print(nothingstring,1);
+skip6:
+qbs_free(tqbs);
+qbs_cleanup(qbs_tmp_base,0);
+if(!qbevent)break;evnt(30);}while(r);
+}
+}
+}
+}
+sub_end();
+return;
+}
+void SUB_VWATCH(){
+qbs *tqbs;
+ptrszint tmp_long;
+int32 tmp_fileno;
+uint32 qbs_tmp_base=qbs_tmp_list_nexti;
+uint8 *tmp_mem_static_pointer=mem_static_pointer;
+uint32 tmp_cmem_sp=cmem_sp;
+#include "data1.txt"
+mem_lock *sf_mem_lock;
+new_mem_lock();
+sf_mem_lock=mem_lock_tmp;
+sf_mem_lock->type=3;
+if (new_error) goto exit_subfunc;
+exit_subfunc:;
+free_mem_lock(sf_mem_lock);
+#include "free1.txt"
+if ((tmp_mem_static_pointer>=mem_static)&&(tmp_mem_static_pointer<=mem_static_limit)) mem_static_pointer=tmp_mem_static_pointer; else mem_static_pointer=mem_static;
+cmem_sp=tmp_cmem_sp;
+}

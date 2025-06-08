@@ -1,0 +1,3 @@
+if (error_occurred){ error_occurred=0;
+exit(99);
+}

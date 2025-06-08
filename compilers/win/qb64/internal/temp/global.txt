@@ -1,0 +1,10 @@
+int16 *__INTEGER_WEIGHT=NULL;
+double *__DOUBLE_HEIGHT=NULL;
+int16 *__INTEGER_HEALTHY=NULL;
+float *__SINGLE_RESULT=NULL;
+int32 console=0;
+int32 screen_hide_startup=0;
+int32 asserts=0;
+int32 vwatch=0;
+ptrszint data_size=0;
+uint8 *data=(uint8*)calloc(1,1);

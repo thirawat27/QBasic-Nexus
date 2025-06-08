@@ -1,0 +1,65 @@
+{
+  "name": "qbasic-nexus",
+  "displayName": "QBasic Nexus",
+  "description": "Add syntax highlighting, code snippets, and a QB64 compiler for QBasic in VSCode.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "main": "./extension.js",
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onCommand:QBLegacy.compile",
+    "onCommand:QBLegacy.compileAndRun",
+    "onLanguage:qbasic"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "qbasic",
+        "aliases": ["QuickBASIC", "qbasic"],
+        "extensions": [".bas", ".bi"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "QBLegacy.compile",
+        "title": "Compile .BAS file 🌀 (QBasic)"
+      },
+      {
+        "command": "QBLegacy.compileAndRun",
+        "title": "Compile and Run .BAS file 🚀 (QBasic)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceLangId == qbasic",
+          "command": "QBLegacy.compile",
+          "group": "navigation@1"
+        },
+        {
+          "when": "resourceLangId == qbasic",
+          "command": "QBLegacy.compileAndRun",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "grammars": [
+      {
+        "language": "qbasic",
+        "scopeName": "source.qbasic",
+        "path": "./syntaxes/qbasic.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "qbasic",
+        "path": "./snippets/qbasic.json"
+      }
+    ]
+  }
+}
