@@ -5,10 +5,11 @@
   <h1>QBasic Nexus ⚙️</h1>
 </div>
 
-
-
+<p>
 This extension bundles the QB64 compiler for Windows, macOS, and Linux, enabling you to get started with QBasic development without any separate installation of QB64.
+</p>
 
+<br>
  <!-- You can replace this with a real screenshot of the extension in action -->
 
 ## ✨ Features
