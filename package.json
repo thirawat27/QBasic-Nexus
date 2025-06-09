@@ -1,8 +1,8 @@
 {
   "name": "qbasic-nexus",
-  "displayName": "QBasic Nexus",
-  "description": "Add syntax highlighting, code snippets, and a QB64 compiler for QBasic in VSCode.",
-  "version": "0.0.1",
+  "displayName": "QBasic Nexus (QB64 Support)",
+  "description": "Enhances QBasic development in VS Code with syntax highlighting, snippets, and support for your QB64 compiler (auto-detection or manual path setting).",
+  "version": "0.0.4",
   "publisher": "thirawat27",
   "icon": "image/QBasicNexus.png",
   "repository": {
@@ -14,11 +14,12 @@
   },
   "main": "./extension.js",
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Snippets"
   ],
   "activationEvents": [
-    "onCommand:QBLegacy.compile",
-    "onCommand:QBLegacy.compileAndRun",
+    "onCommand:qbasic-nexus.compile",
+    "onCommand:qbasic-nexus.compileAndRun",
     "onLanguage:qbasic"
   ],
   "contributes": {
@@ -26,30 +27,35 @@
       {
         "id": "qbasic",
         "aliases": ["QuickBASIC", "qbasic"],
-        "extensions": [".bas", ".bi"],
+        "extensions": [
+            ".bas",
+            ".bi",
+            ".inc",
+            ".bm"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
     "commands": [
       {
-        "command": "QBLegacy.compile",
-        "title": "Compile .BAS file 🌀 (QBasic)"
+        "command": "qbasic-nexus.compile",
+        "title": "Compile .BAS file 🌀"
       },
       {
-        "command": "QBLegacy.compileAndRun",
-        "title": "Compile and Run .BAS file 🚀 (QBasic)"
+        "command": "qbasic-nexus.compileAndRun",
+        "title": "Compile & Run .BAS file 🚀"
       }
     ],
     "menus": {
       "editor/context": [
         {
           "when": "resourceLangId == qbasic",
-          "command": "QBLegacy.compile",
+          "command": "qbasic-nexus.compile",
           "group": "navigation@1"
         },
         {
           "when": "resourceLangId == qbasic",
-          "command": "QBLegacy.compileAndRun",
+          "command": "qbasic-nexus.compileAndRun",
           "group": "navigation@2"
         }
       ]
@@ -66,6 +72,17 @@
         "language": "qbasic",
         "path": "./snippets/qbasic.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "QBasic Nexus ⚙️ (Compiler Settings)",
+      "properties": {
+        "qbasic-nexus.compilerPath": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Full path to your QB64 executable. Examples:\n- Windows: C:\\QB64\\qb64.exe\n- macOS: /Applications/qb64/qb64 or ~/qb64/qb64\n- Linux: /usr/local/bin/qb64 or ~/qb64/qb64\nLeave empty for auto-detection on startup (may not always find it if installed in a non-standard location).",
+          "scope": "resource"
+        }
+      }
+    }
   }
 }
