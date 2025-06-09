@@ -2,7 +2,7 @@
   "name": "qbasic-nexus",
   "displayName": "QBasic Nexus (QB64 Support)",
   "description": "Enhances QBasic development in VS Code with syntax highlighting, snippets, and support for your QB64 compiler (auto-detection or manual path setting).",
-  "version": "0.0.4",
+  "version": "0.0.2",
   "publisher": "thirawat27",
   "icon": "image/QBasicNexus.png",
   "repository": {
@@ -26,7 +26,7 @@
     "languages": [
       {
         "id": "qbasic",
-        "aliases": ["QuickBASIC", "qbasic"],
+        "aliases": ["QuickBASIC (QB64)", "qbasic"],
         "extensions": [
             ".bas",
             ".bi",
@@ -39,11 +39,11 @@
     "commands": [
       {
         "command": "qbasic-nexus.compile",
-        "title": "Compile .BAS file 🌀"
+        "title": "Compile .BAS file 🌀 (QB64)"
       },
       {
         "command": "qbasic-nexus.compileAndRun",
-        "title": "Compile & Run .BAS file 🚀"
+        "title": "Compile & Run .BAS file 🚀 (QB64)"
       }
     ],
     "menus": {
@@ -80,6 +80,12 @@
           "type": ["string", "null"],
           "default": null,
           "description": "Full path to your QB64 executable. Examples:\n- Windows: C:\\QB64\\qb64.exe\n- macOS: /Applications/qb64/qb64 or ~/qb64/qb64\n- Linux: /usr/local/bin/qb64 or ~/qb64/qb64\nLeave empty for auto-detection on startup (may not always find it if installed in a non-standard location).",
+          "scope": "resource"
+        },
+        "qbasic-nexus.compilerArgs": {
+          "type": "string",
+          "default": "",
+          "description": "Additional arguments to pass to the QB64 compiler (e.g., -w -g -prof). Each argument should be space-separated.",
           "scope": "resource"
         }
       }

@@ -4,20 +4,47 @@ const fs = require("fs");
 const { exec } = require("child_process");
 
 let statusBarItem;
-let outputChannel;
-let terminal;
+let _outputChannel; // ใช้ _ เพื่อบ่งบอกว่าเป็นตัวแปรภายใน
+let _terminal;
 let isCompiling = false;
+
+// --- ฟังก์ชัน Debounce ---
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// --- Getters สำหรับ OutputChannel และ Terminal (Lazy Initialization) ---
+function getOutputChannel() {
+    if (!_outputChannel) {
+        _outputChannel = vscode.window.createOutputChannel("QBasic Nexus Compiler");
+    }
+    return _outputChannel;
+}
+
+function getTerminal() {
+    if (!_terminal || _terminal.exitStatus !== undefined) {
+        _terminal = vscode.window.createTerminal({ name: "QBasic Nexus: Run Output" });
+    }
+    return _terminal;
+}
+
 
 /**
  * ฟังก์ชันหลักที่ถูกเรียกเมื่อ Extension ถูกเปิดใช้งาน
  * @param {vscode.ExtensionContext} context - บริบทของ Extension
  */
-async function activate(context) { // เปลี่ยนเป็น async
-    outputChannel = vscode.window.createOutputChannel("QB64 Compiler");
+async function activate(context) {
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = "qbasic-nexus.compile";
 
-    // --- เรียกฟังก์ชันตรวจสอบและตั้งค่า Compiler Path ตอนเริ่ม ---
     await initializeCompilerPath();
 
     const compileCommand = vscode.commands.registerCommand("qbasic-nexus.compile", () => {
@@ -28,12 +55,17 @@ async function activate(context) { // เปลี่ยนเป็น async
         compileAndRun(true);
     });
 
+    // Debounce การอัปเดต Status Bar จากการเปลี่ยน Editor
+    const debouncedUpdateStatusBarItem = debounce(updateStatusBarItem, 250);
+
     context.subscriptions.push(
-        vscode.window.onDidChangeActiveTextEditor(updateStatusBarItem),
-        vscode.workspace.onDidChangeConfiguration(async e => { // เปลี่ยนเป็น async
-            if (e.affectsConfiguration('qbasic-nexus.compilerPath')) {
-                await initializeCompilerPath(); // เรียก initialize เมื่อ Setting เปลี่ยน
-                updateStatusBarItem();
+        vscode.window.onDidChangeActiveTextEditor(debouncedUpdateStatusBarItem),
+        vscode.workspace.onDidChangeConfiguration(async e => {
+            if (e.affectsConfiguration('qbasic-nexus.compilerPath') || e.affectsConfiguration('qbasic-nexus.compilerArgs')) {
+                if (e.affectsConfiguration('qbasic-nexus.compilerPath')) {
+                    await initializeCompilerPath();
+                }
+                updateStatusBarItem(); // อัปเดตทันทีหลัง Setting เปลี่ยน
             }
         }),
         statusBarItem,
@@ -48,27 +80,28 @@ async function activate(context) { // เปลี่ยนเป็น async
  * ฟังก์ชันสำหรับเริ่มต้นและตรวจสอบ Compiler Path
  */
 async function initializeCompilerPath() {
+    const outputChannel = getOutputChannel();
     const configuration = vscode.workspace.getConfiguration('qbasic-nexus');
     let userCompilerPath = configuration.get('compilerPath');
 
-    if (!userCompilerPath) { // ถ้าผู้ใช้ยังไม่ได้ตั้งค่า
-        outputChannel.appendLine("Compiler path not set. Attempting auto-detection...");
-        const detectedPath = await tryAutoDetectCompilerPath(process.platform);
+    if (!userCompilerPath) {
+        outputChannel.appendLine("Compiler path not set by user. Attempting auto-detection...");
+        const detectedPath = await tryAutoDetectCompilerPath(process.platform, outputChannel);
         if (detectedPath) {
-            // tryAutoDetectCompilerPath จะ update setting และแสดง message เองถ้าผู้ใช้เลือก "Yes"
-            // เราแค่ต้องอ่านค่าใหม่เพื่อให้แน่ใจ
             userCompilerPath = vscode.workspace.getConfiguration('qbasic-nexus').get('compilerPath');
         }
+    } else {
+        outputChannel.appendLine(`User-defined compiler path: ${userCompilerPath}`);
     }
-    // การเรียก updateStatusBarItem() จะเกิดขึ้นจาก onDidChangeConfiguration หรือจาก activate() หลัง initializeCompilerPath() ทำงานเสร็จ
 }
 
 /**
  * พยายามค้นหา QB64 ที่ติดตั้งในตำแหน่งมาตรฐาน
  * @param {string} platform
+ * @param {vscode.OutputChannel} outputChannel
  * @returns {Promise<string|null>} Path ที่เจอ หรือ null ถ้าไม่เจอ/ผู้ใช้ปฏิเสธ
  */
-async function tryAutoDetectCompilerPath(platform) {
+async function tryAutoDetectCompilerPath(platform, outputChannel) {
     outputChannel.appendLine("Attempting to auto-detect QB64 compiler path...");
     let detectedPath = null;
     const commonPaths = [];
@@ -81,7 +114,7 @@ async function tryAutoDetectCompilerPath(platform) {
         );
     } else if (platform === "darwin") {
         commonPaths.push(
-            "/Applications/qb64/qb64", // QB64 Phoenix Edition
+            "/Applications/qb64/qb64",
             path.join(process.env.HOME || "~", "qb64", "qb64"),
             "/usr/local/bin/qb64"
         );
@@ -101,7 +134,6 @@ async function tryAutoDetectCompilerPath(platform) {
                 break;
             }
         } catch (err) {
-            // ไม่ต้องทำอะไรถ้าเช็ค path แล้ว error (เช่น permission denied)
             outputChannel.appendLine(`Error checking path ${p}: ${err.message}`);
         }
     }
@@ -109,32 +141,32 @@ async function tryAutoDetectCompilerPath(platform) {
     if (detectedPath) {
         const choice = await vscode.window.showInformationMessage(
             `QB64 seems to be installed at: '${detectedPath}'. Do you want to use this path for QBasic Nexus?`,
-            { modal: true }, // ทำให้ dialog นี้ต้องถูกจัดการก่อน
+            { modal: true },
             "Yes, use this path", "No, I'll set it manually"
         );
         if (choice === "Yes, use this path") {
             try {
-                // อัปเดต Setting ในระดับ Global (หรือ Workspace ถ้าต้องการ)
                 await vscode.workspace.getConfiguration('qbasic-nexus').update('compilerPath', detectedPath, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage(`QB64 compiler path has been set to: ${detectedPath}`);
                 return detectedPath;
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to save compiler path setting: ${err.message}`);
-                return null; // ถ้าบันทึก Setting ไม่ได้ ก็ถือว่าไม่สำเร็จ
+                return null;
             }
         }
     } else {
-        outputChannel.appendLine("QB64 auto-detection failed. Please set the path manually in VS Code settings if needed.");
+        outputChannel.appendLine("QB64 auto-detection failed. Please set the path manually in VS Code settings.");
+        vscode.window.showInformationMessage("QB64 auto-detection failed. Please set the 'QBasic Nexus: Compiler Path' in settings if QB64 is installed in a non-standard location.");
     }
-    return null; // ถ้าไม่เจอ หรือผู้ใช้เลือก "No"
+    return null;
 }
-
 
 /**
  * ฟังก์ชันควบคุมหลักสำหรับการ Compile และ Run
  * @param {boolean} shouldRunAfterCompile
  */
 async function compileAndRun(shouldRunAfterCompile) {
+    const outputChannel = getOutputChannel(); // เรียกใช้ Getter
     if (isCompiling) {
         vscode.window.showInformationMessage("A compilation is already in progress.");
         return;
@@ -155,15 +187,10 @@ async function compileAndRun(shouldRunAfterCompile) {
 
     if (document.isDirty) {
         const choice = await vscode.window.showInformationMessage(
-            "The file has unsaved changes. Please save it before compiling.",
-            { modal: true },
-            "Save and Compile"
+            "The file has unsaved changes. Please save it before compiling.", { modal: true }, "Save and Compile"
         );
-        if (choice === "Save and Compile") {
-            await document.save();
-        } else { 
-            return;
-        }
+        if (choice === "Save and Compile") { await document.save(); } 
+        else { return; }
     }
 
     const configuration = vscode.workspace.getConfiguration('qbasic-nexus');
@@ -171,8 +198,7 @@ async function compileAndRun(shouldRunAfterCompile) {
 
     if (!userCompilerPath) {
         vscode.window.showErrorMessage(
-            "QB64 compiler path is not set. Please set 'QBasic Nexus: Compiler Path' in your settings, or allow auto-detection on startup.",
-            "Open Settings"
+            "QB64 compiler path is not set. Please set 'QBasic Nexus: Compiler Path' in your settings, or allow auto-detection on startup.", "Open Settings"
         ).then(selection => {
             if (selection === "Open Settings") {
                 vscode.commands.executeCommand('workbench.action.openSettings', 'qbasic-nexus.compilerPath');
@@ -183,8 +209,7 @@ async function compileAndRun(shouldRunAfterCompile) {
 
     if (!fs.existsSync(userCompilerPath)) {
         vscode.window.showErrorMessage(
-            `QB64 compiler not found at the specified path: ${userCompilerPath}. Please check your settings.`,
-            "Open Settings"
+            `QB64 compiler not found at the specified path: ${userCompilerPath}. Please check your settings.`, "Open Settings"
         ).then(selection => {
             if (selection === "Open Settings") {
                 vscode.commands.executeCommand('workbench.action.openSettings', 'qbasic-nexus.compilerPath');
@@ -197,7 +222,7 @@ async function compileAndRun(shouldRunAfterCompile) {
     updateStatusBarItem();
 
     try {
-        const outputPath = await compileFileWithExternalCompiler(document, userCompilerPath);
+        const outputPath = await compileFileWithExternalCompiler(document, userCompilerPath, outputChannel);
         if (shouldRunAfterCompile && outputPath) {
             runInTerminal(outputPath);
         }
@@ -216,9 +241,10 @@ async function compileAndRun(shouldRunAfterCompile) {
  * ฟังก์ชันสำหรับคอมไพล์ไฟล์โดยใช้ Compiler ที่ผู้ใช้กำหนด Path
  * @param {import("vscode").TextDocument} document
  * @param {string} compilerExecutablePath
+ * @param {vscode.OutputChannel} outputChannel
  * @returns {Promise<string>}
  */
-function compileFileWithExternalCompiler(document, compilerExecutablePath) {
+function compileFileWithExternalCompiler(document, compilerExecutablePath, outputChannel) {
     return new Promise(async (resolve, reject) => {
         const sourcePath = document.uri.fsPath;
         const dirPath = path.dirname(sourcePath);
@@ -233,17 +259,15 @@ function compileFileWithExternalCompiler(document, compilerExecutablePath) {
             outputPath = path.join(dirPath, baseName);
         }
 
-        const command = `"${compilerExecutablePath}" -x -c "${sourcePath}" -o "${outputPath}"`;
+        const additionalArgs = vscode.workspace.getConfiguration('qbasic-nexus').get('compilerArgs') || "";
+        const command = `"${compilerExecutablePath}" -x -c "${sourcePath}" -o "${outputPath}" ${additionalArgs}`;
 
         outputChannel.clear();
         outputChannel.show(true);
         outputChannel.appendLine(`> Using QB64 Compiler ⚙️: ${compilerExecutablePath}`);
-        outputChannel.appendLine(`> Executing: ${command}\n`);
+        outputChannel.appendLine(`> Executing 🏃 : ${command}\n`);
 
-        const options = { 
-            cwd: compilerDir, 
-            shell: platform === 'win32' ? false : true 
-        };
+        const options = { cwd: compilerDir, shell: platform === 'win32' ? false : true };
 
         exec(command, options, (error, stdout, stderr) => {
             if (error) {
@@ -297,9 +321,7 @@ function updateStatusBarItem() {
  * @param {string} executablePath
  */
 function runInTerminal(executablePath) {
-    if (!terminal || terminal.exitStatus !== undefined) {
-        terminal = vscode.window.createTerminal("QBasic Run 🏃‍♂️‍➡️");
-    }
+    const terminal = getTerminal(); // เรียกใช้ Getter
     terminal.show();
     
     const dirName = path.dirname(executablePath);
@@ -317,8 +339,8 @@ function runInTerminal(executablePath) {
  */
 function deactivate() {
     if (statusBarItem) statusBarItem.dispose();
-    if (outputChannel) outputChannel.dispose();
-    if (terminal) terminal.dispose();
+    if (_outputChannel) _outputChannel.dispose(); // ใช้ _outputChannel
+    if (_terminal) _terminal.dispose(); // ใช้ _terminal
 }
 
 module.exports = {

@@ -17,11 +17,12 @@ Enhances QBasic development in VS Code with syntax highlighting, code snippets, 
     *   **Auto-Detection**: Attempts to automatically find your existing QB64 installation on startup.
     *   **Manual Configuration**: Allows you to specify the exact path to your QB64 executable via VS Code settings.
 *   **Compile & Run 🚀**: Compile your QBasic code and run it in the integrated terminal with a single command.
-*   **Compile Only 🔥**: Compile your code to create a standalone executable file (`.exe` on Windows, or a plain executable on macOS/Linux).
+*   **Compile Only 🌀**: Compile your code to create a standalone executable file (`.exe` on Windows, or a plain executable on macOS/Linux).
 *   **Cross-Platform Support**: Works seamlessly on Windows, macOS, and Linux.
 *   **Status Bar Integration**: Easily access the compile command from an icon in the status bar whenever a `.bas` or `.bi` file is open.
-*   **Detailed Output Panel**: View detailed logs, progress, and errors from the compilation process in a dedicated "QB64 Compiler" output channel.
+*   **Detailed Output Panel**: View detailed logs, progress, and errors from the compilation process in a dedicated "QBasic Nexus Compiler" output channel.
 *   **Integrated Terminal Execution**: Runs the compiled program directly in the VS Code integrated terminal.
+*   **Customizable Compiler Arguments**: Pass additional arguments to the QB64 compiler via settings.
 *   **Syntax Highlighting & Snippets**: Rich language support for QBasic and QB64.
 
 ## ⚙️ Prerequisites
@@ -29,7 +30,7 @@ Enhances QBasic development in VS Code with syntax highlighting, code snippets, 
 For QBasic Nexus to compile your code using your QB64 installation, ensure QB64 is correctly set up on your system.
 
 *   **All Systems (Windows, macOS, Linux)**:
-    *   **QB64 Must Be Installed**: You need to have a working installation of QB64 (preferably QB64 Phoenix Edition from [qb64.org](https://qb64.org)).
+    *   **QB64 Must Be Installed**: You need to have a working installation of QB64 (preferably QB64 Phoenix Edition from [qb64.org](https://qb64.com/)).
     *   The extension will attempt to auto-detect it. If not found, you'll need to set the path manually (see Configuration section).
 
 *   **macOS (If QB64 requires it)**:
@@ -44,11 +45,11 @@ For QBasic Nexus to compile your code using your QB64 installation, ensure QB64 
 
 ## 🚀 Getting Started
 
-1.  **Install QB64**: If you haven't already, download and install QB64 from [qb64.org](https://qb64.org).
+1.  **Install QB64**: If you haven't already, download and install QB64 from [https://qb64.com/](https://qb64.com/).
 2.  **Install this Extension**: Find "QBasic Nexus" in the VS Code Marketplace and install it.
 3.  **Compiler Path Configuration (If Needed)**:
-    *   On first activation, the extension will try to auto-detect your QB64 installation.
-    *   If successful, and you confirm, the path will be saved in your settings.
+    *   On first activation (or if the path is not set), the extension will try to auto-detect your QB64 installation.
+    *   If successful, and you confirm by clicking "Yes, use this path" in the notification, the path will be saved in your global settings.
     *   If auto-detection fails, or you prefer to set it manually:
         1.  Open VS Code Settings (`Ctrl+,` or `Cmd+,`).
         2.  Search for `QBasic Nexus Compiler Path`.
@@ -70,38 +71,43 @@ For QBasic Nexus to compile your code using your QB64 installation, ensure QB64 
 
 *   `qbasic-nexus.compileAndRun`:
     *   **Title in Palette/Menu**: `Compile & Run .BAS file 🚀`
-    *   **Action**: Compiles the file. If successful, it runs the program in a new "QB64 Run 🏃‍♂️‍➡️" integrated terminal.
+    *   **Action**: Compiles the file. If successful, it runs the program in a new "QBasic Nexus: Run Output" integrated terminal.
     *   **Accessed via**: Command Palette, Right-click context menu.
 
 ## 📄 Understanding the Output
 
-*   **Output Panel ("QB64 Compiler" channel)**:
-    *   Shows auto-detection attempts, compiler path information, and detailed compilation logs (COMPILE SUCCESSFUL ✅ or COMPILE FAILED ❌, error messages).
-*   **Terminal Panel ("QB64 Run 🏃‍♂️‍➡️" tab)**:
-    *   Displays the output of your running QBasic program when using "Compile & Run".
+*   **Output Panel ("QBasic Nexus Compiler" channel)**:
+    *   Shows auto-detection attempts, compiler path information, the exact command being executed, and detailed compilation logs (COMPILE SUCCESSFUL ✅ or COMPILE FAILED ❌, error messages from QB64).
+*   **Terminal Panel ("QBasic Nexus: Run Output" tab)**:
+    *   Displays the output of your running QBasic program (e.g., from `PRINT` statements) when using "Compile & Run".
 *   **Executable File**:
     *   Created in the same directory as your source `.bas` or `.bi` file.
 
 ## 🛠️ Configuration
 
-The primary configuration is setting the path to your QB64 compiler:
+You can configure the extension via VS Code Settings:
 
 *   **Setting ID**: `qbasic-nexus.compilerPath`
-*   **Description**: Full path to your QB64 executable.
-    *   Examples:
-        *   Windows: `C:\QB64\qb64.exe`
-        *   macOS: `/Applications/qb64/qb64` or `~/qb64/qb64`
-        *   Linux: `/usr/local/bin/qb64` or `~/qb64/qb64`
-    *   Leave empty to trigger auto-detection on startup/setting change.
+    *   **Description**: Full path to your QB64 executable.
+        *   Examples:
+            *   Windows: `C:\QB64\qb64.exe`
+            *   macOS: `/Applications/qb64/qb64` or `~/qb64/qb64`
+            *   Linux: `/usr/local/bin/qb64` or `~/qb64/qb64`
+        *   Leave empty to trigger auto-detection on startup/setting change.
 
-You can access this via VS Code Settings (search for "QBasic Nexus Compiler Path").
+*   **Setting ID**: `qbasic-nexus.compilerArgs`
+    *   **Description**: Optional additional arguments to pass to the QB64 compiler (e.g., `-w` for more warnings, `-g` for debug symbols, `-prof` for profiling). Arguments should be space-separated.
+    *   **Default**: Empty (no additional arguments).
+
+Search for "QBasic Nexus" in VS Code Settings to find these options.
 
 ## 📄 License
 
 ```
+
 MIT License
 
-Copyright (c) 2025 Thirawat  Sinlapasomsak
+Copyright (c) 2025 Thirawat Sinlapasomsak
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
