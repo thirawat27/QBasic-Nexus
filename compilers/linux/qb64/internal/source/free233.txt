@@ -1,4 +1,0 @@
-if(oldstr6270){
-if(oldstr6270->fixed)qbs_set(oldstr6270,_SUB_UPDATEMENUHELPLINE_STRING_A);
-qbs_free(_SUB_UPDATEMENUHELPLINE_STRING_A);
-}
