@@ -149,7 +149,7 @@ If you still face issues, please open an issue on the [GitHub Repository](https:
 
 MIT License
 
-Copyright (c) 2025 Thirawat Sinlapasomsak (Replace with your name/year)
+Copyright (c) 2025 Thirawat Sinlapasomsak
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
