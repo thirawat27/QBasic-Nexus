@@ -141,7 +141,7 @@ If you encounter issues while compiling, try these steps:
     *   Ensure your QBasic code itself has no syntax errors.
     *   Try compiling your `.bas` file directly from the QB64 IDE (if available) to see if it compiles there normally. This can help isolate whether the issue is with the code, QB64, or the extension's interaction.
 
-If you still face issues, please open an issue on the [GitHub Repository](https://github.com/thirawat27/qbasic-nexus) (replace with your actual repository URL) and include the full logs from the "QBasic Nexus Compiler" Output Panel and the `compilelog.txt` file (if applicable).
+If you still face issues, please open an issue on the [GitHub Repository Issuse](https://github.com/thirawat27/QBasic-Nexus/issues) (replace with your actual repository URL) and include the full logs from the "QBasic Nexus Compiler" Output Panel and the `compilelog.txt` file (if applicable).
 
 ## 📄 License
 
