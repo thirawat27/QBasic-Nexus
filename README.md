@@ -1,5 +1,6 @@
+
 <div align="center">
-  <img src="./image/QBasicNexus.png" alt="QBasicNexus Icon" width="250" height="250" />
+  <img src="./image/QBasicNexus.png" alt="QBasicNexus Icon" width="220" height="220" />
 </div>
 <div align="center">
   <h1>QBasic Nexus ⚙️</h1>
@@ -27,25 +28,27 @@ Enhances QBasic development in VS Code with syntax highlighting, code snippets, 
 
 ## ⚙️ Prerequisites
 
-For QBasic Nexus to compile your code using your QB64 installation, ensure QB64 is correctly set up on your system.
+For QBasic Nexus to compile your code, your QB64 installation must be correctly set up.
 
-*   **All Systems (Windows, macOS, Linux)**:
-    *   **QB64 Must Be Installed**: You need to have a working installation of QB64 (preferably QB64 Phoenix Edition from [qb64.com](https://qb64.com/)).
-    *   The extension will attempt to auto-detect it. If not found, you'll need to set the path manually (see Configuration section).
+*   **Step 1: Install QB64 Correctly**
+    *   **All Systems**: You need a working installation of QB64 from [qb64.com](https://qb64.com/).
+    *   **macOS & Linux (Crucial Setup Step)**: After unzipping the QB64 package, you **must run the setup script** included with it. This is a one-time step that prepares the compiler for use. Open a terminal, navigate to the QB64 directory, and run:
+        *   On **macOS**: `sh ./setup_osx.command`
+        *   On **Linux**: `sh ./setup_lnx.sh`
 
-*   **macOS (If QB64 requires it)**:
-    *   **Xcode Command Line Tools** must be installed if your QB64 version depends on them for C++ compilation.
-    *   To install: `xcode-select --install`
-
-*   **Linux (Debian/Ubuntu-based, if QB64 requires it)**:
-    *   The **build-essential** package (which includes `g++`) must be installed if your QB64 version depends on it.
-    *   To install: `sudo apt-get update && sudo apt-get install build-essential`
-
-*(Note: QB64 Phoenix Edition for Windows typically includes its own MinGW C++ compiler, so no extra C++ tools are usually needed on Windows.)*
+*   **Step 2: Ensure C++ Compiler is Available (if QB64 requires it)**
+    *   **macOS**: **Xcode Command Line Tools** must be installed. To install: `xcode-select --install`
+    *   **Linux (Debian/Ubuntu-based)**: The **build-essential** package (including `g++`) must be installed. To install: `sudo apt-get update && sudo apt-get install build-essential`
+    *   *(Note: QB64 Phoenix Edition for Windows typically includes its own C++ compiler, so no extra tools are usually needed.)*
 
 ## 🚀 Getting Started
 
-1.  **Install QB64**: If you haven't already, download and install QB64 from [https://qb64.com/](https://qb64.com/).
+1.  **Install & Set Up QB64**:
+    *   a. Download and unzip QB64 from [https://qb64.com/](https://qb64.com/).
+    *   b. **(Crucial for macOS/Linux)** Open a terminal, navigate into the unzipped QB64 directory, and run the required setup script:
+        *   On **macOS**: `sh ./setup_osx.command`
+        *   On **Linux**: `sh ./setup_lnx.sh`
+    *   *This step is essential as it configures the compiler. The extension will not work without it.*
 2.  **Install this Extension**: Find "QBasic Nexus" in the VS Code Marketplace and install it.
 3.  **Compiler Path Configuration (If Needed)**:
     *   On first activation (or if the path is not set), the extension will try to auto-detect your QB64 installation.
@@ -111,33 +114,32 @@ If you encounter issues while compiling, try these steps:
 
 2.  **Issue: "ERROR: C++ compilation failed. Check ./internal/temp/compilelog.txt for details." (Common on Linux/macOS)**
     *   **Cause:** QB64 successfully translated your QBasic code to C++, but it failed to compile that C++ code into an executable. This usually means:
+        *   **QB64 Not Set Up Correctly**: You may have missed running the `setup_lnx.sh` or `setup_osx.command` script after unzipping QB64. See the Prerequisites section.
         *   **C++ Compiler Not Installed/Configured:**
             *   **Linux:** Ensure `build-essential` (which includes `g++`) is installed: `sudo apt-get install build-essential`.
             *   **macOS:** Ensure `Xcode Command Line Tools` are installed: `xcode-select --install`.
-        *   **C++ Compiler Issues:** Your `g++` or `clang` (on macOS) might be an incompatible version, or there might be PATH configuration problems.
     *   **Solution:**
         1.  **Examine `compilelog.txt`**: This log file is located within your **QB64 installation directory**, inside the `internal/temp/` subfolder (e.g., if QB64 is at `/home/user/qb64/`, the log is at `/home/user/qb64/internal/temp/compilelog.txt`).
         2.  Open this log file and look for specific error messages from `g++` or `clang`.
         3.  If unsure, search for these error messages online or ask in QB64 communities.
 
 3.  **Issue: "QB64 compiler path is not set." or "QB64 compiler not found at the specified path."**
-    *   **Cause:** The extension cannot find your QB64 executable.
+    *   **Cause:** The extension cannot find your QB64 executable, or it hasn't been made executable by the setup script on Linux/macOS.
     *   **Solution:**
-        1.  Ensure you have QB64 installed correctly.
+        1.  Ensure you have installed and **correctly set up** QB64 by running its setup script (see Prerequisites).
         2.  Go to VS Code Settings (search for "QBasic Nexus Compiler Path") and enter the correct, full path to your `qb64.exe` (Windows) or `qb64` (Linux/macOS) file.
         3.  Double-check the path for typos and ensure the file exists at that location.
 
-4.  **Issue: "Failed to set execute permission on QB64" (Common on Linux/macOS with bundled version - less likely with external compiler)**
-    *   **Cause:** The QB64 executable file doesn't have execute permissions.
-    *   **Solution (Manual Fix):** Open your terminal, navigate to your QB64 installation directory, and run:
+4.  **Issue: "Failed to set execute permission on QB64" (Common on Linux/macOS)**
+    *   **Cause:** The QB64 executable file doesn't have execute permissions. This is normally handled by the setup scripts.
+    *   **Solution (Manual Fix):** Run the appropriate setup script (`setup_lnx.sh` or `setup_osx.command`) as described in the Prerequisites section. This is the recommended way. Alternatively, you can manually set the permission:
         ```sh
-        chmod +x ./qb64
+        chmod +x /path/to/your/qb64/qb64
         ```
-        (This is what QB64's `setup_lnx.sh` or `setup_osx.command` scripts typically do).
 
 5.  **Other Issues:**
     *   Ensure your QBasic code itself has no syntax errors.
-    *   Try compiling your `.bas` file directly from the QB64 IDE (if available) to see if it compiles वहां (there) normally. This can help isolate whether the issue is with the code, QB64, or the extension's interaction.
+    *   Try compiling your `.bas` file directly from the QB64 IDE (if available) to see if it compiles there normally. This can help isolate whether the issue is with the code, QB64, or the extension's interaction.
 
 If you still face issues, please open an issue on the [GitHub Repository](https://github.com/thirawat27/qbasic-nexus) (replace with your actual repository URL) and include the full logs from the "QBasic Nexus Compiler" Output Panel and the `compilelog.txt` file (if applicable).
 
