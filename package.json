@@ -2,7 +2,7 @@
   "name": "qbasic-nexus",
   "displayName": "QBasic Nexus (QB64 Support)",
   "description": "Enhances QBasic development in VS Code with syntax highlighting, snippets, and support for your QB64 compiler (auto-detection or manual path setting).",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "thirawat27",
   "icon": "image/QBasicNexus.png",
   "repository": {
@@ -26,7 +26,7 @@
     "languages": [
       {
         "id": "qbasic",
-        "aliases": ["QuickBASIC (QB64)", "qbasic"],
+        "aliases": ["QuickBASIC", "qbasic"],
         "extensions": [
             ".bas",
             ".bi",
@@ -39,11 +39,11 @@
     "commands": [
       {
         "command": "qbasic-nexus.compile",
-        "title": "Compile .BAS file 🌀 (QB64)"
+        "title": "Compile .BAS file 🌀"
       },
       {
         "command": "qbasic-nexus.compileAndRun",
-        "title": "Compile & Run .BAS file 🚀 (QB64)"
+        "title": "Compile & Run .BAS file 🚀"
       }
     ],
     "menus": {

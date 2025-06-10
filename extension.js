@@ -264,7 +264,7 @@ function compileFileWithExternalCompiler(document, compilerExecutablePath, outpu
 
         outputChannel.clear();
         outputChannel.show(true);
-        outputChannel.appendLine(`> Using QB64 Compiler ⚙️: ${compilerExecutablePath}`);
+        outputChannel.appendLine(`> Using QBasic Nexus Compiler ⚙️: ${compilerExecutablePath}`);
         outputChannel.appendLine(`> Executing 🏃 : ${command}\n`);
 
         const options = { cwd: compilerDir, shell: platform === 'win32' ? false : true };
