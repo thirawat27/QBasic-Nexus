@@ -1,4 +1,3 @@
-
 <div align="center">
   <img src="./image/QBasicNexus.png" alt="QBasicNexus Icon" width="220" height="220" />
 </div>
@@ -20,7 +19,7 @@ Enhances QBasic development in VS Code with syntax highlighting, code snippets, 
 *   **Compile & Run 🚀**: Compile your QBasic code and run it in the integrated terminal with a single command.
 *   **Compile Only 🌀**: Compile your code to create a standalone executable file (`.exe` on Windows, or a plain executable on macOS/Linux).
 *   **Cross-Platform Support**: Works seamlessly on Windows, macOS, and Linux.
-*   **Status Bar Integration**: Easily access the compile command from an icon in the status bar whenever a `.bas` or `.bi` file is open.
+*   **Status Bar Integration**: Easily access the **Compile & Run** command from an icon in the status bar whenever a `.bas` or `.bi` file is open.
 *   **Detailed Output Panel**: View detailed logs, progress, and errors from the compilation process in a dedicated "QBasic Nexus Compiler" output channel.
 *   **Integrated Terminal Execution**: Runs the compiled program directly in the VS Code integrated terminal.
 *   **Customizable Compiler Arguments**: Pass additional arguments to the QB64 compiler via settings.
@@ -31,7 +30,7 @@ Enhances QBasic development in VS Code with syntax highlighting, code snippets, 
 For QBasic Nexus to compile your code, your QB64 installation must be correctly set up.
 
 *   **Step 1: Install QB64 Correctly**
-    *   **All Systems**: You need a working installation of QB64 from [qb64.com](https://qb64.com/).
+    *   **All Systems**: You need a working installation of QB64 from [qb64.com](https://qb64.com/) or QB64 Phoenix Edition from [qb64phoenix.com](https://www.qb64phoenix.com/).
     *   **macOS & Linux (Crucial Setup Step)**: After unzipping the QB64 package, you **must run the setup script** included with it. This is a one-time step that prepares the compiler for use. Open a terminal, navigate to the QB64 directory, and run:
         *   On **macOS**: `sh ./setup_osx.command`
         *   On **Linux**: `sh ./setup_lnx.sh`
@@ -44,7 +43,7 @@ For QBasic Nexus to compile your code, your QB64 installation must be correctly 
 ## 🚀 Getting Started
 
 1.  **Install & Set Up QB64**:
-    *   a. Download and unzip QB64 from [https://qb64.com/](https://qb64.com/).
+    *   a. Obtain and extract the QB64 build of your choice. We recommend the Legacy release from [qb64.com](https://qb64.com/), though you’re free to use the QB64 Phoenix Edition from [qb64phoenix.com](https://www.qb64phoenix.com/) as well.
     *   b. **(Crucial for macOS/Linux)** Open a terminal, navigate into the unzipped QB64 directory, and run the required setup script:
         *   On **macOS**: `sh ./setup_osx.command`
         *   On **Linux**: `sh ./setup_lnx.sh`
@@ -62,7 +61,7 @@ For QBasic Nexus to compile your code, your QB64 installation must be correctly 
             *   Example Linux: `/home/youruser/qb64/qb64`
 4.  **Open a QBasic File**: Open a file with a `.bas` or `.bi` extension.
 5.  **Using the Extension**:
-    *   When a `.bas` or `.bi` file is active and the compiler path is set, you'll see a **`🔥 Compile .BAS`** icon in the Status Bar.
+    *   When a `.bas` or `.bi` file is active and the compiler path is set, you'll see a **`🔥 Compile .BAS`** icon in the Status Bar. **Clicking this icon will compile and run the file.**
     *   If the path is not set, the Status Bar will show **`⚠️ Set QB64 Path`**. Clicking it will open the settings.
 
 ## 📦 Available Commands
@@ -70,12 +69,12 @@ For QBasic Nexus to compile your code, your QB64 installation must be correctly 
 *   `qbasic-nexus.compile`:
     *   **Title in Palette/Menu**: `Compile .BAS file 🌀`
     *   **Action**: Compiles the currently active `.bas` or `.bi` file. Creates an executable in the same directory.
-    *   **Accessed via**: Command Palette, Right-click context menu, Status Bar icon.
+    *   **Accessed via**: Command Palette, Right-click context menu.
 
 *   `qbasic-nexus.compileAndRun`:
     *   **Title in Palette/Menu**: `Compile & Run .BAS file 🚀`
     *   **Action**: Compiles the file. If successful, it runs the program in a new "QBasic Nexus: Run Output" integrated terminal.
-    *   **Accessed via**: Command Palette, Right-click context menu.
+    *   **Accessed via**: Command Palette, Right-click context menu, **Status Bar icon**.
 
 ## 📄 Understanding the Output
 
@@ -141,7 +140,7 @@ If you encounter issues while compiling, try these steps:
     *   Ensure your QBasic code itself has no syntax errors.
     *   Try compiling your `.bas` file directly from the QB64 IDE (if available) to see if it compiles there normally. This can help isolate whether the issue is with the code, QB64, or the extension's interaction.
 
-If you still face issues, please open an issue on the [GitHub Repository Issuse](https://github.com/thirawat27/QBasic-Nexus/issues) (replace with your actual repository URL) and include the full logs from the "QBasic Nexus Compiler" Output Panel and the `compilelog.txt` file (if applicable).
+If you still face issues, please open an issue on the [GitHub Repository Issuse](https://github.com/thirawat27/QBasic-Nexus/issues) and include the full logs from the "QBasic Nexus Compiler" Output Panel and the `compilelog.txt` file (if applicable).
 
 ## 📄 License
 
