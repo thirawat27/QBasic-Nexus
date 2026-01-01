@@ -13,17 +13,71 @@ Enhances QBasic development in VS Code with syntax highlighting, code snippets, 
 
 ## ✨ Features
 
-*   **Flexible QB64 Integration**:
-    *   **Auto-Detection**: Attempts to automatically find your existing QB64 installation on startup.
-    *   **Manual Configuration**: Allows you to specify the exact path to your QB64 executable via VS Code settings.
+### 🔧 Dual Compilation Modes
+
+*   **QB64 Mode (Recommended)**: Compile with your installed QB64 compiler for native executable (best performance).
+*   **Internal JS Transpiler (Backup)**: Transpile QBasic to JavaScript and run via Node.js when QB64 is not available.
+
+### 🛠️ Flexible QB64 Integration
+
+*   **Auto-Detection**: Attempts to automatically find your existing QB64 installation on startup.
+*   **Manual Configuration**: Allows you to specify the exact path to your QB64 executable via VS Code settings.
+
+### 🚀 Compile & Run
+
 *   **Compile & Run 🚀**: Compile your QBasic code and run it in the integrated terminal with a single command.
-*   **Compile Only 🌀**: Compile your code to create a standalone executable file (`.exe` on Windows, or a plain executable on macOS/Linux).
+*   **Compile Only 🔨**: Compile your code to create a standalone executable file (`.exe` on Windows, or a plain executable on macOS/Linux).
 *   **Cross-Platform Support**: Works seamlessly on Windows, macOS, and Linux.
+
+### ⌨️ Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Compile & Run | `F5` |
+| Compile Only | `Ctrl+Shift+B` |
+
+### 📊 IDE Integration
+
 *   **Status Bar Integration**: Easily access the **Compile & Run** command from an icon in the status bar whenever a `.bas` or `.bi` file is open.
-*   **Detailed Output Panel**: View detailed logs, progress, and errors from the compilation process in a dedicated "QBasic Nexus Compiler" output channel.
+*   **Detailed Output Panel**: View detailed logs, progress, and errors from the compilation process in a dedicated "QBasic Nexus" output channel.
 *   **Integrated Terminal Execution**: Runs the compiled program directly in the VS Code integrated terminal.
 *   **Customizable Compiler Arguments**: Pass additional arguments to the QB64 compiler via settings.
+
+### ✨ IntelliSense & Language Features
+
 *   **Syntax Highlighting & Snippets**: Rich language support for QBasic and QB64.
+*   **Outline View**: Navigate quickly through your file using the Outline panel (shows SUBs, FUNCTIONs, TYPEs, CONSTs, Labels).
+*   **Go to Definition**: `Ctrl+Click` (or `F12`) on a function or sub name to jump to its definition.
+*   **Auto-Completion**: Smart suggestions for keywords, built-in functions, and variables as you type.
+*   **Hover Information**: Hover over keywords and functions to see documentation and usage hints.
+*   **Signature Help**: See function parameter hints as you type inside function calls.
+*   **Document Formatting**: Auto-indentation support (`Right-click` → `Format Document` or `Shift+Alt+F`).
+*   **Error Diagnostics**: Compiler errors are parsed and shown in VS Code's "Problems" tab with red underlines.
+
+### 🧩 Internal JS Transpiler *(NEW!)*
+
+When QB64 is not available, you can use the **Internal JS Transpiler** mode. This transpiler uses a custom **Lexer & Recursive Descent Parser** written in pure JavaScript to convert QBasic code to JavaScript and run it via Node.js.
+
+**Supported QBasic Statements:**
+
+| Category | Commands |
+|----------|----------|
+| **I/O** | `PRINT`, `INPUT`, `CLS` |
+| **Variables** | `DIM`, `CONST`, `LET`, `SWAP` |
+| **Control Flow** | `IF...THEN...ELSE`, `ELSEIF`, `END IF` |
+| **Loops** | `FOR...TO...STEP...NEXT`, `DO...LOOP`, `WHILE...WEND`, `EXIT` |
+| **Branching** | `SELECT CASE...CASE...END SELECT` |
+| **Procedures** | `SUB`, `FUNCTION`, `CALL`, `END SUB/FUNCTION` |
+| **Data** | `DATA`, `READ`, `RESTORE` |
+| **Misc** | `SLEEP`, `GOTO`, `GOSUB`, `RETURN` |
+
+**Supported Built-in Functions:**
+
+| Category | Functions |
+|----------|-----------|
+| **String** | `LEN`, `LEFT$`, `RIGHT$`, `MID$`, `UCASE$`, `LCASE$`, `STR$`, `VAL`, `CHR$`, `ASC`, `INSTR`, `LTRIM$`, `RTRIM$`, `SPACE$`, `STRING$` |
+| **Math** | `ABS`, `INT`, `FIX`, `SGN`, `SQR`, `RND`, `SIN`, `COS`, `TAN`, `ATN`, `LOG`, `EXP` |
+| **System** | `TIMER` |
 
 ## ⚙️ Prerequisites
 
@@ -59,22 +113,22 @@ For QBasic Nexus to compile your code, your QB64 installation must be correctly 
             *   Example Windows: `C:\QB64\qb64.exe`
             *   Example macOS: `/Applications/qb64/qb64`
             *   Example Linux: `/home/youruser/qb64/qb64`
-4.  **Open a QBasic File**: Open a file with a `.bas` or `.bi` extension.
+4.  **Open a QBasic File**: Open a file with a `.bas`, `.bi`, `.bm`, or `.inc` extension.
 5.  **Using the Extension**:
-    *   When a `.bas` or `.bi` file is active and the compiler path is set, you'll see a **`🔥 Compile .BAS`** icon in the Status Bar. **Clicking this icon will compile and run the file.**
+    *   When a QBasic file is active and the compiler path is set, you'll see a **compile icon** in the Status Bar. **Clicking this icon will compile and run the file.**
     *   If the path is not set, the Status Bar will show **`⚠️ Set QB64 Path`**. Clicking it will open the settings.
 
 ## 📦 Available Commands
 
 *   `qbasic-nexus.compile`:
-    *   **Title in Palette/Menu**: `Compile .BAS file 🌀`
-    *   **Action**: Compiles the currently active `.bas` or `.bi` file. Creates an executable in the same directory.
-    *   **Accessed via**: Command Palette, Right-click context menu.
+    *   **Title in Palette/Menu**: `QBasic: Compile 🔨`
+    *   **Action**: Compiles the currently active QBasic file (`.bas`, `.bi`, `.bm`, `.inc`). Creates an executable in the same directory.
+    *   **Accessed via**: Command Palette, Right-click context menu, `Ctrl+Shift+B`.
 
 *   `qbasic-nexus.compileAndRun`:
-    *   **Title in Palette/Menu**: `Compile & Run .BAS file 🚀`
-    *   **Action**: Compiles the file. If successful, it runs the program in a new "QBasic Nexus: Run Output" integrated terminal.
-    *   **Accessed via**: Command Palette, Right-click context menu, **Status Bar icon**.
+    *   **Title in Palette/Menu**: `QBasic: Compile & Run 🌀`
+    *   **Action**: Compiles the file. If successful, it runs the program in a new "QBasic Nexus" integrated terminal.
+    *   **Accessed via**: Command Palette, Right-click context menu, **Status Bar icon**, `F5`.
 
 ## 📄 Understanding the Output
 
@@ -87,21 +141,42 @@ For QBasic Nexus to compile your code, your QB64 installation must be correctly 
 
 ## 🛠️ Configuration
 
-You can configure the extension via VS Code Settings:
+You can configure the extension via VS Code Settings (search for "QBasic Nexus"):
 
-*   **Setting ID**: `qbasic-nexus.compilerPath`
-    *   **Description**: Full path to your QB64 executable.
-        *   Examples:
-            *   Windows: `C:\QB64\qb64.exe`
-            *   macOS: `/Applications/qb64/qb64` or `~/qb64/qb64`
-            *   Linux: `/usr/local/bin/qb64` or `~/qb64/qb64`
-        *   Leave empty to trigger auto-detection on startup/setting change (may not always find it if installed in a non-standard location).
+### `qbasic-nexus.compilerMode`
 
-*   **Setting ID**: `qbasic-nexus.compilerArgs`
-    *   **Description**: Optional additional arguments to pass to the QB64 compiler (e.g., `-w` for more warnings, `-g` for debug symbols, `-prof` for profiling). Arguments should be space-separated.
-    *   **Default**: Empty (no additional arguments).
+Select the compilation mode:
 
-Search for "QBasic Nexus" in VS Code Settings to find these options.
+| Mode | Description |
+|------|-------------|
+| **QB64 (Recommended)** | Compile with QB64 for native executable (best performance) |
+| **Internal (JS Transpiler)** | Transpile to JavaScript and run via Node.js (backup mode) |
+
+**Default**: `QB64 (Recommended)`
+
+### `qbasic-nexus.compilerPath`
+
+Full path to your QB64 executable.
+
+| OS | Example Path |
+|----|--------------|
+| Windows | `C:\QB64\qb64.exe` |
+| macOS | `/Applications/qb64/qb64` or `~/qb64/qb64` |
+| Linux | `/usr/local/bin/qb64` or `~/qb64/qb64` |
+
+Leave empty to trigger auto-detection on startup.
+
+### `qbasic-nexus.compilerArgs`
+
+Optional additional arguments to pass to the QB64 compiler.
+
+| Argument | Description |
+|----------|-------------|
+| `-w` | Enable more warnings |
+| `-g` | Include debug symbols |
+| `-prof` | Enable profiling |
+
+**Default**: Empty (no additional arguments)
 
 ## 🆘 Troubleshooting
 
@@ -148,7 +223,7 @@ If you still face issues, please open an issue on the [GitHub Repository Issuse]
 
 MIT License
 
-Copyright (c) 2025 Thirawat Sinlapasomsak
+Copyright (c) 2025-2026 Thirawat Sinlapasomsak
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
