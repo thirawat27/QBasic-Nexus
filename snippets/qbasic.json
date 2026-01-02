@@ -7,20 +7,37 @@
 			"' Date:    ${CURRENT_MONTH_NAME} ${CURRENT_DATE}, ${CURRENT_YEAR}",
 			"",
 			"SCREEN _NEWIMAGE(800, 600, 32)",
+			"_TITLE \"${1:MyProgram}\"",
 			"CLS",
 			"",
-			"PRINT \"Hello, QB64!\"",
+			"$0",
 			"",
-			"$0"
+			"END"
 		],
 		"description": "Creates a standard boilerplate for a new QB64 program."
+	},
+	"New Classic QBasic Program": {
+		"prefix": "newclassic",
+		"body": [
+			"' Program: ${1:MyProgram}",
+			"' Author:  ${2:Your Name}",
+			"' Date:    ${CURRENT_MONTH_NAME} ${CURRENT_DATE}, ${CURRENT_YEAR}",
+			"",
+			"CLS",
+			"PRINT \"${3:Hello, QBasic!}\"",
+			"",
+			"$0",
+			"",
+			"END"
+		],
+		"description": "Creates a classic QBasic program template."
 	},
 	"For...Next Loop": {
 		"prefix": "for",
 		"body": [
-			"FOR ${1:counter} = ${2:1} TO ${3:10}",
+			"FOR ${1:i} = ${2:1} TO ${3:10}",
 			"\t$0",
-			"NEXT ${1:counter}"
+			"NEXT ${1:i}"
 		],
 		"description": "Creates a For...Next loop."
 	},
@@ -32,6 +49,15 @@
 			"NEXT ${1:counter}"
 		],
 		"description": "Creates a For...Next loop with a custom Step."
+	},
+	"For...Next (Reverse)": {
+		"prefix": "forrev",
+		"body": [
+			"FOR ${1:i} = ${2:10} TO ${3:1} STEP -1",
+			"\t$0",
+			"NEXT ${1:i}"
+		],
+		"description": "Creates a reverse For...Next loop (counting down)."
 	},
 	"If...Then Statement": {
 		"prefix": "if",
@@ -53,19 +79,53 @@
 		],
 		"description": "Creates an If...Then...Else block."
 	},
+	"If...ElseIf...Else Statement": {
+		"prefix": "ifelseif",
+		"body": [
+			"IF ${1:condition1} THEN",
+			"\t${2:statements}",
+			"ELSEIF ${3:condition2} THEN",
+			"\t${4:statements}",
+			"ELSE",
+			"\t${0:statements}",
+			"END IF"
+		],
+		"description": "Creates an If...ElseIf...Else block."
+	},
+	"Single Line If": {
+		"prefix": "ifs",
+		"body": [
+			"IF ${1:condition} THEN ${0:statement}"
+		],
+		"description": "Creates a single-line If statement."
+	},
 	"Select Case": {
 		"prefix": "select",
 		"body": [
 			"SELECT CASE ${1:variable}",
 			"\tCASE ${2:value1}",
 			"\t\t${3:statements}",
-			"\tCASE IS > ${4:value2}",
+			"\tCASE ${4:value2}",
 			"\t\t${5:statements}",
 			"\tCASE ELSE",
 			"\t\t${0:statements}",
 			"END SELECT"
 		],
 		"description": "Creates a Select Case block."
+	},
+	"Select Case (Range)": {
+		"prefix": "selectrange",
+		"body": [
+			"SELECT CASE ${1:variable}",
+			"\tCASE 1 TO 10",
+			"\t\t${2:statements}",
+			"\tCASE IS > 10",
+			"\t\t${3:statements}",
+			"\tCASE ELSE",
+			"\t\t${0:statements}",
+			"END SELECT"
+		],
+		"description": "Creates a Select Case with range and comparison."
 	},
 	"Do...Loop While": {
 		"prefix": "doloopw",
@@ -76,6 +136,15 @@
 		],
 		"description": "Creates a Do...Loop While block (checks condition at the end)."
 	},
+	"Do...Loop Until": {
+		"prefix": "doloopu",
+		"body": [
+			"DO",
+			"\t$0",
+			"LOOP UNTIL ${1:condition}"
+		],
+		"description": "Creates a Do...Loop Until block (checks condition at the end)."
+	},
 	"Do While...Loop": {
 		"prefix": "dowhile",
 		"body": [
@@ -84,6 +153,24 @@
 			"LOOP"
 		],
 		"description": "Creates a Do While...Loop block (checks condition at the start)."
+	},
+	"Do Until...Loop": {
+		"prefix": "dountil",
+		"body": [
+			"DO UNTIL ${1:condition}",
+			"\t$0",
+			"LOOP"
+		],
+		"description": "Creates a Do Until...Loop block (checks condition at the start)."
+	},
+	"While...Wend": {
+		"prefix": "while",
+		"body": [
+			"WHILE ${1:condition}",
+			"\t$0",
+			"WEND"
+		],
+		"description": "Creates a While...Wend loop."
 	},
 	"Sub Procedure": {
 		"prefix": "sub",
@@ -94,14 +181,34 @@
 		],
 		"description": "Creates a Sub procedure."
 	},
+	"Sub Procedure (No Params)": {
+		"prefix": "subnp",
+		"body": [
+			"SUB ${1:ProcedureName}",
+			"\t$0",
+			"END SUB"
+		],
+		"description": "Creates a Sub procedure without parameters."
+	},
 	"Function Procedure": {
 		"prefix": "function",
 		"body": [
-			"FUNCTION ${1:FunctionName} (${2:parameters})",
+			"FUNCTION ${1:FunctionName}${2: (${3:parameters})}",
 			"\t$0",
+			"\t${1:FunctionName} = ${4:result}",
 			"END FUNCTION"
 		],
 		"description": "Creates a Function procedure."
+	},
+	"Function (Typed)": {
+		"prefix": "functiont",
+		"body": [
+			"FUNCTION ${1:FunctionName}${2:%} (${3:parameters})",
+			"\t$0",
+			"\t${1:FunctionName} = ${4:result}",
+			"END FUNCTION"
+		],
+		"description": "Creates a typed Function procedure."
 	},
 	"Declare Sub": {
 		"prefix": "declaresub",
@@ -113,14 +220,14 @@
 	"Declare Function": {
 		"prefix": "declarefunction",
 		"body": [
-			"DECLARE FUNCTION ${1:FunctionName} (${2:parameters})"
+			"DECLARE FUNCTION ${1:FunctionName}${2:%} (${3:parameters})"
 		],
 		"description": "Declares a Function procedure."
 	},
 	"Dimension Array (1D)": {
 		"prefix": "dim",
 		"body": [
-			"DIM ${1:arrayName}(${2:10}) AS ${3|INTEGER,LONG,SINGLE,DOUBLE,STRING,_INTEGER64|}"
+			"DIM ${1:arrayName}(${2:10}) AS ${3|INTEGER,LONG,SINGLE,DOUBLE,STRING,_INTEGER64,_BYTE|}"
 		],
 		"description": "Declares a one-dimensional array (DIM)."
 	},
@@ -131,28 +238,49 @@
 		],
 		"description": "Declares a two-dimensional array (DIM)."
 	},
+	"Dimension Variable": {
+		"prefix": "dimvar",
+		"body": [
+			"DIM ${1:varName} AS ${2|INTEGER,LONG,SINGLE,DOUBLE,STRING,_INTEGER64,_BYTE|}"
+		],
+		"description": "Declares a variable with type."
+	},
+	"ReDim Array": {
+		"prefix": "redim",
+		"body": [
+			"REDIM ${1:_PRESERVE }${2:arrayName}(${3:newSize}) AS ${4|INTEGER,LONG,SINGLE,DOUBLE,STRING|}"
+		],
+		"description": "Re-dimensions a dynamic array."
+	},
 	"Type Definition": {
 		"prefix": "type",
 		"body": [
 			"TYPE ${1:TypeName}",
-			"\t${2:element1} AS STRING",
-			"\t${3:element2} AS INTEGER",
+			"\t${2:element1} AS STRING * ${3:30}",
+			"\t${4:element2} AS INTEGER",
 			"\t$0",
 			"END TYPE"
 		],
 		"description": "Creates a user-defined Type block."
 	},
+	"Const Declaration": {
+		"prefix": "const",
+		"body": [
+			"CONST ${1:NAME} = ${2:value}"
+		],
+		"description": "Declares a constant."
+	},
 	"Data and Read Loop": {
 		"prefix": "dataread",
 		"body": [
-			"RESTORE MyData",
-			"FOR i = 1 TO ${1:5}",
-			"\tREAD ${2:variable}",
-			"\tPRINT ${2:variable}",
+			"RESTORE ${1:MyData}",
+			"FOR i = 1 TO ${2:5}",
+			"\tREAD ${3:variable}",
+			"\tPRINT ${3:variable}",
 			"NEXT i",
 			"",
-			"MyData:",
-			"DATA ${3:value1}, ${4:value2}, ${5:value3}, ${6:value4}, ${7:value5}",
+			"${1:MyData}:",
+			"DATA ${4:value1}, ${5:value2}, ${6:value3}, ${7:value4}, ${8:value5}",
 			"$0"
 		],
 		"description": "Creates a DATA block and a loop to READ from it."
@@ -164,17 +292,24 @@
 		],
 		"description": "Prints a string to the screen."
 	},
+	"Print Using": {
+		"prefix": "printusing",
+		"body": [
+			"PRINT USING \"${1:###.##}\"; ${2:number}"
+		],
+		"description": "Prints formatted output."
+	},
 	"Input Statement": {
 		"prefix": "input",
 		"body": [
-			"INPUT \"${1:Enter a value:}\", ${2:variable}"
+			"INPUT \"${1:Enter a value}: \", ${2:variable}"
 		],
 		"description": "Gets input from the user."
 	},
 	"Line Input Statement": {
 		"prefix": "lineinput",
 		"body": [
-			"LINE INPUT \"${1:Enter a sentence:}\"; ${2:stringVariable$}"
+			"LINE INPUT \"${1:Enter a sentence}: \"; ${2:stringVariable$}"
 		],
 		"description": "Gets a full line of text input from the user."
 	},
@@ -184,6 +319,13 @@
 			"LOCATE ${1:row}, ${2:column}"
 		],
 		"description": "Moves the text cursor to a specified position."
+	},
+	"Color": {
+		"prefix": "color",
+		"body": [
+			"COLOR ${1:foreground}, ${2:background}"
+		],
+		"description": "Sets text foreground and background colors."
 	},
 	"CLS - Clear Screen": {
 		"prefix": "cls",
@@ -195,64 +337,135 @@
 	"Open File for Input": {
 		"prefix": "openinput",
 		"body": [
-			"OPEN \"${1:filename.txt}\" FOR INPUT AS #${2:1}"
+			"DIM f AS INTEGER",
+			"f = FREEFILE",
+			"OPEN \"${1:filename.txt}\" FOR INPUT AS #f",
+			"$0",
+			"CLOSE #f"
 		],
-		"description": "Opens a file for reading."
+		"description": "Opens a file for reading with FREEFILE."
 	},
 	"Open File for Output": {
 		"prefix": "openoutput",
 		"body": [
-			"OPEN \"${1:filename.txt}\" FOR OUTPUT AS #${2:1}"
+			"DIM f AS INTEGER",
+			"f = FREEFILE",
+			"OPEN \"${1:filename.txt}\" FOR OUTPUT AS #f",
+			"$0",
+			"CLOSE #f"
 		],
-		"description": "Opens a file for writing (overwrites)."
+		"description": "Opens a file for writing with FREEFILE."
 	},
 	"Open File for Append": {
 		"prefix": "openappend",
 		"body": [
-			"OPEN \"${1:filename.txt}\" FOR APPEND AS #${2:1}"
+			"DIM f AS INTEGER",
+			"f = FREEFILE",
+			"OPEN \"${1:filename.txt}\" FOR APPEND AS #f",
+			"$0",
+			"CLOSE #f"
 		],
-		"description": "Opens a file for writing (adds to end)."
+		"description": "Opens a file for appending with FREEFILE."
+	},
+	"Open File for Binary": {
+		"prefix": "openbinary",
+		"body": [
+			"DIM f AS INTEGER",
+			"f = FREEFILE",
+			"OPEN \"${1:filename.dat}\" FOR BINARY AS #f",
+			"$0",
+			"CLOSE #f"
+		],
+		"description": "Opens a file for binary access."
 	},
 	"Read from File Loop": {
 		"prefix": "readfile",
 		"body": [
-			"OPEN \"${1:filename.txt}\" FOR INPUT AS #1",
-			"DO UNTIL EOF(1)",
-			"\tLINE INPUT #1, ${2:line$}",
-			"\tPRINT ${2:line$}",
-			"LOOP",
-			"CLOSE #1",
+			"DIM f AS INTEGER",
+			"DIM ${1:line$} AS STRING",
+			"f = FREEFILE",
+			"",
+			"IF _FILEEXISTS(\"${2:filename.txt}\") THEN",
+			"\tOPEN \"${2:filename.txt}\" FOR INPUT AS #f",
+			"\tDO UNTIL EOF(f)",
+			"\t\tLINE INPUT #f, ${1:line$}",
+			"\t\tPRINT ${1:line$}",
+			"\tLOOP",
+			"\tCLOSE #f",
+			"ELSE",
+			"\tPRINT \"File not found!\"",
+			"END IF",
 			"$0"
 		],
 		"description": "A complete loop for reading a text file line by line."
 	},
+	"Write to File": {
+		"prefix": "writefile",
+		"body": [
+			"DIM f AS INTEGER",
+			"f = FREEFILE",
+			"OPEN \"${1:filename.txt}\" FOR OUTPUT AS #f",
+			"PRINT #f, \"${2:text}\"",
+			"CLOSE #f",
+			"$0"
+		],
+		"description": "Writes text to a file."
+	},
 	"Set Screen Mode": {
 		"prefix": "screen",
 		"body": [
-			"SCREEN ${1|_NEWIMAGE(800, 600, 32),12,13,9,7}"
+			"SCREEN ${1|_NEWIMAGE(800, 600, 32),_NEWIMAGE(1024, 768, 32),_NEWIMAGE(1280, 720, 32),12,13|}"
 		],
 		"description": "Sets the screen mode (QB64 and classic modes)."
+	},
+	"QB64 Screen Setup": {
+		"prefix": "screensetup",
+		"body": [
+			"SCREEN _NEWIMAGE(${1:800}, ${2:600}, 32)",
+			"_TITLE \"${3:My Program}\"",
+			"_SCREENMOVE _MIDDLE",
+			"CLS",
+			"$0"
+		],
+		"description": "Complete QB64 screen setup with title and centering."
 	},
 	"Draw Line": {
 		"prefix": "line",
 		"body": [
-			"LINE (${1:x1}, ${2:y1})-(${3:x2}, ${4:y2}), ${5:color}"
+			"LINE (${1:x1}, ${2:y1})-(${3:x2}, ${4:y2}), ${5:_RGB32(255, 255, 255)}"
 		],
 		"description": "Draws a line on the screen."
 	},
 	"Draw Box": {
 		"prefix": "box",
 		"body": [
-			"LINE (${1:x1}, ${2:y1})-(${3:x2}, ${4:y2}), ${5:color}, B"
+			"LINE (${1:x1}, ${2:y1})-(${3:x2}, ${4:y2}), ${5:_RGB32(255, 255, 255)}, B"
 		],
 		"description": "Draws a box on the screen."
+	},
+	"Draw Filled Box": {
+		"prefix": "boxf",
+		"body": [
+			"LINE (${1:x1}, ${2:y1})-(${3:x2}, ${4:y2}), ${5:_RGB32(255, 255, 255)}, BF"
+		],
+		"description": "Draws a filled box on the screen."
 	},
 	"Draw Circle": {
 		"prefix": "circle",
 		"body": [
-			"CIRCLE (${1:x}, ${2:y}), ${3:radius}, ${4:color}"
+			"CIRCLE (${1:x}, ${2:y}), ${3:radius}, ${4:_RGB32(255, 255, 255)}"
 		],
 		"description": "Draws a circle on the screen."
+	},
+	"Draw Filled Circle": {
+		"prefix": "circlef",
+		"body": [
+			"' Filled circle at (${1:x}, ${2:y}) with radius ${3:radius}",
+			"FOR r = 0 TO ${3:radius}",
+			"\tCIRCLE (${1:x}, ${2:y}), r, ${4:_RGB32(255, 255, 255)}",
+			"NEXT r"
+		],
+		"description": "Draws a filled circle using a loop."
 	},
 	"Paint Area": {
 		"prefix": "paint",
@@ -260,6 +473,13 @@
 			"PAINT (${1:x}, ${2:y}), ${3:fillColor}, ${4:borderColor}"
 		],
 		"description": "Fills an area with color."
+	},
+	"PSet Pixel": {
+		"prefix": "pset",
+		"body": [
+			"PSET (${1:x}, ${2:y}), ${3:_RGB32(255, 255, 255)}"
+		],
+		"description": "Sets a pixel color."
 	},
 	"Sound": {
 		"prefix": "sound",
@@ -274,6 +494,13 @@
 			"PLAY \"${1:L4 C D E F G A B}\""
 		],
 		"description": "Plays music using a string of commands."
+	},
+	"Beep": {
+		"prefix": "beep",
+		"body": [
+			"BEEP"
+		],
+		"description": "Produces a beep sound."
 	},
 	"On Error Goto": {
 		"prefix": "onerror",
@@ -293,16 +520,388 @@
 	"Load and Display Image": {
 		"prefix": "qb64image",
 		"body": [
-			"DIM imageHandle AS LONG",
-			"imageHandle = _LOADIMAGE(\"${1:image.png}\")",
-			"IF imageHandle = 0 THEN",
+			"DIM img AS LONG",
+			"img = _LOADIMAGE(\"${1:image.png}\")",
+			"IF img = -1 THEN",
 			"\tPRINT \"Error loading image.\"",
 			"\tEND",
 			"END IF",
 			"",
-			"_PUTIMAGE (${2:0}, ${3:0}), imageHandle",
-			"$0"
+			"_PUTIMAGE (${2:0}, ${3:0}), img",
+			"$0",
+			"",
+			"_FREEIMAGE img"
 		],
 		"description": "Loads and displays an image using QB64 commands."
+	},
+	"Game Loop": {
+		"prefix": "gameloop",
+		"body": [
+			"' Game Loop Template",
+			"DIM running AS INTEGER",
+			"running = -1 ' TRUE",
+			"",
+			"DO WHILE running",
+			"\t' Handle input",
+			"\t$1",
+			"\t",
+			"\t' Update game state",
+			"\t$2",
+			"\t",
+			"\t' Render",
+			"\tCLS",
+			"\t$3",
+			"\t_DISPLAY",
+			"\t",
+			"\t' Check for exit",
+			"\tIF _KEYHIT = 27 THEN running = 0 ' ESC to exit",
+			"\t",
+			"\t_LIMIT 60 ' Limit to 60 FPS",
+			"LOOP",
+			"$0"
+		],
+		"description": "Creates a standard game loop structure."
+	},
+	"Keyboard Input Check": {
+		"prefix": "keycheck",
+		"body": [
+			"DIM k AS LONG",
+			"k = _KEYHIT",
+			"SELECT CASE k",
+			"\tCASE 27 ' ESC",
+			"\t\t$1",
+			"\tCASE 32 ' Space",
+			"\t\t$2",
+			"\tCASE 18432 ' Up Arrow",
+			"\t\t$3",
+			"\tCASE 20480 ' Down Arrow",
+			"\t\t$4",
+			"\tCASE 19200 ' Left Arrow",
+			"\t\t$5",
+			"\tCASE 19712 ' Right Arrow",
+			"\t\t$6",
+			"END SELECT",
+			"$0"
+		],
+		"description": "Creates a keyboard input handler structure."
+	},
+	"Mouse Input Check": {
+		"prefix": "mousecheck",
+		"body": [
+			"WHILE _MOUSEINPUT: WEND",
+			"DIM mx AS INTEGER, my AS INTEGER, mb AS INTEGER",
+			"mx = _MOUSEX",
+			"my = _MOUSEY",
+			"mb = _MOUSEBUTTON(1)",
+			"",
+			"IF mb THEN",
+			"\t' Left mouse button clicked at mx, my",
+			"\t$0",
+			"END IF"
+		],
+		"description": "Creates a mouse input handler."
+	},
+	"Timer-Based Delay": {
+		"prefix": "timerdelay",
+		"body": [
+			"DIM startTime AS SINGLE",
+			"startTime = TIMER",
+			"DO",
+			"\t' Wait for ${1:1} second(s)",
+			"LOOP UNTIL TIMER - startTime >= ${1:1}"
+		],
+		"description": "Creates a timer-based delay loop."
+	},
+	"Random Number": {
+		"prefix": "random",
+		"body": [
+			"RANDOMIZE TIMER",
+			"DIM ${1:num} AS INTEGER",
+			"${1:num} = INT(RND * ${2:100}) + ${3:1} ' Random from ${3:1} to ${2:100}",
+			"$0"
+		],
+		"description": "Generates a random number within a range."
+	},
+	"Swap Variables": {
+		"prefix": "swap",
+		"body": [
+			"SWAP ${1:var1}, ${2:var2}"
+		],
+		"description": "Swaps the values of two variables."
+	},
+	"Sleep": {
+		"prefix": "sleep",
+		"body": [
+			"SLEEP ${1:1}"
+		],
+		"description": "Pauses execution for seconds."
+	},
+	"QB64 Delay": {
+		"prefix": "delay",
+		"body": [
+			"_DELAY ${1:0.5}"
+		],
+		"description": "QB64: Delays for specified seconds (can use decimals)."
+	},
+	"QB64 Limit FPS": {
+		"prefix": "limit",
+		"body": [
+			"_LIMIT ${1:60}"
+		],
+		"description": "QB64: Limits program to specified FPS."
+	},
+	"QB64 RGB Color": {
+		"prefix": "rgb",
+		"body": [
+			"_RGB32(${1:255}, ${2:255}, ${3:255})"
+		],
+		"description": "QB64: Creates a 32-bit RGB color value."
+	},
+	"QB64 RGBA Color": {
+		"prefix": "rgba",
+		"body": [
+			"_RGBA32(${1:255}, ${2:255}, ${3:255}, ${4:255})"
+		],
+		"description": "QB64: Creates a 32-bit RGBA color value with alpha."
+	},
+	"QB64 Print at Position": {
+		"prefix": "printstring",
+		"body": [
+			"_PRINTSTRING (${1:x}, ${2:y}), \"${3:text}\""
+		],
+		"description": "QB64: Prints text at pixel coordinates."
+	},
+	"QB64 Load Sound": {
+		"prefix": "loadsound",
+		"body": [
+			"DIM snd AS LONG",
+			"snd = _SNDOPEN(\"${1:sound.wav}\")",
+			"IF snd = 0 THEN",
+			"\tPRINT \"Error loading sound!\"",
+			"ELSE",
+			"\t_SNDPLAY snd",
+			"END IF",
+			"$0"
+		],
+		"description": "QB64: Loads and plays a sound file."
+	},
+	"QB64 Font Loading": {
+		"prefix": "loadfont",
+		"body": [
+			"DIM fnt AS LONG",
+			"fnt = _LOADFONT(\"${1:arial.ttf}\", ${2:24})",
+			"IF fnt = 0 THEN",
+			"\tPRINT \"Font not found!\"",
+			"ELSE",
+			"\t_FONT fnt",
+			"END IF",
+			"$0"
+		],
+		"description": "QB64: Loads and sets a TrueType font."
+	},
+	"QB64 Fullscreen Toggle": {
+		"prefix": "fullscreen",
+		"body": [
+			"_FULLSCREEN _SQUAREPIXELS , _SMOOTH"
+		],
+		"description": "QB64: Toggle fullscreen mode."
+	},
+	"QB64 Clipboard": {
+		"prefix": "clipboard",
+		"body": [
+			"DIM clipText AS STRING",
+			"clipText = _CLIPBOARD$",
+			"PRINT \"Clipboard: \"; clipText",
+			"$0"
+		],
+		"description": "QB64: Gets text from clipboard."
+	},
+	"Double Buffer Setup": {
+		"prefix": "doublebuffer",
+		"body": [
+			"' Double buffering setup",
+			"DIM buffer AS LONG",
+			"buffer = _NEWIMAGE(${1:800}, ${2:600}, 32)",
+			"SCREEN buffer",
+			"",
+			"DO",
+			"\tCLS",
+			"\t' Draw to buffer",
+			"\t$0",
+			"\t",
+			"\t_DISPLAY",
+			"\t_LIMIT 60",
+			"LOOP"
+		],
+		"description": "Sets up double buffering for smooth graphics."
+	},
+	"Metacommand Include": {
+		"prefix": "$include",
+		"body": [
+			"'$INCLUDE: '${1:filename.bi}'"
+		],
+		"description": "Includes an external source file."
+	},
+	"Metacommand Dynamic": {
+		"prefix": "$dynamic",
+		"body": [
+			"'$DYNAMIC"
+		],
+		"description": "Makes arrays dynamic by default."
+	},
+	"Metacommand Console": {
+		"prefix": "$console",
+		"body": [
+			"$CONSOLE",
+			"_CONSOLE ON"
+		],
+		"description": "Enables the console window in QB64."
+	},
+	"Conditional Compilation": {
+		"prefix": "$if",
+		"body": [
+			"$IF ${1:WINDOWS} THEN",
+			"\t$2",
+			"$ELSE",
+			"\t$3",
+			"$END IF",
+			"$0"
+		],
+		"description": "Conditional compilation for cross-platform code."
+	},
+	"PI Constant": {
+		"prefix": "pi",
+		"body": [
+			"CONST PI = 3.141592653589793#"
+		],
+		"description": "Defines PI as a constant."
+	},
+	"Degrees to Radians": {
+		"prefix": "deg2rad",
+		"body": [
+			"FUNCTION Deg2Rad# (degrees AS DOUBLE)",
+			"\tDeg2Rad = degrees * 3.141592653589793# / 180",
+			"END FUNCTION"
+		],
+		"description": "Creates a function to convert degrees to radians."
+	},
+	"Radians to Degrees": {
+		"prefix": "rad2deg",
+		"body": [
+			"FUNCTION Rad2Deg# (radians AS DOUBLE)",
+			"\tRad2Deg = radians * 180 / 3.141592653589793#",
+			"END FUNCTION"
+		],
+		"description": "Creates a function to convert radians to degrees."
+	},
+	"Clamp Function": {
+		"prefix": "clamp",
+		"body": [
+			"FUNCTION Clamp# (value AS DOUBLE, minVal AS DOUBLE, maxVal AS DOUBLE)",
+			"\tIF value < minVal THEN",
+			"\t\tClamp = minVal",
+			"\tELSEIF value > maxVal THEN",
+			"\t\tClamp = maxVal",
+			"\tELSE",
+			"\t\tClamp = value",
+			"\tEND IF",
+			"END FUNCTION"
+		],
+		"description": "Creates a clamp function."
+	},
+	"Lerp Function": {
+		"prefix": "lerp",
+		"body": [
+			"FUNCTION Lerp# (a AS DOUBLE, b AS DOUBLE, t AS DOUBLE)",
+			"\tLerp = a + (b - a) * t",
+			"END FUNCTION"
+		],
+		"description": "Creates a linear interpolation function."
+	},
+	"2D Distance Function": {
+		"prefix": "distance2d",
+		"body": [
+			"FUNCTION Distance2D# (x1 AS DOUBLE, y1 AS DOUBLE, x2 AS DOUBLE, y2 AS DOUBLE)",
+			"\tDistance2D = SQR((x2 - x1) ^ 2 + (y2 - y1) ^ 2)",
+			"END FUNCTION"
+		],
+		"description": "Creates a 2D distance calculation function."
+	},
+	"Sort Array (Bubble Sort)": {
+		"prefix": "bubblesort",
+		"body": [
+			"SUB BubbleSort (arr() AS ${1|INTEGER,LONG,SINGLE,DOUBLE|})",
+			"\tDIM i AS INTEGER, j AS INTEGER",
+			"\tDIM n AS INTEGER",
+			"\tn = UBOUND(arr)",
+			"\t",
+			"\tFOR i = 0 TO n - 1",
+			"\t\tFOR j = 0 TO n - 1 - i",
+			"\t\t\tIF arr(j) > arr(j + 1) THEN",
+			"\t\t\t\tSWAP arr(j), arr(j + 1)",
+			"\t\t\tEND IF",
+			"\t\tNEXT j",
+			"\tNEXT i",
+			"END SUB"
+		],
+		"description": "Creates a bubble sort subroutine for arrays."
+	},
+	"Wait for Keypress": {
+		"prefix": "waitkey",
+		"body": [
+			"PRINT \"${1:Press any key to continue...}\"",
+			"DO: LOOP UNTIL INKEY$ <> \"\"",
+			"$0"
+		],
+		"description": "Waits for any key press."
+	},
+	"Ask Yes/No": {
+		"prefix": "yesno",
+		"body": [
+			"DIM answer AS STRING",
+			"DO",
+			"\tINPUT \"${1:Are you sure} (Y/N)? \", answer",
+			"\tanswer = UCASE$(LEFT$(answer, 1))",
+			"LOOP UNTIL answer = \"Y\" OR answer = \"N\"",
+			"",
+			"IF answer = \"Y\" THEN",
+			"\t$0",
+			"END IF"
+		],
+		"description": "Creates a Yes/No prompt."
+	},
+	"Menu System": {
+		"prefix": "menu",
+		"body": [
+			"DIM choice AS INTEGER",
+			"",
+			"DO",
+			"\tCLS",
+			"\tPRINT \"═══════════════════════\"",
+			"\tPRINT \"       MAIN MENU\"",
+			"\tPRINT \"═══════════════════════\"",
+			"\tPRINT",
+			"\tPRINT \"  1. ${1:Option 1}\"",
+			"\tPRINT \"  2. ${2:Option 2}\"",
+			"\tPRINT \"  3. ${3:Option 3}\"",
+			"\tPRINT \"  0. Exit\"",
+			"\tPRINT",
+			"\tINPUT \"Enter choice: \", choice",
+			"\t",
+			"\tSELECT CASE choice",
+			"\t\tCASE 1",
+			"\t\t\t' Handle option 1",
+			"\t\t\t$4",
+			"\t\tCASE 2",
+			"\t\t\t' Handle option 2",
+			"\t\t\t$5",
+			"\t\tCASE 3",
+			"\t\t\t' Handle option 3",
+			"\t\t\t$6",
+			"\tEND SELECT",
+			"LOOP UNTIL choice = 0",
+			"$0"
+		],
+		"description": "Creates a simple menu system."
 	}
 }

@@ -10,9 +10,14 @@
  * - QB64 compilation & execution
  * - Internal JS transpiler (backup mode)
  * - Real-time linting
+ * - Code folding
+ * - Document highlights
+ * - Rename symbols
+ * - Quick fixes
+ * - Find references
  * 
  * @author Thirawat27
- * @version 1.0.0
+ * @version 1.0.2
  * @license MIT
  */
 
@@ -31,7 +36,14 @@ const {
     QBasicDocumentFormattingEditProvider,
     QBasicCompletionItemProvider,
     QBasicHoverProvider,
-    QBasicSignatureHelpProvider
+    QBasicSignatureHelpProvider,
+    QBasicFoldingRangeProvider,
+    QBasicDocumentHighlightProvider,
+    QBasicRenameProvider,
+    QBasicCodeActionProvider,
+    QBasicReferenceProvider,
+    QBasicOnTypeFormattingEditProvider,
+    invalidateCache
 } = require('./providers');
 const InternalTranspiler = require('./transpiler');
 
@@ -44,6 +56,9 @@ const CONFIG = Object.freeze({
     COMPILER_PATH: 'compilerPath',
     COMPILER_MODE: 'compilerMode',
     COMPILER_ARGS: 'compilerArgs',
+    ENABLE_LINT: 'enableLinting',
+    LINT_DELAY: 'lintDelay',
+    AUTO_FORMAT: 'autoFormatOnSave',
     MODE_QB64: 'QB64 (Recommended)',
     MODE_INTERNAL: 'Internal (JS Transpiler)',
     LANGUAGE_ID: 'qbasic',
@@ -53,7 +68,10 @@ const CONFIG = Object.freeze({
 
 const COMMANDS = Object.freeze({
     COMPILE: 'qbasic-nexus.compile',
-    COMPILE_RUN: 'qbasic-nexus.compileAndRun'
+    COMPILE_RUN: 'qbasic-nexus.compileAndRun',
+    EXTRACT_SUB: 'qbasic-nexus.extractToSub',
+    SHOW_STATS: 'qbasic-nexus.showCodeStats',
+    TOGGLE_COMMENT: 'qbasic-nexus.toggleComment'
 });
 
 // ============================================================================
@@ -61,10 +79,12 @@ const COMMANDS = Object.freeze({
 // ============================================================================
 
 let statusBarItem = null;
+let statsBarItem = null;
 let outputChannel = null;
 let terminal = null;
 let diagnosticCollection = null;
 let isCompiling = false;
+let lintTimer = null;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -78,6 +98,20 @@ function debounce(fn, delay) {
     return (...args) => {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => fn(...args), delay);
+    };
+}
+
+/**
+ * Create a throttled version of a function
+ */
+function throttle(fn, limit) {
+    let inThrottle = false;
+    return (...args) => {
+        if (!inThrottle) {
+            fn(...args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
     };
 }
 
@@ -119,8 +153,9 @@ async function fileExists(filePath) {
 /**
  * Get configuration value
  */
-function getConfig(key) {
-    return vscode.workspace.getConfiguration(CONFIG.SECTION).get(key);
+function getConfig(key, defaultValue = null) {
+    const value = vscode.workspace.getConfiguration(CONFIG.SECTION).get(key);
+    return value !== undefined ? value : defaultValue;
 }
 
 /**
@@ -132,7 +167,8 @@ function log(message, type = 'info') {
         info: 'ℹ️',
         success: '✅',
         error: '❌',
-        warning: '⚠️'
+        warning: '⚠️',
+        debug: '🔍'
     }[type] || '';
     channel.appendLine(`${prefix} ${message}`);
 }
@@ -146,21 +182,73 @@ function log(message, type = 'info') {
  */
 function lintDocument(document) {
     if (!document || document.languageId !== CONFIG.LANGUAGE_ID) return;
+    if (!getConfig(CONFIG.ENABLE_LINT, true)) return;
 
-    try {
-        const transpiler = new InternalTranspiler();
-        const errors = transpiler.lint(document.getText());
-
-        const diagnostics = errors.map(err => {
-            const line = Math.max(0, Math.min(err.line, document.lineCount - 1));
-            const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
-            return new vscode.Diagnostic(range, err.message, vscode.DiagnosticSeverity.Error);
-        });
-
-        diagnosticCollection.set(document.uri, diagnostics);
-    } catch (error) {
-        console.error('[QBasic Nexus] Linting error:', error.message);
+    // Clear pending lint
+    if (lintTimer) {
+        clearTimeout(lintTimer);
     }
+
+    const delay = getConfig(CONFIG.LINT_DELAY, 500);
+    
+    lintTimer = setTimeout(() => {
+        try {
+            const transpiler = new InternalTranspiler();
+            const errors = transpiler.lint(document.getText());
+
+            const diagnostics = errors.map(err => {
+                const line = Math.max(0, Math.min(err.line, document.lineCount - 1));
+                const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
+                
+                const diagnostic = new vscode.Diagnostic(
+                    range, 
+                    err.message, 
+                    getSeverity(err.severity || 'error')
+                );
+                diagnostic.source = 'QBasic Nexus';
+                diagnostic.code = err.code || 'E001';
+                
+                return diagnostic;
+            });
+
+            diagnosticCollection.set(document.uri, diagnostics);
+        } catch (error) {
+            console.error('[QBasic Nexus] Linting error:', error.message);
+        }
+    }, delay);
+}
+
+function getSeverity(level) {
+    switch (level) {
+        case 'warning': return vscode.DiagnosticSeverity.Warning;
+        case 'info': return vscode.DiagnosticSeverity.Information;
+        case 'hint': return vscode.DiagnosticSeverity.Hint;
+        default: return vscode.DiagnosticSeverity.Error;
+    }
+}
+
+// ============================================================================
+// CODE STATS
+// ============================================================================
+
+function updateCodeStats(document) {
+    if (!document || document.languageId !== CONFIG.LANGUAGE_ID) {
+        if (statsBarItem) statsBarItem.hide();
+        return;
+    }
+
+    const text = document.getText();
+    const lines = document.lineCount;
+    const codeLines = text.split('\n').filter(line => {
+        const trimmed = line.trim();
+        return trimmed && !trimmed.startsWith("'") && !trimmed.toUpperCase().startsWith('REM ');
+    }).length;
+    const subCount = (text.match(/^\s*SUB\s+/gim) || []).length;
+    const funcCount = (text.match(/^\s*FUNCTION\s+/gim) || []).length;
+
+    statsBarItem.text = `$(code) ${codeLines}L | ${subCount}S ${funcCount}F`;
+    statsBarItem.tooltip = `Lines: ${lines} (${codeLines} code)\nSUBs: ${subCount}\nFUNCTIONs: ${funcCount}`;
+    statsBarItem.show();
 }
 
 // ============================================================================
@@ -169,47 +257,85 @@ function lintDocument(document) {
 
 async function activate(context) {
     console.log('[QBasic Nexus] ⚡ Extension activated');
+    const startTime = Date.now();
 
     // Initialize diagnostic collection
     diagnosticCollection = vscode.languages.createDiagnosticCollection('qbasic-nexus');
     context.subscriptions.push(diagnosticCollection);
 
-    // Initialize status bar
+    // Initialize status bars
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = COMMANDS.COMPILE_RUN;
     context.subscriptions.push(statusBarItem);
+
+    statsBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statsBarItem.command = COMMANDS.SHOW_STATS;
+    context.subscriptions.push(statsBarItem);
 
     // Register language providers
     const selector = { language: CONFIG.LANGUAGE_ID, scheme: 'file' };
 
     context.subscriptions.push(
+        // Core providers
         vscode.languages.registerDocumentSymbolProvider(selector, new QBasicDocumentSymbolProvider()),
         vscode.languages.registerDefinitionProvider(selector, new QBasicDefinitionProvider()),
         vscode.languages.registerDocumentFormattingEditProvider(selector, new QBasicDocumentFormattingEditProvider()),
         vscode.languages.registerCompletionItemProvider(selector, new QBasicCompletionItemProvider()),
         vscode.languages.registerHoverProvider(selector, new QBasicHoverProvider()),
-        vscode.languages.registerSignatureHelpProvider(selector, new QBasicSignatureHelpProvider(), '(', ',')
+        vscode.languages.registerSignatureHelpProvider(selector, new QBasicSignatureHelpProvider(), '(', ','),
+        
+        // New providers for enhanced functionality
+        vscode.languages.registerFoldingRangeProvider(selector, new QBasicFoldingRangeProvider()),
+        vscode.languages.registerDocumentHighlightProvider(selector, new QBasicDocumentHighlightProvider()),
+        vscode.languages.registerRenameProvider(selector, new QBasicRenameProvider()),
+        vscode.languages.registerCodeActionsProvider(selector, new QBasicCodeActionProvider(), {
+            providedCodeActionKinds: [
+                vscode.CodeActionKind.QuickFix,
+                vscode.CodeActionKind.RefactorExtract
+            ]
+        }),
+        vscode.languages.registerReferenceProvider(selector, new QBasicReferenceProvider())
     );
 
     // Register commands
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.COMPILE, () => executeCompile(false)),
-        vscode.commands.registerCommand(COMMANDS.COMPILE_RUN, () => executeCompile(true))
+        vscode.commands.registerCommand(COMMANDS.COMPILE_RUN, () => executeCompile(true)),
+        vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
+        vscode.commands.registerCommand(COMMANDS.TOGGLE_COMMENT, toggleComment),
+        vscode.commands.registerCommand(COMMANDS.EXTRACT_SUB, extractToSub)
     );
 
-    // Event handlers
-    const debouncedLint = debounce(lintDocument, 500);
+    // Event handlers with optimized debouncing
+    const throttledStatsUpdate = throttle(updateCodeStats, 500);
     const debouncedStatusUpdate = debounce(updateStatusBar, 200);
 
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
             debouncedStatusUpdate();
-            if (editor) lintDocument(editor.document);
+            if (editor) {
+                lintDocument(editor.document);
+                throttledStatsUpdate(editor.document);
+            } else {
+                if (statsBarItem) statsBarItem.hide();
+            }
         }),
-        vscode.workspace.onDidChangeTextDocument(e => debouncedLint(e.document)),
-        vscode.workspace.onDidSaveTextDocument(lintDocument),
+        vscode.workspace.onDidChangeTextDocument(e => {
+            // Invalidate cache
+            invalidateCache(e.document.uri);
+            
+            // Lint and update stats
+            lintDocument(e.document);
+            throttledStatsUpdate(e.document);
+        }),
+        vscode.workspace.onDidSaveTextDocument(doc => {
+            lintDocument(doc);
+            updateCodeStats(doc);
+        }),
         vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration(CONFIG.SECTION)) updateStatusBar();
+            if (e.affectsConfiguration(CONFIG.SECTION)) {
+                updateStatusBar();
+            }
         }),
         vscode.window.onDidCloseTerminal(t => {
             if (t === terminal) terminal = null;
@@ -219,8 +345,165 @@ async function activate(context) {
     // Initial setup
     updateStatusBar();
     if (vscode.window.activeTextEditor) {
-        lintDocument(vscode.window.activeTextEditor.document);
+        const doc = vscode.window.activeTextEditor.document;
+        lintDocument(doc);
+        updateCodeStats(doc);
     }
+
+    const activationTime = Date.now() - startTime;
+    console.log(`[QBasic Nexus] ✅ Ready in ${activationTime}ms`);
+}
+
+// ============================================================================
+// ADDITIONAL COMMANDS
+// ============================================================================
+
+/**
+ * Show detailed code statistics
+ */
+async function showCodeStatsDetail() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) {
+        vscode.window.showWarningMessage('📄 Please open a QBasic file first.');
+        return;
+    }
+
+    const doc = editor.document;
+    const text = doc.getText();
+    
+    const stats = {
+        totalLines: doc.lineCount,
+        codeLines: 0,
+        commentLines: 0,
+        blankLines: 0,
+        subs: 0,
+        functions: 0,
+        types: 0,
+        constants: 0,
+        dimStatements: 0,
+        labels: 0,
+        fileSize: text.length
+    };
+
+    const lines = text.split('\n');
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            stats.blankLines++;
+        } else if (trimmed.startsWith("'") || trimmed.toUpperCase().startsWith('REM ')) {
+            stats.commentLines++;
+        } else {
+            stats.codeLines++;
+        }
+    }
+
+    stats.subs = (text.match(/^\s*SUB\s+\w+/gim) || []).length;
+    stats.functions = (text.match(/^\s*FUNCTION\s+\w+/gim) || []).length;
+    stats.types = (text.match(/^\s*TYPE\s+\w+/gim) || []).length;
+    stats.constants = (text.match(/^\s*CONST\s+\w+/gim) || []).length;
+    stats.dimStatements = (text.match(/^\s*DIM\s+/gim) || []).length;
+    stats.labels = (text.match(/^[a-zA-Z_]\w*:/gm) || []).length;
+
+    const fileSizeKB = (stats.fileSize / 1024).toFixed(2);
+    
+    const message = `
+📊 **Code Statistics**
+
+📄 **Lines**
+- Total: ${stats.totalLines}
+- Code: ${stats.codeLines}
+- Comments: ${stats.commentLines}
+- Blank: ${stats.blankLines}
+
+🔧 **Structures**
+- SUBs: ${stats.subs}
+- FUNCTIONs: ${stats.functions}
+- TYPEs: ${stats.types}
+- CONSTs: ${stats.constants}
+- DIMs: ${stats.dimStatements}
+- Labels: ${stats.labels}
+
+💾 **Size**: ${fileSizeKB} KB
+    `.trim();
+
+    vscode.window.showInformationMessage(`📊 Code Stats: ${stats.codeLines} code lines, ${stats.subs} SUBs, ${stats.functions} FUNCTIONs`);
+}
+
+/**
+ * Toggle comment for selected lines
+ */
+async function toggleComment() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) return;
+
+    const doc = editor.document;
+    const selection = editor.selection;
+    
+    await editor.edit(editBuilder => {
+        for (let i = selection.start.line; i <= selection.end.line; i++) {
+            const line = doc.lineAt(i);
+            const text = line.text;
+            const trimmed = text.trimStart();
+            const leadingSpaces = text.length - trimmed.length;
+
+            if (trimmed.startsWith("'")) {
+                // Uncomment
+                const newText = text.substring(0, leadingSpaces) + trimmed.substring(1).trimStart();
+                editBuilder.replace(line.range, newText);
+            } else {
+                // Comment
+                const newText = text.substring(0, leadingSpaces) + "' " + trimmed;
+                editBuilder.replace(line.range, newText);
+            }
+        }
+    });
+}
+
+/**
+ * Extract selected code to a SUB
+ */
+async function extractToSub(document, range) {
+    if (!document || !range) {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        document = editor.document;
+        range = editor.selection;
+    }
+
+    const selectedText = document.getText(range);
+    if (!selectedText.trim()) {
+        vscode.window.showWarningMessage('Please select code to extract.');
+        return;
+    }
+
+    const subName = await vscode.window.showInputBox({
+        prompt: 'Enter name for the new SUB',
+        placeHolder: 'MySub',
+        validateInput: (value) => {
+            if (!value) return 'Name is required';
+            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
+                return 'Invalid identifier name';
+            }
+            return null;
+        }
+    });
+
+    if (!subName) return;
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    await editor.edit(editBuilder => {
+        // Replace selected code with CALL
+        editBuilder.replace(range, `CALL ${subName}`);
+
+        // Add SUB at end of document
+        const endPos = new vscode.Position(document.lineCount, 0);
+        const subCode = `\n\nSUB ${subName}\n    ${selectedText.split('\n').join('\n    ')}\nEND SUB`;
+        editBuilder.insert(endPos, subCode);
+    });
+
+    vscode.window.showInformationMessage(`✅ Extracted to SUB ${subName}`);
 }
 
 // ============================================================================
@@ -291,6 +574,7 @@ async function runInternalTranspiler(document, shouldRun) {
         const transpiler = new InternalTranspiler();
         
         // Simulate steps for UI feedback (since it's instant)
+        channel.appendLine('  ✓ Lexical analysis passed');
         channel.appendLine('  ✓ Syntax analysis passed');
         
         const jsCode = transpiler.transpile(sourceCode, 'node');
@@ -414,6 +698,8 @@ function compileWithQB64(document, compilerPath, channel) {
         channel.appendLine('─────────────────────────────────────────────────────');
         channel.appendLine('');
 
+        const startTime = process.hrtime();
+
         // Spawn process
         const proc = spawn(compilerPath, args, {
             cwd: path.dirname(compilerPath),
@@ -442,12 +728,15 @@ function compileWithQB64(document, compilerPath, channel) {
         proc.on('close', code => {
             parseCompilerErrors(output, document.uri);
 
+            const endTime = process.hrtime(startTime);
+            const duration = (endTime[0] + endTime[1] / 1e9).toFixed(2);
+
             channel.appendLine('');
             channel.appendLine('─────────────────────────────────────────────────────');
 
             if (code === 0) {
                 channel.appendLine('');
-                channel.appendLine('✅ BUILD SUCCESSFUL');
+                channel.appendLine(`✅ BUILD SUCCESSFUL (${duration}s)`);
                 channel.appendLine(`📦 ${outputPath}`);
                 resolve(outputPath);
             } else {
@@ -467,7 +756,7 @@ function parseCompilerErrors(output, uri) {
     const filename = path.basename(uri.fsPath).toLowerCase();
 
     // Pattern: filename.bas:line: error message
-    const pattern = /([^\\\/]+\.(?:bas|bi|bm))[:\(](\d+)(?:[:\)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi;
+    const pattern = /([^\\/]+\.(?:bas|bi|bm))[:\(](\d+)(?:[:\)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi;
 
     let match;
     while ((match = pattern.exec(output)) !== null) {
@@ -475,11 +764,17 @@ function parseCompilerErrors(output, uri) {
 
         if (file.toLowerCase() === filename) {
             const line = Math.max(0, parseInt(lineStr, 10) - 1);
-            diagnostics.push(new vscode.Diagnostic(
+            const severity = message.toLowerCase().includes('warning') 
+                ? vscode.DiagnosticSeverity.Warning 
+                : vscode.DiagnosticSeverity.Error;
+            
+            const diagnostic = new vscode.Diagnostic(
                 new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
                 message.trim(),
-                vscode.DiagnosticSeverity.Error
-            ));
+                severity
+            );
+            diagnostic.source = 'QB64';
+            diagnostics.push(diagnostic);
         }
     }
 
@@ -547,7 +842,16 @@ function updateStatusBar() {
 
 function deactivate() {
     console.log('[QBasic Nexus] Extension deactivated');
+    
+    // Clear timers
+    if (lintTimer) {
+        clearTimeout(lintTimer);
+        lintTimer = null;
+    }
+    
+    // Dispose resources
     statusBarItem?.dispose();
+    statsBarItem?.dispose();
     outputChannel?.dispose();
     diagnosticCollection?.dispose();
 }

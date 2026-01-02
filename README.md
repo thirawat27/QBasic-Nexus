@@ -3,11 +3,26 @@
 </div>
 <div align="center">
   <h1>QBasic Nexus ⚙️</h1>
+  <p><strong>The Ultimate QBasic/QB64 Development Environment for VS Code</strong></p>
+  <p>Version 1.0.2</p>
 </div>
 
 <p>
-Enhances QBasic development in VS Code with syntax highlighting, code snippets, and robust support for your <strong>externally installed QB64 compiler</strong>. Features include auto-detection of your QB64 installation or manual path configuration.
+A powerful, feature-rich extension that transforms VS Code into a complete QBasic/QB64 IDE. Get syntax highlighting, intelligent code completion, real-time error checking, code folding, refactoring tools, and seamless compilation - all in one package.
 </p>
+
+<br>
+
+## 📖 Table of Contents
+
+- [Features](#-features)
+- [Quick Start Guide](#-quick-start-guide)
+- [Usage Examples](#-usage-examples)
+- [Keyboard Shortcuts](#-keyboard-shortcuts)
+- [Configuration](#%EF%B8%8F-configuration)
+- [Snippets Reference](#-snippets-reference)
+- [Troubleshooting](#-troubleshooting)
+- [License](#-license)
 
 <br>
 
@@ -15,212 +30,730 @@ Enhances QBasic development in VS Code with syntax highlighting, code snippets, 
 
 ### 🔧 Dual Compilation Modes
 
-*   **QB64 Mode (Recommended)**: Compile with your installed QB64 compiler for native executable (best performance).
-*   **Internal JS Transpiler (Backup)**: Transpile QBasic to JavaScript and run via Node.js when QB64 is not available.
+QBasic Nexus offers two ways to run your code:
 
-### 🛠️ Flexible QB64 Integration
+| Mode | Description | Best For |
+|------|-------------|----------|
+| **QB64 Mode** | Compile to native executable using QB64 | Production, performance-critical apps |
+| **Internal JS Transpiler** | Convert to JavaScript and run via Node.js | Quick testing, when QB64 is unavailable |
 
-*   **Auto-Detection**: Attempts to automatically find your existing QB64 installation on startup.
-*   **Manual Configuration**: Allows you to specify the exact path to your QB64 executable via VS Code settings.
+**Example - Switching Modes:**
+
+1. Open VS Code Settings (`Ctrl+,`)
+2. Search for "QBasic Nexus Compiler Mode"
+3. Choose your preferred mode
 
 ### 🚀 Compile & Run
 
-*   **Compile & Run 🚀**: Compile your QBasic code and run it in the integrated terminal with a single command.
-*   **Compile Only 🔨**: Compile your code to create a standalone executable file (`.exe` on Windows, or a plain executable on macOS/Linux).
-*   **Cross-Platform Support**: Works seamlessly on Windows, macOS, and Linux.
+Run your QBasic programs with a single keystroke!
 
-### ⌨️ Keyboard Shortcuts
+**Example:**
 
-| Action | Shortcut |
-|--------|----------|
-| Compile & Run | `F5` |
-| Compile Only | `Ctrl+Shift+B` |
+```qbasic
+' Save this as hello.bas
+CLS
+PRINT "Hello, QBasic Nexus!"
+PRINT "Press any key to exit..."
+DO: LOOP UNTIL INKEY$ <> ""
+```
 
-### 📊 IDE Integration
+Then press `F5` to compile and run!
 
-*   **Status Bar Integration**: Easily access the **Compile & Run** command from an icon in the status bar whenever a `.bas` or `.bi` file is open.
-*   **Detailed Output Panel**: View detailed logs, progress, and errors from the compilation process in a dedicated "QBasic Nexus" output channel.
-*   **Integrated Terminal Execution**: Runs the compiled program directly in the VS Code integrated terminal.
-*   **Customizable Compiler Arguments**: Pass additional arguments to the QB64 compiler via settings.
+### ✨ IntelliSense & Auto-Completion
 
-### ✨ IntelliSense & Language Features
+Get intelligent suggestions as you type. The extension understands:
 
-*   **Syntax Highlighting & Snippets**: Rich language support for QBasic and QB64.
-*   **Outline View**: Navigate quickly through your file using the Outline panel (shows SUBs, FUNCTIONs, TYPEs, CONSTs, Labels).
-*   **Go to Definition**: `Ctrl+Click` (or `F12`) on a function or sub name to jump to its definition.
-*   **Auto-Completion**: Smart suggestions for keywords, built-in functions, and variables as you type.
-*   **Hover Information**: Hover over keywords and functions to see documentation and usage hints.
-*   **Signature Help**: See function parameter hints as you type inside function calls.
-*   **Document Formatting**: Auto-indentation support (`Right-click` → `Format Document` or `Shift+Alt+F`).
-*   **Error Diagnostics**: Compiler errors are parsed and shown in VS Code's "Problems" tab with red underlines.
+- **Keywords**: `IF`, `FOR`, `SUB`, `FUNCTION`, etc.
+- **Built-in Functions**: `LEFT$`, `MID$`, `SIN`, `COS`, etc.
+- **Your Variables**: Automatically detects DIM declarations
+- **Your Procedures**: Shows your SUBs and FUNCTIONs
 
-### 🧩 Internal JS Transpiler *(NEW!)*
+**Example - Auto-Completion in Action:**
 
-When QB64 is not available, you can use the **Internal JS Transpiler** mode. This transpiler uses a custom **Lexer & Recursive Descent Parser** written in pure JavaScript to convert QBasic code to JavaScript and run it via Node.js.
+```qbasic
+' Type "PRI" and press Ctrl+Space
+' You'll see suggestions like:
+'   PRINT - Output text to the screen
+'   PRINT # - Write to file
 
-**Supported QBasic Statements:**
+' Type "MID" and you'll see:
+'   MID$ - Get substring
+'   With parameter hints: MID$(string, start, length)
+```
 
-| Category | Commands |
-|----------|----------|
-| **I/O** | `PRINT`, `INPUT`, `CLS` |
-| **Variables** | `DIM`, `CONST`, `LET`, `SWAP` |
-| **Control Flow** | `IF...THEN...ELSE`, `ELSEIF`, `END IF` |
-| **Loops** | `FOR...TO...STEP...NEXT`, `DO...LOOP`, `WHILE...WEND`, `EXIT` |
-| **Branching** | `SELECT CASE...CASE...END SELECT` |
-| **Procedures** | `SUB`, `FUNCTION`, `CALL`, `END SUB/FUNCTION` |
-| **Data** | `DATA`, `READ`, `RESTORE` |
-| **Misc** | `SLEEP`, `GOTO`, `GOSUB`, `RETURN` |
+### 📁 Code Folding
 
-**Supported Built-in Functions:**
+Collapse code blocks for easier navigation in large files.
 
-| Category | Functions |
-|----------|-----------|
-| **String** | `LEN`, `LEFT$`, `RIGHT$`, `MID$`, `UCASE$`, `LCASE$`, `STR$`, `VAL`, `CHR$`, `ASC`, `INSTR`, `LTRIM$`, `RTRIM$`, `SPACE$`, `STRING$` |
-| **Math** | `ABS`, `INT`, `FIX`, `SGN`, `SQR`, `RND`, `SIN`, `COS`, `TAN`, `ATN`, `LOG`, `EXP` |
-| **System** | `TIMER` |
+**Foldable Blocks:**
+- `SUB ... END SUB`
+- `FUNCTION ... END FUNCTION`
+- `TYPE ... END TYPE`
+- `IF ... END IF`
+- `FOR ... NEXT`
+- `DO ... LOOP`
+- `SELECT CASE ... END SELECT`
+- Comment blocks
 
-## ⚙️ Prerequisites
+**Example:**
 
-For QBasic Nexus to compile your code, your QB64 installation must be correctly set up.
+```qbasic
+SUB DrawMenu          ' Click the [-] to collapse this entire SUB
+    CLS
+    PRINT "1. Start Game"
+    PRINT "2. Options"
+    PRINT "3. Exit"
+END SUB               ' The SUB collapses from SUB to END SUB
+```
 
-*   **Step 1: Install QB64 Correctly**
-    *   **All Systems**: You need a working installation of QB64 from [qb64.com](https://qb64.com/) or QB64 Phoenix Edition from [qb64phoenix.com](https://www.qb64phoenix.com/).
-    *   **macOS & Linux (Crucial Setup Step)**: After unzipping the QB64 package, you **must run the setup script** included with it. This is a one-time step that prepares the compiler for use. Open a terminal, navigate to the QB64 directory, and run:
-        *   On **macOS**: `sh ./setup_osx.command`
-        *   On **Linux**: `sh ./setup_lnx.sh`
+### 🔄 Rename Symbol (F2)
 
-*   **Step 2: Ensure C++ Compiler is Available (if QB64 requires it)**
-    *   **macOS**: **Xcode Command Line Tools** must be installed. To install: `xcode-select --install`
-    *   **Linux (Debian/Ubuntu-based)**: The **build-essential** package (including `g++`) must be installed. To install: `sudo apt-get update && sudo apt-get install build-essential`
-    *   *(Note: QB64 Phoenix Edition for Windows typically includes its own C++ compiler, so no extra tools are usually needed.)*
+Rename any variable, SUB, or FUNCTION across your entire file with one command.
 
-## 🚀 Getting Started
+**Example:**
 
-1.  **Install & Set Up QB64**:
-    *   a. Obtain and extract the QB64 build of your choice. We recommend the Legacy release from [qb64.com](https://qb64.com/), though you’re free to use the QB64 Phoenix Edition from [qb64phoenix.com](https://www.qb64phoenix.com/) as well.
-    *   b. **(Crucial for macOS/Linux)** Open a terminal, navigate into the unzipped QB64 directory, and run the required setup script:
-        *   On **macOS**: `sh ./setup_osx.command`
-        *   On **Linux**: `sh ./setup_lnx.sh`
-    *   *This step is essential as it configures the compiler. The extension will not work without it.*
-2.  **Install this Extension**: Find "QBasic Nexus" in the VS Code Marketplace and install it.
-3.  **Compiler Path Configuration (If Needed)**:
-    *   On first activation (or if the path is not set), the extension will try to auto-detect your QB64 installation.
-    *   If successful, and you confirm by clicking "Yes, use this path" in the notification, the path will be saved in your global settings.
-    *   If auto-detection fails, or you prefer to set it manually:
-        1.  Open VS Code Settings (`Ctrl+,` or `Cmd+,`).
-        2.  Search for `QBasic Nexus Compiler Path`.
-        3.  Enter the **full, absolute path** to your `qb64.exe` (Windows) or `qb64` (macOS/Linux) executable.
-            *   Example Windows: `C:\QB64\qb64.exe`
-            *   Example macOS: `/Applications/qb64/qb64`
-            *   Example Linux: `/home/youruser/qb64/qb64`
-4.  **Open a QBasic File**: Open a file with a `.bas`, `.bi`, `.bm`, or `.inc` extension.
-5.  **Using the Extension**:
-    *   When a QBasic file is active and the compiler path is set, you'll see a **compile icon** in the Status Bar. **Clicking this icon will compile and run the file.**
-    *   If the path is not set, the Status Bar will show **`⚠️ Set QB64 Path`**. Clicking it will open the settings.
+```qbasic
+DIM playerScore AS INTEGER    ' Put cursor on "playerScore"
+playerScore = 100             ' Press F2
+PRINT playerScore             ' Type "score" and press Enter
+                              ' All instances are renamed!
+```
 
-## 📦 Available Commands
+**Before:**
+```qbasic
+DIM playerScore AS INTEGER
+playerScore = 100
+IF playerScore > 50 THEN PRINT "High score!"
+```
 
-*   `qbasic-nexus.compile`:
-    *   **Title in Palette/Menu**: `QBasic: Compile 🔨`
-    *   **Action**: Compiles the currently active QBasic file (`.bas`, `.bi`, `.bm`, `.inc`). Creates an executable in the same directory.
-    *   **Accessed via**: Command Palette, Right-click context menu, `Ctrl+Shift+B`.
+**After pressing F2 and typing "score":**
+```qbasic
+DIM score AS INTEGER
+score = 100
+IF score > 50 THEN PRINT "High score!"
+```
 
-*   `qbasic-nexus.compileAndRun`:
-    *   **Title in Palette/Menu**: `QBasic: Compile & Run 🌀`
-    *   **Action**: Compiles the file. If successful, it runs the program in a new "QBasic Nexus" integrated terminal.
-    *   **Accessed via**: Command Palette, Right-click context menu, **Status Bar icon**, `F5`.
+### 🔍 Find All References (Shift+F12)
 
-## 📄 Understanding the Output
+Quickly find everywhere a variable or function is used.
 
-*   **Output Panel ("QBasic Nexus Compiler" channel)**:
-    *   Shows auto-detection attempts, compiler path information, the exact command being executed, and detailed compilation logs (COMPILE SUCCESSFUL ✅ or COMPILE FAILED ❌, error messages from QB64).
-*   **Terminal Panel ("QBasic Nexus: Run Output" tab)**:
-    *   Displays the output of your running QBasic program (e.g., from `PRINT` statements) when using "Compile & Run".
-*   **Executable File**:
-    *   Created in the same directory as your source `.bas` or `.bi` file.
+**Example:**
+
+```qbasic
+DIM lives AS INTEGER          ' <- Shift+F12 here
+lives = 3
+IF lives > 0 THEN
+    lives = lives - 1         ' All these lines will be listed
+    PRINT "Lives: "; lives
+END IF
+```
+
+### 💡 Document Highlights
+
+When you click on a variable, all other uses of that variable are automatically highlighted.
+
+**Example:**
+
+Click on `score` in line 1, and all `score` references glow:
+
+```qbasic
+DIM score AS INTEGER    ' <- Click here
+score = 0               ' Highlighted
+score = score + 10      ' Both "score" highlighted
+PRINT score             ' Highlighted
+```
+
+### ⚡ Quick Fix Actions
+
+When you have an error, QBasic Nexus can suggest fixes!
+
+**Example 1 - Missing DIM:**
+
+```qbasic
+x = 10    ' Error: 'x' is not defined
+```
+
+💡 Quick Fix appears: **"Add 'DIM x'"**
+
+Click it and the code becomes:
+
+```qbasic
+DIM x
+x = 10
+```
+
+**Example 2 - Missing THEN:**
+
+```qbasic
+IF score > 100    ' Error: THEN expected
+    PRINT "Winner!"
+END IF
+```
+
+💡 Quick Fix: **"Add 'THEN'"**
+
+### 📦 Extract to SUB
+
+Select multiple lines of code and extract them into a reusable SUB.
+
+**Example - Before:**
+
+```qbasic
+CLS
+PRINT "════════════════════"
+PRINT "    MAIN MENU"
+PRINT "════════════════════"
+PRINT "1. New Game"
+PRINT "2. Exit"
+```
+
+**Select lines 2-6, right-click → "Extract to SUB", name it "DrawHeader":**
+
+```qbasic
+CLS
+CALL DrawHeader
+
+SUB DrawHeader
+    PRINT "════════════════════"
+    PRINT "    MAIN MENU"
+    PRINT "════════════════════"
+    PRINT "1. New Game"
+    PRINT "2. Exit"
+END SUB
+```
+
+### 💬 Toggle Comment (Ctrl+/)
+
+Quickly comment or uncomment selected lines.
+
+**Example:**
+
+```qbasic
+FOR i = 1 TO 10       ' Select these 3 lines
+    PRINT i           ' Press Ctrl+/
+NEXT i
+```
+
+**Result:**
+
+```qbasic
+' FOR i = 1 TO 10
+'     PRINT i
+' NEXT i
+```
+
+Press `Ctrl+/` again to uncomment.
+
+### 📊 Code Statistics
+
+View detailed statistics about your code directly in the status bar.
+
+**What it shows:**
+- Total lines of code (excluding comments and blanks)
+- Number of SUBs
+- Number of FUNCTIONs
+
+**Detailed view** (`Ctrl+Shift+I`):
+
+```
+📊 Code Statistics
+
+📄 Lines
+- Total: 250
+- Code: 180
+- Comments: 45
+- Blank: 25
+
+🔧 Structures
+- SUBs: 8
+- FUNCTIONs: 3
+- TYPEs: 2
+- CONSTs: 5
+- DIMs: 15
+- Labels: 2
+
+💾 Size: 6.25 KB
+```
+
+### 🎨 Syntax Highlighting
+
+Beautiful, accurate syntax highlighting for all QBasic/QB64 constructs:
+
+- **Keywords** in blue
+- **Strings** in orange
+- **Numbers** in light green
+- **Comments** in gray/italic
+- **Built-in functions** in purple
+- **Operators** in red
+
+### 📋 70+ Code Snippets
+
+Speed up coding with ready-to-use templates!
+
+**Example - Type `gameloop` + Tab:**
+
+```qbasic
+' Game Loop Template
+DIM running AS INTEGER
+running = -1 ' TRUE
+
+DO WHILE running
+    ' Handle input
+    
+    ' Update game state
+    
+    ' Render
+    CLS
+
+    _DISPLAY
+    
+    ' Check for exit
+    IF _KEYHIT = 27 THEN running = 0 ' ESC to exit
+    
+    _LIMIT 60 ' Limit to 60 FPS
+LOOP
+```
+
+**Example - Type `menu` + Tab:**
+
+```qbasic
+DIM choice AS INTEGER
+
+DO
+    CLS
+    PRINT "═══════════════════════"
+    PRINT "       MAIN MENU"
+    PRINT "═══════════════════════"
+    PRINT
+    PRINT "  1. Option 1"
+    PRINT "  2. Option 2"
+    PRINT "  3. Option 3"
+    PRINT "  0. Exit"
+    PRINT
+    INPUT "Enter choice: ", choice
+    
+    SELECT CASE choice
+        CASE 1
+            ' Handle option 1
+        CASE 2
+            ' Handle option 2
+        CASE 3
+            ' Handle option 3
+    END SELECT
+LOOP UNTIL choice = 0
+```
+
+---
+
+## 🚀 Quick Start Guide
+
+### Step 1: Install QB64 (Optional but Recommended)
+
+1. Download QB64 from [qb64phoenix.com](https://www.qb64phoenix.com/)
+2. Extract to a folder (e.g., `C:\QB64\`)
+3. **macOS/Linux only**: Run the setup script:
+   ```sh
+   # macOS
+   sh ./setup_osx.command
+   
+   # Linux
+   sh ./setup_lnx.sh
+   ```
+
+### Step 2: Install QBasic Nexus Extension
+
+1. Open VS Code
+2. Go to Extensions (`Ctrl+Shift+X`)
+3. Search for "QBasic Nexus"
+4. Click Install
+
+### Step 3: Configure (First Time Only)
+
+1. Open any `.bas` file
+2. If QB64 is needed, click the warning in status bar
+3. Set the path to your QB64 executable
+
+### Step 4: Write and Run!
+
+Create a new file `test.bas`:
+
+```qbasic
+' My First QBasic Program
+CLS
+PRINT "Welcome to QBasic Nexus!"
+PRINT
+INPUT "What is your name? ", name$
+PRINT
+PRINT "Hello, "; name$; "!"
+PRINT "Press any key to exit..."
+SLEEP
+```
+
+Press `F5` to run!
+
+---
+
+## 📝 Usage Examples
+
+### Example 1: Simple Calculator
+
+```qbasic
+' Simple Calculator
+' Demonstrates INPUT, SELECT CASE, and basic operations
+
+CLS
+PRINT "═══════════════════════════════"
+PRINT "      SIMPLE CALCULATOR"
+PRINT "═══════════════════════════════"
+PRINT
+
+INPUT "Enter first number: ", num1
+INPUT "Enter second number: ", num2
+PRINT
+PRINT "Operations: + - * /"
+INPUT "Enter operation: ", op$
+
+SELECT CASE op$
+    CASE "+"
+        result = num1 + num2
+    CASE "-"
+        result = num1 - num2
+    CASE "*"
+        result = num1 * num2
+    CASE "/"
+        IF num2 <> 0 THEN
+            result = num1 / num2
+        ELSE
+            PRINT "Error: Division by zero!"
+            END
+        END IF
+    CASE ELSE
+        PRINT "Unknown operation!"
+        END
+END SELECT
+
+PRINT
+PRINT "Result: "; num1; " "; op$; " "; num2; " = "; result
+```
+
+### Example 2: Graphics Demo (QB64)
+
+```qbasic
+' Graphics Demo - Bouncing Ball
+' Requires QB64 mode
+
+SCREEN _NEWIMAGE(800, 600, 32)
+_TITLE "Bouncing Ball Demo"
+
+' Ball properties
+DIM x AS SINGLE, y AS SINGLE
+DIM dx AS SINGLE, dy AS SINGLE
+DIM radius AS INTEGER
+
+x = 400: y = 300
+dx = 5: dy = 3
+radius = 20
+
+DO
+    CLS
+    
+    ' Draw ball
+    CIRCLE (x, y), radius, _RGB32(255, 100, 100)
+    PAINT (x, y), _RGB32(255, 100, 100), _RGB32(255, 100, 100)
+    
+    ' Move ball
+    x = x + dx
+    y = y + dy
+    
+    ' Bounce off walls
+    IF x - radius < 0 OR x + radius > 800 THEN dx = -dx
+    IF y - radius < 0 OR y + radius > 600 THEN dy = -dy
+    
+    _DISPLAY
+    _LIMIT 60
+LOOP UNTIL _KEYHIT = 27 ' ESC to exit
+```
+
+### Example 3: File Operations
+
+```qbasic
+' File Operations Example
+' Read and write text files
+
+DIM f AS INTEGER
+DIM line$ AS STRING
+
+' Write to file
+f = FREEFILE
+OPEN "notes.txt" FOR OUTPUT AS #f
+PRINT #f, "Line 1: Hello, World!"
+PRINT #f, "Line 2: QBasic is fun!"
+PRINT #f, "Line 3: File I/O example"
+CLOSE #f
+PRINT "File written successfully!"
+PRINT
+
+' Read from file
+IF _FILEEXISTS("notes.txt") THEN
+    f = FREEFILE
+    OPEN "notes.txt" FOR INPUT AS #f
+    PRINT "File contents:"
+    PRINT "─────────────────────"
+    DO UNTIL EOF(f)
+        LINE INPUT #f, line$
+        PRINT line$
+    LOOP
+    CLOSE #f
+ELSE
+    PRINT "File not found!"
+END IF
+```
+
+### Example 4: Using SUB and FUNCTION
+
+```qbasic
+' SUB and FUNCTION Example
+' Demonstrates modular programming
+
+DECLARE SUB DrawBox (x1%, y1%, x2%, y2%)
+DECLARE FUNCTION Factorial& (n%)
+
+CLS
+
+' Use the DrawBox SUB
+CALL DrawBox(5, 2, 40, 10)
+
+' Use the Factorial FUNCTION
+PRINT
+FOR i = 1 TO 10
+    PRINT i; "! = "; Factorial(i)
+NEXT i
+
+END
+
+SUB DrawBox (x1%, y1%, x2%, y2%)
+    ' Draws a box using ASCII characters
+    LOCATE y1%, x1%
+    PRINT CHR$(218); STRING$(x2% - x1% - 1, 196); CHR$(191)
+    
+    FOR row = y1% + 1 TO y2% - 1
+        LOCATE row, x1%
+        PRINT CHR$(179); SPACE$(x2% - x1% - 1); CHR$(179)
+    NEXT row
+    
+    LOCATE y2%, x1%
+    PRINT CHR$(192); STRING$(x2% - x1% - 1, 196); CHR$(217)
+END SUB
+
+FUNCTION Factorial& (n%)
+    IF n% <= 1 THEN
+        Factorial = 1
+    ELSE
+        Factorial = n% * Factorial(n% - 1)
+    END IF
+END FUNCTION
+```
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Action | Windows/Linux | macOS |
+|--------|---------------|-------|
+| **Compile & Run** | `F5` | `F5` |
+| **Compile Only** | `Ctrl+Shift+B` | `Cmd+Shift+B` |
+| **Toggle Comment** | `Ctrl+/` | `Cmd+/` |
+| **Rename Symbol** | `F2` | `F2` |
+| **Find All References** | `Shift+F12` | `Shift+F12` |
+| **Go to Definition** | `F12` or `Ctrl+Click` | `F12` or `Cmd+Click` |
+| **Show Code Statistics** | `Ctrl+Shift+I` | `Cmd+Shift+I` |
+| **Format Document** | `Shift+Alt+F` | `Shift+Option+F` |
+| **Show Suggestions** | `Ctrl+Space` | `Cmd+Space` |
+| **Quick Fix** | `Ctrl+.` | `Cmd+.` |
+
+---
 
 ## 🛠️ Configuration
 
-You can configure the extension via VS Code Settings (search for "QBasic Nexus"):
+Access settings via `File` → `Preferences` → `Settings` → search "QBasic Nexus"
 
-### `qbasic-nexus.compilerMode`
+### Available Settings
 
-Select the compilation mode:
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `compilerPath` | `null` | Full path to QB64 executable |
+| `compilerMode` | `QB64 (Recommended)` | Compilation mode |
+| `compilerArgs` | `""` | Additional QB64 arguments |
+| `enableLinting` | `true` | Real-time syntax checking |
+| `lintDelay` | `500` | Milliseconds before linting |
+| `autoFormatOnSave` | `false` | Auto-format on save |
 
-| Mode | Description |
-|------|-------------|
-| **QB64 (Recommended)** | Compile with QB64 for native executable (best performance) |
-| **Internal (JS Transpiler)** | Transpile to JavaScript and run via Node.js (backup mode) |
+### Example Settings (settings.json)
 
-**Default**: `QB64 (Recommended)`
+```json
+{
+    "qbasic-nexus.compilerPath": "C:\\QB64\\qb64.exe",
+    "qbasic-nexus.compilerMode": "QB64 (Recommended)",
+    "qbasic-nexus.compilerArgs": "-w",
+    "qbasic-nexus.enableLinting": true,
+    "qbasic-nexus.lintDelay": 300
+}
+```
 
-### `qbasic-nexus.compilerPath`
+---
 
-Full path to your QB64 executable.
+## 📋 Snippets Reference
 
-| OS | Example Path |
-|----|--------------|
-| Windows | `C:\QB64\qb64.exe` |
-| macOS | `/Applications/qb64/qb64` or `~/qb64/qb64` |
-| Linux | `/usr/local/bin/qb64` or `~/qb64/qb64` |
+Type the prefix and press `Tab` to insert:
 
-Leave empty to trigger auto-detection on startup.
+### Program Templates
 
-### `qbasic-nexus.compilerArgs`
+| Prefix | Description |
+|--------|-------------|
+| `newqb64` | QB64 program template with screen setup |
+| `newclassic` | Classic QBasic program template |
+| `gameloop` | Game loop with input, update, render |
 
-Optional additional arguments to pass to the QB64 compiler.
+### Control Structures
 
-| Argument | Description |
-|----------|-------------|
-| `-w` | Enable more warnings |
-| `-g` | Include debug symbols |
-| `-prof` | Enable profiling |
+| Prefix | Description |
+|--------|-------------|
+| `if` | IF...THEN...END IF |
+| `ifelse` | IF...THEN...ELSE...END IF |
+| `ifelseif` | IF...ELSEIF...ELSE...END IF |
+| `select` | SELECT CASE block |
+| `for` | FOR...NEXT loop |
+| `forstep` | FOR...NEXT with STEP |
+| `forrev` | FOR...NEXT counting down |
+| `dowhile` | DO WHILE...LOOP |
+| `dountil` | DO UNTIL...LOOP |
+| `while` | WHILE...WEND |
 
-**Default**: Empty (no additional arguments)
+### Procedures
+
+| Prefix | Description |
+|--------|-------------|
+| `sub` | SUB procedure |
+| `subnp` | SUB without parameters |
+| `function` | FUNCTION procedure |
+
+### Variables & Types
+
+| Prefix | Description |
+|--------|-------------|
+| `dim` | DIM array |
+| `dim2d` | DIM 2D array |
+| `dimvar` | DIM variable |
+| `type` | TYPE definition |
+| `const` | CONST declaration |
+
+### I/O Operations
+
+| Prefix | Description |
+|--------|-------------|
+| `print` | PRINT statement |
+| `input` | INPUT statement |
+| `readfile` | Complete file reading loop |
+| `writefile` | Write to file |
+
+### Graphics (QB64)
+
+| Prefix | Description |
+|--------|-------------|
+| `screensetup` | Screen initialization |
+| `line` | Draw line |
+| `circle` | Draw circle |
+| `box` | Draw box outline |
+| `boxf` | Draw filled box |
+| `rgb` | _RGB32 color |
+| `rgba` | _RGBA32 color |
+
+### Sound & Multimedia (QB64)
+
+| Prefix | Description |
+|--------|-------------|
+| `loadsound` | Load and play sound |
+| `loadfont` | Load TrueType font |
+| `qb64image` | Load and display image |
+
+### Utilities
+
+| Prefix | Description |
+|--------|-------------|
+| `random` | Random number generation |
+| `menu` | Complete menu system |
+| `yesno` | Yes/No prompt |
+| `waitkey` | Wait for keypress |
+| `keycheck` | Keyboard input handler |
+| `mousecheck` | Mouse input handler |
+
+### Math Functions
+
+| Prefix | Description |
+|--------|-------------|
+| `pi` | PI constant |
+| `deg2rad` | Degrees to radians function |
+| `rad2deg` | Radians to degrees function |
+| `clamp` | Clamp value function |
+| `lerp` | Linear interpolation function |
+| `distance2d` | 2D distance function |
+
+---
 
 ## 🆘 Troubleshooting
 
-If you encounter issues while compiling, try these steps:
+### Common Issues
 
-1.  **Check the "QBasic Nexus Compiler" Output Panel**:
-    *   This is the first place to look! It provides detailed logs from the compilation process and often contains error messages that point to the root cause.
-    *   Press `Ctrl+Shift+U` (or `Cmd+Shift+U` on Mac) to open the Output panel, then select "QBasic Nexus Compiler" from the dropdown.
+#### "QB64 compiler path is not set"
 
-2.  **Issue: "ERROR: C++ compilation failed. Check ./internal/temp/compilelog.txt for details." (Common on Linux/macOS)**
-    *   **Cause:** QB64 successfully translated your QBasic code to C++, but it failed to compile that C++ code into an executable. This usually means:
-        *   **QB64 Not Set Up Correctly**: You may have missed running the `setup_lnx.sh` or `setup_osx.command` script after unzipping QB64. See the Prerequisites section.
-        *   **C++ Compiler Not Installed/Configured:**
-            *   **Linux:** Ensure `build-essential` (which includes `g++`) is installed: `sudo apt-get install build-essential`.
-            *   **macOS:** Ensure `Xcode Command Line Tools` are installed: `xcode-select --install`.
-    *   **Solution:**
-        1.  **Examine `compilelog.txt`**: This log file is located within your **QB64 installation directory**, inside the `internal/temp/` subfolder (e.g., if QB64 is at `/home/user/qb64/`, the log is at `/home/user/qb64/internal/temp/compilelog.txt`).
-        2.  Open this log file and look for specific error messages from `g++` or `clang`.
-        3.  If unsure, search for these error messages online or ask in QB64 communities.
+**Solution:**
+1. Open Settings (`Ctrl+,`)
+2. Search "QBasic Nexus Compiler Path"
+3. Enter the full path to qb64.exe
 
-3.  **Issue: "QB64 compiler path is not set." or "QB64 compiler not found at the specified path."**
-    *   **Cause:** The extension cannot find your QB64 executable, or it hasn't been made executable by the setup script on Linux/macOS.
-    *   **Solution:**
-        1.  Ensure you have installed and **correctly set up** QB64 by running its setup script (see Prerequisites).
-        2.  Go to VS Code Settings (search for "QBasic Nexus Compiler Path") and enter the correct, full path to your `qb64.exe` (Windows) or `qb64` (Linux/macOS) file.
-        3.  Double-check the path for typos and ensure the file exists at that location.
+**Example paths:**
+- Windows: `C:\QB64\qb64.exe`
+- macOS: `/Applications/QB64/qb64`
+- Linux: `/home/user/qb64/qb64`
 
-4.  **Issue: "Failed to set execute permission on QB64" (Common on Linux/macOS)**
-    *   **Cause:** The QB64 executable file doesn't have execute permissions. This is normally handled by the setup scripts.
-    *   **Solution (Manual Fix):** Run the appropriate setup script (`setup_lnx.sh` or `setup_osx.command`) as described in the Prerequisites section. This is the recommended way. Alternatively, you can manually set the permission:
-        ```sh
-        chmod +x /path/to/your/qb64/qb64
-        ```
+#### "C++ compilation failed" (Linux/macOS)
 
-5.  **Other Issues:**
-    *   Ensure your QBasic code itself has no syntax errors.
-    *   Try compiling your `.bas` file directly from the QB64 IDE (if available) to see if it compiles there normally. This can help isolate whether the issue is with the code, QB64, or the extension's interaction.
+**Cause:** Missing C++ compiler or QB64 not set up.
 
-If you still face issues, please open an issue on the [GitHub Repository Issuse](https://github.com/thirawat27/QBasic-Nexus/issues) and include the full logs from the "QBasic Nexus Compiler" Output Panel and the `compilelog.txt` file (if applicable).
+**Solution:**
+```sh
+# Install C++ compiler
+# Ubuntu/Debian:
+sudo apt-get install build-essential
+
+# macOS:
+xcode-select --install
+
+# Then run QB64 setup:
+cd /path/to/qb64
+sh ./setup_lnx.sh    # Linux
+sh ./setup_osx.command  # macOS
+```
+
+#### Linting is too slow
+
+**Solution:** Increase the lint delay:
+1. Open Settings
+2. Search "QBasic Nexus Lint Delay"
+3. Increase the value (e.g., 1000 ms)
+
+#### IntelliSense not working
+
+**Try these steps:**
+1. Reload VS Code (`Ctrl+Shift+P` → "Reload Window")
+2. Ensure the file has `.bas`, `.bi`, or `.bm` extension
+3. Check that the extension is enabled
+
+---
 
 ## 📄 License
 
 ```
-
 MIT License
 
 Copyright (c) 2025-2026 Thirawat Sinlapasomsak
@@ -242,5 +775,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
 ```
+
+---
+
+<div align="center">
+  <p>Made with ❤️ for the QBasic community</p>
+  <p>
+    <a href="https://github.com/thirawat27/QBasic-Nexus/issues">Report Bug</a> •
+    <a href="https://github.com/thirawat27/QBasic-Nexus/issues">Request Feature</a>
+  </p>
+</div>

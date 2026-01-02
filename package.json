@@ -1,8 +1,8 @@
 {
   "name": "qbasic-nexus",
   "displayName": "QBasic Nexus",
-  "description": "A powerful QBasic/QB64 development environment with syntax highlighting, IntelliSense, code formatting, and seamless compilation.",
-  "version": "1.0.1",
+  "description": "A powerful QBasic/QB64 development environment with syntax highlighting, IntelliSense, code formatting, refactoring, and seamless compilation.",
+  "version": "1.0.2",
   "publisher": "thirawat27",
   "author": "Thirawat27",
   "license": "MIT",
@@ -31,7 +31,9 @@
     "qb64",
     "basic",
     "retro",
-    "compiler"
+    "compiler",
+    "programming",
+    "ide"
   ],
   "activationEvents": [
     "onLanguage:qbasic"
@@ -57,11 +59,28 @@
     "commands": [
       {
         "command": "qbasic-nexus.compile",
-        "title": "QBasic: Compile 🔨"
+        "title": "QBasic: Compile 🔨",
+        "icon": "$(tools)"
       },
       {
         "command": "qbasic-nexus.compileAndRun",
-        "title": "QBasic: Compile & Run 🌀"
+        "title": "QBasic: Compile & Run 🌀",
+        "icon": "$(play)"
+      },
+      {
+        "command": "qbasic-nexus.showCodeStats",
+        "title": "QBasic: Show Code Statistics 📊",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "qbasic-nexus.toggleComment",
+        "title": "QBasic: Toggle Comment 💬",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "qbasic-nexus.extractToSub",
+        "title": "QBasic: Extract to SUB 📦",
+        "icon": "$(symbol-method)"
       }
     ],
     "menus": {
@@ -75,6 +94,16 @@
           "command": "qbasic-nexus.compileAndRun",
           "when": "resourceLangId == qbasic",
           "group": "1_qbasic@2"
+        },
+        {
+          "command": "qbasic-nexus.toggleComment",
+          "when": "resourceLangId == qbasic && editorHasSelection",
+          "group": "1_qbasic@3"
+        },
+        {
+          "command": "qbasic-nexus.extractToSub",
+          "when": "resourceLangId == qbasic && editorHasSelection",
+          "group": "1_qbasic@4"
         }
       ],
       "editor/title": [
@@ -94,6 +123,16 @@
       {
         "command": "qbasic-nexus.compile",
         "key": "ctrl+shift+b",
+        "when": "resourceLangId == qbasic"
+      },
+      {
+        "command": "qbasic-nexus.toggleComment",
+        "key": "ctrl+/",
+        "when": "resourceLangId == qbasic && editorTextFocus"
+      },
+      {
+        "command": "qbasic-nexus.showCodeStats",
+        "key": "ctrl+shift+i",
         "when": "resourceLangId == qbasic"
       }
     ],
@@ -140,6 +179,26 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Additional arguments for the QB64 compiler.\n\n**Examples:** `-w` (warnings), `-g` (debug)",
+          "scope": "resource"
+        },
+        "qbasic-nexus.enableLinting": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable real-time syntax checking and error highlighting.",
+          "scope": "resource"
+        },
+        "qbasic-nexus.lintDelay": {
+          "type": "number",
+          "default": 500,
+          "minimum": 100,
+          "maximum": 3000,
+          "markdownDescription": "Delay in milliseconds before linting after typing stops. Lower values = faster feedback but more CPU usage.",
+          "scope": "resource"
+        },
+        "qbasic-nexus.autoFormatOnSave": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Automatically format the document when saving.",
           "scope": "resource"
         }
       }
