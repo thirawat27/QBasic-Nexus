@@ -2,7 +2,7 @@
   "name": "qbasic-nexus",
   "displayName": "QBasic Nexus",
   "description": "A powerful QBasic/QB64 development environment with syntax highlighting, IntelliSense, code formatting, and seamless compilation.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "thirawat27",
   "author": "Thirawat27",
   "license": "MIT",
