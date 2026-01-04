@@ -4,7 +4,7 @@
  * Tokenizes QBasic source code.
  * 
  * @author Thirawat27
- * @version 1.0.2
+ * @version 1.0.3
  */
 
 'use strict';
@@ -263,8 +263,17 @@ class Lexer {
 
     /** @private */
     _isRem() {
-        const sub = this.src.substring(this.pos, this.pos + 3).toUpperCase();
-        return sub === 'REM' && (this.pos + 3 >= this.len || ' \t\n'.includes(this.src[this.pos + 3]));
+        // Optimized: Check characters directly instead of substring+toUpperCase
+        const c0 = this.src[this.pos];
+        const c1 = this.src[this.pos + 1];
+        const c2 = this.src[this.pos + 2];
+        const c3 = this.src[this.pos + 3];
+        
+        const isRem = (c0 === 'R' || c0 === 'r') &&
+                       (c1 === 'E' || c1 === 'e') &&
+                       (c2 === 'M' || c2 === 'm');
+        
+        return isRem && (this.pos + 3 >= this.len || c3 === ' ' || c3 === '\t' || c3 === '\n');
     }
 
     /** @private */

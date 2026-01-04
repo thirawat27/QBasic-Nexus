@@ -17,7 +17,7 @@
  * - Reference Provider
  * 
  * @author Thirawat27
- * @version 1.0.2
+ * @version 1.0.3
  * @license MIT
  */
 
@@ -53,6 +53,39 @@ const PATTERNS = {
 const symbolCache = new Map();
 const variableCache = new Map();
 const CACHE_TTL = 2000; // 2 seconds
+
+// Pre-built completion items for keywords/functions (immutable, never changes)
+let cachedKeywordItems = null;
+let cachedFunctionItems = null;
+
+function getKeywordCompletionItems() {
+    if (cachedKeywordItems) return cachedKeywordItems;
+    cachedKeywordItems = [];
+    for (const [key, data] of Object.entries(KEYWORDS)) {
+        const item = new vscode.CompletionItem(data.label, vscode.CompletionItemKind.Keyword);
+        item.detail = data.detail;
+        item.sortText = `0_${key}`;
+        cachedKeywordItems.push(item);
+    }
+    return cachedKeywordItems;
+}
+
+function getFunctionCompletionItems() {
+    if (cachedFunctionItems) return cachedFunctionItems;
+    cachedFunctionItems = [];
+    for (const [key, data] of Object.entries(FUNCTIONS)) {
+        const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Function);
+        item.detail = data.detail;
+        item.documentation = new vscode.MarkdownString(data.documentation);
+        if (data.params && data.params.length > 0) {
+            const placeholders = data.params.map((p, i) => `\${${i + 1}:${p}}`).join(', ');
+            item.insertText = new vscode.SnippetString(`${key}(${placeholders})`);
+        }
+        item.sortText = `1_${key}`;
+        cachedFunctionItems.push(item);
+    }
+    return cachedFunctionItems;
+}
 
 function getCachedSymbols(document) {
     const key = document.uri.toString();
@@ -185,27 +218,13 @@ class QBasicDefinitionProvider {
 
 class QBasicCompletionItemProvider {
     provideCompletionItems(document, _position) {
-        const items = [];
+        // Use pre-cached static items for keywords and functions
+        const items = [
+            ...getKeywordCompletionItems(),
+            ...getFunctionCompletionItems()
+        ];
 
-        // Keywords
-        for (const [key, data] of Object.entries(KEYWORDS)) {
-            const item = new vscode.CompletionItem(data.label, vscode.CompletionItemKind.Keyword);
-            item.detail = data.detail;
-            item.sortText = `0_${key}`;
-            items.push(item);
-        }
-
-        // Functions
-        for (const [key, data] of Object.entries(FUNCTIONS)) {
-            const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Function);
-            item.detail = data.detail;
-            item.documentation = new vscode.MarkdownString(data.documentation);
-            item.insertText = new vscode.SnippetString(this._createSnippet(key, data.params));
-            item.sortText = `1_${key}`;
-            items.push(item);
-        }
-
-        // Variables from document
+        // Variables from document (dynamic, needs per-document scan)
         const vars = this._scanVariables(document);
         for (const v of vars) {
             const item = new vscode.CompletionItem(v, vscode.CompletionItemKind.Variable);
@@ -214,7 +233,7 @@ class QBasicCompletionItemProvider {
             items.push(item);
         }
 
-        // User-defined SUBs and FUNCTIONs
+        // User-defined SUBs and FUNCTIONs (dynamic, needs per-document scan)
         const symbols = new QBasicDocumentSymbolProvider().provideDocumentSymbols(document);
         for (const sym of symbols) {
             if (sym.kind === vscode.SymbolKind.Function || sym.kind === vscode.SymbolKind.Method) {

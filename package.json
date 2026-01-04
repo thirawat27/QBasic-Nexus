@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "Modern QBasic/QB64 support for VS Code with IntelliSense, linting, formatting, and visualization.",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "publisher": "thirawat27",
     "author": "Thirawat27",
     "license": "MIT",

@@ -1,13 +1,13 @@
 /**
- * QBasic Nexus - Webview Runtime v1.0.2
+ * QBasic Nexus - Webview Runtime v1.0.3
  * =====================================
  * Clean, simple, and reliable CRT runtime for QBasic programs.
  * 
  * @author Thirawat27
- * @version 1.0.2
+ * @version 1.0.3
  */
 
-/* global requestAnimationFrame, Image, Audio */
+/* global requestAnimationFrame, cancelAnimationFrame, Image, Audio */
 
 (function() {
     'use strict';
@@ -225,6 +225,22 @@
     // SCREEN FUNCTIONS
     // =========================================================================
     
+    // Print batching for performance - reduces DOM reflows
+    let printBatch = null;
+    let printBatchTimer = null;
+    const _BATCH_DELAY = 16; // ~60fps (for documentation)
+
+    function flushPrintBatch() {
+        if (printBatch && printBatch.childNodes.length > 0) {
+            screen.appendChild(printBatch);
+            printBatch = null;
+            
+            // Single scroll at end of batch
+            screen.scrollTop = screen.scrollHeight;
+        }
+        printBatchTimer = null;
+    }
+
     function createSpan(text, fg = fgColor, bg = bgColor) {
         const span = document.createElement('span');
         span.textContent = text;
@@ -238,18 +254,32 @@
     function print(text, newline = true) {
         const content = String(text);
         const span = createSpan(content + (newline ? '\n' : ''));
-        screen.appendChild(span);
         
-        // Auto-scroll
-        requestAnimationFrame(() => {
-            screen.scrollTop = screen.scrollHeight;
-        });
+        // Batch DOM operations
+        if (!printBatch) {
+            printBatch = document.createDocumentFragment();
+        }
+        printBatch.appendChild(span);
+        
+        // Schedule flush
+        if (!printBatchTimer) {
+            printBatchTimer = requestAnimationFrame(flushPrintBatch);
+        }
         
         // Send to extension for quest checking
         vscode.postMessage({ type: 'check_output', content: content });
     }
 
     function cls() {
+        // Clear pending batch to avoid ghost text
+        if (printBatch) {
+            printBatch = null;
+        }
+        if (printBatchTimer) {
+            cancelAnimationFrame(printBatchTimer);
+            printBatchTimer = null;
+        }
+
         screen.innerHTML = '';
         cursorRow = 1;
         cursorCol = 1;
@@ -520,6 +550,7 @@
     }
 
     function showError(msg) {
+        flushPrintBatch(); // Ensure previous output is visible
         const span = document.createElement('span');
         span.textContent = '\n❌ Runtime Error: ' + msg + '\n';
         span.style.color = '#FF5555';
@@ -532,6 +563,8 @@
     
     async function input(prompt = '') {
         return new Promise((resolve) => {
+            flushPrintBatch(); // Force flush so prompt appears before input box
+
             // Print prompt
             if (prompt) {
                 const promptSpan = createSpan(prompt);
