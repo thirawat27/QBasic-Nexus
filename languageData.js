@@ -488,23 +488,4 @@ const FUNCTIONS = {
 // QB64 METACOMMANDS
 // ============================================================================
 
-const METACOMMANDS = {
-    '$INCLUDE': { label: '$INCLUDE', detail: 'Include external source file' },
-    '$DYNAMIC': { label: '$DYNAMIC', detail: 'Make arrays dynamic by default' },
-    '$STATIC': { label: '$STATIC', detail: 'Make arrays static by default' },
-    '$LET': { label: '$LET', detail: 'Define preprocessor variable' },
-    '$IF': { label: '$IF', detail: 'Conditional compilation' },
-    '$ELSE': { label: '$ELSE', detail: 'Else branch for $IF' },
-    '$ELSEIF': { label: '$ELSEIF', detail: 'Else-if for $IF' },
-    '$END IF': { label: '$END IF', detail: 'End conditional compilation' },
-    '$ERROR': { label: '$ERROR', detail: 'Generate compile-time error' },
-    '$CHECKING': { label: '$CHECKING', detail: 'Toggle runtime checks' },
-    '$CONSOLE': { label: '$CONSOLE', detail: 'Enable console window' },
-    '$SCREENHIDE': { label: '$SCREENHIDE', detail: 'Hide graphics window at start' },
-    '$SCREENSHOW': { label: '$SCREENSHOW', detail: 'Show graphics window at start' },
-    '$RESIZE': { label: '$RESIZE', detail: 'Enable window resizing' },
-    '$VERSIONINFO': { label: '$VERSIONINFO', detail: 'Set EXE version info' },
-    '$EXEICON': { label: '$EXEICON', detail: 'Set EXE icon' }
-};
-
-module.exports = { KEYWORDS, FUNCTIONS, METACOMMANDS };
+module.exports = { KEYWORDS, FUNCTIONS };

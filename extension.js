@@ -45,7 +45,9 @@ const {
     QBasicOnTypeFormattingEditProvider,
     invalidateCache
 } = require('./providers');
-const InternalTranspiler = require('./transpiler');
+const InternalTranspiler = require('./src/compiler/transpiler');
+const WebviewManager = require('./src/managers/WebviewManager');
+const TutorialManager = require('./src/managers/TutorialManager');
 
 // ============================================================================
 // CONSTANTS
@@ -63,12 +65,16 @@ const CONFIG = Object.freeze({
     MODE_INTERNAL: 'Internal (JS Transpiler)',
     LANGUAGE_ID: 'qbasic',
     OUTPUT_CHANNEL: 'QBasic Nexus',
-    TERMINAL_NAME: 'QBasic Nexus'
+    TERMINAL_NAME: 'QBasic Nexus',
+    CMD_RETRO: 'qbasic-nexus.runInCrt',
+    CMD_TUTORIAL: 'qbasic-nexus.startTutorial'
 });
 
 const COMMANDS = Object.freeze({
     COMPILE: 'qbasic-nexus.compile',
     COMPILE_RUN: 'qbasic-nexus.compileAndRun',
+    RUN_CRT: 'qbasic-nexus.runInCrt',
+    START_TUTORIAL: 'qbasic-nexus.startTutorial',
     EXTRACT_SUB: 'qbasic-nexus.extractToSub',
     SHOW_STATS: 'qbasic-nexus.showCodeStats',
     TOGGLE_COMMENT: 'qbasic-nexus.toggleComment'
@@ -85,6 +91,7 @@ let terminal = null;
 let diagnosticCollection = null;
 let isCompiling = false;
 let lintTimer = null;
+let extensionContext = null;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -102,15 +109,24 @@ function debounce(fn, delay) {
 }
 
 /**
- * Create a throttled version of a function
+ * Create a throttled version of a function with trailing call support
  */
 function throttle(fn, limit) {
     let inThrottle = false;
+    let lastArgs = null;
     return (...args) => {
         if (!inThrottle) {
             fn(...args);
             inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
+            setTimeout(() => {
+                inThrottle = false;
+                if (lastArgs) {
+                    fn(...lastArgs);
+                    lastArgs = null;
+                }
+            }, limit);
+        } else {
+            lastArgs = args; // Save latest args for trailing call
         }
     };
 }
@@ -259,6 +275,11 @@ async function activate(context) {
     console.log('[QBasic Nexus] ⚡ Extension activated');
     const startTime = Date.now();
 
+    extensionContext = context;
+    
+    // Initialize Tutorial Manager with WebviewManager reference
+    TutorialManager.setWebviewManager(WebviewManager);
+    
     // Initialize diagnostic collection
     diagnosticCollection = vscode.languages.createDiagnosticCollection('qbasic-nexus');
     context.subscriptions.push(diagnosticCollection);
@@ -294,13 +315,16 @@ async function activate(context) {
                 vscode.CodeActionKind.RefactorExtract
             ]
         }),
-        vscode.languages.registerReferenceProvider(selector, new QBasicReferenceProvider())
+        vscode.languages.registerReferenceProvider(selector, new QBasicReferenceProvider()),
+        vscode.languages.registerOnTypeFormattingEditProvider(selector, new QBasicOnTypeFormattingEditProvider(), '\n')
     );
 
     // Register commands
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.COMPILE, () => executeCompile(false)),
         vscode.commands.registerCommand(COMMANDS.COMPILE_RUN, () => executeCompile(true)),
+        vscode.commands.registerCommand(COMMANDS.RUN_CRT, runInCrt),
+        vscode.commands.registerCommand(COMMANDS.START_TUTORIAL, () => TutorialManager.startTutorial(extensionContext)),
         vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
         vscode.commands.registerCommand(COMMANDS.TOGGLE_COMMENT, toggleComment),
         vscode.commands.registerCommand(COMMANDS.EXTRACT_SUB, extractToSub)
@@ -404,27 +428,7 @@ async function showCodeStatsDetail() {
     stats.dimStatements = (text.match(/^\s*DIM\s+/gim) || []).length;
     stats.labels = (text.match(/^[a-zA-Z_]\w*:/gm) || []).length;
 
-    const fileSizeKB = (stats.fileSize / 1024).toFixed(2);
-    
-    const message = `
-📊 **Code Statistics**
 
-📄 **Lines**
-- Total: ${stats.totalLines}
-- Code: ${stats.codeLines}
-- Comments: ${stats.commentLines}
-- Blank: ${stats.blankLines}
-
-🔧 **Structures**
-- SUBs: ${stats.subs}
-- FUNCTIONs: ${stats.functions}
-- TYPEs: ${stats.types}
-- CONSTs: ${stats.constants}
-- DIMs: ${stats.dimStatements}
-- Labels: ${stats.labels}
-
-💾 **Size**: ${fileSizeKB} KB
-    `.trim();
 
     vscode.window.showInformationMessage(`📊 Code Stats: ${stats.codeLines} code lines, ${stats.subs} SUBs, ${stats.functions} FUNCTIONs`);
 }
@@ -546,6 +550,43 @@ async function executeCompile(shouldRun) {
     }
 }
 
+
+// ============================================================================
+// CRT RUNNER (NEW FEATURE)
+// ============================================================================
+
+async function runInCrt() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) {
+        vscode.window.showWarningMessage('📄 Please open a QBasic file first.');
+        return;
+    }
+
+    const document = editor.document;
+    const sourceCode = document.getText();
+    const fileName = path.basename(document.uri.fsPath);
+
+    // Save if dirty
+    if (document.isDirty) await document.save();
+
+    try {
+        log('Transpiling for CRT Webview...', 'info');
+        
+        // Transpile with 'web' target
+        const transpiler = new InternalTranspiler();
+        const jsCode = transpiler.transpile(sourceCode, 'web');
+
+        // Launch Webview
+        await WebviewManager.runCode(jsCode, fileName, extensionContext.extensionUri);
+        
+        log('Launched Retro CRT 📺', 'success');
+
+    } catch (error) {
+        vscode.window.showErrorMessage(`❌ Failed to run in CRT: ${error.message}`);
+        log(`CRT Error: ${error.message}`, 'error');
+    }
+}
+
 // ============================================================================
 // INTERNAL TRANSPILER
 // ============================================================================
@@ -661,8 +702,8 @@ async function runQB64Compiler(document, shouldRun) {
         if (shouldRun && outputPath) {
             runExecutable(outputPath);
         }
-    } catch (error) {
-        vscode.window.showErrorMessage(`❌ Compilation failed. Check output for details.`);
+    } catch (_error) {
+        vscode.window.showErrorMessage('❌ Compilation failed. Check output for details.');
     } finally {
         isCompiling = false;
         updateStatusBar();
@@ -756,7 +797,7 @@ function parseCompilerErrors(output, uri) {
     const filename = path.basename(uri.fsPath).toLowerCase();
 
     // Pattern: filename.bas:line: error message
-    const pattern = /([^\\/]+\.(?:bas|bi|bm))[:\(](\d+)(?:[:\)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi;
+    const pattern = /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi;
 
     let match;
     while ((match = pattern.exec(output)) !== null) {
@@ -783,6 +824,7 @@ function parseCompilerErrors(output, uri) {
 
 /**
  * Run compiled executable
+ * @param {string} exePath - Full path to the executable
  */
 function runExecutable(exePath) {
     const term = getTerminal();
@@ -791,10 +833,18 @@ function runExecutable(exePath) {
     const dir = path.dirname(exePath);
     const exe = path.basename(exePath);
 
+    // Build platform-specific command
+    // PowerShell uses semicolon, cmd uses &&, Unix uses &&
     if (process.platform === 'win32') {
-        term.sendText(`cd "${dir}" ; .\\"${exe}"`);
+        // Use PowerShell syntax with proper escaping
+        // Set-Location handles paths with spaces, then run the exe
+        term.sendText(`Set-Location -LiteralPath '${dir}'; & '.\\${exe}'`);
+    } else if (process.platform === 'darwin') {
+        // macOS - use bash with proper quoting
+        term.sendText(`cd '${dir}' && './${exe}'`);
     } else {
-        term.sendText(`cd "${dir}" && ./"${exe}"`);
+        // Linux and others
+        term.sendText(`cd '${dir}' && './${exe}'`);
     }
 }
 
@@ -824,7 +874,10 @@ function updateStatusBar() {
     } else if (!compilerPath) {
         statusBarItem.text = '$(warning) Configure QB64';
         statusBarItem.tooltip = 'Click to set QB64 path';
-        statusBarItem.command = 'workbench.action.openSettings';
+        statusBarItem.command = {
+            command: 'workbench.action.openSettings',
+            arguments: [`${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`]
+        };
         statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     } else {
         statusBarItem.text = '$(flame) Run ⚡';
@@ -854,6 +907,15 @@ function deactivate() {
     statsBarItem?.dispose();
     outputChannel?.dispose();
     diagnosticCollection?.dispose();
+    terminal?.dispose();
+    
+    // Clear references
+    statusBarItem = null;
+    statsBarItem = null;
+    outputChannel = null;
+    diagnosticCollection = null;
+    terminal = null;
+    extensionContext = null;
 }
 
 module.exports = { activate, deactivate };

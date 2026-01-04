@@ -184,7 +184,7 @@ class QBasicDefinitionProvider {
 // ============================================================================
 
 class QBasicCompletionItemProvider {
-    provideCompletionItems(document, position) {
+    provideCompletionItems(document, _position) {
         const items = [];
 
         // Keywords
@@ -569,7 +569,7 @@ class QBasicCodeActionProvider {
                 const line = document.lineAt(diagnostic.range.start.line);
                 if (/\bIF\b/i.test(line.text) && !/\bTHEN\b/i.test(line.text)) {
                     const thenAction = new vscode.CodeAction(
-                        `Add 'THEN'`,
+                        'Add \'THEN\'',
                         vscode.CodeActionKind.QuickFix
                     );
                     thenAction.edit = new vscode.WorkspaceEdit();
@@ -586,7 +586,7 @@ class QBasicCodeActionProvider {
             // Suggest END IF for unclosed IF
             if (message.includes('end if') || message.includes('unclosed if')) {
                 const endIfAction = new vscode.CodeAction(
-                    `Add 'END IF'`,
+                    'Add \'END IF\'',
                     vscode.CodeActionKind.QuickFix
                 );
                 endIfAction.edit = new vscode.WorkspaceEdit();
@@ -671,32 +671,60 @@ class QBasicReferenceProvider {
 // ============================================================================
 
 class QBasicOnTypeFormattingEditProvider {
+    /**
+     * Provides on-type formatting edits (triggered after newline)
+     * @param {vscode.TextDocument} document 
+     * @param {vscode.Position} position 
+     * @param {string} ch - The character that triggered formatting
+     * @returns {vscode.TextEdit[]}
+     */
     provideOnTypeFormattingEdits(document, position, ch) {
-        const edits = [];
-        const line = document.lineAt(position.line);
-        const lineText = line.text;
-        const trimmed = lineText.trim().toUpperCase();
+        if (ch !== '\n' || position.line === 0) {
+            return [];
+        }
 
-        // Auto-complete END statements
-        if (ch === '\n') {
-            const prevLine = position.line > 0 ? document.lineAt(position.line - 1).text : '';
-            const prevTrimmed = prevLine.trim().toUpperCase();
+        const prevLine = document.lineAt(position.line - 1).text;
+        const prevTrimmed = prevLine.trim().toUpperCase();
+        const indent = prevLine.match(/^\s*/)?.[0] || '';
+        const tabUnit = '    '; // 4 spaces
 
-            // Get current indentation
-            const indent = prevLine.match(/^\s*/)?.[0] || '';
+        // Auto-indent after block-starting statements
+        const blockStarters = [
+            /^IF\b.+\bTHEN\s*$/,        // IF...THEN (multi-line)
+            /^FOR\b/,                    // FOR loop
+            /^DO\b/,                     // DO loop
+            /^WHILE\b/,                  // WHILE loop
+            /^SELECT\s+CASE\b/,          // SELECT CASE
+            /^SUB\b/,                    // SUB definition
+            /^FUNCTION\b/,               // FUNCTION definition
+            /^TYPE\b/                    // TYPE definition
+        ];
 
-            if (prevTrimmed.startsWith('IF ') && prevTrimmed.endsWith('THEN')) {
-                // Don't auto-insert END IF - let user decide
-            } else if (prevTrimmed.startsWith('FOR ')) {
-                // Auto-insert matching NEXT
-                const varMatch = prevTrimmed.match(/^FOR\s+([A-Z_][A-Z0-9_]*)/);
-                if (varMatch) {
-                    // edits.push(vscode.TextEdit.insert(position, `${indent}NEXT ${varMatch[1]}\n`));
-                }
+        for (const pattern of blockStarters) {
+            if (pattern.test(prevTrimmed)) {
+                return [
+                    vscode.TextEdit.insert(position, indent + tabUnit)
+                ];
             }
         }
 
-        return edits;
+        // Maintain indent for CASE statements
+        if (/^CASE\b/.test(prevTrimmed)) {
+            return [
+                vscode.TextEdit.insert(position, indent + tabUnit)
+            ];
+        }
+
+        // Decrease indent after END/NEXT/LOOP/WEND
+        const blockEnders = /^(END\s+(?:IF|SUB|FUNCTION|TYPE|SELECT)|NEXT|LOOP|WEND)\b/;
+        if (blockEnders.test(prevTrimmed)) {
+            // Maintain same indent as the END statement
+            return [
+                vscode.TextEdit.insert(position, indent)
+            ];
+        }
+
+        return [];
     }
 }
 

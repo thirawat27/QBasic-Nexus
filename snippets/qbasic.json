@@ -738,21 +738,21 @@
 	"Metacommand Include": {
 		"prefix": "$include",
 		"body": [
-			"'$INCLUDE: '${1:filename.bi}'"
+			"'\\$INCLUDE: '${1:filename.bi}'"
 		],
 		"description": "Includes an external source file."
 	},
 	"Metacommand Dynamic": {
 		"prefix": "$dynamic",
 		"body": [
-			"'$DYNAMIC"
+			"'\\$DYNAMIC"
 		],
 		"description": "Makes arrays dynamic by default."
 	},
 	"Metacommand Console": {
 		"prefix": "$console",
 		"body": [
-			"$CONSOLE",
+			"\\$CONSOLE",
 			"_CONSOLE ON"
 		],
 		"description": "Enables the console window in QB64."
@@ -760,11 +760,11 @@
 	"Conditional Compilation": {
 		"prefix": "$if",
 		"body": [
-			"$IF ${1:WINDOWS} THEN",
+			"\\$IF ${1:WINDOWS} THEN",
 			"\t$2",
-			"$ELSE",
+			"\\$ELSE",
 			"\t$3",
-			"$END IF",
+			"\\$END IF",
 			"$0"
 		],
 		"description": "Conditional compilation for cross-platform code."

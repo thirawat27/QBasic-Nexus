@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-eval'; img-src {{cspSource}} data:;">
+    <title>QBasic Nexus CRT</title>
+    <link rel="stylesheet" href="{{cssUri}}">
+</head>
+
+<body>
+    <div id="monitor">
+        <div id="screen"></div>
+        <div id="quest-hud">
+            <div id="quest-title">CURRENT OBJECTIVE</div>
+            <div id="quest-desc">Loading...</div>
+        </div>
+        <div id="scanlines"></div>
+        <div id="flicker"></div>
+        <div id="overlay"></div>
+    </div>
+    <script src="{{jsUri}}"></script>
+</body>
+
+</html>

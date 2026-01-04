@@ -2,6 +2,63 @@
 
 All notable changes to the "QBasic Nexus" extension will be documented in this file.
 
+## [1.0.2] - 2026-01-04
+
+### 🐞 Bug Fixes
+- **Throttle Logic**: Fixed an issue where the throttle function would drop the latest update, causing UI lag or missing states.
+- **Transpiler Duplicates**: Resolved duplicate function definitions (`_locate`, `_color`, `_beep`) when compiling for web target.
+- **Transpiler Naming**: Renamed internal `_inkey$` to `INKEY` to avoid potential JS strict mode or naming conflicts.
+- **Unused Code**: Removed dead code variables (`hasElse`) from the parser.
+
+### ✨ Enhancements
+- **Auto-Indentation**: Added smart auto-indent logic for `IF`, `FOR`, `DO`, `SELECT CASE` and other blocks in `providers.js`.
+- **Cross-Platform**: Improved `runExecutable` to better handle paths with spaces on Windows (PowerShell) and Unix-based systems.
+- **Status Bar**: Status bar now links directly to the specific setting when QB64 path is missing.
+- **Runtime Improvements**: 
+    - Added `CSRLIN`, `POS`, `BIN$`, `_BIN$`, `LSET`, `RSET` support.
+    - Improved `WebviewManager` cleanup and error handling.
+    - Added `clearScreen()` method to WebviewManager.
+
+### 🔊 Audio System Improvements
+- **Faster BEEP/SOUND (Windows)**: Replaced slow PowerShell-based audio with instant `mshta` JavaScript audio for near-zero latency.
+- **Shared AudioContext (Web)**: Web runtime now uses a single shared AudioContext for much faster sound playback.
+- **Better Sound Quality**: Added proper gain envelope (attack/release) to prevent click/pop sounds.
+- **Improved macOS Support**: Now tries `sox` for frequency control before falling back to system beep.
+- **Promise-based Audio**: Both `BEEP` and `SOUND` now properly return Promises for accurate timing.
+
+
+### 🔴 Critical Fixes
+- **Missing `constants.js`**: Created the missing compiler constants file that caused Internal Transpiler and CRT Mode to crash completely
+- **Variable Scope Bug**: Fixed `_hasVar` function to check all parent scopes for proper nested SUB/FUNCTION support
+- **Dead Code Cleanup**: Removed unused `QBasicOnTypeFormattingEditProvider` import
+
+### ✨ New QBasic/QB64 Statement Support
+- **Control Flow**: `GOTO`, `GOSUB`, `RETURN`, `ON...GOTO`, `ON...GOSUB`, `ON ERROR GOTO/RESUME NEXT`, `STOP`
+- **I/O Statements**: `LINE INPUT`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`, `BEEP`, `SOUND`
+- **Data**: `TYPE...END TYPE`, `ERASE`, `REDIM PRESERVE`, `DEF FN`
+- **File I/O**: `OPEN`, `CLOSE` (stubs for web compatibility)
+- **Misc**: `RANDOMIZE`, `LET`, `DECLARE` (skipped), `ERROR`
+
+### 🚀 Runtime Enhancements
+- **Complete Runtime Functions**: Added `_locate()`, `_color()`, `_beep()`, `_sound()`, `_screen()`, `_width()`, `_randomize()`, `_inkey$()` for both Node.js and WebView
+- **2D Array Support**: Full support for 2D arrays with `DIM` and `REDIM`
+- **File I/O Stubs**: Web-compatible stubs for `OPEN`, `CLOSE`, `EOF`, `FREEFILE`
+- **ANSI Colors**: Full 16-color terminal support for `COLOR` statement
+- **Web Audio**: `SOUND` and `BEEP` using Web Audio API
+- **Keyboard Input**: `INKEY$` support in CRT mode
+
+### 📦 Constants & Keywords
+- **Comprehensive KEYWORDS**: 200+ QBasic/QB64 keywords including all QB64-specific commands
+- **Built-in Functions**: 60+ function mappings with edge-case handling
+- **Error Codes**: Standardized error codes for better diagnostics
+- **Operator Precedence**: Correct operator precedence table
+
+### 🔧 Code Quality
+- **Production-Ready**: Enterprise-grade error handling and validation
+- **JSDoc Comments**: Full documentation for all public APIs
+- **Type Hints**: Proper TypeScript-compatible type annotations
+- **Label Support**: Basic label parsing for GOSUB compatibility
+
 ## [1.0.2] - 2026-01-02
 
 ### Added

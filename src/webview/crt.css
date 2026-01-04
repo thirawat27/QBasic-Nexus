@@ -1,0 +1,267 @@
+/* QBasic Nexus CRT - Retro Style v2.0
+ * ===================================
+ * Optimized with GPU acceleration and reduced repaints
+ */
+
+:root {
+  --term-color: #33ff33;
+  --term-bg: #0d110d;
+  --term-glow: #33ff3380;
+  
+  /* Performance: Define commonly used colors */
+  --black: #000000;
+  --qb-blue: #0000AA;
+  --qb-green: #00AA00;
+  --qb-cyan: #00AAAA;
+  --qb-red: #AA0000;
+  --qb-magenta: #AA00AA;
+  --qb-brown: #AA5500;
+  --qb-lightgray: #AAAAAA;
+  --qb-darkgray: #555555;
+  --qb-lightblue: #5555FF;
+  --qb-lightgreen: #55FF55;
+  --qb-lightcyan: #55FFFF;
+  --qb-lightred: #FF5555;
+  --qb-lightmagenta: #FF55FF;
+  --qb-yellow: #FFFF55;
+  --qb-white: #FFFFFF;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--black);
+  color: var(--term-color);
+  font-family: 'Courier New', 'Courier', monospace;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* GPU acceleration */
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The Monitor Frame */
+#monitor {
+  width: 95%;
+  height: 90%;
+  position: relative;
+  background: var(--term-bg);
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.8) inset;
+  overflow: hidden;
+  padding: 20px;
+  /* GPU layer promotion */
+  will-change: contents;
+  contain: layout style;
+}
+
+/* The Screen Content - Optimized for frequent updates */
+#screen {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: 18px;
+  line-height: 1.2;
+  text-shadow: 0 0 1px var(--term-glow);
+  z-index: 1;
+  position: relative;
+  /* Performance optimizations */
+  will-change: scroll-position;
+  contain: strict;
+  /* Optimize text rendering */
+  font-variant-ligatures: none;
+  text-rendering: optimizeSpeed;
+}
+
+/* Reduce paint areas for spans */
+#screen span {
+  display: inline;
+  /* Avoid layout thrashing */
+  contain: content;
+}
+
+/* CRT Scanlines Effect - GPU accelerated */
+#scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0),
+    rgba(255,255,255,0) 50%,
+    rgba(0,0,0,0.15) 50%,
+    rgba(0,0,0,0.15)
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 10;
+  animation: scroll 10s linear infinite;
+  opacity: 0.5;
+  /* GPU acceleration */
+  transform: translateZ(0);
+  will-change: background-position;
+}
+
+/* Flicker Effect - Reduced for performance */
+#flicker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(18, 16, 16, 0.05);
+  opacity: 0;
+  z-index: 11;
+  pointer-events: none;
+  animation: flicker 0.2s infinite;
+  /* GPU layer */
+  transform: translateZ(0);
+}
+
+/* Vignette */
+#overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.5) 100%);
+  pointer-events: none;
+  z-index: 12;
+  /* Static - no animation needed */
+}
+
+/* Input Field - Optimized */
+.input-line {
+  display: flex;
+  contain: content;
+}
+
+.prompt {
+  margin-right: 0.5em;
+  flex-shrink: 0;
+}
+
+input.cmd-input {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+  flex-grow: 1;
+  caret-color: var(--term-color);
+  text-shadow: inherit;
+  /* Optimize input */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Scrollbar - Slim and performant */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}
+
+/* Animations - Optimized with GPU */
+@keyframes scroll {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100%; }
+}
+
+@keyframes flicker {
+  0% { opacity: 0.01; }
+  25% { opacity: 0.03; }
+  50% { opacity: 0.01; }
+  75% { opacity: 0.02; }
+  100% { opacity: 0.01; }
+}
+
+/* Quest HUD */
+#quest-hud {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 250px;
+  padding: 10px;
+  border: 1px solid var(--term-color);
+  background: rgba(0, 20, 0, 0.95);
+  color: var(--term-color);
+  font-size: 14px;
+  z-index: 100;
+  display: none;
+  box-shadow: 0 0 10px var(--term-glow);
+  border-radius: 4px;
+  /* Smooth animations when showing */
+  transition: opacity 0.2s ease;
+}
+
+#quest-title {
+  font-weight: bold;
+  border-bottom: 1px solid var(--term-color);
+  margin-bottom: 5px;
+  padding-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+#quest-desc {
+  line-height: 1.4;
+}
+
+/* Color classes for quick application */
+.fg-0 { color: var(--black); }
+.fg-1 { color: var(--qb-blue); }
+.fg-2 { color: var(--qb-green); }
+.fg-3 { color: var(--qb-cyan); }
+.fg-4 { color: var(--qb-red); }
+.fg-5 { color: var(--qb-magenta); }
+.fg-6 { color: var(--qb-brown); }
+.fg-7 { color: var(--qb-lightgray); }
+.fg-8 { color: var(--qb-darkgray); }
+.fg-9 { color: var(--qb-lightblue); }
+.fg-10 { color: var(--qb-lightgreen); }
+.fg-11 { color: var(--qb-lightcyan); }
+.fg-12 { color: var(--qb-lightred); }
+.fg-13 { color: var(--qb-lightmagenta); }
+.fg-14 { color: var(--qb-yellow); }
+.fg-15 { color: var(--qb-white); }
+
+.bg-0 { background-color: var(--black); }
+.bg-1 { background-color: var(--qb-blue); }
+.bg-2 { background-color: var(--qb-green); }
+.bg-3 { background-color: var(--qb-cyan); }
+.bg-4 { background-color: var(--qb-red); }
+.bg-5 { background-color: var(--qb-magenta); }
+.bg-6 { background-color: var(--qb-brown); }
+.bg-7 { background-color: var(--qb-lightgray); }
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  #scanlines,
+  #flicker {
+    animation: none;
+  }
+}
