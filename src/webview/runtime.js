@@ -1,13 +1,13 @@
 /**
- * QBasic Nexus - Webview Runtime v2.1
- * ===================================
+ * QBasic Nexus - Webview Runtime v1.0.2
+ * =====================================
  * Clean, simple, and reliable CRT runtime for QBasic programs.
  * 
  * @author Thirawat27
- * @version 2.1.0
+ * @version 1.0.2
  */
 
-/* global requestAnimationFrame */
+/* global requestAnimationFrame, Image, Audio */
 
 (function() {
     'use strict';
@@ -18,6 +18,10 @@
     
     const vscode = acquireVsCodeApi();
     const screen = document.getElementById('screen');
+    const canvas = document.getElementById('gfx-layer'); // Ensure canvas is available here too if needed
+    
+    // Global directives for linters
+    /* global localStorage */
 
     // =========================================================================
     // STATE
@@ -38,116 +42,184 @@
     ];
 
     // =========================================================================
-    // AUDIO ENGINE (Simple)
+    // AUDIO ENGINE (Adapted from qbjs-main)
     // =========================================================================
     
-    let audioCtx = null;
-
-    function getAudioContext() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    class QBasicSound {
+        constructor() {
+            this.octave = 4;
+            this.noteLength = 4;
+            this.tempo = 120;
+            this.mode = 7 / 8;
+            this.foreground = true;
+            this.type = 'square';
+            this._audioContext = null;
         }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-        return audioCtx;
-    }
 
-    async function playSound(freq, durationMs) {
-        if (freq <= 0) {
-            return new Promise(r => setTimeout(r, durationMs));
-        }
-        
-        const ctx = getAudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.type = 'square';
-        osc.frequency.value = freq;
-        gain.gain.value = 0.1;
-        
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        
-        osc.start();
-        
-        return new Promise(resolve => {
-            setTimeout(() => {
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-                setTimeout(() => {
-                    osc.stop();
-                    osc.disconnect();
-                    resolve();
-                }, 50);
-            }, durationMs);
-        });
-    }
-
-    async function playBeep() {
-        await playSound(800, 200);
-    }
-
-    // MML PLAY command (simplified)
-    async function playMML(commands) {
-        getAudioContext(); // Ensure audio context is ready
-        let octave = 4;
-        let noteLen = 4;
-        let tempo = 120;
-        
-        const noteFreqs = { 'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11 };
-        
-        const str = String(commands).toUpperCase();
-        let i = 0;
-        
-        while (i < str.length) {
-            const ch = str[i];
-            i++;
-            
-            if (ch === 'O' && /\d/.test(str[i])) {
-                octave = parseInt(str[i]);
-                i++;
-            } else if (ch === 'L' && /\d/.test(str[i])) {
-                let num = '';
-                while (/\d/.test(str[i])) num += str[i++];
-                noteLen = parseInt(num) || 4;
-            } else if (ch === 'T' && /\d/.test(str[i])) {
-                let num = '';
-                while (/\d/.test(str[i])) num += str[i++];
-                tempo = parseInt(num) || 120;
-            } else if (ch === 'P' || ch === 'R') {
-                let num = '';
-                while (/\d/.test(str[i])) num += str[i++];
-                const len = parseInt(num) || noteLen;
-                const ms = (240000 / tempo) / len;
-                await new Promise(r => setTimeout(r, ms));
-            } else if (noteFreqs[ch] !== undefined) {
-                let semitone = noteFreqs[ch];
-                
-                // Check for sharp/flat
-                if (str[i] === '+' || str[i] === '#') { semitone++; i++; }
-                else if (str[i] === '-') { semitone--; i++; }
-                
-                // Check for length
-                let len = noteLen;
-                let num = '';
-                while (/\d/.test(str[i])) num += str[i++];
-                if (num) len = parseInt(num);
-                
-                // Check for dot
-                let dotMult = 1;
-                if (str[i] === '.') { dotMult = 1.5; i++; }
-                
-                const freq = 440 * Math.pow(2, (octave - 4) + (semitone - 9) / 12);
-                const ms = ((240000 / tempo) / len) * dotMult;
-                
-                await playSound(freq, ms * 0.875);
-            } else if (ch === '<') {
-                octave = Math.max(0, octave - 1);
-            } else if (ch === '>') {
-                octave = Math.min(8, octave + 1);
+        stop() {
+            if (this._audioContext) {
+                this._audioContext.suspend();
+                this._audioContext.close();
+                this._audioContext = null;
             }
         }
+
+        async playSound(frequency, duration) {
+            if (!this._audioContext) {
+                this._audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Auto-resume helper
+                const resume = () => {
+                    if (this._audioContext && this._audioContext.state === 'suspended') {
+                        this._audioContext.resume();
+                    }
+                };
+                document.addEventListener('click', resume, { once: true });
+                document.addEventListener('keydown', resume, { once: true });
+            }
+            
+            if (this._audioContext.state === 'suspended') {
+                try {
+                    await this._audioContext.resume();
+                } catch (_e) {
+                    // Ignore, waits for interaction
+                }
+            }
+
+            // a 0 frequency means a pause
+            if (frequency == 0) {
+                await this.delay(duration);
+            } else {
+                const o = this._audioContext.createOscillator();
+                const g = this._audioContext.createGain();
+                o.connect(g);
+                g.connect(this._audioContext.destination);
+                
+                // Ramp up to avoid click at start
+                g.gain.setValueAtTime(0, this._audioContext.currentTime);
+                g.gain.linearRampToValueAtTime(0.3, this._audioContext.currentTime + 0.01);
+                
+                o.frequency.value = frequency;
+                o.type = this.type;
+                
+                o.start();
+                
+                const actualDuration = duration * this.mode;
+                const pause = duration - actualDuration;
+                
+                await this.delay(actualDuration);
+                
+                // Ramp down to avoid clicking
+                try {
+                    g.gain.linearRampToValueAtTime(0, this._audioContext.currentTime + 0.01);
+                    o.stop(this._audioContext.currentTime + 0.01);
+                } catch(_e) {
+                    o.stop();
+                }
+                
+                if (pause > 0) { await this.delay(pause); }
+            }
+        }
+    
+        getNoteValue(octave, note) {
+            const octaveNotes = 'C D EF G A B';
+            const index = octaveNotes.indexOf(note.toUpperCase());
+            if (index < 0) {
+                throw new Error(note + ' is not a valid note');
+            }
+            return octave * 12 + index;
+        }
+
+        async play(commandString) {
+            if (!commandString) return;
+            commandString = String(commandString).replace(/ /g, '').toUpperCase();
+            
+            // QBJS Compatible Regex
+            const reg = /(?<octave>O\d+)|(?<octaveUp>>)|(?<octaveDown><)|(?<note>[A-G][#+-]?\d*\.?[,]?)|(?<noteN>N\d+\.?)|(?<length>L\d+)|(?<legato>ML)|(?<normal>MN)|(?<staccato>MS)|(?<pause>P\d+\.?)|(?<tempo>T\d+)|(?<foreground>MF)|(?<background>MB)/gi;
+            
+            let match = reg.exec(commandString);
+            let promise = Promise.resolve();
+            let nowait = false;
+            
+            while (match) {
+                let noteValue = null;
+                let longerNote = false;
+                let temporaryLength = 0;
+                
+                const g = match.groups || {}; // Safety check
+
+                if (g.octave) this.octave = parseInt(match[0].substring(1));
+                if (g.octaveUp) this.octave++;
+                if (g.octaveDown) this.octave--;
+                
+                if (g.note) {
+                    const noteMatch = /(?<note>[A-G])(?<suffix>[#+-]?)(?<shorthand>\d*)(?<longerNote>\.?)(?<nowait>,?)/i.exec(match[0]);
+                    const ng = noteMatch.groups || {};
+
+                    if (ng.longerNote) longerNote = true;
+                    if (ng.shorthand) temporaryLength = parseInt(ng.shorthand);
+                    if (ng.nowait) nowait = true;
+                    
+                    noteValue = this.getNoteValue(this.octave, ng.note);
+                    switch (ng.suffix) {
+                        case '#': case '+': noteValue++; break;
+                        case '-': noteValue--; break;
+                    }
+                }
+                
+                if (g.noteN) {
+                    const noteNMatch = /N(?<noteValue>\d+)(?<longerNote>\.?)/i.exec(match[0]);
+                    const ng = noteNMatch.groups || {};
+                    if (ng.longerNote) longerNote = true;
+                    noteValue = parseInt(ng.noteValue);
+                }
+                
+                if (g.length) this.noteLength = parseInt(match[0].substring(1));
+                if (g.legato) this.mode = 1;
+                if (g.normal) this.mode = 7 / 8;
+                if (g.staccato) this.mode = 3 / 4;
+                
+                if (g.pause) {
+                    const pauseMatch = /P(?<length>\d+)(?<longerNote>\.?)/i.exec(match[0]);
+                    const ng = pauseMatch.groups || {};
+                    if (ng.longerNote) longerNote = true;
+                    noteValue = 0;
+                    temporaryLength = parseInt(ng.length);
+                }
+                
+                if (g.tempo) this.tempo = parseInt(match[0].substring(1));
+                if (g.foreground) this.foreground = true;
+                if (g.background) this.foreground = false;
+    
+                if (noteValue !== null) {
+                    const noteDuration = (60000 * 4 / this.tempo);
+                    let duration = (temporaryLength ? noteDuration / temporaryLength : noteDuration / this.noteLength);
+                    if (longerNote) duration *= 1.5;
+                    
+                    const C6 = 1047;
+                    const freq = noteValue == 0 ? 0 : C6 * Math.pow(2, (noteValue - 48) / 12);
+                    
+                    if (nowait) {
+                        this.playSound(freq, duration);
+                        nowait = false;
+                    } else {
+                        await this.playSound(freq, duration);
+                    }
+                }
+                match = reg.exec(commandString);
+            }
+            
+            if (this.foreground) {
+                await promise;
+            }
+        }
+        
+        delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
     }
+
+    const soundSystem = new QBasicSound();
 
     // =========================================================================
     // SCREEN FUNCTIONS
@@ -181,6 +253,10 @@
         screen.innerHTML = '';
         cursorRow = 1;
         cursorCol = 1;
+        if (ctx && canvas.style.display !== 'none') {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
     }
 
     function locate(row, col) {
@@ -194,13 +270,252 @@
         if (bg !== undefined) bgColor = bg % 8;
     }
 
+    // =========================================================================
+    // VIRTUAL FILE SYSTEM (VFS)
+    // =========================================================================
+    
+    const fileHandles = {};
+    const STORAGE_KEY = 'QBASIC_VFS_';
+
+    function _vfsSave(filename, content) {
+        try {
+            localStorage.setItem(STORAGE_KEY + filename.toUpperCase(), content);
+        } catch (e) {
+            console.error('VFS Save Error:', e);
+        }
+    }
+
+    function _vfsLoad(filename) {
+        return localStorage.getItem(STORAGE_KEY + filename.toUpperCase());
+    }
+
+    async function vfsOpen(filename, mode, filenum) {
+        mode = mode.toUpperCase();
+        let content = _vfsLoad(filename) || '';
+        
+        fileHandles[filenum] = {
+            filename: filename,
+            mode: mode,
+            content: content,
+            position: 0,
+            buffer: '' // For output buffering
+        };
+        
+        if (mode === 'OUTPUT') {
+            fileHandles[filenum].content = ''; // Overwrite
+            fileHandles[filenum].buffer = '';
+        } else if (mode === 'APPEND') {
+             // Keep content
+        } else if (mode === 'INPUT') {
+             // Read only
+        }
+    }
+
+    async function vfsClose(filenum) {
+        const fh = fileHandles[filenum];
+        if (fh) {
+            if (fh.mode === 'OUTPUT' || fh.mode === 'APPEND') {
+                let finalContent = fh.content;
+                if (fh.mode === 'OUTPUT') finalContent = fh.buffer;
+                else if (fh.mode === 'APPEND') finalContent += fh.buffer;
+                
+                _vfsSave(fh.filename, finalContent);
+            }
+            delete fileHandles[filenum];
+        }
+    }
+
+    async function vfsPrint(filenum, text) {
+        const fh = fileHandles[filenum];
+        if (fh) {
+            fh.buffer += text;
+        }
+    }
+    
+    async function vfsInput(filenum) {
+         // Simplified line input from file
+         // TODO: Real token-based input
+         const fh = fileHandles[filenum];
+         if (!fh) return '';
+         
+         const lines = fh.content.split('\n');
+         let res = '';
+         if (fh.position < lines.length) {
+             res = lines[fh.position];
+             fh.position++;
+         }
+         return res;
+    }
+
+    // =========================================================================
+    // GRAPHICS ENGINE
+    // =========================================================================
+
+
+    const ctx = canvas ? canvas.getContext('2d', { alpha: true }) : null;
+    
+    // Image buffers for GET/PUT
+    // QBasic stores images in arrays. We will use a Map to simulate this.
+    // Key: Array ID (or Name), Value: ImageData
+    const imageBuffers = new Map();
+    let _nextBufferId = 1;
+
+    // Helper to get buffer from ID or create new
+    function _getBuffer(id) {
+        return imageBuffers.get(id);
+    }
+    
+    function _get(x1, y1, x2, y2, id) {
+        if (!ctx) return;
+        const w = Math.abs(x2 - x1) + 1;
+        const h = Math.abs(y2 - y1) + 1;
+        const sx = Math.min(x1, x2);
+        const sy = Math.min(y1, y2);
+        
+        const imageData = ctx.getImageData(sx, sy, w, h);
+        
+        // If id is a string (variable name), use it. numeric check?
+        imageBuffers.set(id, imageData);
+    }
+
+    function _put(x, y, id, action) {
+        if (!ctx) return;
+        const imageData = imageBuffers.get(id);
+        if (!imageData) return;
+        
+        if (!action || action.toUpperCase() === 'PSET') {
+             ctx.putImageData(imageData, x, y);
+        } else if (action.toUpperCase() === 'OR') {
+            // Manual composition for OR, XOR, AND, etc if needed. 
+            // putImageData doesn't support composition directly.
+            // Simplified: Draw temporary canvas
+            createTempCanvas(imageData, x, y, 'lighter'); // 'lighter' is additive (plus) not exactly OR
+        } else if (action.toUpperCase() === 'XOR') {
+            createTempCanvas(imageData, x, y, 'xor');
+        } else {
+             ctx.putImageData(imageData, x, y);
+        }
+    }
+    
+    function createTempCanvas(imgData, x, y, compOp) {
+         const t = document.createElement('canvas');
+         t.width = imgData.width;
+         t.height = imgData.height;
+         const tctx = t.getContext('2d');
+         tctx.putImageData(imgData, 0, 0);
+         
+         const oldComp = ctx.globalCompositeOperation;
+         ctx.globalCompositeOperation = compOp;
+         ctx.drawImage(t, x, y);
+         ctx.globalCompositeOperation = oldComp;
+    }
+    
+    let lastX = 0;
+    let lastY = 0;
+    
+    // Default resolutions
+    const RESOLUTIONS = {
+        0: { w: 0, h: 0 },         // Text Mode (Canvas hidden)
+        1: { w: 320, h: 200 },
+        2: { w: 640, h: 200 },
+        7: { w: 320, h: 200 },
+        9: { w: 640, h: 350 },
+        12: { w: 640, h: 480 },
+        13: { w: 320, h: 200 }
+    };
+
     function screenMode(mode) {
-        // Stub - would change graphics mode
-        console.log('SCREEN', mode);
+        if (!canvas) return;
+        
+        const res = RESOLUTIONS[mode] || RESOLUTIONS[12]; // Default to VGA
+        
+        if (mode === 0) {
+            canvas.style.display = 'none';
+        } else {
+            canvas.style.display = 'block';
+            canvas.width = res.w;
+            canvas.height = res.h;
+            
+            // Clear
+            ctx.fillStyle = '#000000'; // Default black background
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.imageSmoothingEnabled = false;
+        }
+        
+        // Reset state
+        lastX = canvas.width / 2;
+        lastY = canvas.height / 2;
+        
+        console.log(`SCREEN ${mode}: ${canvas.width}x${canvas.height}`);
+    }
+
+    function _pset(x, y, c) {
+        if (!ctx) return;
+        const colorVal = c !== undefined ? COLORS[c % 16] : COLORS[fgColor];
+        ctx.fillStyle = colorVal;
+        ctx.fillRect(Math.floor(x), Math.floor(y), 1, 1);
+        lastX = x;
+        lastY = y;
+    }
+
+    function _preset(x, y, c) {
+        if (!ctx) return;
+        // If color omitted, use background (0 usually)
+        const colorVal = c !== undefined ? COLORS[c % 16] : COLORS[0];
+        ctx.fillStyle = colorVal;
+        ctx.fillRect(Math.floor(x), Math.floor(y), 1, 1);
+        lastX = x;
+        lastY = y;
+    }
+
+    function _line(x1, y1, x2, y2, c, box, fill) {
+        if (!ctx) return;
+        
+        const colorVal = c !== undefined ? COLORS[c % 16] : COLORS[fgColor];
+        ctx.strokeStyle = colorVal;
+        ctx.fillStyle = colorVal;
+        
+        // Handle optional start point
+        if (x1 === null || x1 === undefined) x1 = lastX;
+        if (y1 === null || y1 === undefined) y1 = lastY;
+        
+        if (box) {
+            const w = x2 - x1;
+            const h = y2 - y1;
+            
+            if (fill) {
+                ctx.fillRect(x1, y1, w, h);
+            } else {
+                ctx.strokeRect(x1, y1, w, h);
+            }
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+        
+        lastX = x2;
+        lastY = y2;
+    }
+
+    function _circle(x, y, r, c) {
+        if (!ctx) return;
+        
+        const colorVal = c !== undefined ? COLORS[c % 16] : COLORS[fgColor];
+        ctx.strokeStyle = colorVal;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        lastX = x;
+        lastY = y;
     }
 
     function setWidth(cols, rows) {
-        // Stub
+        // Text mode width setting - stubs for now
+        // Could adjust CSS font-size in future
         console.log('WIDTH', cols, rows);
     }
 
@@ -304,14 +619,81 @@
         width: setWidth,
         error: showError,
         
+        // Graphics
+        pset: _pset,
+        preset: _preset,
+        line: _line,
+        circle: _circle,
+        get: _get,
+        put: _put,
+        
+        // Advanced Image
+        loadimage: _loadImage,
+        newimage: _newImage,
+        copyimage: _copyImage,
+        freeimage: _freeImage,
+        putimage: _putImage,
+        printstring: _printString,
+        
+        // Mouse
+        mouseinput: _mouseInput,
+        mousex: () => mouseX,
+        mousey: () => mouseY,
+        mousebutton: (b) => {
+             // If b is supplied, check specific button
+             if (b === 1) return (mouseButtons & 1) ? -1 : 0;
+             if (b === 2) return (mouseButtons & 2) ? -1 : 0;
+             if (b === 3) return (mouseButtons & 4) ? -1 : 0;
+             return mouseButtons ? -1 : 0;
+        },
+        mousewheel: _mouseWheel,
+        mousehide: _mouseHide,
+        mouseshow: _mouseShow,
+        
+        // Advanced Keyboard
+        keydown: _keyDown,
+        keyhit: _keyHit,
+        keyclear: _keyClear,
+        
+        // VFS
+        open: vfsOpen,
+        close: vfsClose,
+        printFile: vfsPrint,
+        inputFile: vfsInput,
+        
         // Input
         input,
         'inkey$': inkey,
         
         // Sound
-        beep: playBeep,
-        sound: playSound,
-        play: playMML,
+        beep: async () => await soundSystem.playSound(800, 200),
+        sound: async (f, d) => await soundSystem.playSound(f, (d / 18.2) * 1000),
+        play: async (cmd) => await soundSystem.play(cmd),
+        
+        // Advanced Sound
+        sndopen: _sndOpen,
+        sndplay: _sndPlay,
+        sndloop: _sndLoop,
+        sndclose: _sndClose,
+        
+        // RGB Color
+        rgb32: _rgb32,
+        rgba32: _rgba32,
+        red32: _red32,
+        green32: _green32,
+        blue32: _blue32,
+        alpha32: _alpha32,
+        
+        // Performance
+        limit: _limit,
+        display: _display,
+        
+        // Advanced Math
+        ceil: _ceil,
+        round: _round,
+        hypot: _hypot,
+        d2r: _d2r,
+        r2d: _r2d,
         
         // Time
         timer,
@@ -331,6 +713,338 @@
         _fgColor: fgColor,
         _bgColor: bgColor
     };
+
+    // =========================================================================
+    // MOUSE HANDLER
+    // =========================================================================
+    
+    let mouseX = 0;
+    let mouseY = 0;
+    let mouseButtons = 0;
+    let _mouseScroll = 0;
+
+    // Attach to document to cover the whole iframe
+    document.addEventListener('mousemove', (e) => {
+        if (!canvas || canvas.style.display === 'none') {
+             // Text mode approximation
+             const rect = screen.getBoundingClientRect();
+             const x = e.clientX - rect.left;
+             const y = e.clientY - rect.top;
+             // Char size approx 9x18 roughly or calculated from font
+             mouseX = Math.floor(x / 9); 
+             mouseY = Math.floor(y / 18);
+        } else {
+             // Graphic mode
+             const rect = canvas.getBoundingClientRect();
+             const scaleX = canvas.width / rect.width;
+             const scaleY = canvas.height / rect.height;
+             mouseX = Math.floor((e.clientX - rect.left) * scaleX);
+             mouseY = Math.floor((e.clientY - rect.top) * scaleY);
+        }
+    });
+
+    document.addEventListener('mousedown', (e) => {
+        // QB: 1=Left, 2=Right, 4=Middle
+        // JS: 0=Left, 1=Middle, 2=Right
+        if (e.button === 0) mouseButtons |= 1;
+        if (e.button === 2) mouseButtons |= 2;
+        if (e.button === 1) mouseButtons |= 4;
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (e.button === 0) mouseButtons &= ~1;
+        if (e.button === 2) mouseButtons &= ~2;
+        if (e.button === 1) mouseButtons &= ~4;
+    });
+    
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    function _mouseInput() {
+        // QB64's _MOUSEINPUT returns true if there is new input, 
+        // effectively mostly used to poll. In our event-driven system, 
+        // we can just return -1 (True) always or manage a queue.
+        // For simplicity, we just return -1.
+        return -1; 
+    }
+
+    function _mouseWheel() {
+        const val = _mouseScroll;
+        _mouseScroll = 0; // Reset after reading
+        return val;
+    }
+
+    function _mouseHide() {
+        document.body.style.cursor = 'none';
+        if (canvas) canvas.style.cursor = 'none';
+    }
+
+    function _mouseShow(style) {
+        const cursorStyle = style || 'default';
+        document.body.style.cursor = cursorStyle;
+        if (canvas) canvas.style.cursor = cursorStyle;
+    }
+
+    // Mouse wheel event
+    document.addEventListener('wheel', (e) => {
+        _mouseScroll += e.deltaY > 0 ? 1 : -1;
+    });
+
+    // =========================================================================
+    // ADVANCED KEYBOARD HANDLER
+    // =========================================================================
+    
+    const keysDown = new Set();
+    let keyHitBuffer = [];
+
+    function _keyDown(keyCode) {
+        // Check if a key is currently held down
+        // QB64 uses scan codes, we'll support both
+        return keysDown.has(keyCode) ? -1 : 0;
+    }
+
+    function _keyHit() {
+        // Return the next key from buffer, or 0 if empty
+        if (keyHitBuffer.length > 0) {
+            return keyHitBuffer.shift();
+        }
+        return 0;
+    }
+
+    function _keyClear(_buffer) {
+        // Clear all key buffers
+        keyHitBuffer = [];
+        keyBuffer = '';
+        keysDown.clear();
+    }
+
+    // =========================================================================
+    // ADVANCED IMAGE HANDLING
+    // =========================================================================
+    
+    const images = new Map(); // Image handles
+    let nextImageId = -1000; // Negative IDs for user images
+
+    async function _loadImage(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const id = nextImageId--;
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(img, 0, 0);
+                images.set(id, {
+                    canvas: tempCanvas,
+                    ctx: tempCtx,
+                    width: img.width,
+                    height: img.height
+                });
+                resolve(id);
+            };
+            img.onerror = () => resolve(-1); // Return -1 on error
+            img.src = url;
+        });
+    }
+
+    function _newImage(width, height, _mode) {
+        const id = nextImageId--;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        // Fill with black by default
+        tempCtx.fillStyle = '#000000';
+        tempCtx.fillRect(0, 0, width, height);
+        images.set(id, {
+            canvas: tempCanvas,
+            ctx: tempCtx,
+            width: width,
+            height: height
+        });
+        return id;
+    }
+
+    function _copyImage(srcId) {
+        const src = images.get(srcId);
+        if (!src) return -1;
+        
+        const id = nextImageId--;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = src.width;
+        tempCanvas.height = src.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(src.canvas, 0, 0);
+        images.set(id, {
+            canvas: tempCanvas,
+            ctx: tempCtx,
+            width: src.width,
+            height: src.height
+        });
+        return id;
+    }
+
+    function _freeImage(imageId) {
+        images.delete(imageId);
+    }
+
+    function _putImage(dx1, dy1, dx2, dy2, srcId, dstId, sx1, sy1, sx2, sy2) {
+        // Get source image
+        const src = srcId ? images.get(srcId) : null;
+        const srcCanvas = src ? src.canvas : canvas;
+        
+        // Get destination context
+        let dstCtx = ctx;
+        if (dstId && images.has(dstId)) {
+            dstCtx = images.get(dstId).ctx;
+        }
+        
+        if (!srcCanvas || !dstCtx) return;
+        
+        // Calculate dimensions
+        const srcW = sx2 !== undefined ? Math.abs(sx2 - sx1) : srcCanvas.width;
+        const srcH = sy2 !== undefined ? Math.abs(sy2 - sy1) : srcCanvas.height;
+        const dstW = dx2 !== undefined ? Math.abs(dx2 - dx1) : srcW;
+        const dstH = dy2 !== undefined ? Math.abs(dy2 - dy1) : srcH;
+        
+        dstCtx.drawImage(
+            srcCanvas,
+            sx1 || 0, sy1 || 0, srcW, srcH,
+            dx1 || 0, dy1 || 0, dstW, dstH
+        );
+    }
+
+    function _printString(x, y, text) {
+        if (!ctx) return;
+        ctx.fillStyle = COLORS[fgColor % 16];
+        ctx.font = '16px monospace';
+        ctx.fillText(text, x, y + 16); // +16 for baseline
+    }
+
+    // =========================================================================
+    // ADVANCED SOUND HANDLING
+    // =========================================================================
+    
+    const sounds = new Map();
+    let nextSoundId = 1;
+
+    async function _sndOpen(filename) {
+        return new Promise((resolve) => {
+            const audio = new Audio(filename);
+            audio.oncanplaythrough = () => {
+                const id = nextSoundId++;
+                sounds.set(id, audio);
+                resolve(id);
+            };
+            audio.onerror = () => resolve(-1);
+        });
+    }
+
+    function _sndPlay(sid) {
+        const audio = sounds.get(sid);
+        if (audio) {
+            audio.currentTime = 0;
+            audio.loop = false;
+            audio.play();
+        }
+    }
+
+    function _sndLoop(sid) {
+        const audio = sounds.get(sid);
+        if (audio) {
+            audio.currentTime = 0;
+            audio.loop = true;
+            audio.play();
+        }
+    }
+
+    function _sndClose(sid) {
+        const audio = sounds.get(sid);
+        if (audio) {
+            audio.pause();
+            audio.currentTime = 0;
+            sounds.delete(sid);
+        }
+    }
+
+    // =========================================================================
+    // RGB COLOR FUNCTIONS
+    // =========================================================================
+    
+    function _rgb32(r, g, b, a) {
+        if (a === undefined) a = 255;
+        return ((a & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+    }
+
+    function _rgba32(r, g, b, a) {
+        return _rgb32(r, g, b, a);
+    }
+
+    function _red32(rgb) {
+        return (rgb >> 16) & 0xFF;
+    }
+
+    function _green32(rgb) {
+        return (rgb >> 8) & 0xFF;
+    }
+
+    function _blue32(rgb) {
+        return rgb & 0xFF;
+    }
+
+    function _alpha32(rgb) {
+        return (rgb >> 24) & 0xFF;
+    }
+
+    // =========================================================================
+    // PERFORMANCE CONTROLS
+    // =========================================================================
+    
+    let _limitFps = 0;
+    let lastFrameTime = 0;
+
+    async function _limit(fps) {
+        if (fps <= 0) return;
+        
+        const frameTime = 1000 / fps;
+        const now = performance.now();
+        const elapsed = now - lastFrameTime;
+        
+        if (elapsed < frameTime) {
+            await sleep(frameTime - elapsed);
+        }
+        lastFrameTime = performance.now();
+    }
+
+    function _display() {
+        // In browser, canvas auto-displays. This is a no-op but included for compatibility.
+        // Could be used for double-buffering in future.
+    }
+
+    // =========================================================================
+    // ADVANCED MATH FUNCTIONS
+    // =========================================================================
+    
+    function _ceil(x) {
+        return Math.ceil(x);
+    }
+
+    function _round(x) {
+        return Math.round(x);
+    }
+
+    function _hypot(x, y) {
+        return Math.hypot(x, y);
+    }
+
+    function _d2r(degrees) {
+        return degrees * (Math.PI / 180);
+    }
+
+    function _r2d(radians) {
+        return radians * (180 / Math.PI);
+    }
 
     // =========================================================================
     // KEYBOARD HANDLER
@@ -447,7 +1161,29 @@
     // INITIALIZATION
     // =========================================================================
     
-    console.log('[QBasic Nexus] Runtime v2.1 loaded');
+    console.log('[QBasic Nexus] Runtime v1.0.2 loaded');
     vscode.postMessage({ type: 'ready' });
+
+    // UX Hint for Audio Context
+    function showActivationHint() {
+        const hint = document.createElement('div');
+        hint.id = 'activation-hint';
+        hint.textContent = '🔊 CLICK SCREEN TO START';
+        hint.style.cssText = 'position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#0f0;padding:5px 10px;font-family:monospace;z-index:9999;border:1px solid #0f0;font-size:12px;pointer-events:none;transition:opacity 0.5s;';
+        document.body.appendChild(hint);
+
+        const removeHint = () => {
+             hint.style.opacity = '0';
+             setTimeout(() => {
+                 if (hint.parentNode) hint.parentNode.removeChild(hint);
+             }, 500);
+             document.removeEventListener('click', removeHint);
+             document.removeEventListener('keydown', removeHint);
+        };
+        
+        document.addEventListener('click', removeHint);
+        document.addEventListener('keydown', removeHint);
+    }
+    showActivationHint();
 
 })();

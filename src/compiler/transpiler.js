@@ -1,5 +1,5 @@
 /**
- * QBasic Nexus - Transpiler (Parser & Codegen) v2.0
+ * QBasic Nexus - Transpiler (Parser & Codegen) v1.0.2
  * ==================================================
  * Internal compiler that converts QBasic code to JavaScript.
  * Supports both Node.js (CLI) and Web (Browser/Webview) targets.
@@ -19,7 +19,7 @@
  * - Minimal object allocation in hot paths
  * 
  * @author Thirawat27
- * @version 2.0.0
+ * @version 1.0.2
  */
 
 'use strict';
@@ -175,8 +175,13 @@ class Parser {
         if (this._matchKw('INPUT')) return this._parseInput();
         if (this._matchKw('LINE')) {
             if (this._matchKw('INPUT')) return this._parseLineInput();
-            return; // LINE for drawing - not supported
+            return this._parseLine();
         }
+        if (this._matchKw('CIRCLE')) return this._parseCircle();
+        if (this._matchKw('PSET')) return this._parsePset();
+        if (this._matchKw('PRESET')) return this._parsePreset();
+        if (this._matchKw('GET')) return this._parseGet();
+        if (this._matchKw('PUT')) return this._parsePut();
         
         // Control Flow
         if (this._matchKw('IF')) return this._parseIf();
@@ -237,6 +242,26 @@ class Parser {
         if (this._matchKw('OPEN')) return this._parseOpen();
         if (this._matchKw('CLOSE')) return this._parseClose();
         
+        // Advanced Graphics
+        if (this._matchKw('_PUTIMAGE')) return this._parsePutImage();
+        if (this._matchKw('_PRINTSTRING')) return this._parsePrintString();
+        if (this._matchKw('_FREEIMAGE')) return this._parseFreeImage();
+        
+        // Advanced Mouse
+        if (this._matchKw('_MOUSEHIDE')) return this._emit('window.runtime.mousehide();');
+        if (this._matchKw('_MOUSESHOW')) return this._parseMouseShow();
+        
+        // Advanced Keyboard
+        if (this._matchKw('_KEYCLEAR')) return this._emit('window.runtime.keyclear();');
+        
+        // Advanced Sound
+        if (this._matchKw('_SNDPLAY')) return this._parseSndPlay();
+        if (this._matchKw('_SNDLOOP')) return this._parseSndLoop();
+        if (this._matchKw('_SNDCLOSE')) return this._parseSndClose();
+        
+        // Performance
+        if (this._matchKw('_DISPLAY')) return this._emit('window.runtime.display();');
+        
         // Error Handling  
         if (this._matchKw('ERROR')) return this._parseError();
         
@@ -272,6 +297,31 @@ class Parser {
     }
 
     _parsePrint() {
+        // Handle PRINT #1, ...
+        if (this._matchPunc('#')) {
+            const filenum = this._parseExpr();
+            this._matchPunc(',');
+            let line = '';
+            
+            // Collect all args into a string
+            while (!this._isStmtEnd()) {
+                const expr = this._parseExpr();
+                line += `\${${expr}}`;
+                if (!this._isStmtEnd() && !this._matchPunc(',')) { 
+                    if (this._matchPunc(';')) {
+                        // Suppress newline? handled by emit?
+                        // For simplicity in simple VFS, we treat ; as just concat
+                    } else {
+                         // break; 
+                    }
+                }
+            }
+            // Append newline by default unless silenced? 
+            // Simplified: always append newline for now
+            this._emit(`await _printFileFunc(${filenum}, \`${line}\\n\`);`);
+            return;
+        }
+
         const parts = [];
         let addNewline = true;
 
@@ -293,7 +343,19 @@ class Parser {
     }
 
     _parseInput() {
-        let prompt = '? ';
+        // INPUT #1, var
+        if (this._matchPunc('#')) {
+            const filenum = this._parseExpr();
+            this._matchPunc(',');
+            const id = this._consume(TokenType.IDENTIFIER);
+            if (!id) throw new Error('Expected variable after INPUT #');
+            
+            // Generate code to read line and assign
+            this._emit(`${id.value} = await _inputFileFunc(${filenum});`);
+            return;
+        }
+
+        let prompt = '""';
 
         if (this._check(TokenType.STRING)) {
             prompt = this._consume(TokenType.STRING).value;
@@ -972,6 +1034,164 @@ class Parser {
         this._emit(`await _play(${commands});`);
     }
 
+    _parsePset() {
+        // PSET (x, y), color
+        let _isStep = false;
+        if (this._matchKw('STEP')) _isStep = true; // Ignored for now
+        
+        this._matchPunc('(');
+        const x = this._parseExpr();
+        this._matchPunc(',');
+        const y = this._parseExpr();
+        this._matchPunc(')');
+        
+        let color = 'undefined';
+        if (this._matchPunc(',')) {
+            color = this._parseExpr();
+        }
+        
+        this._emit(`await _pset(${x}, ${y}, ${color});`);
+    }
+
+    _parsePreset() {
+        // PRESET (x, y), color -> Draws in background color if color omitted
+        this._matchPunc('(');
+        const x = this._parseExpr();
+        this._matchPunc(',');
+        const y = this._parseExpr();
+        this._matchPunc(')');
+        
+        let color = 'undefined'; // Runtime handles default
+        if (this._matchPunc(',')) {
+            color = this._parseExpr();
+        }
+        
+        this._emit(`await _preset(${x}, ${y}, ${color});`);
+    }
+
+    _parseLine() {
+        // LINE (x1, y1)-(x2, y2), color, B|BF
+        let x1 = 'null', y1 = 'null';
+        
+        // Check if starting point exists: (x1, y1)
+        if (this._peek()?.value === '(') {
+             this._matchPunc('(');
+             x1 = this._parseExpr();
+             this._matchPunc(',');
+             y1 = this._parseExpr();
+             this._matchPunc(')');
+        }
+        
+        this._matchOp('-');
+        
+        this._matchPunc('(');
+        const x2 = this._parseExpr();
+        this._matchPunc(',');
+        const y2 = this._parseExpr();
+        this._matchPunc(')');
+        
+        let color = 'undefined';
+        let box = 'false';
+        let fill = 'false';
+        
+        if (this._matchPunc(',')) {
+            if (!this._isStmtEnd() && !this._checkKw('B') && !this._checkKw('BF')) {
+                color = this._parseExpr();
+            }
+            
+            if (this._matchPunc(',')) {
+                // Box param
+                if (this._matchKw('B')) {
+                    box = 'true';
+                } else if (this._matchKw('BF')) {
+                    box = 'true';
+                    fill = 'true';
+                }
+            } else if (this._matchKw('B')) {
+                box = 'true';
+            } else if (this._matchKw('BF')) {
+                box = 'true';
+                fill = 'true';
+            }
+        }
+        
+        this._emit(`await _line(${x1}, ${y1}, ${x2}, ${y2}, ${color}, ${box}, ${fill});`);
+    }
+
+    _parseCircle() {
+        // CIRCLE (x,y), radius, color
+        this._matchPunc('(');
+        const x = this._parseExpr();
+        this._matchPunc(',');
+        const y = this._parseExpr();
+        this._matchPunc(')');
+        
+        this._matchPunc(',');
+        const r = this._parseExpr();
+        
+        let color = 'undefined';
+        if (this._matchPunc(',')) {
+             color = this._parseExpr();
+        }
+        
+        // Skip arc angles for now if present
+        if (this._matchPunc(',')) {
+             this._parseExpr(); // start
+             if (this._matchPunc(',')) {
+                 this._parseExpr(); // end
+                 if (this._matchPunc(',')) {
+                     this._parseExpr(); // aspect
+                 }
+             }
+        }
+        
+        this._emit(`await _circle(${x}, ${y}, ${r}, ${color});`);
+    }
+
+    _parseGet() {
+        // GET (x1,y1)-(x2,y2), arrayname
+        this._matchPunc('(');
+        const x1 = this._parseExpr();
+        this._matchPunc(',');
+        const y1 = this._parseExpr();
+        this._matchPunc(')');
+        
+        this._matchOp('-');
+        
+        this._matchPunc('(');
+        const x2 = this._parseExpr();
+        this._matchPunc(',');
+        const y2 = this._parseExpr();
+        this._matchPunc(')');
+        
+        this._matchPunc(',');
+        
+        // Array or variable name. For now assume simpe variable name as buffer ID
+        const id = this._consumeToken().value; 
+        
+        this._emit(`await _get(${x1}, ${y1}, ${x2}, ${y2}, '${id}');`);
+    }
+
+    _parsePut() {
+        // PUT (x,y), arrayname, action
+        this._matchPunc('(');
+        const x = this._parseExpr();
+        this._matchPunc(',');
+        const y = this._parseExpr();
+        this._matchPunc(')');
+        
+        this._matchPunc(',');
+        
+        const id = this._consumeToken().value;
+        
+        let action = 'undefined';
+        if (this._matchPunc(',')) {
+            action = `"${this._consumeToken().value}"`;
+        }
+        
+        this._emit(`await _put(${x}, ${y}, '${id}', ${action});`);
+    }
+
     _parseDelay() {
         // _DELAY seconds
         const seconds = this._parseExpr();
@@ -981,7 +1201,107 @@ class Parser {
     _parseLimit() {
         // _LIMIT fps - Frame rate limiter
         const fps = this._parseExpr();
-        this._emit(`await _limit(${fps});`);
+        this._emit(`await window.runtime.limit(${fps});`);
+    }
+
+    // =========================================================================
+    // ADVANCED QB64 COMMANDS
+    // =========================================================================
+
+    _parsePutImage() {
+        // _PUTIMAGE (dx1, dy1)-(dx2, dy2), srcId, dstId, (sx1, sy1)-(sx2, sy2)
+        // Simplified version: _PUTIMAGE (x, y), srcId
+        let dx1 = 0, dy1 = 0, dx2 = 'undefined', dy2 = 'undefined';
+        let srcId = 'undefined', dstId = 'undefined';
+        let sx1 = 'undefined', sy1 = 'undefined', sx2 = 'undefined', sy2 = 'undefined';
+        
+        if (this._matchPunc('(')) {
+            dx1 = this._parseExpr();
+            this._matchPunc(',');
+            dy1 = this._parseExpr();
+            this._matchPunc(')');
+            
+            if (this._matchOp('-')) {
+                this._matchPunc('(');
+                dx2 = this._parseExpr();
+                this._matchPunc(',');
+                dy2 = this._parseExpr();
+                this._matchPunc(')');
+            }
+        }
+        
+        if (this._matchPunc(',')) {
+            srcId = this._parseExpr();
+        }
+        
+        if (this._matchPunc(',')) {
+            dstId = this._parseExpr();
+        }
+        
+        // Optional source coordinates
+        if (this._matchPunc(',') && this._matchPunc('(')) {
+            sx1 = this._parseExpr();
+            this._matchPunc(',');
+            sy1 = this._parseExpr();
+            this._matchPunc(')');
+            
+            if (this._matchOp('-')) {
+                this._matchPunc('(');
+                sx2 = this._parseExpr();
+                this._matchPunc(',');
+                sy2 = this._parseExpr();
+                this._matchPunc(')');
+            }
+        }
+        
+        this._emit(`window.runtime.putimage(${dx1}, ${dy1}, ${dx2}, ${dy2}, ${srcId}, ${dstId}, ${sx1}, ${sy1}, ${sx2}, ${sy2});`);
+    }
+
+    _parsePrintString() {
+        // _PRINTSTRING (x, y), text
+        this._matchPunc('(');
+        const x = this._parseExpr();
+        this._matchPunc(',');
+        const y = this._parseExpr();
+        this._matchPunc(')');
+        
+        this._matchPunc(',');
+        const text = this._parseExpr();
+        
+        this._emit(`window.runtime.printstring(${x}, ${y}, ${text});`);
+    }
+
+    _parseFreeImage() {
+        // _FREEIMAGE imageId
+        const id = this._parseExpr();
+        this._emit(`window.runtime.freeimage(${id});`);
+    }
+
+    _parseMouseShow() {
+        // _MOUSESHOW [style]
+        let style = '"default"';
+        if (!this._isStmtEnd()) {
+            style = this._parseExpr();
+        }
+        this._emit(`window.runtime.mouseshow(${style});`);
+    }
+
+    _parseSndPlay() {
+        // _SNDPLAY sid
+        const sid = this._parseExpr();
+        this._emit(`window.runtime.sndplay(${sid});`);
+    }
+
+    _parseSndLoop() {
+        // _SNDLOOP sid
+        const sid = this._parseExpr();
+        this._emit(`window.runtime.sndloop(${sid});`);
+    }
+
+    _parseSndClose() {
+        // _SNDCLOSE sid
+        const sid = this._parseExpr();
+        this._emit(`window.runtime.sndclose(${sid});`);
     }
 
     _parseDefFn() {
@@ -1278,7 +1598,7 @@ function _cls() {
 `);
         } else if (this.target === 'web') {
             this.output.push(`
-// Web Runtime Environment (Optimized v2.0)
+// Web Runtime Environment (Optimized v1.0.2)
 const _print = window.runtime?.print || console.log;
 const _input = window.runtime?.input || prompt;
 const _cls = window.runtime?.cls || console.clear;
@@ -1289,9 +1609,62 @@ const _sound = window.runtime?.sound || (() => {});
 const _play = window.runtime?.play || (() => {});
 const _screen = window.runtime?.screen || (() => {});
 const _width = window.runtime?.width || (() => {});
+const _pset = window.runtime?.pset || (() => {});
+const _preset = window.runtime?.preset || (() => {});
+const _line = window.runtime?.line || (() => {});
+const _circle = window.runtime?.circle || (() => {});
+const _get = window.runtime?.get || (() => {});
+const _put = window.runtime?.put || (() => {});
+const _mouseinput = window.runtime?.mouseinput || (() => 0);
+const _mousex = window.runtime?.mousex || (() => 0);
+const _mousey = window.runtime?.mousey || (() => 0);
+const _mousebutton = window.runtime?.mousebutton || (() => 0);
 const _timer = window.runtime?.timer || (() => Date.now() / 1000);
 
-// Frame rate limiter
+// Advanced Image Functions
+const _LOADIMAGE = window.runtime?.loadimage || (() => -1);
+const _NEWIMAGE = window.runtime?.newimage || (() => -1);
+const _COPYIMAGE = window.runtime?.copyimage || (() => -1);
+const _FREEIMAGE = window.runtime?.freeimage || (() => {});
+const _PUTIMAGE = window.runtime?.putimage || (() => {});
+const _PRINTSTRING = window.runtime?.printstring || (() => {});
+
+// Advanced Mouse Functions
+const _MOUSEWHEEL = window.runtime?.mousewheel || (() => 0);
+const _MOUSEHIDE = window.runtime?.mousehide || (() => {});
+const _MOUSESHOW = window.runtime?.mouseshow || (() => {});
+
+// Advanced Keyboard Functions
+const _KEYDOWN = window.runtime?.keydown || (() => 0);
+const _KEYHIT = window.runtime?.keyhit || (() => 0);
+const _KEYCLEAR = window.runtime?.keyclear || (() => {});
+
+// Advanced Sound Functions
+const _SNDOPEN = window.runtime?.sndopen || (() => -1);
+const _SNDPLAY = window.runtime?.sndplay || (() => {});
+const _SNDLOOP = window.runtime?.sndloop || (() => {});
+const _SNDCLOSE = window.runtime?.sndclose || (() => {});
+
+// RGB Color Functions
+const _RGB32 = window.runtime?.rgb32 || ((r, g, b, a) => ((a||255) << 24) | (r << 16) | (g << 8) | b);
+const _RGBA32 = window.runtime?.rgba32 || _RGB32;
+const _RED32 = window.runtime?.red32 || ((c) => (c >> 16) & 0xFF);
+const _GREEN32 = window.runtime?.green32 || ((c) => (c >> 8) & 0xFF);
+const _BLUE32 = window.runtime?.blue32 || ((c) => c & 0xFF);
+const _ALPHA32 = window.runtime?.alpha32 || ((c) => (c >> 24) & 0xFF);
+
+// Performance Functions
+const _LIMIT = window.runtime?.limit || (async () => {});
+const _DISPLAY = window.runtime?.display || (() => {});
+
+// Advanced Math Functions
+const _CEIL = window.runtime?.ceil || Math.ceil;
+const _ROUND = window.runtime?.round || Math.round;
+const _HYPOT = window.runtime?.hypot || Math.hypot;
+const _D2R = window.runtime?.d2r || ((d) => d * (Math.PI / 180));
+const _R2D = window.runtime?.r2d || ((r) => r * (180 / Math.PI));
+
+// Frame rate limiter (legacy)
 let _lastLimitTime = Date.now();
 async function _limit(fps) {
   const frameTime = 1000 / fps;
@@ -1494,15 +1867,30 @@ function INKEY() {
 const _files = {};
 let _nextFileNum = 1;
 
-function _open(filename, mode, filenum) {
+// Mapped to runtime if available
+const _openFunc = window.runtime?.open || (() => {});
+const _closeFunc = window.runtime?.close || (() => {});
+const _printFileFunc = window.runtime?.printFile || (() => {});
+const _inputFileFunc = window.runtime?.inputFile || (() => {});
+
+async function _open(filename, mode, filenum) {
+  if (typeof window !== 'undefined' && window.runtime) {
+      await _openFunc(filename, mode, filenum);
+      return;
+  }
   _files[filenum] = { filename, mode, data: '', pos: 0, eof: false };
 }
 
-function _close(filenum) {
+async function _close(filenum) {
+  if (typeof window !== 'undefined' && window.runtime) {
+      await _closeFunc(filenum);
+      return;
+  }
   delete _files[filenum];
 }
 
-function _closeAll() {
+async function _closeAll() {
+  // If runtime supports closeAll
   for (const f in _files) delete _files[f];
 }
 

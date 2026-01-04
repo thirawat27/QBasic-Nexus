@@ -1,4 +1,4 @@
-/* QBasic Nexus CRT - Retro Style v2.0
+/* QBasic Nexus CRT - Retro Style v1.0.2
  * ===================================
  * Optimized with GPU acceleration and reduced repaints
  */
@@ -265,3 +265,14 @@ input.cmd-input {
     animation: none;
   }
 }
+  /* Graphics Layer */
+  #gfx-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    image-rendering: pixelated; /* Retro look */
+  }
