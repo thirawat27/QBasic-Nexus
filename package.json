@@ -16,7 +16,7 @@
     },
     "homepage": "https://github.com/thirawat27/QBasic-Nexus#readme",
     "engines": {
-        "vscode": "^1.60.0"
+        "vscode": "^1.107.0"
     },
     "main": "./extension.js",
     "scripts": {
