@@ -4,7 +4,7 @@
  * Manages the CRT Webview panel lifecycle and communication.
  * 
  * @author Thirawat27
- * @version 1.0.2
+ * @version 1.0.6
  */
 
 'use strict';

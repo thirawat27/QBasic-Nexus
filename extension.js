@@ -17,7 +17,7 @@
  * - Find references
  * 
  * @author Thirawat27
- * @version 1.0.3
+ * @version 1.0.6
  * @license MIT
  */
 
@@ -90,7 +90,6 @@ let outputChannel = null;
 let terminal = null;
 let diagnosticCollection = null;
 let isCompiling = false;
-let lintTimer = null;
 let extensionContext = null;
 
 // ============================================================================
@@ -98,14 +97,25 @@ let extensionContext = null;
 // ============================================================================
 
 /**
- * Create a debounced version of a function
+ * Create a debounced version of a function with cancel support
  */
 function debounce(fn, delay) {
     let timer = null;
-    return (...args) => {
+    const debounced = (...args) => {
         if (timer) clearTimeout(timer);
-        timer = setTimeout(() => fn(...args), delay);
+        timer = setTimeout(() => {
+            timer = null;
+            fn(...args);
+        }, delay);
     };
+    // Allow cancellation to prevent stale callbacks
+    debounced.cancel = () => {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    };
+    return debounced;
 }
 
 /**
@@ -114,11 +124,13 @@ function debounce(fn, delay) {
 function throttle(fn, limit) {
     let inThrottle = false;
     let lastArgs = null;
-    return (...args) => {
+    let timeoutId = null;
+    
+    const throttled = (...args) => {
         if (!inThrottle) {
             fn(...args);
             inThrottle = true;
-            setTimeout(() => {
+            timeoutId = setTimeout(() => {
                 inThrottle = false;
                 if (lastArgs) {
                     fn(...lastArgs);
@@ -129,6 +141,16 @@ function throttle(fn, limit) {
             lastArgs = args; // Save latest args for trailing call
         }
     };
+    // Allow cancellation
+    throttled.cancel = () => {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+        }
+        inThrottle = false;
+        lastArgs = null;
+    };
+    return throttled;
 }
 
 /**
@@ -141,7 +163,8 @@ function getOutputChannel() {
     return outputChannel;
 }
 
-/**
+/*
+ *
  * Get or create a terminal instance
  */
 function getTerminal() {
@@ -193,6 +216,9 @@ function log(message, type = 'info') {
 // LINTING
 // ============================================================================
 
+// Track pending lint operations per document to avoid redundant linting
+const pendingLints = new Map();
+
 /**
  * Lint a QBasic document and update diagnostics
  */
@@ -200,20 +226,25 @@ function lintDocument(document) {
     if (!document || document.languageId !== CONFIG.LANGUAGE_ID) return;
     if (!getConfig(CONFIG.ENABLE_LINT, true)) return;
 
-    // Clear pending lint
-    if (lintTimer) {
-        clearTimeout(lintTimer);
+    const uriKey = document.uri.toString();
+    
+    // Cancel pending lint for this document
+    if (pendingLints.has(uriKey)) {
+        clearTimeout(pendingLints.get(uriKey));
     }
 
     const delay = getConfig(CONFIG.LINT_DELAY, 500);
     
-    lintTimer = setTimeout(() => {
+    const timerId = setTimeout(() => {
+        pendingLints.delete(uriKey);
+        
         try {
             const transpiler = new InternalTranspiler();
             const errors = transpiler.lint(document.getText());
+            const lineCount = document.lineCount;
 
             const diagnostics = errors.map(err => {
-                const line = Math.max(0, Math.min(err.line, document.lineCount - 1));
+                const line = Math.max(0, Math.min(err.line, lineCount - 1));
                 const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
                 
                 const diagnostic = new vscode.Diagnostic(
@@ -232,15 +263,20 @@ function lintDocument(document) {
             console.error('[QBasic Nexus] Linting error:', error.message);
         }
     }, delay);
+    
+    pendingLints.set(uriKey, timerId);
 }
 
+// Lookup table for severity (faster than switch)
+const SEVERITY_MAP = Object.freeze({
+    'warning': vscode.DiagnosticSeverity.Warning,
+    'info': vscode.DiagnosticSeverity.Information,
+    'hint': vscode.DiagnosticSeverity.Hint,
+    'error': vscode.DiagnosticSeverity.Error
+});
+
 function getSeverity(level) {
-    switch (level) {
-        case 'warning': return vscode.DiagnosticSeverity.Warning;
-        case 'info': return vscode.DiagnosticSeverity.Information;
-        case 'hint': return vscode.DiagnosticSeverity.Hint;
-        default: return vscode.DiagnosticSeverity.Error;
-    }
+    return SEVERITY_MAP[level] || vscode.DiagnosticSeverity.Error;
 }
 
 // ============================================================================
@@ -896,11 +932,11 @@ function updateStatusBar() {
 function deactivate() {
     console.log('[QBasic Nexus] Extension deactivated');
     
-    // Clear timers
-    if (lintTimer) {
-        clearTimeout(lintTimer);
-        lintTimer = null;
+    // Clear all pending lint timers
+    for (const timerId of pendingLints.values()) {
+        clearTimeout(timerId);
     }
+    pendingLints.clear();
     
     // Dispose resources
     statusBarItem?.dispose();

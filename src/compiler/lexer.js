@@ -4,7 +4,7 @@
  * Tokenizes QBasic source code.
  * 
  * @author Thirawat27
- * @version 1.0.3
+ * @version 1.0.6
  */
 
 'use strict';

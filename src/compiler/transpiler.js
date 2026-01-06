@@ -1,5 +1,5 @@
 /**
- * QBasic Nexus - Transpiler (Parser & Codegen) v1.0.3
+ * QBasic Nexus - Transpiler (Parser & Codegen) v1.0.6
  * ==================================================
  * Internal compiler that converts QBasic code to JavaScript.
  * Supports both Node.js (CLI) and Web (Browser/Webview) targets.
@@ -19,7 +19,7 @@
  * - Minimal object allocation in hot paths
  * 
  * @author Thirawat27
- * @version 1.0.3
+ * @version 1.0.6
  */
 
 'use strict';

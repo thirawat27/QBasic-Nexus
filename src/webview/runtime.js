@@ -1,10 +1,10 @@
 /**
- * QBasic Nexus - Webview Runtime v1.0.3
+ * QBasic Nexus - Webview Runtime v1.0.6
  * =====================================
  * Clean, simple, and reliable CRT runtime for QBasic programs.
  * 
  * @author Thirawat27
- * @version 1.0.3
+ * @version 1.0.6
  */
 
 /* global requestAnimationFrame, cancelAnimationFrame, Image, Audio */
@@ -18,7 +18,7 @@
     
     const vscode = acquireVsCodeApi();
     const screen = document.getElementById('screen');
-    const canvas = document.getElementById('gfx-layer'); // Ensure canvas is available here too if needed
+    const canvas = document.getElementById('gfx-layer');
     
     // Global directives for linters
     /* global localStorage */
@@ -33,91 +33,149 @@
     let bgColor = 0;  // Black
     let keyBuffer = '';
 
-    // QBasic 16-color palette (CGA/EGA)
-    const COLORS = [
+    // QBasic 16-color palette (CGA/EGA) - frozen for immutability
+    const COLORS = Object.freeze([
         '#000000', '#0000AA', '#00AA00', '#00AAAA',
         '#AA0000', '#AA00AA', '#AA5500', '#AAAAAA',
         '#555555', '#5555FF', '#55FF55', '#55FFFF',
         '#FF5555', '#FF55FF', '#FFFF55', '#FFFFFF'
-    ];
+    ]);
+
+    // =========================================================================
+    // OBJECT POOLING - Reduce GC pressure
+    // =========================================================================
+    
+    const SpanPool = {
+        _pool: [],
+        _maxSize: 100,
+        
+        acquire() {
+            if (this._pool.length > 0) {
+                return this._pool.pop();
+            }
+            return document.createElement('span');
+        },
+        
+        release(span) {
+            if (this._pool.length < this._maxSize) {
+                span.textContent = '';
+                span.style.cssText = '';
+                span.className = '';
+                this._pool.push(span);
+            }
+        },
+        
+        clear() {
+            this._pool.length = 0;
+        }
+    };
 
     // =========================================================================
     // AUDIO ENGINE (Adapted from qbjs-main)
     // =========================================================================
     
+    // Pre-computed constants for audio
+    const AUDIO_CONSTANTS = Object.freeze({
+        C6_FREQ: 1047,
+        DEFAULT_TEMPO: 120,
+        RAMP_TIME: 0.01,
+        DEFAULT_GAIN: 0.3
+    });
+    
     class QBasicSound {
         constructor() {
             this.octave = 4;
             this.noteLength = 4;
-            this.tempo = 120;
-            this.mode = 7 / 8;
+            this.tempo = AUDIO_CONSTANTS.DEFAULT_TEMPO;
+            this.mode = 0.875; // 7/8 pre-computed
             this.foreground = true;
             this.type = 'square';
             this._audioContext = null;
+            this._gainNode = null; // Reusable gain node for simple sounds
+            this._isResuming = false;
         }
 
         stop() {
             if (this._audioContext) {
-                this._audioContext.suspend();
-                this._audioContext.close();
+                try {
+                    this._audioContext.suspend();
+                    this._audioContext.close();
+                } catch (_e) {
+                    // Ignore close errors
+                }
                 this._audioContext = null;
+                this._gainNode = null;
             }
         }
-
-        async playSound(frequency, duration) {
+        
+        // Lazy initialization with singleton pattern
+        _ensureContext() {
             if (!this._audioContext) {
                 this._audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // Auto-resume helper
+                // Single resume helper with flag to prevent multiple attempts
                 const resume = () => {
-                    if (this._audioContext && this._audioContext.state === 'suspended') {
-                        this._audioContext.resume();
+                    if (this._audioContext && this._audioContext.state === 'suspended' && !this._isResuming) {
+                        this._isResuming = true;
+                        this._audioContext.resume().finally(() => {
+                            this._isResuming = false;
+                        });
                     }
                 };
-                document.addEventListener('click', resume, { once: true });
-                document.addEventListener('keydown', resume, { once: true });
+                document.addEventListener('click', resume, { once: true, passive: true });
+                document.addEventListener('keydown', resume, { once: true, passive: true });
             }
+            return this._audioContext;
+        }
+
+        async playSound(frequency, duration) {
+            const ctx = this._ensureContext();
             
-            if (this._audioContext.state === 'suspended') {
+            if (ctx.state === 'suspended') {
                 try {
-                    await this._audioContext.resume();
+                    await ctx.resume();
                 } catch (_e) {
                     // Ignore, waits for interaction
                 }
             }
 
-            // a 0 frequency means a pause
-            if (frequency == 0) {
+            // A 0 frequency means a pause
+            if (frequency === 0) {
                 await this.delay(duration);
-            } else {
-                const o = this._audioContext.createOscillator();
-                const g = this._audioContext.createGain();
-                o.connect(g);
-                g.connect(this._audioContext.destination);
-                
-                // Ramp up to avoid click at start
-                g.gain.setValueAtTime(0, this._audioContext.currentTime);
-                g.gain.linearRampToValueAtTime(0.3, this._audioContext.currentTime + 0.01);
-                
-                o.frequency.value = frequency;
-                o.type = this.type;
-                
-                o.start();
-                
-                const actualDuration = duration * this.mode;
-                const pause = duration - actualDuration;
-                
-                await this.delay(actualDuration);
-                
-                // Ramp down to avoid clicking
-                try {
-                    g.gain.linearRampToValueAtTime(0, this._audioContext.currentTime + 0.01);
-                    o.stop(this._audioContext.currentTime + 0.01);
-                } catch(_e) {
-                    o.stop();
-                }
-                
-                if (pause > 0) { await this.delay(pause); }
+                return;
+            }
+            
+            const currentTime = ctx.currentTime;
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            
+            o.connect(g);
+            g.connect(ctx.destination);
+            
+            // Ramp up to avoid click at start
+            g.gain.setValueAtTime(0, currentTime);
+            g.gain.linearRampToValueAtTime(AUDIO_CONSTANTS.DEFAULT_GAIN, currentTime + AUDIO_CONSTANTS.RAMP_TIME);
+            
+            o.frequency.value = frequency;
+            o.type = this.type;
+            o.start(currentTime);
+            
+            const actualDuration = duration * this.mode;
+            const pause = duration - actualDuration;
+            
+            await this.delay(actualDuration);
+            
+            // Ramp down to avoid clicking
+            try {
+                const stopTime = ctx.currentTime;
+                g.gain.linearRampToValueAtTime(0, stopTime + AUDIO_CONSTANTS.RAMP_TIME);
+                o.stop(stopTime + AUDIO_CONSTANTS.RAMP_TIME);
+            } catch (_e) {
+                try { o.stop(); } catch (_e2) { /* ignore */ }
+            }
+            
+            if (pause > 0) {
+                await this.delay(pause);
             }
         }
     
@@ -192,12 +250,15 @@
                 if (g.background) this.foreground = false;
     
                 if (noteValue !== null) {
-                    const noteDuration = (60000 * 4 / this.tempo);
-                    let duration = (temporaryLength ? noteDuration / temporaryLength : noteDuration / this.noteLength);
+                    // Pre-compute note duration base
+                    const noteDuration = 240000 / this.tempo; // (60000 * 4 / tempo) simplified
+                    let duration = temporaryLength 
+                        ? noteDuration / temporaryLength 
+                        : noteDuration / this.noteLength;
                     if (longerNote) duration *= 1.5;
                     
-                    const C6 = 1047;
-                    const freq = noteValue == 0 ? 0 : C6 * Math.pow(2, (noteValue - 48) / 12);
+                    // Use pre-computed C6 constant
+                    const freq = noteValue === 0 ? 0 : AUDIO_CONSTANTS.C6_FREQ * Math.pow(2, (noteValue - 48) / 12);
                     
                     if (nowait) {
                         this.playSound(freq, duration);
@@ -242,18 +303,21 @@
     }
 
     function createSpan(text, fg = fgColor, bg = bgColor) {
-        const span = document.createElement('span');
+        const span = SpanPool.acquire();
         span.textContent = text;
-        span.style.color = COLORS[fg % 16];
+        span.style.color = COLORS[fg & 15]; // Bitwise AND faster than modulo
         if (bg > 0) {
-            span.style.backgroundColor = COLORS[bg % 8];
+            span.style.backgroundColor = COLORS[bg & 7];
         }
         return span;
     }
 
+    // Cached message object to reduce object creation
+    const _outputMessage = { type: 'check_output', content: '' };
+
     function print(text, newline = true) {
         const content = String(text);
-        const span = createSpan(content + (newline ? '\n' : ''));
+        const span = createSpan(newline ? content + '\n' : content);
         
         // Batch DOM operations
         if (!printBatch) {
@@ -261,13 +325,14 @@
         }
         printBatch.appendChild(span);
         
-        // Schedule flush
+        // Schedule flush - only if not already scheduled
         if (!printBatchTimer) {
             printBatchTimer = requestAnimationFrame(flushPrintBatch);
         }
         
-        // Send to extension for quest checking
-        vscode.postMessage({ type: 'check_output', content: content });
+        // Reuse message object to reduce GC
+        _outputMessage.content = content;
+        vscode.postMessage(_outputMessage);
     }
 
     function cls() {
@@ -280,9 +345,19 @@
             printBatchTimer = null;
         }
 
-        screen.innerHTML = '';
+        // Clear DOM efficiently
+        while (screen.firstChild) {
+            const child = screen.firstChild;
+            screen.removeChild(child);
+            // Return spans to pool if applicable
+            if (child.tagName === 'SPAN') {
+                SpanPool.release(child);
+            }
+        }
+        
         cursorRow = 1;
         cursorCol = 1;
+        
         if (ctx && canvas.style.display !== 'none') {
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -381,14 +456,29 @@
     // GRAPHICS ENGINE
     // =========================================================================
 
-
-    const ctx = canvas ? canvas.getContext('2d', { alpha: true }) : null;
+    const ctx = canvas ? canvas.getContext('2d', { alpha: true, desynchronized: true }) : null;
     
     // Image buffers for GET/PUT
     // QBasic stores images in arrays. We will use a Map to simulate this.
     // Key: Array ID (or Name), Value: ImageData
     const imageBuffers = new Map();
     let _nextBufferId = 1;
+    
+    // Reusable temp canvas for composite operations (object pooling)
+    let _tempCanvas = null;
+    let _tempCtx = null;
+    
+    function _getTempCanvas(w, h) {
+        if (!_tempCanvas) {
+            _tempCanvas = document.createElement('canvas');
+            _tempCtx = _tempCanvas.getContext('2d');
+        }
+        if (_tempCanvas.width !== w || _tempCanvas.height !== h) {
+            _tempCanvas.width = w;
+            _tempCanvas.height = h;
+        }
+        return { canvas: _tempCanvas, ctx: _tempCtx };
+    }
 
     // Helper to get buffer from ID or create new
     function _getBuffer(id) {
@@ -428,10 +518,8 @@
     }
     
     function createTempCanvas(imgData, x, y, compOp) {
-         const t = document.createElement('canvas');
-         t.width = imgData.width;
-         t.height = imgData.height;
-         const tctx = t.getContext('2d');
+         // Reuse temp canvas instead of creating new one each time
+         const { canvas: t, ctx: tctx } = _getTempCanvas(imgData.width, imgData.height);
          tctx.putImageData(imgData, 0, 0);
          
          const oldComp = ctx.globalCompositeOperation;
@@ -443,16 +531,16 @@
     let lastX = 0;
     let lastY = 0;
     
-    // Default resolutions
-    const RESOLUTIONS = {
-        0: { w: 0, h: 0 },         // Text Mode (Canvas hidden)
-        1: { w: 320, h: 200 },
-        2: { w: 640, h: 200 },
-        7: { w: 320, h: 200 },
-        9: { w: 640, h: 350 },
-        12: { w: 640, h: 480 },
-        13: { w: 320, h: 200 }
-    };
+    // Default resolutions - frozen for immutability
+    const RESOLUTIONS = Object.freeze({
+        0: Object.freeze({ w: 0, h: 0 }),         // Text Mode (Canvas hidden)
+        1: Object.freeze({ w: 320, h: 200 }),
+        2: Object.freeze({ w: 640, h: 200 }),
+        7: Object.freeze({ w: 320, h: 200 }),
+        9: Object.freeze({ w: 640, h: 350 }),
+        12: Object.freeze({ w: 640, h: 480 }),
+        13: Object.freeze({ w: 320, h: 200 })
+    });
 
     function screenMode(mode) {
         if (!canvas) return;
@@ -481,9 +569,9 @@
 
     function _pset(x, y, c) {
         if (!ctx) return;
-        const colorVal = c !== undefined ? COLORS[c % 16] : COLORS[fgColor];
-        ctx.fillStyle = colorVal;
-        ctx.fillRect(Math.floor(x), Math.floor(y), 1, 1);
+        // Bitwise AND is faster than modulo for powers of 2
+        ctx.fillStyle = c !== undefined ? COLORS[c & 15] : COLORS[fgColor];
+        ctx.fillRect(x | 0, y | 0, 1, 1); // Bitwise OR 0 for fast floor
         lastX = x;
         lastY = y;
     }
@@ -491,9 +579,8 @@
     function _preset(x, y, c) {
         if (!ctx) return;
         // If color omitted, use background (0 usually)
-        const colorVal = c !== undefined ? COLORS[c % 16] : COLORS[0];
-        ctx.fillStyle = colorVal;
-        ctx.fillRect(Math.floor(x), Math.floor(y), 1, 1);
+        ctx.fillStyle = c !== undefined ? COLORS[c & 15] : COLORS[0];
+        ctx.fillRect(x | 0, y | 0, 1, 1);
         lastX = x;
         lastY = y;
     }
@@ -501,26 +588,27 @@
     function _line(x1, y1, x2, y2, c, box, fill) {
         if (!ctx) return;
         
-        const colorVal = c !== undefined ? COLORS[c % 16] : COLORS[fgColor];
-        ctx.strokeStyle = colorVal;
-        ctx.fillStyle = colorVal;
+        const colorVal = c !== undefined ? COLORS[c & 15] : COLORS[fgColor];
         
         // Handle optional start point
-        if (x1 === null || x1 === undefined) x1 = lastX;
-        if (y1 === null || y1 === undefined) y1 = lastY;
+        const startX = x1 ?? lastX;
+        const startY = y1 ?? lastY;
         
         if (box) {
-            const w = x2 - x1;
-            const h = y2 - y1;
+            const w = x2 - startX;
+            const h = y2 - startY;
             
             if (fill) {
-                ctx.fillRect(x1, y1, w, h);
+                ctx.fillStyle = colorVal;
+                ctx.fillRect(startX, startY, w, h);
             } else {
-                ctx.strokeRect(x1, y1, w, h);
+                ctx.strokeStyle = colorVal;
+                ctx.strokeRect(startX, startY, w, h);
             }
         } else {
+            ctx.strokeStyle = colorVal;
             ctx.beginPath();
-            ctx.moveTo(x1, y1);
+            ctx.moveTo(startX, startY);
             ctx.lineTo(x2, y2);
             ctx.stroke();
         }
@@ -532,7 +620,7 @@
     function _circle(x, y, r, c) {
         if (!ctx) return;
         
-        const colorVal = c !== undefined ? COLORS[c % 16] : COLORS[fgColor];
+        const colorVal = c !== undefined ? COLORS[c & 15] : COLORS[fgColor];
         ctx.strokeStyle = colorVal;
         
         ctx.beginPath();
@@ -756,39 +844,38 @@
     let mouseButtons = 0;
     let _mouseScroll = 0;
 
-    // Attach to document to cover the whole iframe
+    // Mouse event handlers - use passive where possible for better scroll performance
+    // Cache button mapping for efficiency
+    const BUTTON_MAP_DOWN = [1, 4, 2]; // JS button -> QB mask for mousedown
+    const BUTTON_MAP_UP = [~1, ~4, ~2]; // JS button -> QB mask for mouseup (inverted)
+    
     document.addEventListener('mousemove', (e) => {
         if (!canvas || canvas.style.display === 'none') {
-             // Text mode approximation
-             const rect = screen.getBoundingClientRect();
-             const x = e.clientX - rect.left;
-             const y = e.clientY - rect.top;
-             // Char size approx 9x18 roughly or calculated from font
-             mouseX = Math.floor(x / 9); 
-             mouseY = Math.floor(y / 18);
+            // Text mode approximation - cache rect if needed frequently
+            const rect = screen.getBoundingClientRect();
+            mouseX = ((e.clientX - rect.left) / 9) | 0;  // Bitwise OR 0 faster than Math.floor
+            mouseY = ((e.clientY - rect.top) / 18) | 0;
         } else {
-             // Graphic mode
-             const rect = canvas.getBoundingClientRect();
-             const scaleX = canvas.width / rect.width;
-             const scaleY = canvas.height / rect.height;
-             mouseX = Math.floor((e.clientX - rect.left) * scaleX);
-             mouseY = Math.floor((e.clientY - rect.top) * scaleY);
+            // Graphic mode
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            mouseX = ((e.clientX - rect.left) * scaleX) | 0;
+            mouseY = ((e.clientY - rect.top) * scaleY) | 0;
         }
-    });
+    }, { passive: true });
 
     document.addEventListener('mousedown', (e) => {
         // QB: 1=Left, 2=Right, 4=Middle
         // JS: 0=Left, 1=Middle, 2=Right
-        if (e.button === 0) mouseButtons |= 1;
-        if (e.button === 2) mouseButtons |= 2;
-        if (e.button === 1) mouseButtons |= 4;
-    });
+        const mask = BUTTON_MAP_DOWN[e.button];
+        if (mask) mouseButtons |= mask;
+    }, { passive: true });
 
     document.addEventListener('mouseup', (e) => {
-        if (e.button === 0) mouseButtons &= ~1;
-        if (e.button === 2) mouseButtons &= ~2;
-        if (e.button === 1) mouseButtons &= ~4;
-    });
+        const mask = BUTTON_MAP_UP[e.button];
+        if (mask) mouseButtons &= mask;
+    }, { passive: true });
     
     document.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -817,10 +904,10 @@
         if (canvas) canvas.style.cursor = cursorStyle;
     }
 
-    // Mouse wheel event
+    // Mouse wheel event - passive for better performance
     document.addEventListener('wheel', (e) => {
         _mouseScroll += e.deltaY > 0 ? 1 : -1;
-    });
+    }, { passive: true });
 
     // =========================================================================
     // ADVANCED KEYBOARD HANDLER
@@ -1113,12 +1200,22 @@
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT') return;
         
-        if (specialKeys[e.key]) {
-            keyBuffer = specialKeys[e.key];
+        // Check special keys first (Map lookup is O(1))
+        const special = specialKeys[e.key];
+        if (special) {
+            keyBuffer = special;
         } else if (e.key.length === 1) {
             keyBuffer = e.key;
         }
+        
+        // Also track for _KEYDOWN function
+        keysDown.add(e.keyCode);
+        keyHitBuffer.push(e.keyCode);
     });
+    
+    document.addEventListener('keyup', (e) => {
+        keysDown.delete(e.keyCode);
+    }, { passive: true });
 
     // =========================================================================
     // QUEST HUD
