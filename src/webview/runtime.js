@@ -1,13 +1,13 @@
 /**
- * QBasic Nexus - Webview Runtime v1.0.6
+ * QBasic Nexus - Webview Runtime v1.0.7
  * =====================================
- * Clean, simple, and reliable CRT runtime for QBasic programs.
+ * Neon CRT runtime with enhanced visibility for QBasic programs.
  * 
  * @author Thirawat27
- * @version 1.0.6
+ * @version 1.0.7
  */
 
-/* global requestAnimationFrame, cancelAnimationFrame, Image, Audio */
+/* global requestAnimationFrame, cancelAnimationFrame, Image, Audio, requestIdleCallback */
 
 (function() {
     'use strict';
@@ -33,12 +33,13 @@
     let bgColor = 0;  // Black
     let keyBuffer = '';
 
-    // QBasic 16-color palette (CGA/EGA) - frozen for immutability
+    // QBasic 16-color palette - Enhanced Neon for visibility on dark backgrounds
+    // Brighter than original CGA/EGA for modern displays
     const COLORS = Object.freeze([
-        '#000000', '#0000AA', '#00AA00', '#00AAAA',
-        '#AA0000', '#AA00AA', '#AA5500', '#AAAAAA',
-        '#555555', '#5555FF', '#55FF55', '#55FFFF',
-        '#FF5555', '#FF55FF', '#FFFF55', '#FFFFFF'
+        '#0a0a0a', '#3388FF', '#00DD44', '#00DDDD',
+        '#DD3333', '#DD44DD', '#DD8800', '#CCCCCC',
+        '#808080', '#6699FF', '#66FF66', '#66FFFF',
+        '#FF6666', '#FF66FF', '#FFFF66', '#FFFFFF'
     ]);
 
     // =========================================================================
@@ -302,12 +303,36 @@
         printBatchTimer = null;
     }
 
+    // Pre-computed glow cache for performance
+    const _glowCache = new Map();
+    
+    function _getGlowStyle(color) {
+        if (!_glowCache.has(color)) {
+            // Lighter glow for better performance (single layer)
+            _glowCache.set(color, `0 0 5px ${color}66`);
+        }
+        return _glowCache.get(color);
+    }
+
     function createSpan(text, fg = fgColor, bg = bgColor) {
         const span = SpanPool.acquire();
         span.textContent = text;
-        span.style.color = COLORS[fg & 15]; // Bitwise AND faster than modulo
+        
+        const colorIndex = fg & 15;
+        const color = COLORS[colorIndex];
+        span.style.color = color;
+        
+        // Apply lightweight glow (skip for black/dark colors)
+        if (colorIndex > 0 && colorIndex !== 8) {
+            span.style.textShadow = _getGlowStyle(color);
+        } else {
+            span.style.textShadow = '';
+        }
+        
         if (bg > 0) {
             span.style.backgroundColor = COLORS[bg & 7];
+        } else {
+            span.style.backgroundColor = '';
         }
         return span;
     }
@@ -345,14 +370,14 @@
             printBatchTimer = null;
         }
 
-        // Clear DOM efficiently
-        while (screen.firstChild) {
-            const child = screen.firstChild;
-            screen.removeChild(child);
-            // Return spans to pool if applicable
-            if (child.tagName === 'SPAN') {
-                SpanPool.release(child);
-            }
+        // Fast DOM clear - textContent is faster than removeChild loop
+        screen.textContent = '';
+        
+        // Reset span pool asynchronously to avoid blocking
+        if (typeof requestIdleCallback !== 'undefined') {
+            requestIdleCallback(() => SpanPool.clear());
+        } else {
+            setTimeout(() => SpanPool.clear(), 0);
         }
         
         cursorRow = 1;
@@ -653,20 +678,31 @@
         return new Promise((resolve) => {
             flushPrintBatch(); // Force flush so prompt appears before input box
 
-            // Print prompt
-            if (prompt) {
-                const promptSpan = createSpan(prompt);
-                screen.appendChild(promptSpan);
-            }
-
-            // Create input element
-            const inputLine = document.createElement('div');
+            // Create input line container (inline to stay on same line)
+            const inputLine = document.createElement('span');
             inputLine.className = 'input-line';
+            
+            // Add prompt if provided
+            if (prompt) {
+                const promptSpan = document.createElement('span');
+                promptSpan.className = 'prompt';
+                promptSpan.textContent = prompt;
+                promptSpan.style.color = COLORS[fgColor];
+                // Apply color-matched glow
+                if (fgColor > 0 && fgColor !== 8) {
+                    promptSpan.style.textShadow = `0 0 4px ${COLORS[fgColor]}88, 0 0 8px ${COLORS[fgColor]}44`;
+                }
+                inputLine.appendChild(promptSpan);
+            }
             
             const inputEl = document.createElement('input');
             inputEl.type = 'text';
             inputEl.className = 'cmd-input';
             inputEl.style.color = COLORS[fgColor];
+            // Apply color-matched glow to input
+            if (fgColor > 0 && fgColor !== 8) {
+                inputEl.style.textShadow = `0 0 4px ${COLORS[fgColor]}88, 0 0 8px ${COLORS[fgColor]}44`;
+            }
             inputEl.autofocus = true;
             
             inputLine.appendChild(inputEl);
@@ -680,8 +716,8 @@
                 if (e.key === 'Enter') {
                     const value = inputEl.value;
                     
-                    // Replace input with static text
-                    const resultSpan = createSpan(value + '\n');
+                    // Replace input line with static text (prompt + value + newline)
+                    const resultSpan = createSpan((prompt || '') + value + '\n');
                     inputLine.replaceWith(resultSpan);
                     
                     resolve(value);
@@ -724,6 +760,342 @@
 
     async function delay(seconds) {
         return sleep(seconds * 1000);
+    }
+
+    // =========================================================================
+    // STRING FUNCTIONS (from qbjs-main)
+    // =========================================================================
+    
+    function _left$(str, n) {
+        if (n === undefined || n < 0) return '';
+        return String(str).substring(0, n);
+    }
+
+    function _right$(str, n) {
+        if (n === undefined || n < 0) return '';
+        const s = String(str);
+        return s.substring(s.length - n);
+    }
+
+    function _mid$(str, start, len) {
+        const s = String(str);
+        if (len === undefined) {
+            return s.substring(start - 1);
+        }
+        return s.substring(start - 1, start - 1 + len);
+    }
+
+    function _ltrim$(str) {
+        return String(str).trimStart();
+    }
+
+    function _rtrim$(str) {
+        return String(str).trimEnd();
+    }
+
+    function _trim$(str) {
+        return String(str).trim();
+    }
+
+    function _instr(arg1, arg2, arg3) {
+        let start = 1;
+        let source, search;
+        
+        if (arg3 !== undefined) {
+            start = arg1;
+            source = String(arg2);
+            search = String(arg3);
+        } else {
+            source = String(arg1);
+            search = String(arg2);
+        }
+        
+        const idx = source.indexOf(search, start - 1);
+        return idx < 0 ? 0 : idx + 1;
+    }
+
+    function _instrrev(arg1, arg2, arg3) {
+        let source, search, start;
+        
+        if (arg3 !== undefined) {
+            source = String(arg1);
+            search = String(arg2);
+            start = arg3 - 1;
+        } else {
+            source = String(arg1);
+            search = String(arg2);
+            start = source.length;
+        }
+        
+        const idx = source.lastIndexOf(search, start);
+        return idx < 0 ? 0 : idx + 1;
+    }
+
+    function _ucase$(str) {
+        return String(str).toUpperCase();
+    }
+
+    function _lcase$(str) {
+        return String(str).toLowerCase();
+    }
+
+    function _string$(count, charOrCode) {
+        if (count <= 0) return '';
+        let char = typeof charOrCode === 'number' 
+            ? String.fromCharCode(charOrCode) 
+            : String(charOrCode).charAt(0);
+        return char.repeat(count);
+    }
+
+    function _space$(n) {
+        return n > 0 ? ' '.repeat(n) : '';
+    }
+
+    function _asc(str, pos) {
+        const s = String(str);
+        if (s.length === 0) return 0;
+        const index = pos !== undefined ? pos - 1 : 0;
+        return s.charCodeAt(index) || 0;
+    }
+
+    function _chr$(code) {
+        return String.fromCharCode(code);
+    }
+
+    function _len(str) {
+        return String(str).length;
+    }
+
+    function _str$(num) {
+        const s = String(num);
+        return num >= 0 ? ' ' + s : s;
+    }
+
+    function _val(str) {
+        const result = parseFloat(str);
+        return isNaN(result) ? 0 : result;
+    }
+
+    // =========================================================================
+    // EXTENDED MATH FUNCTIONS (from qbjs-main)
+    // =========================================================================
+    
+    function _acos(x) {
+        return Math.acos(x);
+    }
+
+    function _asin(x) {
+        return Math.asin(x);
+    }
+
+    function _atan2(y, x) {
+        return Math.atan2(y, x);
+    }
+
+    function _fix(x) {
+        // FIX truncates toward zero (like INT but for negatives)
+        return x < 0 ? Math.ceil(x) : Math.floor(x);
+    }
+
+    function _sgn(x) {
+        if (x > 0) return 1;
+        if (x < 0) return -1;
+        return 0;
+    }
+
+    function _int(x) {
+        return Math.floor(x);
+    }
+
+    function _abs(x) {
+        return Math.abs(x);
+    }
+
+    function _sqr(x) {
+        return Math.sqrt(x);
+    }
+
+    function _log(x) {
+        return Math.log(x);
+    }
+
+    function _exp(x) {
+        return Math.exp(x);
+    }
+
+    function _sin(x) {
+        return Math.sin(x);
+    }
+
+    function _cos(x) {
+        return Math.cos(x);
+    }
+
+    function _tan(x) {
+        return Math.tan(x);
+    }
+
+    function _atn(x) {
+        return Math.atan(x);
+    }
+
+    function _rnd(_n) {
+        // Simple random, ignores seed for now
+        return Math.random();
+    }
+
+    // =========================================================================
+    // SYSTEM FUNCTIONS (from qbjs-main)
+    // =========================================================================
+    
+    function _desktopWidth() {
+        return window.screen.width * (window.devicePixelRatio || 1);
+    }
+
+    function _desktopHeight() {
+        return window.screen.height * (window.devicePixelRatio || 1);
+    }
+
+    async function _clipboard$() {
+        try {
+            return await navigator.clipboard.readText();
+        } catch {
+            return '';
+        }
+    }
+
+    async function _setClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(String(text));
+        } catch {
+            console.error('Clipboard write failed');
+        }
+    }
+
+    // =========================================================================
+    // GRAPHICS: PAINT (Optimized Scanline Flood Fill)
+    // =========================================================================
+    
+    // Pre-computed RGB cache for colors
+    const _colorRGBCache = new Map();
+    
+    function _getColorRGB(colorIndex) {
+        if (_colorRGBCache.has(colorIndex)) {
+            return _colorRGBCache.get(colorIndex);
+        }
+        const hex = COLORS[colorIndex & 15];
+        const rgb = _hexToRgbFast(hex);
+        _colorRGBCache.set(colorIndex, rgb);
+        return rgb;
+    }
+    
+    function _hexToRgbFast(hex) {
+        // Fast hex parse without regex
+        const val = parseInt(hex.slice(1), 16);
+        return {
+            r: (val >> 16) & 255,
+            g: (val >> 8) & 255,
+            b: val & 255
+        };
+    }
+
+    function _paint(x, y, fillColor, borderColor) {
+        if (!ctx) return;
+        
+        x = x | 0;
+        y = y | 0;
+        
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+        
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        const _dataLen = data.length;
+        
+        // Use cached RGB values
+        const fillRGB = _getColorRGB(fillColor !== undefined ? fillColor : fgColor);
+        
+        // Get target color at starting point
+        const startIdx = (y * width + x) << 2; // * 4 using bit shift
+        const targetR = data[startIdx];
+        const targetG = data[startIdx + 1];
+        const targetB = data[startIdx + 2];
+        
+        // Early exit if fill equals target
+        if (fillRGB.r === targetR && fillRGB.g === targetG && fillRGB.b === targetB) {
+            return;
+        }
+        
+        // Border color
+        let borderR = -1, borderG = -1, borderB = -1;
+        let hasBorder = false;
+        if (borderColor !== undefined) {
+            const borderRGB = _getColorRGB(borderColor);
+            borderR = borderRGB.r;
+            borderG = borderRGB.g;
+            borderB = borderRGB.b;
+            hasBorder = true;
+        }
+        
+        // Optimized scanline flood fill with typed array for visited
+        const visited = new Uint8Array(width * height);
+        const stack = new Int32Array(width * height * 2); // Pre-allocate stack
+        let stackPtr = 0;
+        
+        // Push initial point
+        stack[stackPtr++] = x;
+        stack[stackPtr++] = y;
+        
+        const fillR = fillRGB.r;
+        const fillG = fillRGB.g;
+        const fillB = fillRGB.b;
+        
+        while (stackPtr > 0) {
+            const cy = stack[--stackPtr];
+            const cx = stack[--stackPtr];
+            
+            if (cx < 0 || cx >= width || cy < 0 || cy >= height) continue;
+            
+            const key = cy * width + cx;
+            if (visited[key]) continue;
+            visited[key] = 1;
+            
+            const idx = key << 2;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            
+            // Check boundary conditions
+            if (hasBorder) {
+                if (r === borderR && g === borderG && b === borderB) continue;
+            } else {
+                if (r !== targetR || g !== targetG || b !== targetB) continue;
+            }
+            
+            // Fill pixel
+            data[idx] = fillR;
+            data[idx + 1] = fillG;
+            data[idx + 2] = fillB;
+            data[idx + 3] = 255;
+            
+            // Push neighbors (optimized order for cache locality)
+            stack[stackPtr++] = cx + 1;
+            stack[stackPtr++] = cy;
+            stack[stackPtr++] = cx - 1;
+            stack[stackPtr++] = cy;
+            stack[stackPtr++] = cx;
+            stack[stackPtr++] = cy + 1;
+            stack[stackPtr++] = cx;
+            stack[stackPtr++] = cy - 1;
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+    }
+
+    function _hexToRgb(hex) {
+        return _hexToRgbFast(hex);
     }
 
     // =========================================================================
@@ -809,12 +1181,57 @@
         limit: _limit,
         display: _display,
         
-        // Advanced Math
+        // Advanced Math (existing)
         ceil: _ceil,
         round: _round,
         hypot: _hypot,
         d2r: _d2r,
         r2d: _r2d,
+        
+        // Extended Math (new from qbjs-main)
+        acos: _acos,
+        asin: _asin,
+        atan2: _atan2,
+        fix: _fix,
+        sgn: _sgn,
+        'int': _int,
+        abs: _abs,
+        sqr: _sqr,
+        log: _log,
+        exp: _exp,
+        sin: _sin,
+        cos: _cos,
+        tan: _tan,
+        atn: _atn,
+        rnd: _rnd,
+        
+        // String Functions (new from qbjs-main)
+        'left$': _left$,
+        'right$': _right$,
+        'mid$': _mid$,
+        'ltrim$': _ltrim$,
+        'rtrim$': _rtrim$,
+        'trim$': _trim$,
+        instr: _instr,
+        instrrev: _instrrev,
+        'ucase$': _ucase$,
+        'lcase$': _lcase$,
+        'string$': _string$,
+        'space$': _space$,
+        asc: _asc,
+        'chr$': _chr$,
+        len: _len,
+        'str$': _str$,
+        val: _val,
+        
+        // System Functions (new from qbjs-main)
+        desktopwidth: _desktopWidth,
+        desktopheight: _desktopHeight,
+        'clipboard$': _clipboard$,
+        clipboard: _setClipboard,
+        
+        // Graphics - PAINT (new from qbjs-main)
+        paint: _paint,
         
         // Time
         timer,
@@ -844,24 +1261,38 @@
     let mouseButtons = 0;
     let _mouseScroll = 0;
 
-    // Mouse event handlers - use passive where possible for better scroll performance
+    // Mouse event handlers - optimized with RAF throttling
     // Cache button mapping for efficiency
     const BUTTON_MAP_DOWN = [1, 4, 2]; // JS button -> QB mask for mousedown
     const BUTTON_MAP_UP = [~1, ~4, ~2]; // JS button -> QB mask for mouseup (inverted)
     
-    document.addEventListener('mousemove', (e) => {
+    // Throttle mousemove with RAF for smooth performance
+    let _mouseMoveQueued = false;
+    let _lastMouseEvent = null;
+    
+    function _processMouseMove() {
+        _mouseMoveQueued = false;
+        if (!_lastMouseEvent) return;
+        
+        const e = _lastMouseEvent;
         if (!canvas || canvas.style.display === 'none') {
-            // Text mode approximation - cache rect if needed frequently
             const rect = screen.getBoundingClientRect();
-            mouseX = ((e.clientX - rect.left) / 9) | 0;  // Bitwise OR 0 faster than Math.floor
+            mouseX = ((e.clientX - rect.left) / 9) | 0;
             mouseY = ((e.clientY - rect.top) / 18) | 0;
         } else {
-            // Graphic mode
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             mouseX = ((e.clientX - rect.left) * scaleX) | 0;
             mouseY = ((e.clientY - rect.top) * scaleY) | 0;
+        }
+    }
+    
+    document.addEventListener('mousemove', (e) => {
+        _lastMouseEvent = e;
+        if (!_mouseMoveQueued) {
+            _mouseMoveQueued = true;
+            requestAnimationFrame(_processMouseMove);
         }
     }, { passive: true });
 
@@ -915,6 +1346,54 @@
     
     const keysDown = new Set();
     let keyHitBuffer = [];
+    // keyBuffer is already declared at line 34 in the STATE section
+    
+    // Map special keys to QBasic scan codes
+    const specialKeys = {
+        'ArrowUp': '\x00H',
+        'ArrowDown': '\x00P',
+        'ArrowLeft': '\x00K',
+        'ArrowRight': '\x00M',
+        'Home': '\x00G',
+        'End': '\x00O',
+        'PageUp': '\x00I',
+        'PageDown': '\x00Q',
+        'Insert': '\x00R',
+        'Delete': '\x00S',
+        'F1': '\x00;', 'F2': '\x00<', 'F3': '\x00=', 'F4': '\x00>',
+        'F5': '\x00?', 'F6': '\x00@', 'F7': '\x00A', 'F8': '\x00B',
+        'F9': '\x00C', 'F10': '\x00D', 'F11': '\x00\x85', 'F12': '\x00\x86',
+        'Enter': '\r',
+        'Escape': '\x1b',
+        'Backspace': '\b',
+        'Tab': '\t'
+    };
+    
+    // Keyboard event listeners
+    document.addEventListener('keydown', (e) => {
+        const keyCode = e.keyCode || e.which;
+        keysDown.add(keyCode);
+        keyHitBuffer.push(keyCode);
+        
+        // Add to INKEY$ buffer
+        if (specialKeys[e.key]) {
+            keyBuffer += specialKeys[e.key];
+        } else if (e.key.length === 1) {
+            keyBuffer += e.key;
+        }
+        
+        // Prevent default for arrow keys and other game keys to avoid scrolling
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', ' '].includes(e.key)) {
+            e.preventDefault();
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        const keyCode = e.keyCode || e.which;
+        keysDown.delete(keyCode);
+    });
+    
+    // inkey function is already defined at line 729
 
     function _keyDown(keyCode) {
         // Check if a key is currently held down
@@ -1167,57 +1646,6 @@
     }
 
     // =========================================================================
-    // KEYBOARD HANDLER
-    // =========================================================================
-    
-    const specialKeys = {
-        'Enter': '\r',
-        'Escape': '\x1b',
-        'Backspace': '\b',
-        'Tab': '\t',
-        'ArrowUp': '\x00H',
-        'ArrowDown': '\x00P',
-        'ArrowLeft': '\x00K',
-        'ArrowRight': '\x00M',
-        'Home': '\x00G',
-        'End': '\x00O',
-        'PageUp': '\x00I',
-        'PageDown': '\x00Q',
-        'Insert': '\x00R',
-        'Delete': '\x00S',
-        'F1': '\x00;',
-        'F2': '\x00<',
-        'F3': '\x00=',
-        'F4': '\x00>',
-        'F5': '\x00?',
-        'F6': '\x00@',
-        'F7': '\x00A',
-        'F8': '\x00B',
-        'F9': '\x00C',
-        'F10': '\x00D'
-    };
-
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        
-        // Check special keys first (Map lookup is O(1))
-        const special = specialKeys[e.key];
-        if (special) {
-            keyBuffer = special;
-        } else if (e.key.length === 1) {
-            keyBuffer = e.key;
-        }
-        
-        // Also track for _KEYDOWN function
-        keysDown.add(e.keyCode);
-        keyHitBuffer.push(e.keyCode);
-    });
-    
-    document.addEventListener('keyup', (e) => {
-        keysDown.delete(e.keyCode);
-    }, { passive: true });
-
-    // =========================================================================
     // QUEST HUD
     // =========================================================================
     
@@ -1291,7 +1719,7 @@
     // INITIALIZATION
     // =========================================================================
     
-    console.log('[QBasic Nexus] Runtime v1.0.2 loaded');
+    console.log('[QBasic Nexus] Runtime v1.0.7 loaded (Extended Edition)');
     vscode.postMessage({ type: 'ready' });
 
     // UX Hint for Audio Context

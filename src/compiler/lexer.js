@@ -4,7 +4,7 @@
  * Tokenizes QBasic source code.
  * 
  * @author Thirawat27
- * @version 1.0.6
+ * @version 1.0.7
  */
 
 'use strict';
@@ -37,8 +37,13 @@ class Lexer {
      * @param {string} source - The source code to tokenize.
      */
     constructor(source) {
-        this.src = source;
-        this.len = source.length;
+        // Normalize Unicode variants to ASCII equivalents for robust parsing
+        // Common problematic characters: $ variants, smart quotes, etc.
+        this.src = source
+            .replace(/[\uFF04\uFE69\u0024]/g, '$') // Fullwidth $, Small $, Normal $
+            .replace(/[\u201C\u201D\u201E\u201F]/g, '"') // Smart quotes -> straight
+            .replace(/[\u2018\u2019\u201A\u201B]/g, "'"); // Smart apostrophes
+        this.len = this.src.length;
         this.pos = 0;
         this.line = 1;
         this.col = 1;

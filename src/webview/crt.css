@@ -1,130 +1,147 @@
-/* QBasic Nexus CRT - Retro Style v1.0.6
- * ===================================
+/* QBasic Nexus CRT - Neon Retro Style v1.0.7
+ * ===========================================
+ * Enhanced neon glow effects for better visibility
  * Optimized with GPU acceleration and reduced repaints
  */
 
 :root {
-  --term-color: #33ff33;
-  --term-bg: #0d110d;
-  --term-glow: #33ff3380;
+  /* Neon Terminal Theme - High Visibility */
+  --term-color: #00FF41;
+  --term-bg: #050a05;
+  --term-glow: #00FF4199;
+  --term-glow-intense: #00FF41;
+  --neon-border: #00FF6655;
   
-  /* Performance: Define commonly used colors */
-  --black: #000000;
-  --qb-blue: #0000AA;
-  --qb-green: #00AA00;
-  --qb-cyan: #00AAAA;
-  --qb-red: #AA0000;
-  --qb-magenta: #AA00AA;
-  --qb-brown: #AA5500;
-  --qb-lightgray: #AAAAAA;
-  --qb-darkgray: #555555;
-  --qb-lightblue: #5555FF;
-  --qb-lightgreen: #55FF55;
-  --qb-lightcyan: #55FFFF;
-  --qb-lightred: #FF5555;
-  --qb-lightmagenta: #FF55FF;
-  --qb-yellow: #FFFF55;
+  /* Enhanced Neon QBasic 16-color palette - Brighter for visibility */
+  --black: #0a0a0a;
+  --qb-blue: #3388FF;
+  --qb-green: #00DD44;
+  --qb-cyan: #00DDDD;
+  --qb-red: #DD3333;
+  --qb-magenta: #DD44DD;
+  --qb-brown: #DD8800;
+  --qb-lightgray: #CCCCCC;
+  --qb-darkgray: #808080;
+  --qb-lightblue: #6699FF;
+  --qb-lightgreen: #66FF66;
+  --qb-lightcyan: #66FFFF;
+  --qb-lightred: #FF6666;
+  --qb-lightmagenta: #FF66FF;
+  --qb-yellow: #FFFF66;
   --qb-white: #FFFFFF;
 }
 
 * {
   box-sizing: border-box;
+  /* Disable animations when reduce motion preferred */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--black);
+  background-color: #000000;
   color: var(--term-color);
-  font-family: 'Courier New', 'Courier', monospace;
+  font-family: 'Consolas', 'Courier New', 'Courier', monospace;
   height: 100vh;
   overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
-  /* GPU acceleration */
-  transform: translateZ(0);
+  /* GPU acceleration - force compositor layer */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* The Monitor Frame */
+/* The Monitor Frame - Neon Enhanced */
 #monitor {
   width: 95%;
   height: 90%;
   position: relative;
-  background: var(--term-bg);
+  background: linear-gradient(135deg, #030806 0%, #0a1410 50%, #030806 100%);
   border-radius: 20px;
-  box-shadow: 0 0 20px rgba(0,0,0,0.8) inset;
+  box-shadow: 
+    0 0 30px rgba(0,0,0,0.9) inset,
+    0 0 60px rgba(0, 255, 65, 0.08),
+    0 0 2px var(--neon-border),
+    inset 0 0 80px rgba(0, 255, 65, 0.03);
   overflow: hidden;
   padding: 20px;
+  border: 1px solid rgba(0, 255, 65, 0.15);
   /* GPU layer promotion */
   will-change: contents;
   contain: layout style;
 }
 
-/* The Screen Content - Optimized for frequent updates */
+/* The Screen Content - Optimized for smooth scrolling */
 #screen {
   width: 100%;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   white-space: pre-wrap;
   font-size: 18px;
-  line-height: 1.2;
-  text-shadow: 0 0 1px var(--term-glow);
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   z-index: 1;
   position: relative;
-  /* Performance optimizations */
-  will-change: scroll-position;
-  contain: strict;
-  /* Optimize text rendering */
+  /* Performance: Hardware accelerated scrolling */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: auto;
+  /* Containment for isolation */
+  contain: content;
+  /* GPU layer */
+  transform: translateZ(0);
+  /* Optimize text */
   font-variant-ligatures: none;
   text-rendering: optimizeSpeed;
+  /* Smooth scroll without jank */
+  overscroll-behavior: contain;
 }
 
-/* Reduce paint areas for spans */
+/* Spans - lightweight for fast rendering */
 #screen span {
   display: inline;
-  /* Avoid layout thrashing */
-  contain: content;
+  /* Prevent layout thrashing */
+  contain: layout style;
+  /* Avoid repaints on parent scroll */
+  will-change: auto;
 }
 
-/* CRT Scanlines Effect - GPU accelerated */
+/* CRT Scanlines Effect - Lightweight, GPU accelerated */
 #scanlines {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
+  inset: 0;
+  background: repeating-linear-gradient(
     to bottom,
-    rgba(255,255,255,0),
-    rgba(255,255,255,0) 50%,
-    rgba(0,0,0,0.15) 50%,
-    rgba(0,0,0,0.15)
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,0.1) 2px,
+    rgba(0,0,0,0.1) 4px
   );
-  background-size: 100% 4px;
   pointer-events: none;
   z-index: 10;
-  animation: scroll 10s linear infinite;
-  opacity: 0.5;
-  /* GPU acceleration */
-  transform: translateZ(0);
-  will-change: background-position;
+  opacity: 0.4;
+  /* GPU compositor layer - no animation for performance */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
-/* Flicker Effect - Reduced for performance */
+/* Flicker Effect - Disabled by default for performance */
 #flicker {
+  display: none; /* Hidden for performance - enable if needed */
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(18, 16, 16, 0.05);
-  opacity: 0;
-  z-index: 11;
+  inset: 0;
+  background: rgba(18, 16, 16, 0.03);
   pointer-events: none;
-  animation: flicker 0.2s infinite;
-  /* GPU layer */
+  z-index: 11;
   transform: translateZ(0);
 }
 
@@ -141,15 +158,16 @@ body {
   /* Static - no animation needed */
 }
 
-/* Input Field - Optimized */
+/* Input Field - Neon Enhanced */
 .input-line {
-  display: flex;
+  display: inline-flex;
+  align-items: baseline;
   contain: content;
 }
 
 .prompt {
-  margin-right: 0.5em;
   flex-shrink: 0;
+  /* Color and glow set inline by JS to match current color */
 }
 
 input.cmd-input {
@@ -158,13 +176,18 @@ input.cmd-input {
   color: inherit;
   font-family: inherit;
   font-size: inherit;
+  font-weight: 500;
   outline: none;
   flex-grow: 1;
-  caret-color: var(--term-color);
-  text-shadow: inherit;
+  min-width: 50px;
+  /* Glow set inline by JS to match current color */
   /* Optimize input */
   -webkit-appearance: none;
   appearance: none;
+}
+
+input.cmd-input::placeholder {
+  color: rgba(128, 128, 128, 0.5);
 }
 
 /* Scrollbar - Slim and performant */
@@ -199,64 +222,82 @@ input.cmd-input {
   100% { opacity: 0.01; }
 }
 
-/* Quest HUD */
+/* Quest HUD - Neon Panel */
 #quest-hud {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: 250px;
-  padding: 10px;
-  border: 1px solid var(--term-color);
-  background: rgba(0, 20, 0, 0.95);
+  width: 260px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 255, 65, 0.5);
+  background: linear-gradient(135deg, rgba(0, 20, 8, 0.97) 0%, rgba(0, 30, 15, 0.95) 100%);
   color: var(--term-color);
   font-size: 14px;
+  font-weight: 500;
   z-index: 100;
   display: none;
-  box-shadow: 0 0 10px var(--term-glow);
-  border-radius: 4px;
+  box-shadow: 
+    0 0 20px var(--term-glow),
+    0 0 40px rgba(0, 255, 65, 0.2),
+    inset 0 0 30px rgba(0, 255, 65, 0.05);
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
   /* Smooth animations when showing */
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#quest-hud:hover {
+  box-shadow: 
+    0 0 25px var(--term-glow),
+    0 0 50px rgba(0, 255, 65, 0.25),
+    inset 0 0 40px rgba(0, 255, 65, 0.08);
 }
 
 #quest-title {
-  font-weight: bold;
-  border-bottom: 1px solid var(--term-color);
-  margin-bottom: 5px;
-  padding-bottom: 3px;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(0, 255, 65, 0.4);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
+  text-shadow: 
+    0 0 3px var(--term-glow-intense),
+    0 0 8px var(--term-glow);
 }
 
 #quest-desc {
-  line-height: 1.4;
+  line-height: 1.5;
+  text-shadow: 
+    0 0 2px var(--term-glow),
+    0 0 4px rgba(0, 255, 65, 0.4);
 }
 
-/* Color classes for quick application */
-.fg-0 { color: var(--black); }
-.fg-1 { color: var(--qb-blue); }
-.fg-2 { color: var(--qb-green); }
-.fg-3 { color: var(--qb-cyan); }
-.fg-4 { color: var(--qb-red); }
-.fg-5 { color: var(--qb-magenta); }
-.fg-6 { color: var(--qb-brown); }
-.fg-7 { color: var(--qb-lightgray); }
-.fg-8 { color: var(--qb-darkgray); }
-.fg-9 { color: var(--qb-lightblue); }
-.fg-10 { color: var(--qb-lightgreen); }
-.fg-11 { color: var(--qb-lightcyan); }
-.fg-12 { color: var(--qb-lightred); }
-.fg-13 { color: var(--qb-lightmagenta); }
-.fg-14 { color: var(--qb-yellow); }
-.fg-15 { color: var(--qb-white); }
+/* Neon Color classes - Enhanced visibility with glow */
+.fg-0 { color: var(--black); text-shadow: none; }
+.fg-1 { color: var(--qb-blue); text-shadow: 0 0 4px #3388FF88, 0 0 8px #3388FF44; }
+.fg-2 { color: var(--qb-green); text-shadow: 0 0 4px #00DD4488, 0 0 8px #00DD4444; }
+.fg-3 { color: var(--qb-cyan); text-shadow: 0 0 4px #00DDDD88, 0 0 8px #00DDDD44; }
+.fg-4 { color: var(--qb-red); text-shadow: 0 0 4px #DD333388, 0 0 8px #DD333344; }
+.fg-5 { color: var(--qb-magenta); text-shadow: 0 0 4px #DD44DD88, 0 0 8px #DD44DD44; }
+.fg-6 { color: var(--qb-brown); text-shadow: 0 0 4px #DD880088, 0 0 8px #DD880044; }
+.fg-7 { color: var(--qb-lightgray); text-shadow: 0 0 3px #CCCCCC66, 0 0 6px #CCCCCC33; }
+.fg-8 { color: var(--qb-darkgray); text-shadow: 0 0 3px #80808066, 0 0 6px #80808033; }
+.fg-9 { color: var(--qb-lightblue); text-shadow: 0 0 5px #6699FF99, 0 0 10px #6699FF55; }
+.fg-10 { color: var(--qb-lightgreen); text-shadow: 0 0 5px #66FF6699, 0 0 10px #66FF6655; }
+.fg-11 { color: var(--qb-lightcyan); text-shadow: 0 0 5px #66FFFF99, 0 0 10px #66FFFF55; }
+.fg-12 { color: var(--qb-lightred); text-shadow: 0 0 5px #FF666699, 0 0 10px #FF666655; }
+.fg-13 { color: var(--qb-lightmagenta); text-shadow: 0 0 5px #FF66FF99, 0 0 10px #FF66FF55; }
+.fg-14 { color: var(--qb-yellow); text-shadow: 0 0 5px #FFFF6699, 0 0 10px #FFFF6655; }
+.fg-15 { color: var(--qb-white); text-shadow: 0 0 5px #FFFFFF99, 0 0 10px #FFFFFF55; }
 
 .bg-0 { background-color: var(--black); }
-.bg-1 { background-color: var(--qb-blue); }
-.bg-2 { background-color: var(--qb-green); }
-.bg-3 { background-color: var(--qb-cyan); }
-.bg-4 { background-color: var(--qb-red); }
-.bg-5 { background-color: var(--qb-magenta); }
-.bg-6 { background-color: var(--qb-brown); }
-.bg-7 { background-color: var(--qb-lightgray); }
+.bg-1 { background-color: var(--qb-blue); box-shadow: inset 0 0 10px rgba(51, 136, 255, 0.3); }
+.bg-2 { background-color: var(--qb-green); box-shadow: inset 0 0 10px rgba(0, 221, 68, 0.3); }
+.bg-3 { background-color: var(--qb-cyan); box-shadow: inset 0 0 10px rgba(0, 221, 221, 0.3); }
+.bg-4 { background-color: var(--qb-red); box-shadow: inset 0 0 10px rgba(221, 51, 51, 0.3); }
+.bg-5 { background-color: var(--qb-magenta); box-shadow: inset 0 0 10px rgba(221, 68, 221, 0.3); }
+.bg-6 { background-color: var(--qb-brown); box-shadow: inset 0 0 10px rgba(221, 136, 0, 0.3); }
+.bg-7 { background-color: var(--qb-lightgray); box-shadow: inset 0 0 10px rgba(204, 204, 204, 0.3); }
 
 /* Reduce motion for accessibility */
 @media (prefers-reduced-motion: reduce) {

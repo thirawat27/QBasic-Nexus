@@ -7,7 +7,7 @@
  * function coverage inspired by QBJS.
  * 
  * @author Thirawat27
- * @version 1.0.6
+ * @version 1.0.7
  */
 
 'use strict';

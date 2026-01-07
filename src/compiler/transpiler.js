@@ -19,7 +19,7 @@
  * - Minimal object allocation in hot paths
  * 
  * @author Thirawat27
- * @version 1.0.6
+ * @version 1.0.7
  */
 
 'use strict';
@@ -1663,6 +1663,27 @@ const _ROUND = window.runtime?.round || Math.round;
 const _HYPOT = window.runtime?.hypot || Math.hypot;
 const _D2R = window.runtime?.d2r || ((d) => d * (Math.PI / 180));
 const _R2D = window.runtime?.r2d || ((r) => r * (180 / Math.PI));
+
+// Extended Math Functions (from qbjs-main)
+const _ACOS = window.runtime?.acos || Math.acos;
+const _ASIN = window.runtime?.asin || Math.asin;
+const _ATAN2 = window.runtime?.atan2 || Math.atan2;
+const _FIX = window.runtime?.fix || ((x) => x < 0 ? Math.ceil(x) : Math.floor(x));
+const _SGN = window.runtime?.sgn || ((x) => x > 0 ? 1 : x < 0 ? -1 : 0);
+
+// String Functions (for convenience)
+const _INSTR = window.runtime?.instr || ((a, b, c) => {
+  let start = 1, source, search;
+  if (c !== undefined) { start = a; source = String(b); search = String(c); }
+  else { source = String(a); search = String(b); }
+  const idx = source.indexOf(search, start - 1);
+  return idx < 0 ? 0 : idx + 1;
+});
+
+// System Functions
+const _DESKTOPWIDTH = window.runtime?.desktopwidth || (() => window.screen.width);
+const _DESKTOPHEIGHT = window.runtime?.desktopheight || (() => window.screen.height);
+const _PAINT = window.runtime?.paint || (() => {});
 
 // Frame rate limiter (legacy)
 let _lastLimitTime = Date.now();
