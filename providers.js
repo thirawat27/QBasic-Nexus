@@ -17,7 +17,7 @@
  * - Reference Provider
  * 
  * @author Thirawat27
- * @version 1.0.6
+ * @version 1.1.0
  * @license MIT
  */
 
@@ -46,13 +46,18 @@ const PATTERNS = {
     IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
 };
 
+// Shared utility function to escape regex special characters
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // ============================================================================
 // CACHING - Performance Optimization
 // ============================================================================
 
 const symbolCache = new Map();
 const variableCache = new Map();
-const CACHE_TTL = 2000; // 2 seconds
+const CACHE_TTL = 5000; // 5 seconds (increased for better performance)
 
 // Pre-built completion items for keywords/functions (immutable, never changes)
 let cachedKeywordItems = null;
@@ -469,7 +474,7 @@ class QBasicDocumentHighlightProvider {
 
         const word = document.getText(wordRange);
         const highlights = [];
-        const wordPattern = new RegExp(`\\b${this._escapeRegex(word)}\\b`, 'gi');
+        const wordPattern = new RegExp(`\\b${escapeRegex(word)}\\b`, 'gi');
 
         for (let i = 0; i < document.lineCount; i++) {
             const line = document.lineAt(i).text;
@@ -491,10 +496,6 @@ class QBasicDocumentHighlightProvider {
         }
 
         return highlights;
-    }
-
-    _escapeRegex(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 }
 
@@ -520,7 +521,7 @@ class QBasicRenameProvider {
         }
 
         const edits = new vscode.WorkspaceEdit();
-        const wordPattern = new RegExp(`\\b${this._escapeRegex(oldName)}\\b`, 'gi');
+        const wordPattern = new RegExp(`\\b${escapeRegex(oldName)}\\b`, 'gi');
 
         for (let i = 0; i < document.lineCount; i++) {
             const line = document.lineAt(i).text;
@@ -549,10 +550,6 @@ class QBasicRenameProvider {
         }
 
         return { range: wordRange, placeholder: word };
-    }
-
-    _escapeRegex(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 }
 
@@ -655,7 +652,7 @@ class QBasicReferenceProvider {
 
         const word = document.getText(wordRange);
         const references = [];
-        const wordPattern = new RegExp(`\\b${this._escapeRegex(word)}\\b`, 'gi');
+        const wordPattern = new RegExp(`\\b${escapeRegex(word)}\\b`, 'gi');
 
         for (let i = 0; i < document.lineCount; i++) {
             const line = document.lineAt(i).text;
@@ -678,10 +675,6 @@ class QBasicReferenceProvider {
         }
 
         return references;
-    }
-
-    _escapeRegex(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 }
 

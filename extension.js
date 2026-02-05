@@ -1,23 +1,19 @@
 /**
- * QBasic Nexus - VS Code Extension
- * =================================
- * A comprehensive QBasic/QB64 development environment for Visual Studio Code.
+ * QBasic Nexus - The Ultimate QBasic/QB64 Environment for VS Code
+ * ================================================================
+ * A professional-grade development suite designed to bring QBasic and QB64
+ * into the modern era. Features a powerful transpiler, real-time visualization,
+ * and comprehensive language support including graphics, sound, and file I/O.
  * 
- * Features:
- * - Syntax highlighting
- * - IntelliSense (auto-completion, hover, signature help)
- * - Code formatting
- * - QB64 compilation & execution
- * - Internal JS transpiler (backup mode)
- * - Real-time linting
- * - Code folding
- * - Document highlights
- * - Rename symbols
- * - Quick fixes
- * - Find references
+ * Key Capabilities v1.1.0:
+ * - 🔍 Intelligent Code Analysis: Real-time linting, IntelliSense, and symbol navigation.
+ * - 🚀 Dual-Engine Execution: Native QB64 compilaton + High-performance Web Transpiler.
+ * - 🎨 Advanced Visualization: Neon CRT aesthetic with GPU-accelerated graphics.
+ * - 📂 Virtual File System: Persistent file I/O support within the web runtime.
+ * - 🛠️ Rich Tooling: Formatting, refactoring, and extensive debugging helpers.
  * 
  * @author Thirawat27
- * @version 1.0.6
+ * @version 1.1.0
  * @license MIT
  */
 

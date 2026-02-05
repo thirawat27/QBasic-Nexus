@@ -4,7 +4,7 @@
  * Keyword and function definitions for IntelliSense features.
  * 
  * @author Thirawat27
- * @version 1.0.6
+ * @version 1.1.0
  * @license MIT
  */
 

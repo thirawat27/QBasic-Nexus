@@ -1,15 +1,50 @@
 /**
- * QBasic Nexus - Lexer
- * ====================
- * Tokenizes QBasic source code.
+ * QBasic Nexus - Lexer v1.1.0
+ * ===========================
+ * Tokenizer for QBasic source code using direct character scanning.
+ * 
+ * v1.1.0: Enhanced error reporting and memory management
  * 
  * @author Thirawat27
- * @version 1.0.7
+ * @version 1.1.0
  */
 
 'use strict';
 
 const { TokenType, KEYWORDS } = require('./constants');
+
+/**
+ * Token pool for object reuse - reduces GC pressure
+ */
+const TokenPool = {
+    _pool: [],
+    _maxSize: 500,
+    
+    acquire(type, value, line, col) {
+        if (this._pool.length > 0) {
+            const token = this._pool.pop();
+            token.type = type;
+            token.value = value;
+            token.line = line;
+            token.col = col;
+            return token;
+        }
+        return new Token(type, value, line, col);
+    },
+    
+    releaseAll(tokens) {
+        // Return tokens to pool for reuse (called after parsing is complete)
+        const available = this._maxSize - this._pool.length;
+        const toReturn = Math.min(tokens.length, available);
+        for (let i = 0; i < toReturn; i++) {
+            this._pool.push(tokens[i]);
+        }
+    },
+    
+    clear() {
+        this._pool.length = 0;
+    }
+};
 
 /**
  * Represents a single token.
@@ -59,7 +94,7 @@ class Lexer {
         while (this.pos < this.len) {
             this._scanToken();
         }
-        this.tokens.push(new Token(TokenType.EOF, '', this.line, this.col));
+        this.tokens.push(TokenPool.acquire(TokenType.EOF, '', this.line, this.col));
         return this.tokens;
     }
 
@@ -69,7 +104,7 @@ class Lexer {
 
         // Newline
         if (c === '\n') {
-            this.tokens.push(new Token(TokenType.NEWLINE, '\n', this.line, this.col));
+            this.tokens.push(TokenPool.acquire(TokenType.NEWLINE, '\n', this.line, this.col));
             this._advance();
             this.line++;
             this.col = 1;
@@ -120,7 +155,7 @@ class Lexer {
 
         // Punctuation
         if ('(),;:#.'.includes(c)) {
-            this.tokens.push(new Token(TokenType.PUNCTUATION, c, this.line, this.col));
+            this.tokens.push(TokenPool.acquire(TokenType.PUNCTUATION, c, this.line, this.col));
             this._advance();
             return;
         }
@@ -160,7 +195,7 @@ class Lexer {
             this._advance();
         }
 
-        this.tokens.push(new Token(TokenType.NUMBER, val, this.line, startCol));
+        this.tokens.push(TokenPool.acquire(TokenType.NUMBER, val, this.line, startCol));
     }
 
     /** @private */
@@ -176,12 +211,13 @@ class Lexer {
         }
 
         const decimal = parseInt(val, 16) || 0;
-        this.tokens.push(new Token(TokenType.NUMBER, String(decimal), this.line, startCol));
+        this.tokens.push(TokenPool.acquire(TokenType.NUMBER, String(decimal), this.line, startCol));
     }
 
     /** @private */
     _scanString() {
         const startCol = this.col;
+        const startLine = this.line;
         this._advance(); // Skip opening quote
         let val = '';
 
@@ -190,8 +226,15 @@ class Lexer {
             this._advance();
         }
 
-        if (this.src[this.pos] === '"') this._advance();
-        this.tokens.push(new Token(TokenType.STRING, val, this.line, startCol));
+        // Check for unclosed string (reached newline or EOF without closing quote)
+        if (this.src[this.pos] !== '"') {
+            // Still create the token but log warning for debugging
+            console.warn(`[Lexer] Unclosed string literal at line ${startLine}, col ${startCol}`);
+        } else {
+            this._advance(); // Skip closing quote
+        }
+        
+        this.tokens.push(TokenPool.acquire(TokenType.STRING, val, this.line, startCol));
     }
 
     /** @private */
@@ -212,7 +255,7 @@ class Lexer {
 
         const upper = val.toUpperCase();
         const type = KEYWORDS.has(upper) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
-        this.tokens.push(new Token(type, type === TokenType.KEYWORD ? upper : val, this.line, startCol));
+        this.tokens.push(TokenPool.acquire(type, type === TokenType.KEYWORD ? upper : val, this.line, startCol));
     }
 
     /** @private */
@@ -222,20 +265,20 @@ class Lexer {
 
         // Two-char operators
         if ((c === '<' || c === '>') && n === '=') {
-            this.tokens.push(new Token(TokenType.OPERATOR, c + '=', this.line, this.col));
+            this.tokens.push(TokenPool.acquire(TokenType.OPERATOR, c + '=', this.line, this.col));
             this._advance();
             this._advance();
             return;
         }
 
         if (c === '<' && n === '>') {
-            this.tokens.push(new Token(TokenType.OPERATOR, '<>', this.line, this.col));
+            this.tokens.push(TokenPool.acquire(TokenType.OPERATOR, '<>', this.line, this.col));
             this._advance();
             this._advance();
             return;
         }
 
-        this.tokens.push(new Token(TokenType.OPERATOR, c, this.line, this.col));
+        this.tokens.push(TokenPool.acquire(TokenType.OPERATOR, c, this.line, this.col));
         this._advance();
     }
 
@@ -290,3 +333,4 @@ class Lexer {
 }
 
 module.exports = Lexer;
+module.exports.TokenPool = TokenPool;

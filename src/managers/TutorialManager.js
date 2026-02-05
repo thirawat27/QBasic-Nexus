@@ -4,7 +4,7 @@
  * Handles interactive tutorial lessons and result validation.
  * 
  * @author Thirawat27
- * @version 1.0.6
+ * @version 1.0.8
  */
 
 'use strict';

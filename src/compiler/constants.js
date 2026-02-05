@@ -1,5 +1,5 @@
 /**
- * QBasic Nexus - Compiler Constants v1.0.6
+ * QBasic Nexus - Compiler Constants v1.1.0
  * ======================================
  * Token types, keywords, and built-in function mappings for the compiler.
  * 
@@ -7,7 +7,7 @@
  * function coverage inspired by QBJS.
  * 
  * @author Thirawat27
- * @version 1.0.7
+ * @version 1.1.0
  */
 
 'use strict';
@@ -149,7 +149,7 @@ const BUILTIN_FUNCS = Object.freeze({
     'INT': 'Math.floor',
     'FIX': 'Math.trunc',
     'LOG': 'Math.log',
-    'RND': 'Math.random',
+    'RND': '_rnd',
     'SGN': 'Math.sign',
     'SIN': 'Math.sin',
     'SQR': 'Math.sqrt',

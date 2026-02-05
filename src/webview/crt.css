@@ -1,7 +1,14 @@
-/* QBasic Nexus CRT - Neon Retro Style v1.0.7
- * ===========================================
- * Enhanced neon glow effects for better visibility
- * Optimized with GPU acceleration and reduced repaints
+/* 
+ * QBasic Nexus CRT - "Neon Retro" Theme Engine v1.1.0
+ * ====================================================
+ * A visually stunning, high-contrast CRT simulation designed for modern displays.
+ * Combines nostalgic aesthetics with cutting-edge CSS rendering performance.
+ * 
+ * ✨ Features:
+ * - GPU-Accelerated rendering pipeline (transform: translateZ(0))
+ * - High-Fidelity Neon Glow with optimized text-shadows
+ * - Smooth, flicker-free animations with reduced motion support
+ * - Dynamic color palette tuned for maximum readability on dark backgrounds
  */
 
 :root {
