@@ -71,7 +71,21 @@ The internal web runtime is not just a toy—it's a fully-featured emulation lay
 
 ---
 
-## 🚀 Quick Start Guide
+---
+ 
+ ## 🎮 Interactive Tutorials
+ 
+ New to QBasic? The **Interactive Tutorial Mode** solves the "blank screen" problem.
+ 
+ 1.  Open the Command Palette (`Ctrl+Shift+P`).
+ 2.  Select **"QBasic: Start Interactive Tutorial 🎮"**.
+ 3.  Choose a lesson (e.g., "Hello World", "Variables", "Loops").
+ 4.  Read the **Mission Objective** and write code to solve it.
+ 5.  Run your code (`F5`). If the output matches the goal, you get a **"Mission Complete"** badge and unlock the next level!
+ 
+ ---
+ 
+ ## 🚀 Quick Start Guide
 
 ### 1. Installation
 Install **QBasic Nexus** from the VS Code Marketplace.
@@ -108,12 +122,17 @@ The internal transpiler is highly capable. Below is a breakdown of what it suppo
 
 | Category | Commands Supported |
 |----------|--------------------|
-| **Core I/O** | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH` |
-| **Logic** | `IF`, `THEN`, `ELSE`, `Select Case`, `FOR...NEXT`, `DO...LOOP`, `WHILE...WEND` |
-| **Math** | `ABS`, `INT`, `FIX`, `SIN`, `COS`, `TAN`, `ATN`, `SQR`, `LOG`, `EXP`, `RND` |
+| **Core I/O** | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`, `LPRINT`, `WRITE` |
+| **Logic** | `IF`, `THEN`, `ELSE`, `ELSEIF`, `Select Case`, `FOR...NEXT`, `DO...LOOP`, `WHILE...WEND` |
+| **Math** | `ABS`, `INT`, `FIX`, `SIN`, `COS`, `TAN`, `ATN`, `SQR`, `LOG`, `EXP`, `RND`, `SGN` |
+| **Adv. Math** | `_PI`, `_ROUND`, `_CEIL`, `_HYPOT`, `_ATAN2`, `_SINH`, `_COSH`, `_TANH`, `_D2R`, `_R2D` |
 | **Strings** | `LEFT$`, `RIGHT$`, `MID$`, `LEN`, `UCASE$`, `LCASE$`, `LTRIM$`, `RTRIM$`, `INSTR`, `CHR$`, `ASC`, `STR$`, `VAL` |
-| **System** | `TIMER`, `DATE$`, `TIME$`, `SLEEP`, `INKEY$`, `CSRLIN`, `POS` |
-| **QB64** | `_LIMIT`, `_DELAY`, `_PI`, `_D2R`, `_R2D`, `_RGB32`, `_RGBA32` |
+| **System** | `TIMER`, `DATE$`, `TIME$`, `SLEEP`, `INKEY$`, `CSRLIN`, `POS`, `SHELL`, `CHAIN`, `RUN` |
+| **File System** | `OPEN`, `CLOSE`, `NAME`, `KILL`, `MKDIR`, `RMDIR`, `CHDIR`, `FILES`, `SEEK`, `LOCK`, `UNLOCK` |
+| **Graphics** | `LINE`, `CIRCLE`, `PSET`, `PRESET`, `DRAW`, `PAINT`, `VIEW`, `WINDOW`, `GET`, `PUT`, `PALETTE`, `PCOPY` |
+| **QB64** | `_LIMIT`, `_DELAY`, `_PI`, `_RGB32`, `_RGBA32`, `_TITLE`, `_FULLSCREEN`, `_SCREENMOVE`, `_DEST`, `_SOURCE`, `_FONT`, `_CLIPBOARD` |
+| **Adv. Audio** | `_SNDPLAY`, `_SNDSTOP`, `_SNDVOL`, `_SNDPAUSE`, `_SNDLOOP`, `_SNDBAL`, `_SNDSETPOS`, `_SNDCLOSE` |
+| **Memory** | `POKE`, `_MEMFREE`, `_MEMCOPY`, `_MEMFILL`, `_PUTIMAGE`, `_PRINTSTRING`, `_freeImage` |
 
 ### Graphics & Sound
 *   **Graphics**: Full primitives (`LINE`, `box`, `CIRCLE`, `PSET`) and image manipulation (`GET`, `PUT`). Transparent coloring supported via `_RGB32`.
@@ -141,7 +160,9 @@ LOOP UNTIL INKEY$ = CHR$(27)
 | `qbasic-nexus.compileAndRun` | **Compile & Run 🌀** | `F5` | Runs code (Native or Web based on settings). |
 | `qbasic-nexus.compile` | **Compile Only 🔨** | `Ctrl+Shift+B` | Builds an executable (Native mode only). |
 | `qbasic-nexus.runInCrt` | **Run in Retro CRT 📺** | - | Force-run in the Web Runtime regardless of settings. |
+| `qbasic-nexus.startTutorial` | **Start Interactive Tutorial 🎮** | - | Launch an interactive QBasic tutorial for beginners. |
 | `qbasic-nexus.showCodeStats` | **Show Code Statistics 📊** | `Ctrl+Shift+I` | Count LOC, Subs, and Functions. |
+| `qbasic-nexus.toggleComment` | **Toggle Comment 💬** | `Ctrl+/` | Comment or uncomment selected lines. |
 | `qbasic-nexus.extractToSub` | **Extract to SUB 📦** | - | Refactor selected lines into a new Sub. |
 
 ---
@@ -154,6 +175,7 @@ LOOP UNTIL INKEY$ = CHR$(27)
 | `qbasic-nexus.compilerPath` | `null` | Path to your local QB64 executable for Native mode. |
 | `qbasic-nexus.enableLinting` | `true` | Show syntax errors in real-time. |
 | `qbasic-nexus.lintDelay` | `500` | Milliseconds to wait after typing before linting. |
+| `qbasic-nexus.autoFormatOnSave` | `false` | Automatically format code (indentation, casing) when saving. |
 | `qbasic-nexus.compilerArgs` | `""` | Additional flags for the QB64 compiler (e.g., `-w`). |
 
 ---
@@ -182,6 +204,10 @@ Type these prefixes and press `Tab` to generate code instantly:
 *   **"Compiler not found"**: Double-check `qbasic-nexus.compilerPath`. It must point to the *executable* file (e.g., `qb64.exe`), not just the folder.
 *   **macOS Security**: You may need to go to System Settings > Privacy & Security to allow `qb64` to run the first time.
 *   **Linux Dependencies**: Ensure you have C++ compilers installed (`sudo apt install build-essential`).
+ 
+ ### Known Limitations (Web Runtime)
+ *   **Direct Memory Access**: Commands like `PEEK`, `POKE`, `VARPTR` are emulated safely (stubs) and may not return real memory addresses.
+ *   **Binary I/O**: `INPUT$` and raw binary file modes are currently limited in the web environment. Use `OPEN` for text processing.
 
 ---
 
