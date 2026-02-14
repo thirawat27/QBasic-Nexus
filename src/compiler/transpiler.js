@@ -35,8 +35,14 @@ class Parser {
         this.pos = 0;
         this.indent = 0;
         
-        /** @type {string[]} */
+        /** @type {string[]} Pre-allocate output array for better performance */
         this.output = [];
+        // Estimate output size: ~3 lines per token on average
+        const estimatedLines = Math.floor(tokens.length * 3);
+        if (estimatedLines > 100) {
+            this.output = new Array(estimatedLines);
+            this.output.length = 0;
+        }
         
         /** @type {Array<{line: number, message: string, column: number}>} */
         this.errors = [];
@@ -56,6 +62,10 @@ class Parser {
         
         /** @type {Map<string, string[]>} Label code blocks for GOTO state machine */
         this.labelBlocks = new Map();
+        
+        // Performance optimization: Cache frequently accessed token properties
+        this._cachedPeek = null;
+        this._cachedPeekPos = -1;
     }
 
     /**
@@ -706,6 +716,13 @@ class Parser {
 
             this._consumeOp('=');
             const val = this._parseExpr();
+            
+            // Ensure array is declared
+            if (!this._hasVar(name)) {
+                this._addVar(name);
+                this._emit(`let ${name} = [];`);
+            }
+            
             this._emit(`${name}[${idx}]${suffix} = ${val};`);
             return;
         }
@@ -716,6 +733,13 @@ class Parser {
              if (member) {
                  this._consumeOp('=');
                  const val = this._parseExpr();
+                 
+                 // Ensure struct is declared
+                 if (!this._hasVar(name)) {
+                     this._addVar(name);
+                     this._emit(`let ${name} = {};`);
+                 }
+                 
                  this._emit(`${name}.${member.value} = ${val};`);
              }
              return;
@@ -2138,6 +2162,14 @@ class Parser {
                 return `${fnName}()`; // e.g. Math.random()
             }
             
+            // Auto-declare undefined variables with default values
+            // This handles cases where variables are used before explicit declaration
+            if (!builtin && !this._hasVar(name)) {
+                this._addVar(name);
+                const defaultValue = name.endsWith('$') ? '""' : '0';
+                this._emit(`let ${name} = ${defaultValue}; // Auto-declared`);
+            }
+            
             return builtin ? fnName : name;
         }
         this._advance();
@@ -2163,9 +2195,28 @@ class Parser {
         return false;
     }
     _skipNewlines() { while (this._check(TokenType.NEWLINE)) this._advance(); }
-    _peek() { return this.tokens[this.pos] || null; }
+    
+    // Optimized peek with caching
+    _peek() { 
+        if (this._cachedPeekPos === this.pos) {
+            return this._cachedPeek;
+        }
+        this._cachedPeek = this.tokens[this.pos] || null;
+        this._cachedPeekPos = this.pos;
+        return this._cachedPeek;
+    }
+    
     _prev() { return this.pos > 0 ? this.tokens[this.pos - 1] : null; }
-    _advance() { if (!this._isEnd()) this.pos++; return this._prev(); }
+    
+    _advance() { 
+        if (!this._isEnd()) {
+            this.pos++;
+            // Invalidate cache
+            this._cachedPeekPos = -1;
+        }
+        return this._prev();
+    }
+    
     _check(type) { return this._peek()?.type === type; }
     _checkKw(kw) { const t = this._peek(); return t?.type === TokenType.KEYWORD && t.value === kw; }
     _matchKw(kw) { if (this._checkKw(kw)) { this._advance(); return true; } return false; }
