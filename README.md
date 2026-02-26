@@ -8,9 +8,10 @@
   </p>
   <p>
     <a href="#-features">Features</a> •
-    <a href="#-quick-start-guide">Quick Start</a> •
+    <a href="#️-prerequisites">Prerequisites</a> •
+    <a href="#-getting-started">Getting Started</a> •
     <a href="#-web-runtime-capabilities">Web Runtime</a> •
-    <a href="#-configuration">Configuration</a> •
+    <a href="#️-configuration">Configuration</a> •
     <a href="#-troubleshooting">Troubleshooting</a>
   </p>
 </div>
@@ -29,7 +30,9 @@ It offers **dual-mode execution**: compile native executables using your existin
   - [🔧 Dual Compilation Modes](#-dual-compilation-modes)
   - [📺 Advanced Web Runtime](#-advanced-web-runtime)
   - [📊 Professional IDE Tools](#-professional-ide-tools)
-- [🚀 Quick Start Guide](#-quick-start-guide)
+- [🎮 Interactive Tutorials](#-interactive-tutorials)
+- [⚙️ Prerequisites](#️-prerequisites)
+- [🚀 Getting Started](#-getting-started)
 - [🎬 Web Runtime Capabilities](#-web-runtime-capabilities)
   - [Supported Keywords](#supported-keywords)
   - [Graphics & Sound](#graphics--sound)
@@ -46,54 +49,103 @@ It offers **dual-mode execution**: compile native executables using your existin
 
 ### 🔧 Dual Compilation Modes
 
-| Mode | Description | Best For |
-|------|-------------|----------|
-| **QB64 Native (Recommended)** | Uses your local QB64 compiler to build optimized standalone `.exe` binaries. | Performance-critical apps, full system access, deployment. |
-| **Internal Web Transpiler** | Instantly transpiles QBasic to JavaScript and runs it in a simulated CRT webview. **No compiler installation required!** | Quick prototyping, learning, testing logic, playing with retro graphics/sound. |
+| Mode                          | Description                                                                                                              | Best For                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| **QB64 Native (Recommended)** | Uses your local QB64 compiler to build optimized standalone `.exe` binaries.                                             | Performance-critical apps, full system access, deployment.                     |
+| **Internal Web Transpiler**   | Instantly transpiles QBasic to JavaScript and runs it in a simulated CRT webview. **No compiler installation required!** | Quick prototyping, learning, testing logic, playing with retro graphics/sound. |
 
 ### 📺 Advanced Web Runtime
 
 The internal web runtime is not just a toy—it's a fully-featured emulation layer powered by HTML5 Canvas and Web Audio API.
 
-*   **Retro CRT Quality**: Authentic scanlines, text lag, and phosphor persistence effects.
-*   **Rich Graphics**: Supports `SCREEN`, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`, `PUT`, and more.
-*   **High-Fidelity Audio**: Full `PLAY` command parsing (octaves, tempo, legato/staccato), `SOUND`, and `BEEP`.
-*   **QB64 Extensions**: Supports advanced keywords like `_RGB32`, `_MOUSEINPUT`, `_LIMIT`, `_DELAY`, and `_PI`.
-*   **Virtual File System**: Uses LocalStorage to simulate file I/O (`OPEN`, `WRITE`, `INPUT#`) so your data persists between runs!
+- **Retro CRT Quality**: Authentic scanlines, text lag, and phosphor persistence effects.
+- **Rich Graphics**: Supports `SCREEN`, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`, `PUT`, and more.
+- **High-Fidelity Audio**: Full `PLAY` command parsing (octaves, tempo, legato/staccato), `SOUND`, and `BEEP`.
+- **QB64 Extensions**: Supports advanced keywords like `_RGB32`, `_MOUSEINPUT`, `_LIMIT`, `_DELAY`, and `_PI`.
+- **Virtual File System**: Uses LocalStorage to simulate file I/O (`OPEN`, `WRITE`, `INPUT#`) so your data persists between runs!
 
 ### 📊 Professional IDE Tools
 
-*   **IntelliSense**: Smart auto-completion for over 400+ keywords, including QB64 specifics.
-*   **Real-time Linting**: Catches syntax errors (missing `NEXT`, invalid types) as you type.
-*   **Code Navigation**: "Go to Definition" (F12) for Subs, Functions, and Types.
-*   **Formatting**: Auto-indentation and casing (e.g., converts `print` to `PRINT`) with `Shift+Alt+F`.
-*   **Outline View**: Navigate large files instantly via the VS Code Outline panel.
+- **IntelliSense**: Smart auto-completion for over 400+ keywords, including QB64 specifics.
+- **Real-time Linting**: Catches syntax errors (missing `NEXT`, invalid types) as you type.
+- **Code Navigation**: "Go to Definition" (F12) for Subs, Functions, and Types.
+- **Formatting**: Auto-indentation and casing (e.g., converts `print` to `PRINT`) with `Shift+Alt+F`.
+- **Outline View**: Navigate large files instantly via the VS Code Outline panel.
 
 ---
 
 ---
- 
- ## 🎮 Interactive Tutorials
- 
- New to QBasic? The **Interactive Tutorial Mode** solves the "blank screen" problem.
- 
- 1.  Open the Command Palette (`Ctrl+Shift+P`).
- 2.  Select **"QBasic: Start Interactive Tutorial 🎮"**.
- 3.  Choose a lesson (e.g., "Hello World", "Variables", "Loops").
- 4.  Read the **Mission Objective** and write code to solve it.
- 5.  Run your code (`F5`). If the output matches the goal, you get a **"Mission Complete"** badge and unlock the next level!
- 
- ---
- 
- ## 🚀 Quick Start Guide
 
-### 1. Installation
-Install **QBasic Nexus** from the VS Code Marketplace.
+## 🎮 Interactive Tutorials
 
-### 2. Choose Your Mode
+New to QBasic? The **Interactive Tutorial Mode** solves the "blank screen" problem.
 
-#### Option A: Zero-Setup (Web Runtime)
-You don't need to install anything else!
+1.  Open the Command Palette (`Ctrl+Shift+P`).
+2.  Select **"QBasic: Start Interactive Tutorial 🎮"**.
+3.  Choose a lesson (e.g., "Hello World", "Variables", "Loops").
+4.  Read the **Mission Objective** and write code to solve it.
+5.  Run your code (`F5`). If the output matches the goal, you get a **"Mission Complete"** badge and unlock the next level!
+
+---
+
+## ⚙️ Prerequisites
+
+For QBasic Nexus to compile your code, your QB64 installation must be correctly set up.
+
+### Step 1: Install QB64 Correctly
+
+- **All Systems**: You need a working installation of QB64 from [qb64.com](https://qb64.com/) or QB64 Phoenix Edition from [qb64phoenix.com](https://www.qb64phoenix.com/).
+- **macOS & Linux (Crucial Setup Step)**: After unzipping the QB64 package, you **must run the setup script** included with it. This is a one-time step that prepares the compiler for use. Open a terminal, navigate to the QB64 directory, and run:
+  - On **macOS**: `sh ./setup_osx.command`
+  - On **Linux**: `sh ./setup_lnx.sh`
+
+### Step 2: Ensure C++ Compiler is Available (if QB64 requires it)
+
+- **macOS**: **Xcode Command Line Tools** must be installed. To install: `xcode-select --install`
+- **Linux (Debian/Ubuntu-based)**: The **build-essential** package (including `g++`) must be installed. To install: `sudo apt-get update && sudo apt-get install build-essential`
+- _(Note: QB64 Phoenix Edition for Windows typically includes its own C++ compiler, so no extra tools are usually needed.)_
+
+---
+
+## 🚀 Getting Started
+
+### 1. Install & Set Up QB64
+
+- **a. Obtain and extract** the QB64 build of your choice. We recommend the Legacy release from [qb64.com](https://qb64.com/), though you’re free to use the QB64 Phoenix Edition from [qb64phoenix.com](https://www.qb64phoenix.com/) as well.
+- **b. (Crucial for macOS/Linux)** Open a terminal, navigate into the unzipped QB64 directory, and run the required setup script:
+  - On **macOS**: `sh ./setup_osx.command`
+  - On **Linux**: `sh ./setup_lnx.sh`
+  - _This step is essential as it configures the compiler. The extension will not work without it._
+
+### 2. Install this Extension
+
+Find **"QBasic Nexus"** in the VS Code Marketplace and install it.
+
+### 3. Compiler Path Configuration (If Needed)
+
+- On first activation (or if the path is not set), the extension will try to **auto-detect** your QB64 installation.
+- If successful, and you confirm by clicking **"Yes, use this path"** in the notification, the path will be saved in your global settings.
+- If auto-detection fails, or you prefer to set it manually:
+  1.  Open VS Code Settings (`Ctrl+,` or `Cmd+,`).
+  2.  Search for **`QBasic Nexus Compiler Path`**.
+  3.  Enter the **full, absolute path** to your `qb64.exe` (Windows) or `qb64` (macOS/Linux) executable.
+      - **Example Windows**: `C:\QB64\qb64.exe`
+      - **Example macOS**: `/Applications/qb64/qb64`
+      - **Example Linux**: `/home/youruser/qb64/qb64`
+
+### 4. Open a QBasic File
+
+Open a file with a `.bas`, `.bi`, `.bm`, or `.inc` extension.
+
+### 5. Using the Extension
+
+- When a QBasic file is active and the compiler path is set, you'll see a **compile icon** in the Status Bar. **Clicking this icon will compile and run the file.**
+- If the path is not set, the Status Bar will show **`⚠️ Set QB64 Path`**. Clicking it will open the settings.
+
+### 6. Zero-Setup Web Runtime Alternative
+
+If you don't want to install QB64 immediately, you can use the built-in Web Runtime:
+
 1.  Create a file named `hello.bas`.
 2.  Type:
     ```basic
@@ -105,13 +157,6 @@ You don't need to install anything else!
     ```
 3.  Press **F5**. Select **"Internal (JS Transpiler)"** if prompted, or set it as default in settings.
 
-#### Option B: Native Mode (QB64)
-For producing real `.exe` files:
-1.  Download [QB64 Phoenix Edition](https://qb64phoenix.com/) or classic QB64.
-2.  **(macOS/Linux)** Run the `./setup_osx.command` or `./setup_lnx.sh` script in the QB64 folder.
-3.  In VS Code, open Settings (`Ctrl+,`) and search for `QBasic Nexus Compiler Path`.
-4.  Enter the full path to your `qb64` executable.
-
 ---
 
 ## 🎬 Web Runtime Capabilities
@@ -120,33 +165,36 @@ The internal transpiler is highly capable. Below is a breakdown of what it suppo
 
 ### Supported Keywords
 
-| Category | Commands Supported |
-|----------|--------------------|
-| **Core I/O** | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`, `LPRINT`, `WRITE` |
-| **Logic** | `IF`, `THEN`, `ELSE`, `ELSEIF`, `Select Case`, `FOR...NEXT`, `DO...LOOP`, `WHILE...WEND` |
-| **Math** | `ABS`, `INT`, `FIX`, `SIN`, `COS`, `TAN`, `ATN`, `SQR`, `LOG`, `EXP`, `RND`, `SGN` |
-| **Adv. Math** | `_PI`, `_ROUND`, `_CEIL`, `_HYPOT`, `_ATAN2`, `_SINH`, `_COSH`, `_TANH`, `_D2R`, `_R2D` |
-| **Strings** | `LEFT$`, `RIGHT$`, `MID$`, `LEN`, `UCASE$`, `LCASE$`, `LTRIM$`, `RTRIM$`, `INSTR`, `CHR$`, `ASC`, `STR$`, `VAL` |
-| **System** | `TIMER`, `DATE$`, `TIME$`, `SLEEP`, `INKEY$`, `CSRLIN`, `POS`, `SHELL`, `CHAIN`, `RUN` |
-| **File System** | `OPEN`, `CLOSE`, `NAME`, `KILL`, `MKDIR`, `RMDIR`, `CHDIR`, `FILES`, `SEEK`, `LOCK`, `UNLOCK` |
-| **Graphics** | `LINE`, `CIRCLE`, `PSET`, `PRESET`, `DRAW`, `PAINT`, `VIEW`, `WINDOW`, `GET`, `PUT`, `PALETTE`, `PCOPY` |
-| **QB64** | `_LIMIT`, `_DELAY`, `_PI`, `_RGB32`, `_RGBA32`, `_TITLE`, `_FULLSCREEN`, `_SCREENMOVE`, `_DEST`, `_SOURCE`, `_FONT`, `_CLIPBOARD` |
-| **Adv. Audio** | `_SNDPLAY`, `_SNDSTOP`, `_SNDVOL`, `_SNDPAUSE`, `_SNDLOOP`, `_SNDBAL`, `_SNDSETPOS`, `_SNDCLOSE` |
-| **Memory** | `POKE`, `_MEMFREE`, `_MEMCOPY`, `_MEMFILL`, `_PUTIMAGE`, `_PRINTSTRING`, `_freeImage` |
+| Category        | Commands Supported                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Core I/O**    | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`, `LPRINT`, `WRITE`                                                  |
+| **Logic**       | `IF`, `THEN`, `ELSE`, `ELSEIF`, `Select Case`, `FOR...NEXT`, `DO...LOOP`, `WHILE...WEND`                                          |
+| **Math**        | `ABS`, `INT`, `FIX`, `SIN`, `COS`, `TAN`, `ATN`, `SQR`, `LOG`, `EXP`, `RND`, `SGN`                                                |
+| **Adv. Math**   | `_PI`, `_ROUND`, `_CEIL`, `_HYPOT`, `_ATAN2`, `_SINH`, `_COSH`, `_TANH`, `_D2R`, `_R2D`                                           |
+| **Strings**     | `LEFT$`, `RIGHT$`, `MID$`, `LEN`, `UCASE$`, `LCASE$`, `LTRIM$`, `RTRIM$`, `INSTR`, `CHR$`, `ASC`, `STR$`, `VAL`                   |
+| **System**      | `TIMER`, `DATE$`, `TIME$`, `SLEEP`, `INKEY$`, `CSRLIN`, `POS`, `SHELL`, `CHAIN`, `RUN`                                            |
+| **File System** | `OPEN`, `CLOSE`, `NAME`, `KILL`, `MKDIR`, `RMDIR`, `CHDIR`, `FILES`, `SEEK`, `LOCK`, `UNLOCK`                                     |
+| **Graphics**    | `LINE`, `CIRCLE`, `PSET`, `PRESET`, `DRAW`, `PAINT`, `VIEW`, `WINDOW`, `GET`, `PUT`, `PALETTE`, `PCOPY`                           |
+| **QB64**        | `_LIMIT`, `_DELAY`, `_PI`, `_RGB32`, `_RGBA32`, `_TITLE`, `_FULLSCREEN`, `_SCREENMOVE`, `_DEST`, `_SOURCE`, `_FONT`, `_CLIPBOARD` |
+| **Adv. Audio**  | `_SNDPLAY`, `_SNDSTOP`, `_SNDVOL`, `_SNDPAUSE`, `_SNDLOOP`, `_SNDBAL`, `_SNDSETPOS`, `_SNDCLOSE`                                  |
+| **Memory**      | `POKE`, `_MEMFREE`, `_MEMCOPY`, `_MEMFILL`, `_PUTIMAGE`, `_PRINTSTRING`, `_freeImage`                                             |
 
 ### Graphics & Sound
-*   **Graphics**: Full primitives (`LINE`, `box`, `CIRCLE`, `PSET`) and image manipulation (`GET`, `PUT`). Transparent coloring supported via `_RGB32`.
-*   **Sound**: The `PLAY` command is fully implemented with macro language support (e.g., `PLAY "T160 O3 L8 C D E F"`). `SOUND` and `BEEP` work seamlessly without blocking the UI thread (unless desired).
+
+- **Graphics**: Full primitives (`LINE`, `box`, `CIRCLE`, `PSET`) and image manipulation (`GET`, `PUT`). Transparent coloring supported via `_RGB32`.
+- **Sound**: The `PLAY` command is fully implemented with macro language support (e.g., `PLAY "T160 O3 L8 C D E F"`). `SOUND` and `BEEP` work seamlessly without blocking the UI thread (unless desired).
 
 ### Mouse & Input
+
 We support the modern QB64 mouse API within the browser:
+
 ```basic
 DO
     _LIMIT 60
     x = _MOUSEX
     y = _MOUSEY
     buttons = _MOUSEBUTTON
-    
+
     IF _MOUSEBUTTON(1) THEN CIRCLE (x, y), 5, 14
 LOOP UNTIL INKEY$ = CHR$(27)
 ```
@@ -155,28 +203,28 @@ LOOP UNTIL INKEY$ = CHR$(27)
 
 ## 📦 Available Commands
 
-| Command | Title (in Palette) | Shortcut | Description |
-|---------|--------------------|----------|-------------|
-| `qbasic-nexus.compileAndRun` | **Compile & Run 🌀** | `F5` | Runs code (Native or Web based on settings). |
-| `qbasic-nexus.compile` | **Compile Only 🔨** | `Ctrl+Shift+B` | Builds an executable (Native mode only). |
-| `qbasic-nexus.runInCrt` | **Run in Retro CRT 📺** | - | Force-run in the Web Runtime regardless of settings. |
-| `qbasic-nexus.startTutorial` | **Start Interactive Tutorial 🎮** | - | Launch an interactive QBasic tutorial for beginners. |
-| `qbasic-nexus.showCodeStats` | **Show Code Statistics 📊** | `Ctrl+Shift+I` | Count LOC, Subs, and Functions. |
-| `qbasic-nexus.toggleComment` | **Toggle Comment 💬** | `Ctrl+/` | Comment or uncomment selected lines. |
-| `qbasic-nexus.extractToSub` | **Extract to SUB 📦** | - | Refactor selected lines into a new Sub. |
+| Command                      | Title (in Palette)                | Shortcut       | Description                                          |
+| ---------------------------- | --------------------------------- | -------------- | ---------------------------------------------------- |
+| `qbasic-nexus.compileAndRun` | **Compile & Run 🌀**              | `F5`           | Runs code (Native or Web based on settings).         |
+| `qbasic-nexus.compile`       | **Compile Only 🔨**               | `Ctrl+Shift+B` | Builds an executable (Native mode only).             |
+| `qbasic-nexus.runInCrt`      | **Run in Retro CRT 📺**           | -              | Force-run in the Web Runtime regardless of settings. |
+| `qbasic-nexus.startTutorial` | **Start Interactive Tutorial 🎮** | -              | Launch an interactive QBasic tutorial for beginners. |
+| `qbasic-nexus.showCodeStats` | **Show Code Statistics 📊**       | `Ctrl+Shift+I` | Count LOC, Subs, and Functions.                      |
+| `qbasic-nexus.toggleComment` | **Toggle Comment 💬**             | `Ctrl+/`       | Comment or uncomment selected lines.                 |
+| `qbasic-nexus.extractToSub`  | **Extract to SUB 📦**             | -              | Refactor selected lines into a new Sub.              |
 
 ---
 
 ## 🛠️ Configuration
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `qbasic-nexus.compilerMode` | `QB64` | Switch between **QB64 (Recommended)** and **Internal (JS Transpiler)**. |
-| `qbasic-nexus.compilerPath` | `null` | Path to your local QB64 executable for Native mode. |
-| `qbasic-nexus.enableLinting` | `true` | Show syntax errors in real-time. |
-| `qbasic-nexus.lintDelay` | `500` | Milliseconds to wait after typing before linting. |
-| `qbasic-nexus.autoFormatOnSave` | `false` | Automatically format code (indentation, casing) when saving. |
-| `qbasic-nexus.compilerArgs` | `""` | Additional flags for the QB64 compiler (e.g., `-w`). |
+| Setting                         | Default | Description                                                             |
+| ------------------------------- | ------- | ----------------------------------------------------------------------- |
+| `qbasic-nexus.compilerMode`     | `QB64`  | Switch between **QB64 (Recommended)** and **Internal (JS Transpiler)**. |
+| `qbasic-nexus.compilerPath`     | `null`  | Path to your local QB64 executable for Native mode.                     |
+| `qbasic-nexus.enableLinting`    | `true`  | Show syntax errors in real-time.                                        |
+| `qbasic-nexus.lintDelay`        | `500`   | Milliseconds to wait after typing before linting.                       |
+| `qbasic-nexus.autoFormatOnSave` | `false` | Automatically format code (indentation, casing) when saving.            |
+| `qbasic-nexus.compilerArgs`     | `""`    | Additional flags for the QB64 compiler (e.g., `-w`).                    |
 
 ---
 
@@ -184,30 +232,33 @@ LOOP UNTIL INKEY$ = CHR$(27)
 
 Type these prefixes and press `Tab` to generate code instantly:
 
-*   **Structure**: `sub`, `function`, `type`, `select`, `if`, `ifelse`
-*   **Loops**: `for`, `forstep`, `dowhile`, `dountil`
-*   **Graphics**: `screen`, `line`, `circle`, `rgb`
-*   **Input**: `input`, `inkey`, `mousecheck`, `keycheck`
-*   **Templates**: 
-    *   `newqb64` -> Standard setup with `_TITLE` and `SCREEN`.
-    *   `gameloop` -> A ready-to-run game loop structure with `_LIMIT`.
+- **Structure**: `sub`, `function`, `type`, `select`, `if`, `ifelse`
+- **Loops**: `for`, `forstep`, `dowhile`, `dountil`
+- **Graphics**: `screen`, `line`, `circle`, `rgb`
+- **Input**: `input`, `inkey`, `mousecheck`, `keycheck`
+- **Templates**:
+  - `newqb64` -> Standard setup with `_TITLE` and `SCREEN`.
+  - `gameloop` -> A ready-to-run game loop structure with `_LIMIT`.
 
 ---
 
 ## 🆘 Troubleshooting
 
 ### Web Runtime (CRT) Issues
-*   **No Sound?** Browsers block audio until you interact with the page. Click anywhere inside the CRT window to enable audio engine.
-*   **Slow?** Ensure you are using `_LIMIT 60` inside loops. Without it, the loop runs as fast as possible, which might freeze the browser tab.
+
+- **No Sound?** Browsers block audio until you interact with the page. Click anywhere inside the CRT window to enable audio engine.
+- **Slow?** Ensure you are using `_LIMIT 60` inside loops. Without it, the loop runs as fast as possible, which might freeze the browser tab.
 
 ### Native Compiler Issues
-*   **"Compiler not found"**: Double-check `qbasic-nexus.compilerPath`. It must point to the *executable* file (e.g., `qb64.exe`), not just the folder.
-*   **macOS Security**: You may need to go to System Settings > Privacy & Security to allow `qb64` to run the first time.
-*   **Linux Dependencies**: Ensure you have C++ compilers installed (`sudo apt install build-essential`).
- 
- ### Known Limitations (Web Runtime)
- *   **Direct Memory Access**: Commands like `PEEK`, `POKE`, `VARPTR` are emulated safely (stubs) and may not return real memory addresses.
- *   **Binary I/O**: `INPUT$` and raw binary file modes are currently limited in the web environment. Use `OPEN` for text processing.
+
+- **"Compiler not found"**: Double-check `qbasic-nexus.compilerPath`. It must point to the _executable_ file (e.g., `qb64.exe`), not just the folder.
+- **macOS Security**: You may need to go to System Settings > Privacy & Security to allow `qb64` to run the first time.
+- **Linux Dependencies**: Ensure you have C++ compilers installed (`sudo apt install build-essential`).
+
+### Known Limitations (Web Runtime)
+
+- **Direct Memory Access**: Commands like `PEEK`, `POKE`, `VARPTR` are emulated safely (stubs) and may not return real memory addresses.
+- **Binary I/O**: `INPUT$` and raw binary file modes are currently limited in the web environment. Use `OPEN` for text processing.
 
 ---
 
@@ -221,4 +272,5 @@ MIT License © 2025-2026 Thirawat Sinlapasomsak
     <a href="https://github.com/thirawat27/QBasic-Nexus">GitHub</a> •
     <a href="https://github.com/thirawat27/QBasic-Nexus/issues">Report Bug</a>
   </p>
+
 </div>
