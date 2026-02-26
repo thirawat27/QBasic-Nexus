@@ -22,22 +22,22 @@
     "scripts": {
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
-        "pretest": "npm run lint",
+        "pretest": "pnpm run lint",
         "test": "vscode-test",
         "benchmark": "node test/benchmark-compiler.js",
         "test:compiler": "node test/test-transpiler.js",
         "test:variables": "node test/test-variable-declaration.js",
-        "test:all": "npm run test:compiler && npm run test:variables && npm run benchmark",
+        "test:all": "pnpm run test:compiler && pnpm run test:variables && pnpm run benchmark",
         "package": "vsce package",
         "publish": "vsce publish"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",
         "@types/node": "25.x",
-        "@types/vscode": "^1.105.0",
+        "@types/vscode": "^1.109.0",
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
-        "eslint": "^9.39.2"
+        "eslint": "^10.0.2"
     },
     "dependencies": {},
     "categories": [
