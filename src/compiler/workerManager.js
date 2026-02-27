@@ -212,7 +212,9 @@ class CompilerWorkerManager {
       const t = new Transpiler()
       return t.transpile(source, target)
     } catch (err) {
-      throw new Error(`Synchronous transpilation failed: ${err.message}`)
+      throw new Error(`Synchronous transpilation failed: ${err.message}`, {
+        cause: err,
+      })
     }
   }
 
@@ -224,8 +226,7 @@ class CompilerWorkerManager {
     try {
       const Transpiler = require("./transpiler")
       const t = new Transpiler()
-      t.transpile(source, "node")
-      return t.parser?.errors || []
+      return t.lint(source)
     } catch (err) {
       return [{ line: 0, message: err.message, severity: "error" }]
     }
@@ -252,7 +253,7 @@ class CompilerWorkerManager {
         const worker = this.idleWorkers.pop()
         try {
           worker.postMessage(payload)
-        } catch (err) {
+        } catch (_err) {
           // Worker error, try fallback
           this.callbacks.delete(id)
           this._replaceWorker(worker)
@@ -303,7 +304,7 @@ class CompilerWorkerManager {
     this.isDisposed = true
 
     // Clear pending callbacks
-    for (const [id, callback] of this.callbacks) {
+    for (const [_id, callback] of this.callbacks) {
       callback.reject(new Error("Worker manager disposed"))
     }
     this.callbacks.clear()
@@ -312,7 +313,7 @@ class CompilerWorkerManager {
     for (const worker of this.workers) {
       try {
         worker.terminate()
-      } catch {
+      } catch (_err) {
         // Ignore termination errors
       }
     }

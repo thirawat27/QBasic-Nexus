@@ -164,13 +164,18 @@ class Parser {
 
   // --- Error Handling ---
 
-  _recordError(msg) {
+  _recordError(msg, severity = "error") {
     const tok = this._peek()
     this.errors.push({
       line: (tok?.line || 1) - 1,
       message: msg,
       column: tok?.col || 0,
+      severity: severity,
     })
+  }
+
+  _recordWarning(msg) {
+    this._recordError(msg, "warning")
   }
 
   _sync() {
@@ -990,7 +995,7 @@ class Parser {
     this.currentFunction = name
   }
 
-  _parseDeclareLibrary(isDynamic) {
+  _parseDeclareLibrary(_isDynamic) {
     let libName = ""
     if (this._check(TokenType.STRING)) {
       libName = this._advance().value
@@ -1057,7 +1062,6 @@ class Parser {
     let jsCode = ""
 
     // Fast stream scan to collect raw text directly from Lexer's backing source
-    let foundEnd = false
     while (!this._isEnd()) {
       const t = this._peek()
       if (t.type === TokenType.KEYWORD && t.value === "END") {
@@ -1069,7 +1073,6 @@ class Parser {
         ) {
           this._advance() // END
           this._advance() // DECLARE
-          foundEnd = true
           break
         }
       }
@@ -1899,6 +1902,9 @@ class Parser {
   _parseDefType(_type) {
     // DEFINT A-Z, DEFLNG A-M, etc.
     // These affect default variable types - emit comment for now
+    this._recordWarning(
+      `DEF${_type} variables type hinting is not strongly enforced in JavaScript.`,
+    )
     while (!this._isStmtEnd()) {
       this._advance()
     }
@@ -1950,6 +1956,9 @@ class Parser {
     const port = this._parseExpr()
     this._matchPunc(",")
     const value = this._parseExpr()
+    this._recordWarning(
+      "OUT command is not supported natively in browser/JS contexts.",
+    )
     this._emit(`/* OUT ${port}, ${value} - hardware I/O not supported */`)
   }
 
@@ -1962,6 +1971,9 @@ class Parser {
     if (this._matchPunc(",")) {
       xorVal = this._parseExpr()
     }
+    this._recordWarning(
+      "WAIT command for hardware ports is not supported natively in JS contexts.",
+    )
     this._emit(
       `/* WAIT ${port}, ${andVal}, ${xorVal} - hardware wait not supported */`,
     )
@@ -1972,6 +1984,9 @@ class Parser {
     const addr = this._parseExpr()
     this._matchPunc(",")
     const value = this._parseExpr()
+    this._recordWarning(
+      "POKE memory access is highly limited/sandboxed in JavaScript environments.",
+    )
     this._emit(`_poke(${addr}, ${value});`)
   }
 
@@ -2019,17 +2034,26 @@ class Parser {
   _parseScreenMove() {
     // _SCREENMOVE x, y or _SCREENMOVE _MIDDLE
     if (this._matchKw("_MIDDLE")) {
+      this._recordWarning(
+        "_SCREENMOVE _MIDDLE is unsupported in standard web environments.",
+      )
       this._emit("// _SCREENMOVE _MIDDLE - not supported in web")
     } else {
       const x = this._parseExpr()
       this._matchPunc(",")
       const y = this._parseExpr()
+      this._recordWarning(
+        "_SCREENMOVE is unsupported in standard web environments.",
+      )
       this._emit(`// _SCREENMOVE ${x}, ${y} - not supported in web`)
     }
   }
 
   _parseIcon() {
     // _ICON [handle]
+    this._recordWarning(
+      "_ICON is unsupported and will be ignored in cross-platform builds.",
+    )
     if (!this._isStmtEnd()) {
       const handle = this._parseExpr()
       this._emit(`// _ICON ${handle} - not supported in web`)

@@ -36,17 +36,20 @@
         "benchmark": "node test/benchmark-compiler.js",
         "test:compiler": "node test/test-transpiler.js",
         "test:variables": "node test/test-variable-declaration.js",
-        "test:all": "pnpm run test:compiler && pnpm run test:variables && pnpm run benchmark",
+        "test:providers": "node test/test-providers.js",
+        "test:all": "pnpm run test:compiler && pnpm run test:variables && pnpm run test:providers && pnpm run benchmark",
         "package": "vsce package",
         "publish": "vsce publish"
     },
     "devDependencies": {
+        "@eslint/js": "^10.0.1",
         "@types/mocha": "^10.0.10",
         "@types/node": "25.x",
-        "@types/vscode": "^1.109.0",
+        "@types/vscode": "^1.105.0",
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
-        "eslint": "^10.0.2"
+        "eslint": "^10.0.2",
+        "globals": "^17.3.0"
     },
     "categories": [
         "Programming Languages",

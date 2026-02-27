@@ -2,7 +2,7 @@
  * Test Variable Declaration Issues
  * =================================
  * Tests that all variables are properly declared before use
- * 
+ *
  * Usage:
  *   node test/test-variable-declaration.js [--verbose] [--fail-fast]
  */
@@ -33,45 +33,16 @@ const failFast = args.includes("--fail-fast")
 try {
   var InternalTranspiler = require("../src/compiler/transpiler")
 } catch (error) {
-  console.error(`${colors.red}❌ Error loading transpiler module:${colors.reset}`, error.message)
+  console.error(
+    `${colors.red}❌ Error loading transpiler module:${colors.reset}`,
+    error.message,
+  )
   console.error("   Make sure you are running from the project root directory.")
   process.exit(1)
 }
 
 // Mock runtime environment for code validation
-const mockRuntime = `
-  function _print(text, newline) { return text; }
-  async function _input(prompt) { return "0"; }
-  function _cls() { }
-  function _sleep(ms) { return Promise.resolve(); }
-  function _makeArray(init, ...dims) {
-    if (dims.length === 0) return init;
-    const size = dims[0];
-    const rest = dims.slice(1);
-    return Array.from({length: size + 1}, () => _makeArray(init, ...rest));
-  }
-  let _cursorRow = 1, _cursorCol = 1;
-  const _DATA = [];
-  let _DATA_PTR = 0;
-  function _read() { return 0; }
-  function _restore() { _DATA_PTR = 0; }
-  let _rndSeed = Date.now();
-  function _randomize(seed) { _rndSeed = seed !== undefined ? seed : Date.now(); }
-  function _rnd() {
-    _rndSeed = (_rndSeed * 9301 + 49297) % 233280;
-    return _rndSeed / 233280;
-  }
-  function _screen(mode) { }
-  function _pset(x, y, color) { }
-  function _preset(x, y, color) { }
-  function _line(x1, y1, x2, y2, color, style) { }
-  function _circle(x, y, radius, color, start, end, aspect) { }
-  function _draw(cmd) { }
-  function _limit(fps) { }
-  function _key(n) { return ""; }
-  function _inkey() { return ""; }
-  const _KEYHIT = {};
-`
+const mockRuntime = ""
 
 // Test categories
 const testCategories = {
@@ -124,13 +95,15 @@ const testCategories = {
         name: "Variable used in expression",
         code: `y = x + 5\nPRINT y`,
         expectSuccess: true,
-        description: "Variables used before assignment should still be declared",
+        description:
+          "Variables used before assignment should still be declared",
       },
       {
         name: "Multiple variables in expression",
         code: `result = a + b * c - d / e`,
         expectSuccess: true,
-        description: "Multiple variables in one expression should all be declared",
+        description:
+          "Multiple variables in one expression should all be declared",
       },
       {
         name: "Complex expression",
@@ -250,7 +223,8 @@ const testCategories = {
         name: "Variable name case sensitivity",
         code: `foo = 1\nFOO = 2\nFoo = 3\nPRINT foo`,
         expectSuccess: true,
-        description: "QBasic is case-insensitive, should treat as same variable",
+        description:
+          "QBasic is case-insensitive, should treat as same variable",
       },
       {
         name: "Empty string assignment",
@@ -277,44 +251,52 @@ const testCategories = {
 /**
  * Validate generated JavaScript code
  */
-function validateCode(jsCode, testName) {
+function validateCode(jsCode, _testName) {
   // Check for proper variable declarations
   const hasLetDeclarations = /\blet\s+\w+/.test(jsCode)
   const hasConstDeclarations = /\bconst\s+\w+/.test(jsCode)
-  
+
   // Check for common issues
   const issues = []
-  
+
   // Check for undeclared variables (simple heuristic)
-  const assignmentPattern = /(\w+)\s*=\s*/g
+  const _assignmentPattern = /(\w+)\s*=\s*/g
   const declaredVars = new Set()
-  const usedVars = new Set()
-  
+  const _usedVars = new Set()
+
   // Extract declared variables
   const letPattern = /\blet\s+(\w+)/g
   const constPattern = /\bconst\s+(\w+)/g
   const varPattern = /\bvar\s+(\w+)/g
   const functionPattern = /\bfunction\s+(\w+)/g
-  const paramPattern = /\([^)]*\)/g
-  
+  const _paramPattern = /\([^)]*\)/g
+
   let match
   while ((match = letPattern.exec(jsCode)) !== null) declaredVars.add(match[1])
-  while ((match = constPattern.exec(jsCode)) !== null) declaredVars.add(match[1])
+  while ((match = constPattern.exec(jsCode)) !== null)
+    declaredVars.add(match[1])
   while ((match = varPattern.exec(jsCode)) !== null) declaredVars.add(match[1])
-  while ((match = functionPattern.exec(jsCode)) !== null) declaredVars.add(match[1])
-  
+  while ((match = functionPattern.exec(jsCode)) !== null)
+    declaredVars.add(match[1])
+
   // Check for potential issues
   const undefinedPatterns = [
-    { pattern: /ReferenceError.*?is not defined/, desc: "Undefined variable reference" },
-    { pattern: /Cannot access.*?before initialization/, desc: "Temporal dead zone violation" },
+    {
+      pattern: /ReferenceError.*?is not defined/,
+      desc: "Undefined variable reference",
+    },
+    {
+      pattern: /Cannot access.*?before initialization/,
+      desc: "Temporal dead zone violation",
+    },
   ]
-  
+
   for (const { pattern, desc } of undefinedPatterns) {
     if (pattern.test(jsCode)) {
       issues.push(desc)
     }
   }
-  
+
   return {
     hasDeclarations: hasLetDeclarations || hasConstDeclarations,
     issues: issues,
@@ -336,7 +318,9 @@ function runTest(testCase) {
     // Try to compile with mock runtime
     let runtimeError = null
     try {
-      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+      const AsyncFunction = Object.getPrototypeOf(
+        async function () {},
+      ).constructor
       const fullCode = mockRuntime + "\n" + jsCode
       // Just compile, don't execute
       new AsyncFunction(fullCode)
@@ -347,8 +331,12 @@ function runTest(testCase) {
     const passed = !runtimeError && validation.issues.length === 0
 
     if (verbose) {
-      console.log(`\n${colors.dim}Generated code for "${testCase.name}":${colors.reset}`)
-      console.log(colors.dim + jsCode.split("\n").slice(0, 10).join("\n") + colors.reset)
+      console.log(
+        `\n${colors.dim}Generated code for "${testCase.name}":${colors.reset}`,
+      )
+      console.log(
+        colors.dim + jsCode.split("\n").slice(0, 10).join("\n") + colors.reset,
+      )
       if (jsCode.split("\n").length > 10) {
         console.log(colors.dim + "... (truncated)" + colors.reset)
       }
@@ -386,11 +374,16 @@ function testVariableDeclaration(options = {}) {
   const categoryResults = []
 
   if (!silent) {
-    console.log("\n" + colors.bright + "🧪 Variable Declaration Test Suite" + colors.reset)
+    console.log(
+      "\n" +
+        colors.bright +
+        "🧪 Variable Declaration Test Suite" +
+        colors.reset,
+    )
     console.log(colors.dim + "=".repeat(70) + colors.reset + "\n")
   }
 
-  for (const [categoryKey, category] of Object.entries(testCategories)) {
+  for (const [_categoryKey, category] of Object.entries(testCategories)) {
     if (!silent) {
       console.log(`${colors.cyan}📁 ${category.name}${colors.reset}`)
     }
@@ -405,7 +398,9 @@ function testVariableDeclaration(options = {}) {
         if (!silent) {
           console.log(`  ${colors.green}✓${colors.reset} ${result.name}`)
           if (isVerbose && result.validation) {
-            console.log(`    ${colors.dim}Declared ${result.validation.declaredVars} variables${colors.reset}`)
+            console.log(
+              `    ${colors.dim}Declared ${result.validation.declaredVars} variables${colors.reset}`,
+            )
           }
         }
       } else {
@@ -414,10 +409,14 @@ function testVariableDeclaration(options = {}) {
           console.log(`  ${colors.red}✗${colors.reset} ${result.name}`)
           console.log(`    ${colors.dim}${result.description}${colors.reset}`)
           if (result.error) {
-            console.log(`    ${colors.red}Error: ${result.error}${colors.reset}`)
+            console.log(
+              `    ${colors.red}Error: ${result.error}${colors.reset}`,
+            )
           }
           if (result.validation && result.validation.issues.length > 0) {
-            console.log(`    ${colors.yellow}Issues: ${result.validation.issues.join(", ")}${colors.reset}`)
+            console.log(
+              `    ${colors.yellow}Issues: ${result.validation.issues.join(", ")}${colors.reset}`,
+            )
           }
         }
         if (failFast) {
@@ -443,7 +442,8 @@ function testVariableDeclaration(options = {}) {
   }
 
   const totalTests = totalPassed + totalFailed
-  const passRate = totalTests > 0 ? ((totalPassed / totalTests) * 100).toFixed(1) : 0
+  const passRate =
+    totalTests > 0 ? ((totalPassed / totalTests) * 100).toFixed(1) : 0
 
   if (!silent) {
     // Summary table
@@ -453,16 +453,23 @@ function testVariableDeclaration(options = {}) {
     console.log(`  ────────────────────────────┼────────┼────────┼──────────┤`)
 
     for (const cat of categoryResults) {
-      const status = cat.failed === 0 
-        ? `${colors.green}✓ PASS${colors.reset}` 
-        : `${colors.red}✗ FAIL${colors.reset}`
+      const status =
+        cat.failed === 0
+          ? `${colors.green}✓ PASS${colors.reset}`
+          : `${colors.red}✗ FAIL${colors.reset}`
       console.log(
-        `  ${cat.name.padEnd(26)} │ ${String(cat.passed).padStart(6)} │ ${String(cat.failed).padStart(6)} │ ${status}${" ".repeat(8 - (cat.failed === 0 ? 5 : 5))} │`
+        `  ${cat.name.padEnd(26)} │ ${String(cat.passed).padStart(6)} │ ${String(cat.failed).padStart(6)} │ ${status}${" ".repeat(8 - (cat.failed === 0 ? 5 : 5))} │`,
       )
     }
 
-    console.log(colors.dim + "  ────────────────────────────┴────────┴────────┴──────────┘" + colors.reset)
-    console.log(`\n  ${colors.bright}Total:${colors.reset} ${totalPassed} passed, ${totalFailed} failed out of ${totalTests} tests (${passRate}%)`)
+    console.log(
+      colors.dim +
+        "  ────────────────────────────┴────────┴────────┴──────────┘" +
+        colors.reset,
+    )
+    console.log(
+      `\n  ${colors.bright}Total:${colors.reset} ${totalPassed} passed, ${totalFailed} failed out of ${totalTests} tests (${passRate}%)`,
+    )
 
     if (totalFailed === 0) {
       console.log(`\n  ${colors.green}✅ All tests passed!${colors.reset}\n`)

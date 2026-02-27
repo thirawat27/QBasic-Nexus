@@ -8,18 +8,13 @@ const vscode = require("vscode")
 const path = require("path")
 const fs = require("fs").promises
 const os = require("os")
-// child_process spawn is used in compiler.js, not needed here
+const { spawn } = require("child_process")
 
 // Import cross-platform utilities
 const {
   IS_WIN,
   IS_MAC,
-  IS_LINUX,
   getExecutableExtension,
-  quotePath,
-  getCommandSeparator,
-  resolvePath,
-  getTempFilePath,
 } = require("./src/utils/pathUtils")
 // Platform utilities imported as needed
 const {
@@ -43,8 +38,8 @@ const {
   QBasicReferenceProvider,
   QBasicOnTypeFormattingEditProvider,
   invalidateCache,
-} = require("./providers")
-const compilerWorker = require("./src/compiler/workerManager")
+} = require("./src/providers")
+const compilerWorker = require("./src/compiler/WorkerManager")
 const WebviewManager = require("./src/managers/WebviewManager")
 const TutorialManager = require("./src/managers/TutorialManager")
 
@@ -155,15 +150,6 @@ function getTerminal() {
     })
   }
   return terminal
-}
-
-async function fileExists(filePath) {
-  try {
-    await fs.access(filePath)
-    return true
-  } catch {
-    return false
-  }
 }
 
 function getConfig(key, defaultValue = null) {
@@ -885,15 +871,17 @@ function parseCompilerErrors(output, uri) {
     while ((match = pattern.exec(output)) !== null) {
       try {
         const [, fileOrLine, lineStrOrType, messageText] = match
-        
+
         // Validate extracted data
         if (!fileOrLine || !messageText) continue
-        
+
         // Determine if it's a file match or direct line
         let file, lineStr, message
-        if (fileOrLine.toLowerCase().endsWith('.bas') || 
-            fileOrLine.toLowerCase().endsWith('.bi') || 
-            fileOrLine.toLowerCase().endsWith('.bm')) {
+        if (
+          fileOrLine.toLowerCase().endsWith(".bas") ||
+          fileOrLine.toLowerCase().endsWith(".bi") ||
+          fileOrLine.toLowerCase().endsWith(".bm")
+        ) {
           file = fileOrLine
           lineStr = lineStrOrType
           message = messageText
@@ -903,13 +891,13 @@ function parseCompilerErrors(output, uri) {
           lineStr = fileOrLine
           message = lineStrOrType + ": " + messageText
         }
-        
+
         if (file.toLowerCase() === filename) {
           const line = Math.max(0, parseInt(lineStr, 10) - 1)
-          
+
           // Validate line number
           if (isNaN(line) || line < 0) continue
-          
+
           const severity = message.toLowerCase().includes("warning")
             ? vscode.DiagnosticSeverity.Warning
             : vscode.DiagnosticSeverity.Error

@@ -2,10 +2,10 @@
  * QBasic Nexus - Compiler Performance Benchmark
  * ==============================================
  * Tests compiler performance improvements with detailed metrics
- * 
+ *
  * Usage:
  *   node test/benchmark-compiler.js [--json] [--iterations=N] [--warmup]
- * 
+ *
  * Options:
  *   --json          Export results as JSON
  *   --iterations=N  Set number of iterations (default: 100)
@@ -25,7 +25,9 @@ const args = isCLI ? process.argv.slice(2) : []
 const shouldExportJSON = args.includes("--json")
 const warmupRuns = args.includes("--warmup") ? 10 : 0
 const iterationsArg = args.find((arg) => arg.startsWith("--iterations="))
-const DEFAULT_ITERATIONS = iterationsArg ? parseInt(iterationsArg.split("=")[1], 10) : 100
+const DEFAULT_ITERATIONS = iterationsArg
+  ? parseInt(iterationsArg.split("=")[1], 10)
+  : 100
 
 // Try to load compiler modules
 let Lexer, InternalTranspiler
@@ -201,25 +203,29 @@ const testPrograms = {
  * Format bytes to human readable string
  */
 function formatBytes(bytes) {
-  if (bytes === 0) return "0 B"
+  if (!isFinite(bytes) || bytes === 0) return "0 B"
+  const abs = Math.abs(bytes)
+  const sign = bytes < 0 ? "-" : ""
   const k = 1024
   const sizes = ["B", "KB", "MB", "GB"]
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  const i = Math.floor(Math.log(abs) / Math.log(k))
+  return sign + parseFloat((abs / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
 }
 
 /**
  * Calculate standard deviation
  */
 function calculateStdDev(values, mean) {
-  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length
+  const variance =
+    values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
+    values.length
   return Math.sqrt(variance)
 }
 
 /**
  * Progress bar helper
  */
-function createProgressBar(total, width = 30) {
+function _createProgressBar(total, width = 30) {
   return (current) => {
     const percentage = Math.round((current / total) * 100)
     const filled = Math.round((width * current) / total)
@@ -257,14 +263,14 @@ function benchmarkCompile(source, iterations = 100, warmup = 0) {
     // Lexer benchmark
     const lexerStart = process.hrtime.bigint()
     const lexer = new Lexer(source)
-    const tokens = lexer.tokenize()
+    const _tokens = lexer.tokenize()
     const lexerEnd = process.hrtime.bigint()
     times.lexer.push(Number(lexerEnd - lexerStart) / 1000000) // Convert to ms
 
     // Parser benchmark (full transpilation)
     const parserStart = process.hrtime.bigint()
     const transpiler = new InternalTranspiler()
-    const code = transpiler.transpile(source, "web")
+    const _code = transpiler.transpile(source, "web")
     const parserEnd = process.hrtime.bigint()
     times.parser.push(Number(parserEnd - parserStart) / 1000000)
 
@@ -315,9 +321,11 @@ function runBenchmarks(options = {}) {
 
   if (!silent) {
     console.log("\n🚀 QBasic Nexus Compiler Performance Benchmark\n")
-    console.log("=" .repeat(70))
-    console.log(`Configuration: ${iterations} iterations${warmup > 0 ? `, ${warmup} warmup runs` : ""}`)
-    console.log("=" .repeat(70))
+    console.log("=".repeat(70))
+    console.log(
+      `Configuration: ${iterations} iterations${warmup > 0 ? `, ${warmup} warmup runs` : ""}`,
+    )
+    console.log("=".repeat(70))
   }
 
   for (const [key, program] of Object.entries(testPrograms)) {
@@ -331,25 +339,34 @@ function runBenchmarks(options = {}) {
 
     if (!silent) {
       // Display results in a table-like format
-      console.log("\n  Phase         │   Mean    │  Median   │   Min    │   Max    │  StdDev  │")
-      console.log("  ──────────────┼───────────┼───────────┼──────────┼──────────┼──────────┤")
+      console.log(
+        "\n  Phase         │   Mean    │  Median   │   Min    │   Max    │  StdDev  │",
+      )
+      console.log(
+        "  ──────────────┼───────────┼───────────┼──────────┼──────────┼──────────┤",
+      )
 
       for (const phase of ["lexer", "parser", "total"]) {
         const s = stats[phase]
-        const phaseName = phase.charAt(0).toUpperCase() + phase.slice(1).padEnd(9)
+        const phaseName =
+          phase.charAt(0).toUpperCase() + phase.slice(1).padEnd(9)
         console.log(
-          `  ${phaseName} │ ${s.mean.toFixed(3).padStart(7)}ms │ ${s.median.toFixed(3).padStart(7)}ms │ ${s.min.toFixed(3).padStart(6)}ms │ ${s.max.toFixed(3).padStart(6)}ms │ ${s.stdDev.toFixed(3).padStart(6)}ms │`
+          `  ${phaseName} │ ${s.mean.toFixed(3).padStart(7)}ms │ ${s.median.toFixed(3).padStart(7)}ms │ ${s.min.toFixed(3).padStart(6)}ms │ ${s.max.toFixed(3).padStart(6)}ms │ ${s.stdDev.toFixed(3).padStart(6)}ms │`,
         )
       }
 
       // Percentile info
       console.log("\n  Percentiles (Total):")
-      console.log(`    P95: ${stats.total.p95.toFixed(3)}ms | P99: ${stats.total.p99.toFixed(3)}ms`)
+      console.log(
+        `    P95: ${stats.total.p95.toFixed(3)}ms | P99: ${stats.total.p99.toFixed(3)}ms`,
+      )
 
       // Throughput
       const throughput = (program.code.length / stats.total.mean) * 1000 // chars/sec
       console.log(`\n  ⚡ Throughput: ${(throughput / 1000).toFixed(2)} KB/s`)
-      console.log(`  📈 Compilation rate: ${(1000 / stats.total.mean).toFixed(0)} compiles/sec`)
+      console.log(
+        `  📈 Compilation rate: ${(1000 / stats.total.mean).toFixed(0)} compiles/sec`,
+      )
 
       // Memory
       console.log(`  💾 Memory used: ${formatBytes(stats.memory.heapUsed)}`)

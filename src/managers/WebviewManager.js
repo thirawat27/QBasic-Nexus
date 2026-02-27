@@ -7,17 +7,13 @@
 
 const vscode = require("vscode")
 const fs = require("fs").promises
-const path = require("path")
-
-// Import cross-platform utilities
-const { toUnixPath } = require("../utils/pathUtils")
 
 // Manages the CRT webview panel lifecycle and communication with the runtime
 class WebviewManager {
   static currentPanel = undefined
   static viewType = "qbasicNexusCrt"
   static _disposables = []
-  static _maxDisposables = 100  // Limit to prevent memory leak
+  static _maxDisposables = 100 // Limit to prevent memory leak
 
   /**
    * Add a disposable with automatic cleanup when limit is reached.
@@ -78,6 +74,9 @@ class WebviewManager {
             }
           } else if (message.type === "error") {
             console.error("[QBasic CRT] Runtime error:", message.content)
+            vscode.window.showErrorMessage(
+              `[QBasic Nexus] Runtime Error: ${message.content}`,
+            )
           }
         } catch (err) {
           console.error("[QBasic CRT] Message handler error:", err)
@@ -96,7 +95,9 @@ class WebviewManager {
     try {
       const TutorialManager = require("./TutorialManager")
       TutorialManager.clearHistory()
-    } catch {}
+    } catch (_e) {
+      // Tutorial might not be active, safe to ignore
+    }
 
     if (!WebviewManager.currentPanel) {
       await WebviewManager.createOrShow(extensionUri)
@@ -169,7 +170,9 @@ class WebviewManager {
         WebviewManager._htmlCache = html
       } catch (err) {
         console.error("[WebviewManager] Failed to load HTML template:", err)
-        throw new Error(`Failed to load CRT template: ${err.message}`)
+        throw new Error(`Failed to load CRT template: ${err.message}`, {
+          cause: err,
+        })
       }
     }
 

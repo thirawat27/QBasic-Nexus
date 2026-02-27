@@ -251,9 +251,18 @@ class Lexer {
       this._advance()
     }
 
-    const val = this.src.slice(startPos, this.pos)
+    let val = this.src.slice(startPos, this.pos)
     const upper = val.toUpperCase()
     const type = KEYWORDS.has(upper) ? TokenType.KEYWORD : TokenType.IDENTIFIER
+
+    if (type === TokenType.IDENTIFIER) {
+      val = val
+        .replace(/%/g, "_pct")
+        .replace(/&/g, "_lng")
+        .replace(/!/g, "_sng")
+        .replace(/#/g, "_dbl")
+    }
+
     this.tokens.push(
       TokenPool.acquire(
         type,

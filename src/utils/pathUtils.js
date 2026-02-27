@@ -245,6 +245,7 @@ function sanitizeFilename(filename) {
   // Replace invalid characters with underscore
   // Windows: < > : " / \ | ? *
   // macOS/Linux: / and null
+  // eslint-disable-next-line no-control-regex
   return filename.replace(/[<>:"|?*\x00]/g, "_").trim()
 }
 

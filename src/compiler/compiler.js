@@ -6,13 +6,9 @@
 "use strict"
 
 const Lexer = require("./lexer")
-const workerManager = require("./workerManager")
+const workerManager = require("./WorkerManager")
 const { getGlobalCache } = require("./cache")
-const {
-  DiagnosticCollector,
-  ErrorCategory,
-  ErrorRecovery,
-} = require("./error-recovery")
+const { DiagnosticCollector, ErrorCategory } = require("./diagnostics")
 const vm = require("vm")
 
 // Default compilation options
