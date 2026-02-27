@@ -1,0 +1,16 @@
+# pnpm Workspace Configuration
+# ==============================
+# QBasic Nexus is currently a single-package project (VS Code extension).
+# This file is kept minimal but can be expanded if the project grows
+# into a monorepo structure in the future.
+#
+# Reference: https://pnpm.io/workspaces
+
+# Single root package (current VS Code extension)
+packages:
+  - "."
+
+# Pre-built dependencies that should not be recompiled
+# esbuild provides native binaries and doesn't need rebuilding
+ignoredBuiltDependencies:
+  - esbuild
