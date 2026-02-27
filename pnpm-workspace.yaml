@@ -1,16 +1,47 @@
-# pnpm Workspace Configuration
-# ==============================
-# QBasic Nexus is currently a single-package project (VS Code extension).
-# This file is kept minimal but can be expanded if the project grows
-# into a monorepo structure in the future.
-#
-# Reference: https://pnpm.io/workspaces
+# QBasic Nexus Workspace Configuration
+# ======================================
+# This file configures the pnpm workspace for monorepo management
+# For more info: https://pnpm.io/workspaces
 
-# Single root package (current VS Code extension)
+# Define which packages are part of this workspace
 packages:
+  # Root package (the VS Code extension itself)
   - "."
 
-# Pre-built dependencies that should not be recompiled
-# esbuild provides native binaries and doesn't need rebuilding
+  # Future workspace packages can be added here:
+  # - "packages/*"        # For modular compiler packages
+  # - "tools/*"           # For build and development tools
+  # - "docs"              # Documentation site
+
+# Catalog dependencies (shared across workspace packages)
+# Uncomment and configure when adding more packages:
+#
+
+# Ignore packages that match these patterns
+# ignore:
+#   - "**/test/**"
+#   - "**/node_modules/**"
+
+# Built dependencies that should not be rebuilt
+# These are pre-built native modules that don't need recompilation
 ignoredBuiltDependencies:
   - esbuild
+
+# Dependencies that only allowed specified pre/post scripts to run
+# This improves security by limiting which packages can run scripts
+onlyBuiltDependencies:
+  - esbuild
+
+# Peer dependency handling
+# prefer-workspace-packages: true
+
+# Hoisting settings
+# hoist-pattern:
+#   - "*eslint*"
+#   - "*prettier*"
+
+# Link workspace packages for local development
+# link-workspace-packages: true
+
+# Strict peer dependencies check
+# strict-peer-dependencies: false
