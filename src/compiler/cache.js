@@ -1,34 +1,21 @@
-/**
- * QBasic Nexus - Compilation Cache System
- * ========================================
- * Provides intelligent caching for faster recompilation
- * 
- * @author Thirawat27
- * @version 1.2.0
- */
+// Compilation cache system using LRU strategy to speed up repeated compilations
 
 'use strict';
 
 const crypto = require('crypto');
 
-/**
- * LRU Cache implementation for compilation results
- */
+// Least Recently Used cache that automatically evicts oldest entries when full
 class LRUCache {
     constructor(maxSize = 100) {
         this.maxSize = maxSize;
         this.cache = new Map();
     }
     
-    /**
-     * Get value from cache
-     */
     get(key) {
         if (!this.cache.has(key)) {
             return null;
         }
         
-        // Move to end (most recently used)
         const value = this.cache.get(key);
         this.cache.delete(key);
         this.cache.set(key, value);
@@ -36,49 +23,32 @@ class LRUCache {
         return value;
     }
     
-    /**
-     * Set value in cache
-     */
     set(key, value) {
         // Remove if exists (to update position)
         if (this.cache.has(key)) {
             this.cache.delete(key);
         }
         
-        // Add to end
         this.cache.set(key, value);
         
-        // Evict oldest if over size
         if (this.cache.size > this.maxSize) {
             const firstKey = this.cache.keys().next().value;
             this.cache.delete(firstKey);
         }
     }
     
-    /**
-     * Check if key exists
-     */
     has(key) {
         return this.cache.has(key);
     }
     
-    /**
-     * Clear cache
-     */
     clear() {
         this.cache.clear();
     }
     
-    /**
-     * Get cache size
-     */
     size() {
         return this.cache.size;
     }
     
-    /**
-     * Get cache statistics
-     */
     stats() {
         return {
             size: this.cache.size,
@@ -88,9 +58,7 @@ class LRUCache {
     }
 }
 
-/**
- * Compilation cache with source hashing
- */
+// Main compilation cache that stores tokens and generated code indexed by source hash
 class CompilationCache {
     constructor(options = {}) {
         this.enabled = options.enabled !== false;
@@ -99,7 +67,6 @@ class CompilationCache {
         this.astCache = new LRUCache(this.maxSize);
         this.codeCache = new LRUCache(this.maxSize);
         
-        // Statistics
         this.stats = {
             hits: 0,
             misses: 0,
@@ -107,16 +74,10 @@ class CompilationCache {
         };
     }
     
-    /**
-     * Generate hash for source code
-     */
     _hash(source) {
         return crypto.createHash('sha256').update(source).digest('hex').substring(0, 16);
     }
     
-    /**
-     * Get cached tokens
-     */
     getTokens(source) {
         if (!this.enabled) return null;
         

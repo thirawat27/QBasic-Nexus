@@ -1,17 +1,7 @@
-/**
- * QBasic Nexus - Enhanced Error Recovery System
- * ==============================================
- * Provides robust error recovery and detailed diagnostics
- * 
- * @author Thirawat27
- * @version 1.2.0
- */
+// Error recovery system that provides detailed diagnostics and suggestions for fixing compilation errors
 
 'use strict';
 
-/**
- * Error severity levels
- */
 const ErrorSeverity = Object.freeze({
     ERROR: 'error',
     WARNING: 'warning',
@@ -19,9 +9,6 @@ const ErrorSeverity = Object.freeze({
     HINT: 'hint'
 });
 
-/**
- * Error categories for better diagnostics
- */
 const ErrorCategory = Object.freeze({
     SYNTAX: 'syntax',
     SEMANTIC: 'semantic',
@@ -30,9 +17,7 @@ const ErrorCategory = Object.freeze({
     RUNTIME: 'runtime'
 });
 
-/**
- * Enhanced diagnostic message
- */
+// Represents a single diagnostic message with severity, location, and optional fix suggestions
 class Diagnostic {
     constructor(severity, category, message, line, column, length = 1) {
         this.severity = severity;
@@ -44,17 +29,11 @@ class Diagnostic {
         this.suggestions = [];
     }
     
-    /**
-     * Add a suggestion for fixing the error
-     */
     addSuggestion(suggestion) {
         this.suggestions.push(suggestion);
         return this;
     }
     
-    /**
-     * Format diagnostic for display
-     */
     format() {
         const icon = {
             [ErrorSeverity.ERROR]: '❌',
@@ -76,13 +55,8 @@ class Diagnostic {
     }
 }
 
-/**
- * Error recovery strategies
- */
+// Provides strategies for recovering from parse errors and continuing compilation
 class ErrorRecovery {
-    /**
-     * Recover from missing semicolon/newline
-     */
     static recoverMissingSeparator(parser) {
         // Skip to next statement boundary
         while (!parser._isStmtEnd() && !parser._isEnd()) {
@@ -90,9 +64,6 @@ class ErrorRecovery {
         }
     }
     
-    /**
-     * Recover from unmatched parenthesis
-     */
     static recoverUnmatchedParen(parser) {
         let depth = 1;
         while (!parser._isEnd() && depth > 0) {
@@ -103,9 +74,6 @@ class ErrorRecovery {
         }
     }
     
-    /**
-     * Recover from invalid expression
-     */
     static recoverInvalidExpression(parser) {
         // Skip until we find a statement separator or operator
         while (!parser._isStmtEnd() && !parser._isEnd()) {
@@ -117,9 +85,6 @@ class ErrorRecovery {
         }
     }
     
-    /**
-     * Suggest fixes for common typos
-     */
     static suggestTypoFix(word, validWords) {
         const suggestions = [];
         const maxDistance = 2;
@@ -137,9 +102,6 @@ class ErrorRecovery {
             .map(s => s.word);
     }
     
-    /**
-     * Calculate Levenshtein distance between two strings
-     */
     static _levenshteinDistance(a, b) {
         const matrix = [];
         
@@ -169,9 +131,7 @@ class ErrorRecovery {
     }
 }
 
-/**
- * Diagnostic collector with enhanced error reporting
- */
+// Collects and manages all diagnostics during compilation
 class DiagnosticCollector {
     constructor() {
         this.diagnostics = [];
@@ -179,9 +139,6 @@ class DiagnosticCollector {
         this.warningCount = 0;
     }
     
-    /**
-     * Add a diagnostic
-     */
     add(diagnostic) {
         this.diagnostics.push(diagnostic);
         
@@ -192,57 +149,36 @@ class DiagnosticCollector {
         }
     }
     
-    /**
-     * Add an error
-     */
     error(category, message, line, column, length = 1) {
         const diag = new Diagnostic(ErrorSeverity.ERROR, category, message, line, column, length);
         this.add(diag);
         return diag;
     }
     
-    /**
-     * Add a warning
-     */
     warning(category, message, line, column, length = 1) {
         const diag = new Diagnostic(ErrorSeverity.WARNING, category, message, line, column, length);
         this.add(diag);
         return diag;
     }
     
-    /**
-     * Add an info message
-     */
     info(category, message, line, column, length = 1) {
         const diag = new Diagnostic(ErrorSeverity.INFO, category, message, line, column, length);
         this.add(diag);
         return diag;
     }
     
-    /**
-     * Check if there are any errors
-     */
     hasErrors() {
         return this.errorCount > 0;
     }
     
-    /**
-     * Get all diagnostics
-     */
     getAll() {
         return this.diagnostics;
     }
     
-    /**
-     * Get diagnostics by severity
-     */
     getBySeverity(severity) {
         return this.diagnostics.filter(d => d.severity === severity);
     }
     
-    /**
-     * Format all diagnostics
-     */
     format() {
         if (this.diagnostics.length === 0) {
             return '✅ No issues found';
@@ -257,9 +193,6 @@ class DiagnosticCollector {
         return output;
     }
     
-    /**
-     * Clear all diagnostics
-     */
     clear() {
         this.diagnostics = [];
         this.errorCount = 0;

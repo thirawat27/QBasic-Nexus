@@ -1,7 +1,5 @@
-/**
- * QBasic Nexus - Tutorial Data
- * ============================
- */
+// ข้อมูลบทเรียน QBasic สำหรับระบบ Tutorial
+// แต่ละบทเรียนประกอบด้วย: id, title, objective, description, template, matchRegex, hint
 
 module.exports = [
     {
@@ -28,7 +26,7 @@ module.exports = [
         objective: 'Ask for the user\'s name and print it back.',
         description: 'Use INPUT to get text from the user.',
         template: 'CLS\nINPUT "Name: ", n$\nPRINT "Hi "; n$',
-        matchRegex: /(name|hi)/i, // Loose matching for interaction
+        matchRegex: /(name|hi)/i,
         hint: 'Use INPUT "Prompt ", var$ to get text input.'
     },
     {

@@ -1,35 +1,11 @@
-/**
- * QBasic Nexus - Language Providers
- * ==================================
- * VS Code Language Feature Providers for QBasic
- * 
- * Features:
- * - Document Symbols (Outline view)
- * - Go to Definition
- * - Auto-completion (IntelliSense)
- * - Hover Information
- * - Signature Help
- * - Document Formatting
- * - Code Folding
- * - Document Highlights
- * - Rename Symbol
- * - Code Actions (Quick Fix)
- * - Reference Provider
- * 
- * @author Thirawat27
- * @version 1.1.0
- * @license MIT
- */
+// Language feature providers for QBasic including IntelliSense, navigation, and refactoring
 
 'use strict';
 
 const vscode = require('vscode');
 const { KEYWORDS, FUNCTIONS } = require('./languageData');
 
-// ============================================================================
-// REGEX PATTERNS
-// ============================================================================
-
+// Regex patterns for parsing QBasic code
 const PATTERNS = {
     SUB_DEF: /^\s*(?:DECLARE\s+)?(SUB|FUNCTION)\s+([a-zA-Z_][a-zA-Z0-9_]*)/i,
     TYPE_DEF: /^\s*TYPE\s+([a-zA-Z_][a-zA-Z0-9_]*)/i,
@@ -46,20 +22,15 @@ const PATTERNS = {
     IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
 };
 
-// Shared utility function to escape regex special characters
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// ============================================================================
-// CACHING - Performance Optimization
-// ============================================================================
-
+// Caching system for performance optimization
 const symbolCache = new Map();
 const variableCache = new Map();
-const CACHE_TTL = 5000; // 5 seconds (increased for better performance)
+const CACHE_TTL = 5000;
 
-// Pre-built completion items for keywords/functions (immutable, never changes)
 let cachedKeywordItems = null;
 let cachedFunctionItems = null;
 
@@ -131,13 +102,9 @@ function invalidateCache(uri) {
     variableCache.delete(key);
 }
 
-// ============================================================================
-// DOCUMENT SYMBOL PROVIDER
-// ============================================================================
-
+// Provides document outline and symbol navigation
 class QBasicDocumentSymbolProvider {
     provideDocumentSymbols(document) {
-        // Check cache first
         const cached = getCachedSymbols(document);
         if (cached) return cached;
 
@@ -151,7 +118,6 @@ class QBasicDocumentSymbolProvider {
 
             let match;
 
-            // SUB/FUNCTION
             if ((match = PATTERNS.SUB_DEF.exec(text))) {
                 const kind = match[1].toUpperCase() === 'FUNCTION'
                     ? vscode.SymbolKind.Function
@@ -160,19 +126,16 @@ class QBasicDocumentSymbolProvider {
                     match[2], match[1].toUpperCase(), kind, line.range, line.range
                 ));
             }
-            // TYPE
             else if ((match = PATTERNS.TYPE_DEF.exec(text))) {
                 symbols.push(new vscode.DocumentSymbol(
                     match[1], 'TYPE', vscode.SymbolKind.Struct, line.range, line.range
                 ));
             }
-            // CONST
             else if ((match = PATTERNS.CONST_DEF.exec(text))) {
                 symbols.push(new vscode.DocumentSymbol(
                     match[1], 'CONST', vscode.SymbolKind.Constant, line.range, line.range
                 ));
             }
-            // Label
             else if ((match = PATTERNS.LABEL.exec(text))) {
                 symbols.push(new vscode.DocumentSymbol(
                     match[1], 'Label', vscode.SymbolKind.Event, line.range, line.range
@@ -185,10 +148,7 @@ class QBasicDocumentSymbolProvider {
     }
 }
 
-// ============================================================================
-// DEFINITION PROVIDER
-// ============================================================================
-
+// Provides go-to-definition functionality
 class QBasicDefinitionProvider {
     provideDefinition(document, position) {
         const wordRange = document.getWordRangeAtPosition(position, /[a-zA-Z_][a-zA-Z0-9_]*/);
@@ -217,19 +177,14 @@ class QBasicDefinitionProvider {
     }
 }
 
-// ============================================================================
-// COMPLETION PROVIDER
-// ============================================================================
-
+// Provides auto-completion suggestions
 class QBasicCompletionItemProvider {
     provideCompletionItems(document, _position) {
-        // Use pre-cached static items for keywords and functions
         const items = [
             ...getKeywordCompletionItems(),
             ...getFunctionCompletionItems()
         ];
 
-        // Variables from document (dynamic, needs per-document scan)
         const vars = this._scanVariables(document);
         for (const v of vars) {
             const item = new vscode.CompletionItem(v, vscode.CompletionItemKind.Variable);
@@ -238,7 +193,6 @@ class QBasicCompletionItemProvider {
             items.push(item);
         }
 
-        // User-defined SUBs and FUNCTIONs (dynamic, needs per-document scan)
         const symbols = new QBasicDocumentSymbolProvider().provideDocumentSymbols(document);
         for (const sym of symbols) {
             if (sym.kind === vscode.SymbolKind.Function || sym.kind === vscode.SymbolKind.Method) {
@@ -263,14 +217,12 @@ class QBasicCompletionItemProvider {
     }
 
     _scanVariables(document) {
-        // Check cache
         const cached = getCachedVariables(document);
         if (cached) return cached;
 
         const text = document.getText();
         const vars = new Set();
 
-        // Reset lastIndex
         PATTERNS.DIM.lastIndex = 0;
         PATTERNS.ASSIGN.lastIndex = 0;
 
@@ -285,10 +237,7 @@ class QBasicCompletionItemProvider {
     }
 }
 
-// ============================================================================
-// HOVER PROVIDER
-// ============================================================================
-
+// Provides hover information for symbols
 class QBasicHoverProvider {
     provideHover(document, position) {
         const range = document.getWordRangeAtPosition(position, /[a-zA-Z_][a-zA-Z0-9_$]*/);
@@ -296,7 +245,6 @@ class QBasicHoverProvider {
 
         const word = document.getText(range).toUpperCase();
 
-        // Keyword
         if (KEYWORDS[word]) {
             const k = KEYWORDS[word];
             return new vscode.Hover(
@@ -304,7 +252,6 @@ class QBasicHoverProvider {
             );
         }
 
-        // Function
         if (FUNCTIONS[word]) {
             const f = FUNCTIONS[word];
             return new vscode.Hover(
@@ -312,7 +259,6 @@ class QBasicHoverProvider {
             );
         }
 
-        // Check if it's a user-defined SUB/FUNCTION
         const originalWord = document.getText(range);
         for (let i = 0; i < document.lineCount; i++) {
             const lineText = document.lineAt(i).text;
@@ -328,16 +274,12 @@ class QBasicHoverProvider {
     }
 }
 
-// ============================================================================
-// SIGNATURE HELP PROVIDER
-// ============================================================================
-
+// Provides signature help for function calls
 class QBasicSignatureHelpProvider {
     provideSignatureHelp(document, position) {
         const lineText = document.lineAt(position).text;
         const textBefore = lineText.substring(0, position.character);
 
-        // Find function call
         const match = textBefore.match(/([a-zA-Z_][a-zA-Z0-9_$]*)\s*\(([^)]*)$/);
         if (!match) return null;
 
@@ -347,7 +289,6 @@ class QBasicSignatureHelpProvider {
 
         if (!funcData || !funcData.params) return null;
 
-        // Count commas for active parameter
         const commaCount = (argsText.match(/,/g) || []).length;
 
         const sig = new vscode.SignatureInformation(
@@ -365,10 +306,7 @@ class QBasicSignatureHelpProvider {
     }
 }
 
-// ============================================================================
-// FORMATTING PROVIDER
-// ============================================================================
-
+// Provides document formatting
 class QBasicDocumentFormattingEditProvider {
     provideDocumentFormattingEdits(document, options) {
         const edits = [];
@@ -381,12 +319,10 @@ class QBasicDocumentFormattingEditProvider {
 
             if (!trimmed) continue;
 
-            // Decrease indent for END/LOOP/NEXT/WEND or ELSE/CASE
             if (PATTERNS.BLOCK_END.test(trimmed) || PATTERNS.BLOCK_MID.test(trimmed)) {
                 level = Math.max(0, level - 1);
             }
 
-            // Apply indent
             const expected = indent.repeat(level);
             const current = line.text.match(/^\s*/)?.[0] || '';
 
@@ -397,14 +333,11 @@ class QBasicDocumentFormattingEditProvider {
                 ));
             }
 
-            // Increase indent for block start
             if (PATTERNS.BLOCK_START.test(trimmed)) {
-                // Single-line IF doesn't increase indent
                 if (!/^\s*IF\b/i.test(trimmed) || /\bTHEN\s*$/i.test(trimmed)) {
                     level++;
                 }
             }
-            // ELSE/ELSEIF/CASE also increase after processing
             else if (PATTERNS.BLOCK_MID.test(trimmed)) {
                 level++;
             }
@@ -414,10 +347,7 @@ class QBasicDocumentFormattingEditProvider {
     }
 }
 
-// ============================================================================
-// FOLDING RANGE PROVIDER
-// ============================================================================
-
+// Provides code folding ranges
 class QBasicFoldingRangeProvider {
     provideFoldingRanges(document) {
         const ranges = [];
@@ -443,7 +373,6 @@ class QBasicFoldingRangeProvider {
             }
         }
 
-        // Fold comment blocks
         let commentStart = -1;
         for (let i = 0; i < document.lineCount; i++) {
             const line = document.lineAt(i).text;
@@ -463,10 +392,7 @@ class QBasicFoldingRangeProvider {
     }
 }
 
-// ============================================================================
-// DOCUMENT HIGHLIGHT PROVIDER
-// ============================================================================
-
+// Highlights all occurrences of a symbol
 class QBasicDocumentHighlightProvider {
     provideDocumentHighlights(document, position) {
         const wordRange = document.getWordRangeAtPosition(position, /[a-zA-Z_][a-zA-Z0-9_$%!#&]*/);
@@ -483,7 +409,6 @@ class QBasicDocumentHighlightProvider {
             while ((match = wordPattern.exec(line)) !== null) {
                 const range = new vscode.Range(i, match.index, i, match.index + word.length);
                 
-                // Determine if it's a write or read
                 const lineText = line.substring(0, match.index + word.length);
                 const isWrite = /\s*=\s*$/.test(line.substring(match.index + word.length)) ||
                                 /\bDIM\s+(?:SHARED\s+)?$/i.test(lineText.substring(0, match.index));
@@ -499,10 +424,7 @@ class QBasicDocumentHighlightProvider {
     }
 }
 
-// ============================================================================
-// RENAME PROVIDER
-// ============================================================================
-
+// Provides symbol renaming across the document
 class QBasicRenameProvider {
     provideRenameEdits(document, position, newName) {
         const wordRange = document.getWordRangeAtPosition(position, /[a-zA-Z_][a-zA-Z0-9_$%!#&]*/);
@@ -510,12 +432,10 @@ class QBasicRenameProvider {
 
         const oldName = document.getText(wordRange);
         
-        // Validate new name
         if (!/^[a-zA-Z_][a-zA-Z0-9_$%!#&]*$/.test(newName)) {
             throw new Error('Invalid identifier name');
         }
 
-        // Check if it's a keyword
         if (KEYWORDS[oldName.toUpperCase()] || KEYWORDS[newName.toUpperCase()]) {
             throw new Error('Cannot rename keywords');
         }
@@ -544,7 +464,6 @@ class QBasicRenameProvider {
 
         const word = document.getText(wordRange);
         
-        // Check if it's a keyword or built-in function
         if (KEYWORDS[word.toUpperCase()] || FUNCTIONS[word.toUpperCase()]) {
             throw new Error('Cannot rename keywords or built-in functions');
         }
@@ -553,10 +472,7 @@ class QBasicRenameProvider {
     }
 }
 
-// ============================================================================
-// CODE ACTION PROVIDER (Quick Fix)
-// ============================================================================
-
+// Provides quick fixes and refactoring actions
 class QBasicCodeActionProvider {
     provideCodeActions(document, range, context) {
         const actions = [];
@@ -564,11 +480,9 @@ class QBasicCodeActionProvider {
         for (const diagnostic of context.diagnostics) {
             const message = diagnostic.message.toLowerCase();
 
-            // Suggest fixes based on error messages
             if (message.includes('undefined') || message.includes('not defined')) {
                 const word = this._extractIdentifier(diagnostic.message);
                 if (word) {
-                    // Suggest DIM declaration
                     const dimAction = new vscode.CodeAction(
                         `Add 'DIM ${word}'`,
                         vscode.CodeActionKind.QuickFix
@@ -580,7 +494,6 @@ class QBasicCodeActionProvider {
                 }
             }
 
-            // Suggest THEN for IF without THEN
             if (message.includes('then expected') || message.includes('missing then')) {
                 const line = document.lineAt(diagnostic.range.start.line);
                 if (/\bIF\b/i.test(line.text) && !/\bTHEN\b/i.test(line.text)) {
@@ -599,7 +512,6 @@ class QBasicCodeActionProvider {
                 }
             }
 
-            // Suggest END IF for unclosed IF
             if (message.includes('end if') || message.includes('unclosed if')) {
                 const endIfAction = new vscode.CodeAction(
                     'Add \'END IF\'',
@@ -616,10 +528,8 @@ class QBasicCodeActionProvider {
             }
         }
 
-        // Add refactor actions
         const selectedText = document.getText(range);
         if (selectedText.trim().length > 0 && range.start.line !== range.end.line) {
-            // Extract to SUB
             const extractSubAction = new vscode.CodeAction(
                 'Extract to SUB',
                 vscode.CodeActionKind.RefactorExtract
@@ -641,10 +551,7 @@ class QBasicCodeActionProvider {
     }
 }
 
-// ============================================================================
-// REFERENCE PROVIDER
-// ============================================================================
-
+// Finds all references to a symbol
 class QBasicReferenceProvider {
     provideReferences(document, position, context) {
         const wordRange = document.getWordRangeAtPosition(position, /[a-zA-Z_][a-zA-Z0-9_$%!#&]*/);
@@ -659,7 +566,6 @@ class QBasicReferenceProvider {
             let match;
 
             while ((match = wordPattern.exec(line)) !== null) {
-                // Skip if includeDeclaration is false and this is a declaration
                 if (!context.includeDeclaration) {
                     const beforeMatch = line.substring(0, match.index);
                     if (/\b(?:DIM|SUB|FUNCTION|TYPE|CONST)\s*$/i.test(beforeMatch)) {
@@ -678,18 +584,8 @@ class QBasicReferenceProvider {
     }
 }
 
-// ============================================================================
-// ON TYPE FORMATTING PROVIDER
-// ============================================================================
-
+// Provides automatic formatting on newline
 class QBasicOnTypeFormattingEditProvider {
-    /**
-     * Provides on-type formatting edits (triggered after newline)
-     * @param {vscode.TextDocument} document 
-     * @param {vscode.Position} position 
-     * @param {string} ch - The character that triggered formatting
-     * @returns {vscode.TextEdit[]}
-     */
     provideOnTypeFormattingEdits(document, position, ch) {
         if (ch !== '\n' || position.line === 0) {
             return [];
@@ -698,9 +594,8 @@ class QBasicOnTypeFormattingEditProvider {
         const prevLine = document.lineAt(position.line - 1).text;
         const prevTrimmed = prevLine.trim().toUpperCase();
         const indent = prevLine.match(/^\s*/)?.[0] || '';
-        const tabUnit = '    '; // 4 spaces
+        const tabUnit = '    ';
 
-        // Auto-indent after block-starting statements
         const blockStarters = [
             /^IF\b.+\bTHEN\s*$/,        // IF...THEN (multi-line)
             /^FOR\b/,                    // FOR loop
@@ -709,7 +604,7 @@ class QBasicOnTypeFormattingEditProvider {
             /^SELECT\s+CASE\b/,          // SELECT CASE
             /^SUB\b/,                    // SUB definition
             /^FUNCTION\b/,               // FUNCTION definition
-            /^TYPE\b/                    // TYPE definition
+            /^TYPE\b/
         ];
 
         for (const pattern of blockStarters) {

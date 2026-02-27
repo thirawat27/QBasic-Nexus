@@ -1,21 +1,5 @@
-/**
- * QBasic Nexus - The Ultimate QBasic/QB64 Environment for VS Code
- * ================================================================
- * A professional-grade development suite designed to bring QBasic and QB64
- * into the modern era. Features a powerful transpiler, real-time visualization,
- * and comprehensive language support including graphics, sound, and file I/O.
- * 
- * Key Capabilities v1.1.0:
- * - 🔍 Intelligent Code Analysis: Real-time linting, IntelliSense, and symbol navigation.
- * - 🚀 Dual-Engine Execution: Native QB64 compilaton + High-performance Web Transpiler.
- * - 🎨 Advanced Visualization: Neon CRT aesthetic with GPU-accelerated graphics.
- * - 📂 Virtual File System: Persistent file I/O support within the web runtime.
- * - 🛠️ Rich Tooling: Formatting, refactoring, and extensive debugging helpers.
- * 
- * @author Thirawat27
- * @version 1.1.0
- * @license MIT
- */
+// QBasic Nexus extension for VS Code
+// Provides comprehensive QBasic/QB64 development environment with compilation, debugging, and visualization
 
 'use strict';
 
@@ -45,10 +29,7 @@ const InternalTranspiler = require('./src/compiler/transpiler');
 const WebviewManager = require('./src/managers/WebviewManager');
 const TutorialManager = require('./src/managers/TutorialManager');
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
+// Configuration constants
 const CONFIG = Object.freeze({
     SECTION: 'qbasic-nexus',
     COMPILER_PATH: 'compilerPath',
@@ -76,10 +57,7 @@ const COMMANDS = Object.freeze({
     TOGGLE_COMMENT: 'qbasic-nexus.toggleComment'
 });
 
-// ============================================================================
-// GLOBAL STATE
-// ============================================================================
-
+// Global state variables
 let statusBarItem = null;
 let statsBarItem = null;
 let outputChannel = null;
@@ -88,13 +66,9 @@ let diagnosticCollection = null;
 let isCompiling = false;
 let extensionContext = null;
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
+// Utility functions
 
-/**
- * Create a debounced version of a function with cancel support
- */
+// Creates a debounced function that delays execution until after delay milliseconds
 function debounce(fn, delay) {
     let timer = null;
     const debounced = (...args) => {
@@ -114,9 +88,7 @@ function debounce(fn, delay) {
     return debounced;
 }
 
-/**
- * Create a throttled version of a function with trailing call support
- */
+// Creates a throttled function that only executes once per limit milliseconds
 function throttle(fn, limit) {
     let inThrottle = false;
     let lastArgs = null;
@@ -149,9 +121,6 @@ function throttle(fn, limit) {
     return throttled;
 }
 
-/**
- * Get or create the output channel
- */
 function getOutputChannel() {
     if (!outputChannel) {
         outputChannel = vscode.window.createOutputChannel(CONFIG.OUTPUT_CHANNEL);
@@ -159,10 +128,6 @@ function getOutputChannel() {
     return outputChannel;
 }
 
-/*
- *
- * Get or create a terminal instance
- */
 function getTerminal() {
     if (!terminal || terminal.exitStatus !== undefined) {
         terminal = vscode.window.createTerminal({
@@ -173,9 +138,6 @@ function getTerminal() {
     return terminal;
 }
 
-/**
- * Check if a file exists
- */
 async function fileExists(filePath) {
     try {
         await fs.access(filePath);
@@ -185,17 +147,11 @@ async function fileExists(filePath) {
     }
 }
 
-/**
- * Get configuration value
- */
 function getConfig(key, defaultValue = null) {
     const value = vscode.workspace.getConfiguration(CONFIG.SECTION).get(key);
     return value !== undefined ? value : defaultValue;
 }
 
-/**
- * Log message to output channel
- */
 function log(message, type = 'info') {
     const channel = getOutputChannel();
     const prefix = {
@@ -208,16 +164,11 @@ function log(message, type = 'info') {
     channel.appendLine(`${prefix} ${message}`);
 }
 
-// ============================================================================
-// LINTING
-// ============================================================================
+// Linting system
 
-// Track pending lint operations per document to avoid redundant linting
 const pendingLints = new Map();
 
-/**
- * Lint a QBasic document and update diagnostics
- */
+// Performs syntax checking and updates diagnostics for a document
 function lintDocument(document) {
     if (!document || document.languageId !== CONFIG.LANGUAGE_ID) return;
     if (!getConfig(CONFIG.ENABLE_LINT, true)) return;
@@ -263,7 +214,6 @@ function lintDocument(document) {
     pendingLints.set(uriKey, timerId);
 }
 
-// Lookup table for severity (faster than switch)
 const SEVERITY_MAP = Object.freeze({
     'warning': vscode.DiagnosticSeverity.Warning,
     'info': vscode.DiagnosticSeverity.Information,
@@ -275,9 +225,7 @@ function getSeverity(level) {
     return SEVERITY_MAP[level] || vscode.DiagnosticSeverity.Error;
 }
 
-// ============================================================================
-// CODE STATS
-// ============================================================================
+// Code statistics
 
 function updateCodeStats(document) {
     if (!document || document.languageId !== CONFIG.LANGUAGE_ID) {
@@ -299,9 +247,7 @@ function updateCodeStats(document) {
     statsBarItem.show();
 }
 
-// ============================================================================
-// EXTENSION ACTIVATION
-// ============================================================================
+// Extension lifecycle
 
 async function activate(context) {
     console.log('[QBasic Nexus] ⚡ Extension activated');
@@ -309,14 +255,11 @@ async function activate(context) {
 
     extensionContext = context;
     
-    // Initialize Tutorial Manager with WebviewManager reference
     TutorialManager.setWebviewManager(WebviewManager);
     
-    // Initialize diagnostic collection
     diagnosticCollection = vscode.languages.createDiagnosticCollection('qbasic-nexus');
     context.subscriptions.push(diagnosticCollection);
 
-    // Initialize status bars
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = COMMANDS.COMPILE_RUN;
     context.subscriptions.push(statusBarItem);
@@ -325,11 +268,9 @@ async function activate(context) {
     statsBarItem.command = COMMANDS.SHOW_STATS;
     context.subscriptions.push(statsBarItem);
 
-    // Register language providers
     const selector = { language: CONFIG.LANGUAGE_ID, scheme: 'file' };
 
     context.subscriptions.push(
-        // Core providers
         vscode.languages.registerDocumentSymbolProvider(selector, new QBasicDocumentSymbolProvider()),
         vscode.languages.registerDefinitionProvider(selector, new QBasicDefinitionProvider()),
         vscode.languages.registerDocumentFormattingEditProvider(selector, new QBasicDocumentFormattingEditProvider()),
@@ -337,7 +278,6 @@ async function activate(context) {
         vscode.languages.registerHoverProvider(selector, new QBasicHoverProvider()),
         vscode.languages.registerSignatureHelpProvider(selector, new QBasicSignatureHelpProvider(), '(', ','),
         
-        // New providers for enhanced functionality
         vscode.languages.registerFoldingRangeProvider(selector, new QBasicFoldingRangeProvider()),
         vscode.languages.registerDocumentHighlightProvider(selector, new QBasicDocumentHighlightProvider()),
         vscode.languages.registerRenameProvider(selector, new QBasicRenameProvider()),
@@ -351,7 +291,6 @@ async function activate(context) {
         vscode.languages.registerOnTypeFormattingEditProvider(selector, new QBasicOnTypeFormattingEditProvider(), '\n')
     );
 
-    // Register commands
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.COMPILE, () => executeCompile(false)),
         vscode.commands.registerCommand(COMMANDS.COMPILE_RUN, () => executeCompile(true)),
@@ -362,7 +301,6 @@ async function activate(context) {
         vscode.commands.registerCommand(COMMANDS.EXTRACT_SUB, extractToSub)
     );
 
-    // Event handlers with optimized debouncing
     const throttledStatsUpdate = throttle(updateCodeStats, 500);
     const debouncedStatusUpdate = debounce(updateStatusBar, 200);
 
@@ -377,10 +315,7 @@ async function activate(context) {
             }
         }),
         vscode.workspace.onDidChangeTextDocument(e => {
-            // Invalidate cache
             invalidateCache(e.document.uri);
-            
-            // Lint and update stats
             lintDocument(e.document);
             throttledStatsUpdate(e.document);
         }),
@@ -398,7 +333,6 @@ async function activate(context) {
         })
     );
 
-    // Initial setup
     updateStatusBar();
     if (vscode.window.activeTextEditor) {
         const doc = vscode.window.activeTextEditor.document;
@@ -410,13 +344,8 @@ async function activate(context) {
     console.log(`[QBasic Nexus] ✅ Ready in ${activationTime}ms`);
 }
 
-// ============================================================================
-// ADDITIONAL COMMANDS
-// ============================================================================
+// Command implementations
 
-/**
- * Show detailed code statistics
- */
 async function showCodeStatsDetail() {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) {
@@ -465,9 +394,6 @@ async function showCodeStatsDetail() {
     vscode.window.showInformationMessage(`📊 Code Stats: ${stats.codeLines} code lines, ${stats.subs} SUBs, ${stats.functions} FUNCTIONs`);
 }
 
-/**
- * Toggle comment for selected lines
- */
 async function toggleComment() {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) return;
@@ -495,9 +421,6 @@ async function toggleComment() {
     });
 }
 
-/**
- * Extract selected code to a SUB
- */
 async function extractToSub(document, range) {
     if (!document || !range) {
         const editor = vscode.window.activeTextEditor;
@@ -517,9 +440,7 @@ async function extractToSub(document, range) {
         placeHolder: 'MySub',
         validateInput: (value) => {
             if (!value) return 'Name is required';
-            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
-                return 'Invalid identifier name';
-            }
+            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) return 'Invalid identifier name';
             return null;
         }
     });
@@ -530,10 +451,8 @@ async function extractToSub(document, range) {
     if (!editor) return;
 
     await editor.edit(editBuilder => {
-        // Replace selected code with CALL
         editBuilder.replace(range, `CALL ${subName}`);
 
-        // Add SUB at end of document
         const endPos = new vscode.Position(document.lineCount, 0);
         const subCode = `\n\nSUB ${subName}\n    ${selectedText.split('\n').join('\n    ')}\nEND SUB`;
         editBuilder.insert(endPos, subCode);
@@ -542,13 +461,8 @@ async function extractToSub(document, range) {
     vscode.window.showInformationMessage(`✅ Extracted to SUB ${subName}`);
 }
 
-// ============================================================================
-// COMPILE COMMAND
-// ============================================================================
+// Compilation system
 
-/**
- * Execute compile (and optionally run) command
- */
 async function executeCompile(shouldRun) {
     if (isCompiling) {
         vscode.window.showInformationMessage('⏳ Compilation already in progress...');
@@ -563,7 +477,6 @@ async function executeCompile(shouldRun) {
 
     const document = editor.document;
 
-    // Auto-save if dirty
     if (document.isDirty) {
         const saved = await document.save();
         if (!saved) {
@@ -572,7 +485,6 @@ async function executeCompile(shouldRun) {
         }
     }
 
-    // Get compiler mode
     const mode = getConfig(CONFIG.COMPILER_MODE);
 
     if (mode === CONFIG.MODE_INTERNAL) {
@@ -582,10 +494,7 @@ async function executeCompile(shouldRun) {
     }
 }
 
-
-// ============================================================================
-// CRT RUNNER (NEW FEATURE)
-// ============================================================================
+// CRT webview runner
 
 async function runInCrt() {
     const editor = vscode.window.activeTextEditor;
@@ -598,17 +507,14 @@ async function runInCrt() {
     const sourceCode = document.getText();
     const fileName = path.basename(document.uri.fsPath);
 
-    // Save if dirty
     if (document.isDirty) await document.save();
 
     try {
         log('Transpiling for CRT Webview...', 'info');
         
-        // Transpile with 'web' target
         const transpiler = new InternalTranspiler();
         const jsCode = transpiler.transpile(sourceCode, 'web');
 
-        // Launch Webview
         await WebviewManager.runCode(jsCode, fileName, extensionContext.extensionUri);
         
         log('Launched Retro CRT 📺', 'success');
@@ -619,9 +525,7 @@ async function runInCrt() {
     }
 }
 
-// ============================================================================
-// INTERNAL TRANSPILER
-// ============================================================================
+// Internal transpiler execution
 
 async function runInternalTranspiler(document, shouldRun) {
     const channel = getOutputChannel();
@@ -646,7 +550,6 @@ async function runInternalTranspiler(document, shouldRun) {
     try {
         const transpiler = new InternalTranspiler();
         
-        // Simulate steps for UI feedback (since it's instant)
         channel.appendLine('  ✓ Lexical analysis passed');
         channel.appendLine('  ✓ Syntax analysis passed');
         
@@ -654,7 +557,6 @@ async function runInternalTranspiler(document, shouldRun) {
         
         channel.appendLine('  ✓ Code generation completed');
 
-        // Create temp file
         const baseName = path.basename(document.uri.fsPath, path.extname(document.uri.fsPath));
         const tempPath = path.join(os.tmpdir(), `qbasic_${baseName}_${Date.now()}.js`);
 
@@ -690,14 +592,11 @@ async function runInternalTranspiler(document, shouldRun) {
     }
 }
 
-// ============================================================================
-// QB64 COMPILER
-// ============================================================================
+// QB64 compiler execution
 
 async function runQB64Compiler(document, shouldRun) {
     const compilerPath = getConfig(CONFIG.COMPILER_PATH);
 
-    // Validate compiler path
     if (!compilerPath) {
         const choice = await vscode.window.showWarningMessage(
             '⚠️ QB64 compiler path is not configured.',
@@ -719,7 +618,6 @@ async function runQB64Compiler(document, shouldRun) {
         return;
     }
 
-    // Start compilation
     isCompiling = true;
     updateStatusBar();
     diagnosticCollection.clear();
@@ -742,9 +640,6 @@ async function runQB64Compiler(document, shouldRun) {
     }
 }
 
-/**
- * Compile using QB64
- */
 function compileWithQB64(document, compilerPath, channel) {
     return new Promise((resolve, reject) => {
         const sourcePath = document.uri.fsPath;
@@ -752,14 +647,12 @@ function compileWithQB64(document, compilerPath, channel) {
         const baseName = path.basename(sourcePath, path.extname(sourcePath));
         const outputPath = path.join(sourceDir, baseName + (process.platform === 'win32' ? '.exe' : ''));
 
-        // Build arguments
         const extraArgs = (getConfig(CONFIG.COMPILER_ARGS) || '')
             .split(' ')
             .filter(arg => arg.trim().length > 0);
 
         const args = ['-x', '-c', sourcePath, '-o', outputPath, ...extraArgs];
 
-        // Log
         channel.appendLine('╔══════════════════════════════════════════════════╗');
         channel.appendLine('║           QBasic Nexus - QB64 Compiler           ║');
         channel.appendLine('╚══════════════════════════════════════════════════╝');
@@ -773,7 +666,6 @@ function compileWithQB64(document, compilerPath, channel) {
 
         const startTime = process.hrtime();
 
-        // Spawn process
         const proc = spawn(compilerPath, args, {
             cwd: path.dirname(compilerPath),
             shell: false
@@ -821,14 +713,10 @@ function compileWithQB64(document, compilerPath, channel) {
     });
 }
 
-/**
- * Parse QB64 compiler output for errors
- */
 function parseCompilerErrors(output, uri) {
     const diagnostics = [];
     const filename = path.basename(uri.fsPath).toLowerCase();
 
-    // Pattern: filename.bas:line: error message
     const pattern = /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi;
 
     let match;
