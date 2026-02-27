@@ -3,6 +3,7 @@ const InternalTranspiler = require("./transpiler")
 
 // Pre-instantiate to save time, though state must be clean per compilation
 parentPort.on("message", (message) => {
+  const messageId = message.id // Store ID before try block
   try {
     const { id, type, source, target } = message
     // Instantiating a new parser/lexer for each request ensures safety
@@ -24,7 +25,7 @@ parentPort.on("message", (message) => {
     }
   } catch (error) {
     parentPort.postMessage({
-      id: message.id,
+      id: messageId,
       success: false,
       error: error.message,
     })

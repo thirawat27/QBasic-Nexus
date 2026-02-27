@@ -1,5 +1,6 @@
 // QBasic Nexus extension for VS Code
-// Provides comprehensive QBasic/QB64 development environment with compilation, debugging, and visualization
+// Cross-Platform Native Implementation
+// Supports Windows, macOS, and Linux with optimized performance
 
 "use strict"
 
@@ -7,7 +8,25 @@ const vscode = require("vscode")
 const path = require("path")
 const fs = require("fs").promises
 const os = require("os")
-const { spawn } = require("child_process")
+// child_process spawn is used in compiler.js, not needed here
+
+// Import cross-platform utilities
+const {
+  IS_WIN,
+  IS_MAC,
+  IS_LINUX,
+  getExecutableExtension,
+  quotePath,
+  getCommandSeparator,
+  resolvePath,
+  getTempFilePath,
+} = require("./src/utils/pathUtils")
+// Platform utilities imported as needed
+const {
+  detectCompiler,
+  validateCompilerPath,
+  getInstallationInstructions,
+} = require("./src/utils/compilerDetector")
 
 // Import modules
 const {
@@ -663,31 +682,78 @@ async function runInternalTranspiler(document, shouldRun) {
 // QB64 compiler execution
 
 async function runQB64Compiler(document, shouldRun) {
-  const compilerPath = getConfig(CONFIG.COMPILER_PATH)
+  let compilerPath = getConfig(CONFIG.COMPILER_PATH)
 
+  // Auto-detect compiler if not configured
   if (!compilerPath) {
-    const choice = await vscode.window.showWarningMessage(
-      "⚠️ QB64 compiler path is not configured.",
-      "Open Settings",
-      "Use Internal Mode",
-    )
+    const detection = await detectCompiler()
 
-    if (choice === "Open Settings") {
-      vscode.commands.executeCommand(
-        "workbench.action.openSettings",
-        `${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`,
-      )
-    } else if (choice === "Use Internal Mode") {
+    if (detection.found) {
+      compilerPath = detection.path
+      log(`Auto-detected QB64 at: ${compilerPath}`, "info")
+
+      // Save the detected path
       await vscode.workspace
         .getConfiguration(CONFIG.SECTION)
-        .update(CONFIG.COMPILER_MODE, CONFIG.MODE_INTERNAL, true)
-      await runInternalTranspiler(document, shouldRun)
+        .update(CONFIG.COMPILER_PATH, compilerPath, true)
+    } else {
+      const choice = await vscode.window.showWarningMessage(
+        "⚠️ QB64 compiler not found. Please install QB64 or configure the path.",
+        "Auto-Detect",
+        "Open Settings",
+        "Use Internal Mode",
+        "Installation Help",
+      )
+
+      if (choice === "Open Settings") {
+        vscode.commands.executeCommand(
+          "workbench.action.openSettings",
+          `${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`,
+        )
+        return
+      } else if (choice === "Use Internal Mode") {
+        await vscode.workspace
+          .getConfiguration(CONFIG.SECTION)
+          .update(CONFIG.COMPILER_MODE, CONFIG.MODE_INTERNAL, true)
+        await runInternalTranspiler(document, shouldRun)
+        return
+      } else if (choice === "Installation Help") {
+        vscode.window.showInformationMessage(getInstallationInstructions(), {
+          modal: true,
+        })
+        return
+      } else if (choice === "Auto-Detect") {
+        vscode.window.showInformationMessage("Searching for QB64 compiler...")
+        const retryDetection = await detectCompiler({
+          checkPath: true,
+          checkCommon: true,
+          checkCommands: true,
+        })
+
+        if (retryDetection.found) {
+          compilerPath = retryDetection.path
+          await vscode.workspace
+            .getConfiguration(CONFIG.SECTION)
+            .update(CONFIG.COMPILER_PATH, compilerPath, true)
+          vscode.window.showInformationMessage(
+            `✅ Found QB64 at: ${compilerPath}`,
+          )
+        } else {
+          vscode.window.showErrorMessage(
+            "❌ QB64 not found. Please install QB64 or set the path manually.",
+          )
+          return
+        }
+      } else {
+        return
+      }
     }
-    return
   }
 
-  if (!(await fileExists(compilerPath))) {
-    vscode.window.showErrorMessage(`❌ QB64 not found at: ${compilerPath}`)
+  // Validate compiler path
+  const validation = await validateCompilerPath(compilerPath)
+  if (!validation.valid) {
+    vscode.window.showErrorMessage(`❌ Invalid QB64 path: ${validation.error}`)
     return
   }
 
@@ -720,10 +786,7 @@ function compileWithQB64(document, compilerPath, channel) {
     const sourcePath = document.uri.fsPath
     const sourceDir = path.dirname(sourcePath)
     const baseName = path.basename(sourcePath, path.extname(sourcePath))
-    const outputPath = path.join(
-      sourceDir,
-      baseName + (process.platform === "win32" ? ".exe" : ""),
-    )
+    const outputPath = path.join(sourceDir, baseName + getExecutableExtension())
 
     const extraArgs = (getConfig(CONFIG.COMPILER_ARGS) || "")
       .split(" ")
@@ -738,16 +801,22 @@ function compileWithQB64(document, compilerPath, channel) {
     channel.appendLine(`📄 Source: ${path.basename(sourcePath)}`)
     channel.appendLine(`📦 Output: ${path.basename(outputPath)}`)
     channel.appendLine(`⚙️  Args:   ${args.join(" ")}`)
+    channel.appendLine(`💻 Platform: ${process.platform} (${process.arch})`)
     channel.appendLine("")
     channel.appendLine("─────────────────────────────────────────────────────")
     channel.appendLine("")
 
     const startTime = process.hrtime()
 
-    const proc = spawn(compilerPath, args, {
+    // Use platform-specific spawn options
+    const spawnOptions = {
       cwd: path.dirname(compilerPath),
       shell: false,
-    })
+      windowsHide: IS_WIN, // Hide console window on Windows
+      env: { ...process.env }, // Inherit environment
+    }
+
+    const proc = spawn(compilerPath, args, spawnOptions)
 
     let output = ""
 
@@ -793,30 +862,70 @@ function compileWithQB64(document, compilerPath, channel) {
   })
 }
 
+/**
+ * Parse QB64 compiler output and extract error/warning diagnostics.
+ * Supports multiple output formats with robust error recovery.
+ * @param {string} output - Raw compiler output
+ * @param {vscode.Uri} uri - Document URI for matching filename
+ */
 function parseCompilerErrors(output, uri) {
   const diagnostics = []
   const filename = path.basename(uri.fsPath).toLowerCase()
 
-  const pattern =
-    /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi
+  // Multiple patterns to handle different QB64 output formats
+  const patterns = [
+    // Standard format: file.bas:line: message
+    /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi,
+    // Alternative format: line X: message
+    /line\s+(\d+)\s+(error|warning):?\s*(.+)/gi,
+  ]
 
-  let match
-  while ((match = pattern.exec(output)) !== null) {
-    const [, file, lineStr, message] = match
+  for (const pattern of patterns) {
+    let match
+    while ((match = pattern.exec(output)) !== null) {
+      try {
+        const [, fileOrLine, lineStrOrType, messageText] = match
+        
+        // Validate extracted data
+        if (!fileOrLine || !messageText) continue
+        
+        // Determine if it's a file match or direct line
+        let file, lineStr, message
+        if (fileOrLine.toLowerCase().endsWith('.bas') || 
+            fileOrLine.toLowerCase().endsWith('.bi') || 
+            fileOrLine.toLowerCase().endsWith('.bm')) {
+          file = fileOrLine
+          lineStr = lineStrOrType
+          message = messageText
+        } else {
+          // Alternative format
+          file = filename
+          lineStr = fileOrLine
+          message = lineStrOrType + ": " + messageText
+        }
+        
+        if (file.toLowerCase() === filename) {
+          const line = Math.max(0, parseInt(lineStr, 10) - 1)
+          
+          // Validate line number
+          if (isNaN(line) || line < 0) continue
+          
+          const severity = message.toLowerCase().includes("warning")
+            ? vscode.DiagnosticSeverity.Warning
+            : vscode.DiagnosticSeverity.Error
 
-    if (file.toLowerCase() === filename) {
-      const line = Math.max(0, parseInt(lineStr, 10) - 1)
-      const severity = message.toLowerCase().includes("warning")
-        ? vscode.DiagnosticSeverity.Warning
-        : vscode.DiagnosticSeverity.Error
-
-      const diagnostic = new vscode.Diagnostic(
-        new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
-        message.trim(),
-        severity,
-      )
-      diagnostic.source = "QB64"
-      diagnostics.push(diagnostic)
+          const diagnostic = new vscode.Diagnostic(
+            new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
+            message.trim(),
+            severity,
+          )
+          diagnostic.source = "QB64"
+          diagnostics.push(diagnostic)
+        }
+      } catch (err) {
+        console.error("[QBasic Nexus] Error parsing compiler output:", err)
+        // Continue with next match
+      }
     }
   }
 
@@ -824,7 +933,7 @@ function parseCompilerErrors(output, uri) {
 }
 
 /**
- * Run compiled executable
+ * Run compiled executable - Cross-platform implementation
  * @param {string} exePath - Full path to the executable
  */
 function runExecutable(exePath) {
@@ -834,18 +943,25 @@ function runExecutable(exePath) {
   const dir = path.dirname(exePath)
   const exe = path.basename(exePath)
 
-  // Build platform-specific command
-  // PowerShell uses semicolon, cmd uses &&, Unix uses &&
-  if (process.platform === "win32") {
-    // Use PowerShell syntax with proper escaping
-    // Set-Location handles paths with spaces, then run the exe
-    term.sendText(`Set-Location -LiteralPath '${dir}'; & '.\\${exe}'`)
-  } else if (process.platform === "darwin") {
+  // Build platform-specific command using utilities
+  if (IS_WIN) {
+    // Windows PowerShell syntax with proper escaping
+    // Use -LiteralPath to handle special characters in paths
+    const escapedDir = dir.replace(/'/g, "''")
+    const escapedExe = exe.replace(/'/g, "''")
+    term.sendText(
+      `Set-Location -LiteralPath '${escapedDir}'; & '.\\${escapedExe}'`,
+    )
+  } else if (IS_MAC) {
     // macOS - use bash with proper quoting
-    term.sendText(`cd '${dir}' && './${exe}'`)
+    const escapedDir = dir.replace(/'/g, "'\\''")
+    const escapedExe = exe.replace(/'/g, "'\\''")
+    term.sendText(`cd '${escapedDir}' && './${escapedExe}'`)
   } else {
-    // Linux and others
-    term.sendText(`cd '${dir}' && './${exe}'`)
+    // Linux and other Unix systems
+    const escapedDir = dir.replace(/'/g, "'\\''")
+    const escapedExe = exe.replace(/'/g, "'\\''")
+    term.sendText(`cd '${escapedDir}' && './${escapedExe}'`)
   }
 }
 

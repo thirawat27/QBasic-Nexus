@@ -2,6 +2,122 @@
 
 All notable changes to the "QBasic Nexus" extension will be documented in this file.
 
+## [1.3.0] - 2026-02-27
+
+### 🔧 Code Quality & Stability Improvements
+
+#### Critical Bug Fixes
+- **Worker Thread Error Handling**: Fixed critical bug where `message.id` could be undefined in error handler
+  - File: `src/compiler/worker.js`
+  - Impact: Prevents silent failures in compiler worker threads
+
+- **Promise Handling in Worker Manager**: Fixed incorrect Promise usage in synchronous fallback methods
+  - File: `src/compiler/workerManager.js`
+  - Methods: `_transpileSync()`, `_lintSync()`
+  - Impact: Proper error propagation in fallback mode
+
+#### Code Cleanup & Maintenance
+- **Removed Unused Dependencies** (3 packages)
+  - `acorn`: JavaScript parser (not used)
+  - `esbuild`: Bundler (not used)  
+  - `escodegen`: Code generator (not used)
+  - Impact: Reduced package size and faster installation
+
+- **Removed Dead Code** (~100 lines)
+  - `src/compiler/error-recovery.js`: Removed unused `suggestTypoFix()` and `_levenshteinDistance()` methods
+  - `src/compiler/cache.js`: Removed unused `IncrementalTracker` class
+  - `extension.js`, `compiler.js`, `workerManager.js`: Removed unused imports
+  - Impact: Cleaner codebase, reduced maintenance burden
+
+#### Architecture Improvements
+- **File System API Standardization**
+  - File: `src/utils/platform.js`
+  - Changed from sync `fs` to async `fs.promises`
+  - Updated `getDefaultShell()` to async for consistency
+  - Impact: Better performance and consistency across platforms
+
+- **Memory Leak Prevention**
+  - File: `src/managers/WebviewManager.js`
+  - Added `_maxDisposables` limit (100 items)
+  - Added `_addDisposable()` method with automatic cleanup
+  - Impact: Prevents unbounded memory growth in long-running sessions
+
+- **Enhanced Error Parsing**
+  - File: `extension.js`
+  - Added multiple regex patterns for different QB64 output formats
+  - Added try-catch error recovery for each match
+  - Added input validation for line numbers
+  - Impact: More robust compiler error detection and display
+
+### 🌍 Cross-Platform Native Architecture
+
+This release brings **full native cross-platform support** with optimized performance for Windows, macOS, and Linux.
+
+#### Platform Detection & Auto-Configuration
+- **Smart Auto-Detection**: Automatically detects QB64 installation on all platforms
+  - Searches in PATH, common installation directories, and system commands
+  - Platform-specific search paths for Windows, macOS, and Linux
+  - Validation of detected compiler with version detection
+  
+- **Cross-Platform Path Utilities** (`src/utils/pathUtils.js`)
+  - Normalized path handling across Windows (`\`) and Unix (`/`)
+  - Automatic executable extension detection (`.exe` on Windows)
+  - Smart path quoting for paths with spaces
+  - Cross-platform temp file generation
+  - Filename sanitization for cross-platform compatibility
+
+- **Platform Detection Module** (`src/utils/platform.js`)
+  - Runtime platform detection (Windows/macOS/Linux)
+  - Architecture detection (x64, ARM, etc.)
+  - Feature support checking (symlinks, worker threads, etc.)
+  - Native module extension detection (.dll, .so, .dylib)
+  - Environment variable access (case-insensitive on Windows)
+
+#### Native Worker Thread Pool
+- **Cross-Platform Worker Manager** (`src/compiler/workerManager.js`)
+  - CPU-core optimized worker thread count
+  - Platform-specific spawn options (windowsHide on Windows)
+  - Automatic worker replacement on crashes
+  - Graceful fallback to synchronous mode if workers unavailable
+  - Resource limits for memory management
+
+#### Platform-Specific Optimizations
+- **Audio Playback** (Native per-platform implementation)
+  - **Windows**: Uses mshta for instant JavaScript audio (pre-installed)
+  - **macOS**: Uses sox/afplay for frequency-controlled sound
+  - **Linux**: Uses beep command with fallback to system bell
+  
+- **Terminal Integration**
+  - PowerShell integration on Windows
+  - Bash/Zsh support on macOS/Linux
+  - Proper path escaping for each shell type
+  - Cross-platform command separators
+
+#### New Configuration Options
+- `qbasic-nexus.enableAutoDetection`: Enable/disable QB64 auto-detection
+- `qbasic-nexus.terminalIntegration`: Choose integrated vs external terminal
+- `qbasic-nexus.nativeOptimizations`: Enable platform-specific optimizations
+- `qbasic-nexus.workerThreads`: Configure worker thread count (0 = auto)
+
+#### Compiler Auto-Detection Features
+- **Automatic QB64 Discovery**
+  - Checks PATH environment variable
+  - Scans common installation directories
+  - Uses platform-specific commands (where, which, find, locate)
+  - Validates compiler executable permissions
+  - Detects QB64 Phoenix Edition vs Legacy
+
+- **Installation Instructions**
+  - Platform-specific setup guides
+  - Links to official QB64 downloads
+  - Setup script instructions for macOS/Linux
+
+### 🐛 Bug Fixes
+- Fixed path handling issues on Windows with spaces in paths
+- Fixed executable permissions check on Unix systems
+- Fixed shell command generation for different platforms
+- Fixed temp file generation to use OS-specific temp directories
+
 ## [1.2.0] - 2026-02-14
 
 ### 🚀 Major Performance Improvements

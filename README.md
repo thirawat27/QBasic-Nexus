@@ -20,6 +20,23 @@
 
 **QBasic Nexus** transforms VS Code into a powerful retro-coding station. Whether you're a veteran developer reliving the glory days or a new learner exploring the roots of programming, QBasic Nexus provides a seamless, modern experience for **QBasic** and **QB64**.
 
+## 🌐 Cross-Platform Native Support
+
+QBasic Nexus now features **full cross-platform native architecture** with optimized performance for:
+
+| Platform | Status | Features |
+|----------|--------|----------|
+| **Windows** | ✅ Fully Supported | Native EXE compilation, PowerShell integration, Windows Audio API |
+| **macOS** | ✅ Fully Supported | Native app bundles, Xcode CLI integration, Core Audio |
+| **Linux** | ✅ Fully Supported | Native ELF binaries, GCC integration, ALSA/PulseAudio |
+
+### Key Native Features
+
+- **Auto-Detection**: Automatically finds QB64 installation on all platforms
+- **Cross-Platform Worker Threads**: Multi-threaded compilation using native OS capabilities
+- **Native Audio**: Platform-optimized sound playback (Windows: mshta, macOS: afplay/sox, Linux: beep/aplay)
+- **Smart Path Handling**: Automatic path normalization for Windows (`\`), macOS/Linux (`/`)
+
 It offers **dual-mode execution**: compile native executables using your existing QB64 installation, OR run your code instantly in a **browser-based retro CRT** with zero setup—complete with graphics, sound, and mouse support!
 
 ---
@@ -217,14 +234,18 @@ LOOP UNTIL INKEY$ = CHR$(27)
 
 ## 🛠️ Configuration
 
-| Setting                         | Default | Description                                                             |
-| ------------------------------- | ------- | ----------------------------------------------------------------------- |
-| `qbasic-nexus.compilerMode`     | `QB64`  | Switch between **QB64 (Recommended)** and **Internal (JS Transpiler)**. |
-| `qbasic-nexus.compilerPath`     | `null`  | Path to your local QB64 executable for Native mode.                     |
-| `qbasic-nexus.enableLinting`    | `true`  | Show syntax errors in real-time.                                        |
-| `qbasic-nexus.lintDelay`        | `500`   | Milliseconds to wait after typing before linting.                       |
-| `qbasic-nexus.autoFormatOnSave` | `false` | Automatically format code (indentation, casing) when saving.            |
-| `qbasic-nexus.compilerArgs`     | `""`    | Additional flags for the QB64 compiler (e.g., `-w`).                    |
+| Setting                           | Default      | Description                                                             |
+| --------------------------------- | ------------ | ----------------------------------------------------------------------- |
+| `qbasic-nexus.compilerMode`       | `QB64`       | Switch between **QB64 (Recommended)** and **Internal (JS Transpiler)**. |
+| `qbasic-nexus.compilerPath`       | `null`       | Path to your local QB64 executable for Native mode.                     |
+| `qbasic-nexus.enableLinting`      | `true`       | Show syntax errors in real-time.                                        |
+| `qbasic-nexus.lintDelay`          | `500`        | Milliseconds to wait after typing before linting.                       |
+| `qbasic-nexus.autoFormatOnSave`   | `false`      | Automatically format code (indentation, casing) when saving.            |
+| `qbasic-nexus.compilerArgs`       | `""`         | Additional flags for the QB64 compiler (e.g., `-w`).                    |
+| `qbasic-nexus.enableAutoDetection`| `true`       | Automatically detect QB64 installation on startup.                      |
+| `qbasic-nexus.terminalIntegration`| `integrated` | Use VS Code integrated or external terminal.                            |
+| `qbasic-nexus.nativeOptimizations`| `true`       | Enable native platform optimizations for better performance.            |
+| `qbasic-nexus.workerThreads`      | `0`          | Worker threads for compilation (0 = auto-detect).                       |
 
 ---
 

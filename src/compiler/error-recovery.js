@@ -85,50 +85,6 @@ class ErrorRecovery {
         }
     }
     
-    static suggestTypoFix(word, validWords) {
-        const suggestions = [];
-        const maxDistance = 2;
-        
-        for (const valid of validWords) {
-            const distance = this._levenshteinDistance(word.toUpperCase(), valid.toUpperCase());
-            if (distance <= maxDistance) {
-                suggestions.push({ word: valid, distance });
-            }
-        }
-        
-        return suggestions
-            .sort((a, b) => a.distance - b.distance)
-            .slice(0, 3)
-            .map(s => s.word);
-    }
-    
-    static _levenshteinDistance(a, b) {
-        const matrix = [];
-        
-        for (let i = 0; i <= b.length; i++) {
-            matrix[i] = [i];
-        }
-        
-        for (let j = 0; j <= a.length; j++) {
-            matrix[0][j] = j;
-        }
-        
-        for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
-                if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1, // substitution
-                        matrix[i][j - 1] + 1,     // insertion
-                        matrix[i - 1][j] + 1      // deletion
-                    );
-                }
-            }
-        }
-        
-        return matrix[b.length][a.length];
-    }
 }
 
 // Collects and manages all diagnostics during compilation

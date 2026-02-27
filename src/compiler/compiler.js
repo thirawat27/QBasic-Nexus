@@ -14,7 +14,6 @@ const {
   ErrorRecovery,
 } = require("./error-recovery")
 const vm = require("vm")
-const v8 = require("v8")
 
 // Default compilation options
 const DEFAULT_OPTIONS = {
