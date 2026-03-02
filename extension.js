@@ -53,7 +53,7 @@ const CONFIG = Object.freeze({
   LINT_DELAY: "lintDelay",
   AUTO_FORMAT: "autoFormatOnSave",
   MODE_QB64: "QB64 (Recommended)",
-  MODE_INTERNAL: "Internal (JS Transpiler)",
+  MODE_INTERNAL: "QBasic Nexus",
   LANGUAGE_ID: "qbasic",
   OUTPUT_CHANNEL: "QBasic Nexus",
   TERMINAL_NAME: "QBasic Nexus",
@@ -69,6 +69,7 @@ const COMMANDS = Object.freeze({
   EXTRACT_SUB: "qbasic-nexus.extractToSub",
   SHOW_STATS: "qbasic-nexus.showCodeStats",
   TOGGLE_COMMENT: "qbasic-nexus.toggleComment",
+  SHOW_VERSION: "qbasic-nexus.showVersion",
 })
 
 // Global state variables
@@ -79,59 +80,28 @@ let terminal = null
 let diagnosticCollection = null
 let isCompiling = false
 let extensionContext = null
+let versionBarItem = null
+
+const packageJson = require("./package.json")
+const VERSION = packageJson.version
 
 // Utility functions
 
-// Creates a debounced function that delays execution until after delay milliseconds
-function debounce(fn, delay) {
-  let timer = null
-  const debounced = (...args) => {
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(() => {
-      timer = null
-      fn(...args)
-    }, delay)
-  }
-  // Allow cancellation to prevent stale callbacks
-  debounced.cancel = () => {
-    if (timer) {
-      clearTimeout(timer)
-      timer = null
-    }
-  }
+const _ = require("lodash")
+
+// Use Lodash for high-performance debouncing
+const debounce = (fn, delay) => {
+  const debounced = _.debounce(fn, delay)
+  // Add cancel method to match existing interface
+  debounced.cancel = () => debounced.cancel()
   return debounced
 }
 
-// Creates a throttled function that only executes once per limit milliseconds
-function throttle(fn, limit) {
-  let inThrottle = false
-  let lastArgs = null
-  let timeoutId = null
-
-  const throttled = (...args) => {
-    if (!inThrottle) {
-      fn(...args)
-      inThrottle = true
-      timeoutId = setTimeout(() => {
-        inThrottle = false
-        if (lastArgs) {
-          fn(...lastArgs)
-          lastArgs = null
-        }
-      }, limit)
-    } else {
-      lastArgs = args // Save latest args for trailing call
-    }
-  }
-  // Allow cancellation
-  throttled.cancel = () => {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-      timeoutId = null
-    }
-    inThrottle = false
-    lastArgs = null
-  }
+// Use Lodash for high-performance throttling
+const throttle = (fn, limit) => {
+  const throttled = _.throttle(fn, limit, { leading: true, trailing: true })
+  // Add cancel method to match existing interface
+  throttled.cancel = () => throttled.cancel()
   return throttled
 }
 
@@ -284,6 +254,16 @@ async function activate(context) {
   statsBarItem.command = COMMANDS.SHOW_STATS
   context.subscriptions.push(statsBarItem)
 
+  versionBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    90,
+  )
+  versionBarItem.text = `QBasic v${VERSION}`
+  versionBarItem.tooltip = `QBasic Nexus Version ${VERSION}`
+  versionBarItem.command = COMMANDS.SHOW_VERSION
+  versionBarItem.show()
+  context.subscriptions.push(versionBarItem)
+
   const selector = { language: CONFIG.LANGUAGE_ID, scheme: "file" }
 
   context.subscriptions.push(
@@ -358,6 +338,9 @@ async function activate(context) {
     vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
     vscode.commands.registerCommand(COMMANDS.TOGGLE_COMMENT, toggleComment),
     vscode.commands.registerCommand(COMMANDS.EXTRACT_SUB, extractToSub),
+    vscode.commands.registerCommand(COMMANDS.SHOW_VERSION, () => {
+      vscode.window.showInformationMessage(`QBasic Nexus v${VERSION}`)
+    }),
   )
 
   const throttledStatsUpdate = throttle(updateCodeStats, 500)
@@ -636,23 +619,48 @@ async function runInternalTranspiler(document, shouldRun) {
 
     await fs.writeFile(tempPath, jsCode, "utf8")
 
+    const outDir = path.dirname(document.uri.fsPath)
+    const exeExt = IS_WIN ? ".exe" : ""
+    const exePath = path.join(outDir, `${baseName}${exeExt}`)
+
+    channel.appendLine("  ✓ Building standalone executable (pkg)...")
+
+    await new Promise((resolve, reject) => {
+      const pkgProc = spawn(
+        IS_WIN ? "npx.cmd" : "npx",
+        [
+          "pkg",
+          tempPath,
+          "--target",
+          `node18-${process.platform}-${process.arch}`,
+          "--output",
+          exePath,
+        ],
+        { shell: true },
+      )
+      pkgProc.on("close", (code) => {
+        if (code === 0) resolve()
+        else reject(new Error(`pkg packaging failed with code ${code}`))
+      })
+      pkgProc.on("error", (err) => reject(err))
+    })
+
     const endTime = process.hrtime(startTime)
     const duration = (endTime[0] * 1000 + endTime[1] / 1e6).toFixed(2)
 
     channel.appendLine("")
-    channel.appendLine(`  ✨ Transpilation Successful! (${duration}ms)`)
+    channel.appendLine(`  ✨ Compilation Successful! (${duration}ms)`)
     channel.appendLine("")
-    channel.appendLine(`  📂 Output:   ${tempPath}`)
+    channel.appendLine(`  📂 Payload JS:   ${tempPath}`)
+    channel.appendLine(`  🎯 Executable:   ${exePath}`)
 
     if (shouldRun) {
       channel.appendLine("")
       channel.appendLine("═══════════════════════════════════════════════════")
-      log("Running with Node.js...", "info")
+      log("Running standalone executable...", "info")
       channel.appendLine("")
 
-      const term = getTerminal()
-      term.show()
-      term.sendText(`node "${tempPath}"`)
+      runExecutable(exePath)
     } else {
       channel.appendLine("═══════════════════════════════════════════════════")
     }

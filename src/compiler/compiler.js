@@ -111,6 +111,25 @@ class Compiler {
       )
       const parserTime = Number(process.hrtime.bigint() - parserStart) / 1000000
 
+      // Add Acorn Validation to catch Transpiler bugs
+      try {
+        const acorn = require("acorn")
+        acorn.parse(code, {
+          ecmaVersion: 2022,
+          sourceType: "script",
+          locations: true,
+          ranges: true,
+          allowReturnOutsideFunction: true,
+        })
+      } catch (acornErr) {
+        diagnostics.error(
+          ErrorCategory.RUNTIME,
+          `Transpiler generated invalid JavaScript: ${acornErr.message}`,
+          acornErr.loc?.line || 1,
+          acornErr.loc?.column || 0,
+        )
+      }
+
       const errors = await workerManager.lintAsync(source)
       for (const err of errors) {
         diagnostics.error(
@@ -121,11 +140,57 @@ class Compiler {
         )
       }
 
+      // Step 2: Use SWC for ultra-fast transpilation, optimization, and minification
+      let finalCode = code
+      if (!diagnostics.hasErrors()) {
+        try {
+          const swc = require("@swc/core")
+          const swcResult = await swc.transform(code, {
+            jsc: {
+              parser: { syntax: "ecmascript" },
+              target: "es2022",
+              minify: {
+                compress: { unused: true, drop_console: false },
+                mangle: true,
+              },
+            },
+            minify: true,
+            sourceMaps: false,
+          })
+
+          let optimizedCode = swcResult.code
+
+          // Step 3: Bundle with esbuild (In-Memory)
+          const esbuild = require("esbuild")
+          const bundled = await esbuild.build({
+            stdin: {
+              contents: optimizedCode,
+              loader: "js",
+              resolveDir: process.cwd(),
+            },
+            bundle: true,
+            minify: true,
+            write: false,
+            outfile: "out.js",
+            target: "es2022",
+            format: this.options.target === "node" ? "cjs" : "iife",
+          })
+
+          finalCode = bundled.outputFiles[0].text
+        } catch (optimizeErr) {
+          // Fallback to original code if optimization pipeline fails and log issue
+          console.warn(
+            "[QBasic Nexus] Optimization Pipeline failed",
+            optimizeErr,
+          )
+        }
+      }
+
       if (this.cache && !diagnostics.hasErrors()) {
         this.cache.setCode(
           source,
           this.options.target,
-          code,
+          finalCode,
           diagnostics.getAll(),
         )
       }
@@ -135,7 +200,7 @@ class Compiler {
       this.stats.totalTime += totalTime
       this.stats.avgTime = this.stats.totalTime / this.stats.compilations
 
-      return new CompilationResult(code, diagnostics, {
+      return new CompilationResult(finalCode, diagnostics, {
         cached: false,
         lexerTime,
         parserTime,

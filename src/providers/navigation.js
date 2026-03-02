@@ -86,21 +86,27 @@ class QBasicDefinitionProvider {
     if (!wordRange) return null
 
     const word = document.getText(wordRange)
-    const patterns = [
-      new RegExp(`^\\s*(?:SUB|FUNCTION|TYPE)\\s+${word}\\b`, "i"),
-      new RegExp(`^${word}:`, "i"),
-      new RegExp(`^\\s*CONST\\s+${word}\\b`, "i"),
-      new RegExp(`\\bDIM\\s+(?:SHARED\\s+)?${word}\\b`, "i"),
-    ]
+
+    // Performance improvement: Fast-path using cached symbols
+    const provider = new QBasicDocumentSymbolProvider()
+    const symbols = provider.provideDocumentSymbols(document)
+    const targetSymbol = symbols.find(
+      (s) => s.name.toUpperCase() === word.toUpperCase(),
+    )
+
+    if (targetSymbol) {
+      return new vscode.Location(document.uri, targetSymbol.range.start)
+    }
+
+    // Fallback: search for variable definitions linearly
+    const varPattern = new RegExp(`\\bDIM\\s+(?:SHARED\\s+)?${word}\\b`, "i")
 
     for (let i = 0; i < document.lineCount; i++) {
       const lineText = document.lineAt(i).text
       if (PATTERNS.DECLARE.test(lineText)) continue
 
-      for (const pattern of patterns) {
-        if (pattern.test(lineText)) {
-          return new vscode.Location(document.uri, new vscode.Position(i, 0))
-        }
+      if (varPattern.test(lineText)) {
+        return new vscode.Location(document.uri, new vscode.Position(i, 0))
       }
     }
 

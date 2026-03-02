@@ -32,15 +32,10 @@ let cachedFunctionItems = null
 
 function getKeywordCompletionItems() {
   if (cachedKeywordItems) return cachedKeywordItems
-  let vscode
-  try {
-    vscode = require("vscode")
-  } catch (_e) {
-    // Return mock for testing
-    return Object.keys(KEYWORDS).map((k) => ({ label: k }))
-  }
 
+  const vscode = require("vscode")
   cachedKeywordItems = []
+
   for (const [key, data] of Object.entries(KEYWORDS)) {
     const item = new vscode.CompletionItem(
       data.label,
@@ -55,15 +50,10 @@ function getKeywordCompletionItems() {
 
 function getFunctionCompletionItems() {
   if (cachedFunctionItems) return cachedFunctionItems
-  let vscode
-  try {
-    vscode = require("vscode")
-  } catch (_e) {
-    // Return mock for testing
-    return Object.keys(FUNCTIONS).map((k) => ({ label: k }))
-  }
 
+  const vscode = require("vscode")
   cachedFunctionItems = []
+
   for (const [key, data] of Object.entries(FUNCTIONS)) {
     const item = new vscode.CompletionItem(
       key,

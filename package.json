@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "Professional QBasic/QB64 Environment with Real-time Diagnostics, Neon Graphics, and Advanced Web Transpiler.",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -49,7 +49,7 @@
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
         "eslint": "^10.0.2",
-        "globals": "^17.3.0"
+        "globals": "^17.4.0"
     },
     "categories": [
         "Programming Languages",
@@ -91,38 +91,43 @@
         "commands": [
             {
                 "command": "qbasic-nexus.compile",
-                "title": "QBasic: Compile 🔨",
+                "title": "QBasic Compile 🔨",
                 "icon": "$(tools)"
             },
             {
                 "command": "qbasic-nexus.compileAndRun",
-                "title": "QBasic: Compile & Run 🌀",
+                "title": "QBasic Compile & Run 🌀",
                 "icon": "$(play)"
             },
             {
                 "command": "qbasic-nexus.runInCrt",
-                "title": "QBasic: Run in Retro CRT 📺",
+                "title": "QBasic Run in Retro CRT 📺",
                 "icon": "$(device-desktop)"
             },
             {
                 "command": "qbasic-nexus.startTutorial",
-                "title": "QBasic: Start Interactive Tutorial 🎮",
+                "title": "QBasic Start Interactive Tutorial 🎮",
                 "icon": "$(mortar-board)"
             },
             {
                 "command": "qbasic-nexus.showCodeStats",
-                "title": "QBasic: Show Code Statistics 📊",
+                "title": "QBasic Show Code Statistics 📊",
                 "icon": "$(graph)"
             },
             {
                 "command": "qbasic-nexus.toggleComment",
-                "title": "QBasic: Toggle Comment 💬",
+                "title": "QBasic Toggle Comment 💬",
                 "icon": "$(comment)"
             },
             {
                 "command": "qbasic-nexus.extractToSub",
-                "title": "QBasic: Extract to SUB 📦",
+                "title": "QBasic Extract to SUB 📦",
                 "icon": "$(symbol-method)"
+            },
+            {
+                "command": "qbasic-nexus.showVersion",
+                "title": "QBasic Show Version 🏷️",
+                "icon": "$(info)"
             }
         ],
         "menus": {
@@ -222,11 +227,11 @@
                     "type": "string",
                     "enum": [
                         "QB64 (Recommended)",
-                        "Internal (JS Transpiler)"
+                        "QBasic Nexus"
                     ],
                     "enumDescriptions": [
                         "Compile with QB64 for native executable (best performance)",
-                        "Transpile to JavaScript and run via Node.js (backup mode)"
+                        "Run instantly in Web Runtime with full UI/Audio capabilities"
                     ],
                     "default": "QB64 (Recommended)",
                     "markdownDescription": "Select the compilation mode.",
@@ -294,5 +299,12 @@
                 }
             }
         }
+    },
+    "dependencies": {
+        "@swc/core": "^1.15.18",
+        "acorn": "^8.16.0",
+        "esbuild": "^0.27.3",
+        "lodash": "^4.17.23",
+        "pkg": "^5.8.1"
     }
 }

@@ -83,52 +83,79 @@
   // OBJECT POOLING - Reduce GC pressure with memory limits
   // =========================================================================
 
-  const SpanPool = {
-    _pool: [],
-    _maxSize: 200, // Increased for better reuse
-    _totalCreated: 0,
-    _maxTotal: 500, // Hard limit on total spans created
+  class EnhancedSpanPool {
+    constructor() {
+      this._pool = []
+      this._maxSize = 500
+      this._totalCreated = 0
+      this._maxTotal = 1000
+      this._inUse = new Set()
+    }
 
     acquire() {
       if (this._pool.length > 0) {
-        return this._pool.pop()
+        const span = this._pool.pop()
+        this._inUse.add(span)
+        return span
       }
-      // Limit total span creation to prevent memory bloat
+
       if (this._totalCreated < this._maxTotal) {
+        const span = document.createElement("span")
         this._totalCreated++
-        return document.createElement("span")
+        this._inUse.add(span)
+        return span
       }
-      // Fallback: force reuse by returning new span anyway
-      console.warn("[QBasic Runtime] SpanPool: Maximum spans reached")
-      return document.createElement("span")
-    },
+
+      this.forceCleanup()
+      return this.acquire()
+    }
 
     release(span) {
-      if (this._pool.length < this._maxSize && span) {
-        // Clean up span completely
-        span.textContent = ""
-        span.style.cssText = ""
-        span.className = ""
-        span.removeAttribute("style")
+      if (!this._inUse.has(span)) return
+
+      span.textContent = ""
+      span.className = ""
+      span.style.cssText = ""
+      span.removeAttribute("style")
+      span.removeAttribute("data-line")
+
+      if (this._pool.length < this._maxSize) {
         this._pool.push(span)
       }
-      // If pool is full, let GC handle it
-    },
+
+      this._inUse.delete(span)
+    }
+
+    forceCleanup() {
+      const toRemove = Math.ceil(this._maxTotal * 0.2)
+      const spans = Array.from(this._inUse).slice(0, toRemove)
+
+      for (const span of spans) {
+        if (span.parentNode) span.parentNode.removeChild(span)
+        this._inUse.delete(span)
+      }
+    }
 
     clear() {
-      this._pool.length = 0
+      for (const span of this._inUse) {
+        if (span.parentNode) span.parentNode.removeChild(span)
+      }
+      this._pool = []
+      this._inUse.clear()
       this._totalCreated = 0
-    },
+    }
 
-    // Get memory usage stats
     stats() {
       return {
         poolSize: this._pool.length,
+        inUse: this._inUse.size,
         totalCreated: this._totalCreated,
         maxSize: this._maxSize,
       }
-    },
+    }
   }
+
+  const SpanPool = new EnhancedSpanPool()
 
   // =========================================================================
   // AUDIO ENGINE (Adapted from qbjs-main)
@@ -510,22 +537,6 @@
   // SCREEN FUNCTIONS
   // =========================================================================
 
-  // Print batching for performance - reduces DOM reflows
-  let printBatch = null
-  let printBatchTimer = null
-  const _BATCH_DELAY = 16 // ~60fps (for documentation)
-
-  function flushPrintBatch() {
-    if (printBatch && printBatch.childNodes.length > 0) {
-      screen.appendChild(printBatch)
-      printBatch = null
-
-      // Single scroll at end of batch
-      screen.scrollTop = screen.scrollHeight
-    }
-    printBatchTimer = null
-  }
-
   // Pre-computed glow cache for performance with size limit
   const _glowCache = new Map()
   const _MAX_GLOW_CACHE_SIZE = 32 // 16 colors * 2 for safety
@@ -544,8 +555,7 @@
     return _glowCache.get(color)
   }
 
-  function createSpan(text, fg = fgColor, bg = bgColor) {
-    const span = SpanPool.acquire()
+  function applySpanStyle(span, text, fg, bg) {
     span.textContent = text
 
     const colorIndex = fg & 15
@@ -567,48 +577,169 @@
     return span
   }
 
+  class VirtualScrollRenderer {
+    constructor(container, rowHeight = 16) {
+      this.container = container
+      this.rowHeight = rowHeight
+      this.visibleRows = Math.ceil((window.innerHeight || 400) / rowHeight) + 2
+      this.buffer = [] // All lines (data only)
+      this.renderedRange = { start: 0, end: 0 }
+      this._lastLineIncomplete = false
+
+      // We will ensure the container has relative positioning
+      this.container.style.position = "relative"
+      // We need an inner container to set height
+      this.innerContainer = document.createElement("div")
+      this.container.appendChild(this.innerContainer)
+
+      this.setupScrollListener()
+
+      window.addEventListener("resize", () => {
+        this.visibleRows =
+          Math.ceil((window.innerHeight || 400) / this.rowHeight) + 2
+        this.updateVisibleRange()
+      })
+    }
+
+    setupScrollListener() {
+      let ticking = false
+      this.container.addEventListener("scroll", () => {
+        if (!ticking) {
+          requestAnimationFrame(() => {
+            this.updateVisibleRange()
+            ticking = false
+          })
+          ticking = true
+        }
+      })
+    }
+
+    print(text, fg, bg, newline = true) {
+      if (this._lastLineIncomplete && this.buffer.length > 0) {
+        const lastLine = this.buffer[this.buffer.length - 1]
+        lastLine.segments.push({ text, fg, bg })
+      } else {
+        this.buffer.push({ segments: [{ text, fg, bg }] })
+      }
+      this._lastLineIncomplete = !newline
+
+      const lineIndex = this.buffer.length - 1
+      if (
+        lineIndex >= this.renderedRange.start &&
+        lineIndex <= this.renderedRange.end
+      ) {
+        this.renderLine(lineIndex)
+      }
+
+      if (this.isAtBottom()) {
+        this.scrollToBottom()
+      }
+    }
+
+    updateVisibleRange() {
+      const scrollTop = this.container.scrollTop
+      const start = Math.floor(scrollTop / this.rowHeight)
+      const end = start + this.visibleRows
+
+      if (Math.abs(start - this.renderedRange.start) > 5) {
+        this.renderedRange = { start, end }
+        this.render()
+      }
+    }
+
+    render() {
+      // Clear current DOM nodes for visible lines
+      while (this.container.firstChild) {
+        if (this.container.firstChild === this.innerContainer) break
+        this.container.removeChild(this.container.firstChild)
+      }
+      SpanPool.clear()
+
+      // Re-append innerContainer
+      this.container.appendChild(this.innerContainer)
+
+      for (let i = this.renderedRange.start; i < this.renderedRange.end; i++) {
+        if (i < this.buffer.length) {
+          this.renderLine(i)
+        }
+      }
+
+      this.innerContainer.style.height = `${this.buffer.length * this.rowHeight}px`
+    }
+
+    renderLine(index) {
+      const line = this.buffer[index]
+
+      // Wrapper for the line with absolute positioning
+      const lineDiv = SpanPool.acquire()
+      lineDiv.style.position = "absolute"
+      lineDiv.style.top = `${index * this.rowHeight}px`
+      lineDiv.style.left = "0"
+      lineDiv.style.width = "100%"
+      lineDiv.setAttribute("data-line", index)
+
+      // Add text segments
+      for (const seg of line.segments) {
+        const span = SpanPool.acquire()
+        applySpanStyle(span, seg.text, seg.fg, seg.bg)
+        lineDiv.appendChild(span)
+      }
+
+      this.container.appendChild(lineDiv)
+    }
+
+    isAtBottom() {
+      const threshold = 50
+      return (
+        this.container.scrollHeight -
+          this.container.scrollTop -
+          this.container.clientHeight <
+        threshold
+      )
+    }
+
+    scrollToBottom() {
+      this.container.scrollTop = this.container.scrollHeight
+    }
+
+    clear() {
+      this.buffer = []
+      this._lastLineIncomplete = false
+      while (this.container.firstChild) {
+        if (this.container.firstChild === this.innerContainer) break
+        this.container.removeChild(this.container.firstChild)
+      }
+      this.innerContainer.style.height = "0px"
+      SpanPool.clear()
+    }
+
+    getStats() {
+      return {
+        totalLines: this.buffer.length,
+        renderedLines: this.renderedRange.end - this.renderedRange.start,
+        memoryUsage: this.buffer.length * 50,
+        domNodes: this.container.children.length,
+      }
+    }
+  }
+
+  const virtualRenderer = new VirtualScrollRenderer(screen)
+
   // Cached message object to reduce object creation
   const _outputMessage = { type: "check_output", content: "" }
 
   function print(text, newline = true) {
     const content = String(text)
-    const span = createSpan(newline ? content + "\n" : content)
 
-    // Batch DOM operations
-    if (!printBatch) {
-      printBatch = document.createDocumentFragment()
-    }
-    printBatch.appendChild(span)
-
-    // Schedule flush - only if not already scheduled
-    if (!printBatchTimer) {
-      printBatchTimer = requestAnimationFrame(flushPrintBatch)
-    }
+    virtualRenderer.print(content, fgColor, bgColor, newline)
 
     // Reuse message object to reduce GC
-    _outputMessage.content = content
+    _outputMessage.content = content + (newline ? "\n" : "")
     vscode.postMessage(_outputMessage)
   }
 
   function cls() {
-    // Clear pending batch to avoid ghost text
-    if (printBatch) {
-      printBatch = null
-    }
-    if (printBatchTimer) {
-      cancelAnimationFrame(printBatchTimer)
-      printBatchTimer = null
-    }
-
-    // Fast DOM clear - textContent is faster than removeChild loop
-    screen.textContent = ""
-
-    // Reset span pool asynchronously to avoid blocking
-    if (typeof requestIdleCallback !== "undefined") {
-      requestIdleCallback(() => SpanPool.clear())
-    } else {
-      setTimeout(() => SpanPool.clear(), 0)
-    }
+    virtualRenderer.clear()
 
     cursorRow = 1
     cursorCol = 1

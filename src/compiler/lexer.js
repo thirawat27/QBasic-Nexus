@@ -59,6 +59,24 @@ class Token {
   }
 }
 
+// String Interning for saving memory on identical strings
+class StringInterner {
+  constructor() {
+    this.pool = new Map()
+  }
+
+  intern(str) {
+    let existing = this.pool.get(str)
+    if (existing !== undefined) return existing
+    this.pool.set(str, str)
+    return str
+  }
+
+  clear() {
+    this.pool.clear()
+  }
+}
+
 // Tokenizes QBasic source code into an array of tokens
 class Lexer {
   constructor(source) {
@@ -71,12 +89,12 @@ class Lexer {
     this.line = 1
     this.col = 1
     this.tokens = []
-    this.tokens.length = 0
+    this.interner = new StringInterner()
     const estimatedTokens = Math.floor(this.len / 5)
     if (estimatedTokens > 100) {
       this.tokens = new Array(estimatedTokens)
-      this.tokens.length = 0
     }
+    this.tokens.length = 0
   }
 
   tokenize() {
@@ -263,10 +281,12 @@ class Lexer {
         .replace(/#/g, "_dbl")
     }
 
+    const finalVal = type === TokenType.KEYWORD ? upper : val
+
     this.tokens.push(
       TokenPool.acquire(
         type,
-        type === TokenType.KEYWORD ? upper : val,
+        this.interner.intern(finalVal),
         this.line,
         startCol,
       ),

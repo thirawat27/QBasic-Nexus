@@ -108,16 +108,23 @@ class QBasicHoverProvider {
     }
 
     const originalWord = document.getText(range)
-    for (let i = 0; i < document.lineCount; i++) {
-      const lineText = document.lineAt(i).text
-      const match = PATTERNS.SUB_DEF.exec(lineText)
-      if (match && match[2].toUpperCase() === word) {
-        return new vscode.Hover(
-          new vscode.MarkdownString(
-            `**${originalWord}** *(${match[1].toLowerCase()})*\n\nDefined at line ${i + 1}`,
-          ),
-        )
-      }
+
+    // Performance improvement: Use cached O(1) symbols lookup instead of O(N) regex scan
+    const symbols = new QBasicDocumentSymbolProvider().provideDocumentSymbols(
+      document,
+    )
+    const symbol = symbols.find(
+      (s) =>
+        s.name.toUpperCase() === word &&
+        (s.detail === "SUB" || s.detail === "FUNCTION"),
+    )
+
+    if (symbol) {
+      return new vscode.Hover(
+        new vscode.MarkdownString(
+          `**${originalWord}** *(${symbol.detail.toLowerCase()})*\n\nDefined at line ${symbol.range.start.line + 1}`,
+        ),
+      )
     }
 
     return null

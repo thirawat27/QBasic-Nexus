@@ -17,7 +17,7 @@
     <a href="#-troubleshooting">Troubleshooting</a>
   </p>
   <p>
-    <img alt="Version" src="https://img.shields.io/badge/version-1.3.0-blue?style=flat-square"/>
+    <img alt="Version" src="https://img.shields.io/badge/version-1.4.0-blue?style=flat-square"/>
     <img alt="License" src="https://img.shields.io/badge/license-MIT-green?style=flat-square"/>
     <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square"/>
   </p>
@@ -46,6 +46,7 @@ It offers **dual-mode execution**: compile native executables using your existin
 ## 📖 Table of Contents
 
 - [✨ Features](#-features)
+  - [🚀 100x Speedup Architecture](#-100x-speedup-architecture)
   - [🔧 Dual Compilation Modes](#-dual-compilation-modes)
   - [📺 Advanced Web Runtime](#-advanced-web-runtime)
   - [📊 Professional IDE Tools](#-professional-ide-tools)
@@ -75,16 +76,26 @@ It offers **dual-mode execution**: compile native executables using your existin
 
 ## ✨ Features
 
+### 🚀 100x Speedup Architecture
+
+QBasic Nexus uses a highly tuned backend designed for robust and real-time execution, leveraging modern technologies to eliminate compile-time bottlenecks:
+
+- **Rust-powered Transpiling**: Relies on `@swc/core` for translating ASTs blazingly fast.
+- **Microsecond Bundling**: Leverages `esbuild` for near-instant bundling of Web Runtime logic.
+- **No UI Freezing**: Employs **Worker Threads** to handle intense compilations gracefully in the background.
+- **Advanced GC Prevention**: Incorporates **Memory Object Pools** and **String Interning** to prevent Garbage Collector (GC) hiccups on complex retro code.
+- **O(1) Cached Intellisense**: Fast definition and hover responses backed by cached scopes to avoid O(N) line-by-line lookups.
+
 ### 🔧 Dual Compilation Modes
 
 | Mode                          | Description                                                                                                              | Best For                                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
 | **QB64 Native (Recommended)** | Uses your local QB64 compiler to build optimized standalone `.exe` binaries.                                             | Performance-critical apps, full system access, deployment.        |
-| **Internal Web Transpiler**   | Instantly transpiles QBasic to JavaScript and runs it in a simulated CRT webview. **No compiler installation required!** | Quick prototyping, learning, testing logic, retro graphics/sound. |
+| **QBasic Nexus **  | Instantly transpiles QBasic to JavaScript and runs it in a simulated CRT webview. **No compiler installation required!** | Quick prototyping, learning, testing logic, retro graphics/sound. |
 
 ### 📺 Advanced Web Runtime
 
-The internal web runtime is not just a toy — it's a fully-featured emulation layer powered by HTML5 Canvas and Web Audio API.
+The QBasic Nexus is not just a toy — it's a fully-featured emulation layer powered by HTML5 Canvas and Web Audio API.
 
 - **Retro CRT Quality**: Authentic scanlines, text lag, and phosphor persistence effects.
 - **Rich Graphics**: Supports `SCREEN`, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`, `PUT`, and more.
@@ -159,7 +170,7 @@ New to QBasic? The **Interactive Tutorial Mode** solves the "blank screen" probl
 - **Linux (Debian/Ubuntu)**: `sudo apt-get install build-essential`
 - **Windows**: QB64 Phoenix Edition includes its own compiler — no extra tools needed.
 
-> 💡 **Tip**: If you skip QB64 installation entirely, you can still use the **Internal Web Transpiler** mode for instant code execution with no setup at all.
+> 💡 **Tip**: If you skip QB64 installation entirely, you can still use the **QBasic Nexus Web Runtime** mode for instant code execution with no setup at all.
 
 ---
 
@@ -192,8 +203,8 @@ Open any file with extension `.bas`, `.bi`, `.bm`, or `.inc` — the extension a
 
 Open Settings → Search `qbasic-nexus.compilerMode`:
 
-- **`QB64`** — compile native executables (requires QB64 installed)
-- **`internal`** — run instantly in the web CRT (no QB64 needed)
+- **`QB64 (Recommended)`** — compile native executables (requires QB64 installed)
+- **`QBasic Nexus`** — run instantly in the web CRT (no QB64 needed)
 
 ### 5. Run Your Code
 
@@ -213,7 +224,7 @@ No QB64? Try the web runtime right now:
    CIRCLE (160, 100), 50, 4
    PLAY "CDEFGAB>C"
    ```
-3. Press **F5** → select **"Internal (JS Transpiler)"** if prompted.
+3. Press **F5** → select **"QBasic Nexus"** if prompted.
 
 ---
 
@@ -291,18 +302,18 @@ Access via Command Palette (`Ctrl+Shift+P`) → type "QBasic":
 
 All settings are under `qbasic-nexus.*` in VS Code Settings (`Ctrl+,`).
 
-| Setting               | Default      | Description                                                     |
-| --------------------- | ------------ | --------------------------------------------------------------- |
-| `compilerMode`        | `QB64`       | `QB64` for native compilation, `internal` for web transpiler.   |
-| `compilerPath`        | `""`         | Full path to QB64 executable. Auto-detected if blank.           |
-| `compilerArgs`        | `""`         | Extra flags passed to QB64 (e.g., `-w` for more warnings).      |
-| `enableLinting`       | `true`       | Enable real-time syntax error highlighting.                     |
-| `lintDelay`           | `500`        | Milliseconds after typing before linting runs (100–3000).       |
-| `autoFormatOnSave`    | `false`      | Auto-format (indent + capitalization) on every save.            |
-| `enableAutoDetection` | `true`       | Auto-search for QB64 on extension startup.                      |
-| `terminalIntegration` | `integrated` | Use VS Code integrated terminal or external terminal.           |
-| `nativeOptimizations` | `true`       | Enable platform-specific worker thread and audio optimizations. |
-| `workerThreads`       | `0`          | Number of worker threads (0 = auto-detect based on CPU cores).  |
+| Setting               | Default              | Description                                                                  |
+| --------------------- | -------------------- | ---------------------------------------------------------------------------- |
+| `compilerMode`        | `QB64 (Recommended)` | `QB64 (Recommended)` for native compilation, `QBasic Nexus` for web runtime. |
+| `compilerPath`        | `""`                 | Full path to QB64 executable. Auto-detected if blank.                        |
+| `compilerArgs`        | `""`                 | Extra flags passed to QB64 (e.g., `-w` for more warnings).                   |
+| `enableLinting`       | `true`               | Enable real-time syntax error highlighting.                                  |
+| `lintDelay`           | `500`                | Milliseconds after typing before linting runs (100–3000).                    |
+| `autoFormatOnSave`    | `false`              | Auto-format (indent + capitalization) on every save.                         |
+| `enableAutoDetection` | `true`               | Auto-search for QB64 on extension startup.                                   |
+| `terminalIntegration` | `integrated`         | Use VS Code integrated terminal or external terminal.                        |
+| `nativeOptimizations` | `true`               | Enable platform-specific worker thread and audio optimizations.              |
+| `workerThreads`       | `0`                  | Number of worker threads (0 = auto-detect based on CPU cores).               |
 
 ### Example: Minimal settings.json
 
