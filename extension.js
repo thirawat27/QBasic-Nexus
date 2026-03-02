@@ -591,7 +591,7 @@ async function runInternalTranspiler(document, shouldRun) {
   const fileSize = (sourceCode.length / 1024).toFixed(2)
   const fileName = path.basename(document.uri.fsPath)
 
-  channel.appendLine("  QBasic Nexus ⚡ Internal Transpiler")
+  channel.appendLine("  QBasic Nexus ⚡ ")
   channel.appendLine("═══════════════════════════════════════════════════")
   channel.appendLine("")
   channel.appendLine(`  📦 Source:   ${fileName}`)
@@ -794,7 +794,7 @@ function compileWithQB64(document, compilerPath, channel) {
     channel.appendLine("")
     channel.appendLine(`📄 Source: ${path.basename(sourcePath)}`)
     channel.appendLine(`📦 Output: ${path.basename(outputPath)}`)
-    channel.appendLine(`⚙️  Args:   ${args.join(" ")}`)
+    channel.appendLine(`⚙️  Args:   ${args.join("")}`)
     channel.appendLine(`💻 Platform: ${process.platform} (${process.arch})`)
     channel.appendLine("")
     channel.appendLine("─────────────────────────────────────────────────────")
