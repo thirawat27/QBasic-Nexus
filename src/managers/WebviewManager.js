@@ -89,6 +89,8 @@ class WebviewManager {
       WebviewManager.currentPanel = undefined
       WebviewManager._disposables.forEach((d) => d.dispose())
       WebviewManager._disposables = []
+      // Clear HTML cache so a fresh template is read on next open
+      WebviewManager._htmlCache = null
     })
   }
 

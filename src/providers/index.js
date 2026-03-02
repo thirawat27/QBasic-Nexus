@@ -1,6 +1,6 @@
 "use strict"
 
-const { invalidateCache } = require("./providerUtils")
+const { invalidateCache, clearCompletionCache } = require("./providerUtils")
 const {
   QBasicDocumentSymbolProvider,
   QBasicDefinitionProvider,
@@ -39,4 +39,5 @@ module.exports = {
   QBasicReferenceProvider,
   QBasicOnTypeFormattingEditProvider,
   invalidateCache,
+  clearCompletionCache,
 }

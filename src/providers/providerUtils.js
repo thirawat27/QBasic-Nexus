@@ -111,6 +111,15 @@ function invalidateCache(uri) {
   variableCache.delete(key)
 }
 
+/**
+ * Clear completion item caches (keyword & function).
+ * Call this when language data changes or on extension deactivation.
+ */
+function clearCompletionCache() {
+  cachedKeywordItems = null
+  cachedFunctionItems = null
+}
+
 module.exports = {
   PATTERNS,
   escapeRegex,
@@ -121,4 +130,5 @@ module.exports = {
   getCachedVariables,
   setCachedVariables,
   invalidateCache,
+  clearCompletionCache,
 }

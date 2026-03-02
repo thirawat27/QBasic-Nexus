@@ -38,6 +38,7 @@ const {
   QBasicReferenceProvider,
   QBasicOnTypeFormattingEditProvider,
   invalidateCache,
+  clearCompletionCache,
 } = require("./src/providers")
 const compilerWorker = require("./src/compiler/WorkerManager")
 const WebviewManager = require("./src/managers/WebviewManager")
@@ -90,20 +91,15 @@ const VERSION = packageJson.version
 const _ = require("lodash")
 
 // Use Lodash for high-performance debouncing
-const debounce = (fn, delay) => {
-  const debounced = _.debounce(fn, delay)
-  // Add cancel method to match existing interface
-  debounced.cancel = () => debounced.cancel()
-  return debounced
-}
+// Note: lodash's _.debounce already provides .cancel() and .flush() built-in;
+// no need to override — doing so causes infinite recursion.
+const debounce = (fn, delay) => _.debounce(fn, delay)
 
 // Use Lodash for high-performance throttling
-const throttle = (fn, limit) => {
-  const throttled = _.throttle(fn, limit, { leading: true, trailing: true })
-  // Add cancel method to match existing interface
-  throttled.cancel = () => throttled.cancel()
-  return throttled
-}
+// Note: lodash's _.throttle already provides .cancel() and .flush() built-in;
+// no need to override — doing so causes infinite recursion.
+const throttle = (fn, limit) =>
+  _.throttle(fn, limit, { leading: true, trailing: true })
 
 function getOutputChannel() {
   if (!outputChannel) {
@@ -113,6 +109,11 @@ function getOutputChannel() {
 }
 
 function getTerminal() {
+  // VS Code Terminal.exitStatus values:
+  //   undefined  → terminal is still alive / running
+  //   { code }   → terminal has exited (cleanly or forcefully)
+  // We must recreate when terminal is null (never created / was closed via onDidCloseTerminal)
+  // or when exitStatus is defined, meaning it has already closed on its own.
   if (!terminal || terminal.exitStatus !== undefined) {
     terminal = vscode.window.createTerminal({
       name: CONFIG.TERMINAL_NAME,
@@ -626,8 +627,10 @@ async function runInternalTranspiler(document, shouldRun) {
     channel.appendLine("  ✓ Building standalone executable (pkg)...")
 
     await new Promise((resolve, reject) => {
+      // When shell:true, the OS shell (cmd.exe on Windows) resolves commands
+      // automatically, so "npx" works on all platforms — no need for "npx.cmd".
       const pkgProc = spawn(
-        IS_WIN ? "npx.cmd" : "npx",
+        "npx",
         [
           "pkg",
           tempPath,
@@ -751,6 +754,9 @@ async function runQB64Compiler(document, shouldRun) {
     return
   }
 
+  // ใช้ resolved absolute path จาก validation เพื่อป้องกัน Error (-47f5044) File not found
+  const resolvedCompilerPath = validation.path
+
   isCompiling = true
   updateStatusBar()
   diagnosticCollection.clear()
@@ -760,7 +766,11 @@ async function runQB64Compiler(document, shouldRun) {
   channel.show()
 
   try {
-    const outputPath = await compileWithQB64(document, compilerPath, channel)
+    const outputPath = await compileWithQB64(
+      document,
+      resolvedCompilerPath,
+      channel,
+    )
 
     if (shouldRun && outputPath) {
       runExecutable(outputPath)
@@ -780,12 +790,16 @@ function compileWithQB64(document, compilerPath, channel) {
     const sourcePath = document.uri.fsPath
     const sourceDir = path.dirname(sourcePath)
     const baseName = path.basename(sourcePath, path.extname(sourcePath))
-    const outputPath = path.join(sourceDir, baseName + getExecutableExtension())
+    const outputPath = path.join(
+      sourceDir, 
+      baseName + getExecutableExtension()
+    )
 
     const extraArgs = (getConfig(CONFIG.COMPILER_ARGS) || "")
       .split(" ")
       .filter((arg) => arg.trim().length > 0)
 
+    // ใช้ flags แบบเวอร์ชัน 1.2.0: -x -c source -o output
     const args = ["-x", "-c", sourcePath, "-o", outputPath, ...extraArgs]
 
     channel.appendLine("╔══════════════════════════════════════════════════╗")
@@ -793,21 +807,21 @@ function compileWithQB64(document, compilerPath, channel) {
     channel.appendLine("╚══════════════════════════════════════════════════╝")
     channel.appendLine("")
     channel.appendLine(`📄 Source: ${path.basename(sourcePath)}`)
+    channel.appendLine(`📂 Path: ${sourcePath}`)
     channel.appendLine(`📦 Output: ${path.basename(outputPath)}`)
-    channel.appendLine(`⚙️  Args:   ${args.join("")}`)
-    channel.appendLine(`💻 Platform: ${process.platform} (${process.arch})`)
+    channel.appendLine(`⚙️  Args:   ${args.join(" ")}`)
+    channel.appendLine(`💻 Compiler: ${compilerPath}`)
+    channel.appendLine(`📁 CWD: ${path.dirname(compilerPath)}`)
     channel.appendLine("")
     channel.appendLine("─────────────────────────────────────────────────────")
     channel.appendLine("")
 
     const startTime = process.hrtime()
 
-    // Use platform-specific spawn options
+    // ใช้ spawn options เหมือนเวอร์ชัน 1.2.0 ที่ทำงานได้
     const spawnOptions = {
       cwd: path.dirname(compilerPath),
       shell: false,
-      windowsHide: IS_WIN, // Hide console window on Windows
-      env: { ...process.env }, // Inherit environment
     }
 
     const proc = spawn(compilerPath, args, spawnOptions)
@@ -939,17 +953,15 @@ function runExecutable(exePath) {
   const dir = path.dirname(exePath)
   const exe = path.basename(exePath)
 
-  // Build platform-specific command using utilities
   if (IS_WIN) {
-    // Windows PowerShell syntax with proper escaping
-    // Use -LiteralPath to handle special characters in paths
-    const escapedDir = dir.replace(/'/g, "''")
-    const escapedExe = exe.replace(/'/g, "''")
-    term.sendText(
-      `Set-Location -LiteralPath '${escapedDir}'; & '.\\${escapedExe}'`,
-    )
+    // Use "cmd /c" so the command works across ALL VS Code integrated terminal
+    // profiles (PowerShell, cmd, Git Bash, etc.).
+    // Double-quoting the outer string handles spaces in the directory/exe name.
+    const fullPath = path.join(dir, exe)
+    const escaped = fullPath.replace(/"/g, '""')
+    term.sendText(`cmd /c ""${escaped}""`)
   } else if (IS_MAC) {
-    // macOS - use bash with proper quoting
+    // macOS — use bash-compatible quoting
     const escapedDir = dir.replace(/'/g, "'\\''")
     const escapedExe = exe.replace(/'/g, "'\\''")
     term.sendText(`cd '${escapedDir}' && './${escapedExe}'`)
@@ -1016,6 +1028,9 @@ function deactivate() {
     clearTimeout(timerId)
   }
   pendingLints.clear()
+
+  // Clear completion item caches
+  clearCompletionCache()
 
   // Dispose resources
   statusBarItem?.dispose()
