@@ -1,6 +1,5 @@
 /**
  * QBasic Nexus - Tutorial Data
- * ============================
  */
 
 module.exports = [

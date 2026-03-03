@@ -1,13 +1,8 @@
 /**
- * QBasic Nexus - Compiler Constants v1.1.0
- * ======================================
- * Token types, keywords, and built-in function mappings for the compiler.
+ * QBasic Nexus - Compiler Constants
+ * Token types, keywords, and built-in function mappings for the compiler
  * 
- * Production-ready comprehensive QBasic/QB64 support with enhanced
- * function coverage inspired by QBJS.
- * 
- * @author Thirawat27
- * @version 1.1.0
+ * Comprehensive QBasic/QB64 support with enhanced function coverage
  */
 
 'use strict';

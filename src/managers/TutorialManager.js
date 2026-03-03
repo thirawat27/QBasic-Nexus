@@ -1,10 +1,6 @@
 /**
  * QBasic Nexus - Tutorial Manager
- * ===============================
- * Handles interactive tutorial lessons and result validation.
- * 
- * @author Thirawat27
- * @version 1.0.8
+ * Handles interactive tutorial lessons and result validation
  */
 
 'use strict';

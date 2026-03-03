@@ -1,10 +1,6 @@
 /**
  * QBasic Nexus - Enhanced Error Recovery System
- * ==============================================
  * Provides robust error recovery and detailed diagnostics
- * 
- * @author Thirawat27
- * @version 1.2.0
  */
 
 'use strict';

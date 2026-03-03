@@ -1,18 +1,14 @@
 /**
- * QBasic Nexus - High-Performance Transpiler & Compiler v1.1.0
- * =============================================================
- * The core engine of QBasic Nexus, transforming classic QBasic constructs into 
- * modern, optimized JavaScript. Supports both Node.js (CLI) and Web environments.
+ * QBasic Nexus - High-Performance Transpiler & Compiler
+ * The core engine of QBasic Nexus, transforming classic QBasic constructs
+ * into modern, optimized JavaScript. Supports both Node.js and Web environments
  * 
- * 🌟 Core Features v1.1.0:
- * - Full Language Fidelity: Supports legacy QBasic and modern QB64 syntax.
- * - Smart Parsers: Handles complex Control Flow, Graphics (DRAW/PAINT), and Data Structures.
- * - Robust Error Recovery: Continued parsing despite syntax errors with precise reporting.
- * - Integrated VFS: Native-like file operations (OPEN, INPUT#, PRINT#) atop a Virtual File System.
- * - Optimized Codegen: Produces lean, efficient JS with reduced memory footprint.
- * 
- * @author Thirawat27
- * @version 1.1.0
+ * Core Features:
+ * - Full Language Fidelity: Supports legacy QBasic and modern QB64 syntax
+ * - Smart Parsers: Handles complex Control Flow, Graphics (DRAW/PAINT), and Data Structures
+ * - Robust Error Recovery: Continued parsing despite syntax errors with precise reporting
+ * - Integrated VFS: Native-like file operations (OPEN, INPUT#, PRINT#) atop a Virtual File System
+ * - Optimized Codegen: Produces lean, efficient JS with reduced memory footprint
  */
 
 'use strict';

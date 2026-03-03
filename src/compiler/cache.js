@@ -1,10 +1,6 @@
 /**
  * QBasic Nexus - Compilation Cache System
- * ========================================
  * Provides intelligent caching for faster recompilation
- * 
- * @author Thirawat27
- * @version 1.2.0
  */
 
 'use strict';

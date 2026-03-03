@@ -1,6 +1,5 @@
 /**
  * QBasic Nexus - Language Providers
- * ==================================
  * VS Code Language Feature Providers for QBasic
  * 
  * Features:
@@ -15,10 +14,6 @@
  * - Rename Symbol
  * - Code Actions (Quick Fix)
  * - Reference Provider
- * 
- * @author Thirawat27
- * @version 1.1.0
- * @license MIT
  */
 
 'use strict';

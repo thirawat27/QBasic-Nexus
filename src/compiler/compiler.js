@@ -1,10 +1,6 @@
 /**
  * QBasic Nexus - High-Performance Compiler Wrapper
- * =================================================
  * Unified compiler interface with caching and error recovery
- * 
- * @author Thirawat27
- * @version 1.2.0
  */
 
 'use strict';

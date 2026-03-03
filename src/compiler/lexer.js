@@ -1,12 +1,8 @@
 /**
- * QBasic Nexus - Lexer v1.1.0
- * ===========================
- * Tokenizer for QBasic source code using direct character scanning.
+ * QBasic Nexus - Lexer
+ * Tokenizer for QBasic source code using direct character scanning
  * 
- * v1.1.0: Enhanced error reporting and memory management
- * 
- * @author Thirawat27
- * @version 1.1.0
+ * Enhanced error reporting and memory management
  */
 
 'use strict';

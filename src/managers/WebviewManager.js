@@ -1,10 +1,6 @@
 /**
  * QBasic Nexus - Webview Manager
- * ==============================
- * Manages the CRT Webview panel lifecycle and communication.
- * 
- * @author Thirawat27
- * @version 1.0.8
+ * Manages the CRT Webview panel lifecycle and communication
  */
 
 'use strict';
