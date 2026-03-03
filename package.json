@@ -1,8 +1,8 @@
 {
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
-    "description": "Professional QBasic/QB64 Environment with Real-time Diagnostics, Neon Graphics, and Advanced Web Transpiler.",
-    "version": "1.3.1",
+    "description": "Professional QBasic/QB64 Environment with High-Performance Compiler, Real-time Diagnostics, Neon Graphics, and Advanced Web Transpiler.",
+    "version": "1.4.0",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -27,7 +27,8 @@
         "benchmark": "node test/benchmark-compiler.js",
         "test:compiler": "node test/test-transpiler.js",
         "test:variables": "node test/test-variable-declaration.js",
-        "test:all": "npm run test:compiler && npm run test:variables && npm run benchmark",
+        "test:integration": "node test/test-integration.js",
+        "test:all": "npm run test:compiler && npm run test:variables && npm run test:integration && npm run benchmark",
         "package": "vsce package",
         "publish": "vsce publish"
     },
@@ -40,6 +41,12 @@
         "eslint": "^10.0.2"
     },
     "dependencies": {
+        "defu": "^6.1.4",
+        "flru": "^1.0.2",
+        "magic-string": "^0.30.21",
+        "mitt": "^3.0.1",
+        "moo": "^0.5.3",
+        "pathe": "^2.0.3",
         "pkg": "^5.8.1"
     },
     "categories": [
@@ -82,38 +89,28 @@
         "commands": [
             {
                 "command": "qbasic-nexus.compile",
-                "title": "QBasic: Compile 🔨",
+                "title": "QBasic Compile 🔨",
                 "icon": "$(tools)"
             },
             {
                 "command": "qbasic-nexus.compileAndRun",
-                "title": "QBasic: Compile & Run 🌀",
+                "title": "QBasic Compile & Run 🌀",
                 "icon": "$(play)"
             },
             {
                 "command": "qbasic-nexus.runInCrt",
-                "title": "QBasic: Run in Retro CRT 📺",
+                "title": "QBasic Run in Retro CRT 📺",
                 "icon": "$(device-desktop)"
             },
             {
                 "command": "qbasic-nexus.startTutorial",
-                "title": "QBasic: Start Interactive Tutorial 🎮",
+                "title": "QBasic Start Interactive Tutorial 🎮",
                 "icon": "$(mortar-board)"
             },
             {
                 "command": "qbasic-nexus.showCodeStats",
-                "title": "QBasic: Show Code Statistics 📊",
+                "title": "QBasic Show Code Statistics 📊",
                 "icon": "$(graph)"
-            },
-            {
-                "command": "qbasic-nexus.toggleComment",
-                "title": "QBasic: Toggle Comment 💬",
-                "icon": "$(comment)"
-            },
-            {
-                "command": "qbasic-nexus.extractToSub",
-                "title": "QBasic: Extract to SUB 📦",
-                "icon": "$(symbol-method)"
             }
         ],
         "menus": {
@@ -136,16 +133,6 @@
                 {
                     "command": "qbasic-nexus.startTutorial",
                     "when": "resourceLangId == qbasic",
-                    "group": "1_qbasic@4"
-                },
-                {
-                    "command": "qbasic-nexus.toggleComment",
-                    "when": "resourceLangId == qbasic && editorHasSelection",
-                    "group": "1_qbasic@3"
-                },
-                {
-                    "command": "qbasic-nexus.extractToSub",
-                    "when": "resourceLangId == qbasic && editorHasSelection",
                     "group": "1_qbasic@4"
                 }
             ],
@@ -172,11 +159,6 @@
                 "command": "qbasic-nexus.compile",
                 "key": "ctrl+shift+b",
                 "when": "resourceLangId == qbasic"
-            },
-            {
-                "command": "qbasic-nexus.toggleComment",
-                "key": "ctrl+/",
-                "when": "resourceLangId == qbasic && editorTextFocus"
             },
             {
                 "command": "qbasic-nexus.showCodeStats",
@@ -245,8 +227,8 @@
                 },
                 "qbasic-nexus.autoFormatOnSave": {
                     "type": "boolean",
-                    "default": false,
-                    "markdownDescription": "Automatically format the document when saving.",
+                    "default": true,
+                    "markdownDescription": "Automatically format the document and auto-capitalize keywords when saving (mimicking classic QBasic IDE).",
                     "scope": "resource"
                 }
             }

@@ -1,362 +1,250 @@
 /**
- * QBasic Nexus - Lexer
- * Tokenizer for QBasic source code using direct character scanning
- * 
- * Enhanced error reporting and memory management
+ * QBasic Nexus - FastLexer
+ *
+ * Phase 1.1 upgrade:
+ *  - Uses `moo` for compiled-regex tokenization (~10-15x faster than manual
+ *    character scanning on large files, per ARCHITECTURE_REFACTORING_PLAN.md)
+ *  - Lean TokenPool for object reuse (reduces GC pressure)
+ *  - Zero-copy string slicing wherever possible
+ *  - Pre-compiled regex patterns (compile once, use many)
+ *  - Flyweight pattern: keyword strings are interned via KEYWORDS Set
  */
 
-'use strict';
+"use strict"
 
-const { TokenType, KEYWORDS } = require('./constants');
+const moo = require("moo")
+const { TokenType, KEYWORDS } = require("./constants")
 
-/**
- * Token pool for object reuse - reduces GC pressure
- * Enhanced with pre-allocation for better performance
- */
-const TokenPool = {
-    _pool: [],
-    _maxSize: 1000, // Increased pool size for better reuse
-    
-    // Pre-allocate tokens on first use
-    _initialized: false,
-    _preallocate() {
-        if (this._initialized) return;
-        this._initialized = true;
-        // Pre-allocate 200 tokens to avoid initial allocation overhead
-        for (let i = 0; i < 200; i++) {
-            this._pool.push(new Token('', '', 0, 0));
-        }
-    },
-    
-    acquire(type, value, line, col) {
-        this._preallocate();
-        if (this._pool.length > 0) {
-            const token = this._pool.pop();
-            token.type = type;
-            token.value = value;
-            token.line = line;
-            token.col = col;
-            return token;
-        }
-        return new Token(type, value, line, col);
-    },
-    
-    releaseAll(tokens) {
-        // Return tokens to pool for reuse (called after parsing is complete)
-        const available = this._maxSize - this._pool.length;
-        const toReturn = Math.min(tokens.length, available);
-        for (let i = 0; i < toReturn; i++) {
-            // Clear sensitive data before returning to pool
-            tokens[i].value = '';
-            this._pool.push(tokens[i]);
-        }
-    },
-    
-    clear() {
-        this._pool.length = 0;
-        this._initialized = false;
-    }
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// Pre-compiled character-level helpers (used in fallback only)
+// ─────────────────────────────────────────────────────────────────────────────
+const SMART_QUOTE_RE = /[\u201C\u201D\u201E\u201F]/g
+const SMART_APOS_RE = /[\u2018\u2019\u201A\u201B]/g
+const FULLWIDTH_RE = /[\uFF04\uFE69]/g
 
-/**
- * Represents a single token.
- */
+// Normalise Unicode curly quotes / fullwidth chars to ASCII once per compile
+function normalise(source) {
+  // Only run replacements when suspicious chars are present (fast check)
+  if (
+    source.charCodeAt(0) < 0x80 &&
+    !source.includes("\u201C") &&
+    !source.includes("\uFF04") &&
+    !source.includes("\u2018")
+  ) {
+    // Fast path: ASCII-only source (99% of QBasic files)
+    return source
+  }
+  return source
+    .replace(FULLWIDTH_RE, "$")
+    .replace(SMART_QUOTE_RE, '"')
+    .replace(SMART_APOS_RE, "'")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// moo lexer rules (compiled once at module load)
+// ─────────────────────────────────────────────────────────────────────────────
+const MOO_RULES = {
+  // Whitespace (skip silently)
+  WS: { match: /[ \t]+/, lineBreaks: false },
+
+  // Newline token (important for statement parsing)
+  NEWLINE: { match: /\r?\n/, lineBreaks: true },
+
+  // Comments (single-quote or REM keyword – skip body)
+  COMMENT: {
+    match: /(?:'|(?:[Rr][Ee][Mm](?=[ \t\n]|$)))[^\n]*/,
+    lineBreaks: false,
+  },
+
+  // Hex literals  &Hxx
+  HEX: { match: /&[Hh][0-9A-Fa-f]+/ },
+
+  // Floating / integer numbers with optional type suffixes
+  NUMBER: { match: /\d+(?:\.\d*)?(?:[eE][+-]?\d+)?[#!&%]?|\.\d+[#!&%]?/ },
+
+  // String literals (allow escape-less unclosed strings gracefully)
+  STRING: { match: /"[^"\n]*"?/ },
+
+  // Identifiers & keywords (case-insensitive via post-processing)
+  IDENT: { match: /[A-Za-z_][A-Za-z0-9_]*[$%&!#]?/ },
+
+  // Two-char operators first, then single-char
+  OPERATOR: { match: /<=|>=|<>|[+\-*/^=<>\\]/ },
+
+  // Punctuation
+  PUNCTUATION: { match: /[(),;:#.]/ },
+
+  // Anything else – skip unknown chars without crashing
+  UNKNOWN: { match: /[^\s]/ },
+}
+
+const mooLexer = moo.compile(MOO_RULES)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Token class & Pool
+// ─────────────────────────────────────────────────────────────────────────────
 class Token {
-    /**
-     * @param {string} type - The token type.
-     * @param {string} value - The token value.
-     * @param {number} line - The line number (1-indexed).
-     * @param {number} col - The column number (1-indexed).
-     */
-    constructor(type, value, line, col = 0) {
-        this.type = type;
-        this.value = value;
-        this.line = line;
-        this.col = col;
-    }
+  constructor(type, value, line, col) {
+    this.type = type
+    this.value = value
+    this.line = line
+    this.col = col
+  }
 }
 
-/**
- * Tokenizes QBasic source code into an array of tokens.
- */
+const TokenPool = {
+  _pool: [],
+  _maxSize: 2000,
+
+  // Pre-allocate a batch to warm the pool
+  _preallocated: false,
+  _preallocate() {
+    if (this._preallocated) return
+    this._preallocated = true
+    for (let i = 0; i < 300; i++) {
+      this._pool.push(new Token("", "", 0, 0))
+    }
+  },
+
+  acquire(type, value, line, col) {
+    this._preallocate()
+    if (this._pool.length > 0) {
+      const t = this._pool.pop()
+      t.type = type
+      t.value = value
+      t.line = line
+      t.col = col
+      return t
+    }
+    return new Token(type, value, line, col)
+  },
+
+  releaseAll(tokens) {
+    const free = this._maxSize - this._pool.length
+    const n = Math.min(tokens.length, free)
+    for (let i = 0; i < n; i++) {
+      tokens[i].value = ""
+      this._pool.push(tokens[i])
+    }
+  },
+
+  clear() {
+    this._pool.length = 0
+    this._preallocated = false
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FastLexer – public API (drop-in replacement for the old Lexer)
+// ─────────────────────────────────────────────────────────────────────────────
 class Lexer {
-    /**
-     * @param {string} source - The source code to tokenize.
-     */
-    constructor(source) {
-        // Normalize Unicode variants to ASCII equivalents for robust parsing
-        // Common problematic characters: $ variants, smart quotes, etc.
-        // Optimized: Use single regex pass for all replacements
-        this.src = source
-            .replace(/[\uFF04\uFE69]/g, '$') // Fullwidth $, Small $ (0024 is already ASCII)
-            .replace(/[\u201C\u201D\u201E\u201F]/g, '"') // Smart quotes -> straight
-            .replace(/[\u2018\u2019\u201A\u201B]/g, "'"); // Smart apostrophes
-        this.len = this.src.length;
-        this.pos = 0;
-        this.line = 1;
-        this.col = 1;
-        /** @type {Token[]} */
-        this.tokens = [];
-        // Pre-allocate token array with estimated size (reduces reallocation)
-        this.tokens.length = 0;
-        // Estimate: average 1 token per 5 characters
-        const estimatedTokens = Math.floor(this.len / 5);
-        if (estimatedTokens > 100) {
-            // Reserve space for large files
-            this.tokens = new Array(estimatedTokens);
-            this.tokens.length = 0;
+  /**
+   * @param {string} source - QBasic source code
+   */
+  constructor(source) {
+    this.src = normalise(source)
+  }
+
+  /**
+   * Tokenise the source and return an array of Token objects.
+   * @returns {Token[]}
+   */
+  tokenize() {
+    mooLexer.reset(this.src)
+
+    // Pre-allocate with a rough estimate (avg ~1 token per 6 chars)
+    const estimated = Math.max(64, Math.floor(this.src.length / 6))
+    const tokens = new Array(estimated)
+    let count = 0
+
+    for (const mTok of mooLexer) {
+      let type, value
+      const raw = mTok.value
+      const line = mTok.line
+      const col = mTok.col
+
+      switch (mTok.type) {
+        case "WS":
+        case "UNKNOWN":
+          // Silently skip whitespace and unknown chars
+          continue
+
+        case "COMMENT":
+          // Skip comments entirely
+          continue
+
+        case "NEWLINE":
+          type = TokenType.NEWLINE
+          value = "\n"
+          break
+
+        case "NUMBER":
+          type = TokenType.NUMBER
+          value = raw
+          break
+
+        case "HEX": {
+          // Convert &Hxx → decimal string
+          type = TokenType.NUMBER
+          const hexDigits = raw.slice(2) // strip &H
+          value = String(parseInt(hexDigits, 16) || 0)
+          break
         }
+
+        case "STRING":
+          // Strip surrounding quotes (moo includes them)
+          type = TokenType.STRING
+          value = raw.startsWith('"')
+            ? raw.slice(1, raw.endsWith('"') ? -1 : undefined)
+            : raw
+          break
+
+        case "IDENT": {
+          // Flyweight: uppercase keywords are interned in KEYWORDS Set
+          const upper = raw.toUpperCase()
+          if (KEYWORDS.has(upper)) {
+            type = TokenType.KEYWORD
+            value = upper // interned canonical form
+          } else {
+            type = TokenType.IDENTIFIER
+            value = raw
+          }
+          break
+        }
+
+        case "OPERATOR":
+          type = TokenType.OPERATOR
+          value = raw
+          break
+
+        case "PUNCTUATION":
+          type = TokenType.PUNCTUATION
+          value = raw
+          break
+
+        default:
+          // Safety net – should not happen
+          continue
+      }
+
+      // Grow array only when needed (rare)
+      if (count >= tokens.length) tokens.length = count * 2
+      tokens[count++] = TokenPool.acquire(type, value, line, col)
     }
 
-    /**
-     * Tokenizes the source code.
-     * @returns {Token[]} Array of tokens.
-     */
-    tokenize() {
-        while (this.pos < this.len) {
-            this._scanToken();
-        }
-        this.tokens.push(TokenPool.acquire(TokenType.EOF, '', this.line, this.col));
-        return this.tokens;
-    }
+    // Append EOF sentinel
+    if (count >= tokens.length) tokens.length = count + 1
+    tokens[count++] = TokenPool.acquire(
+      TokenType.EOF,
+      "",
+      mooLexer.line,
+      mooLexer.col,
+    )
 
-    /** @private */
-    _scanToken() {
-        const c = this.src[this.pos];
-
-        // Newline
-        if (c === '\n') {
-            this.tokens.push(TokenPool.acquire(TokenType.NEWLINE, '\n', this.line, this.col));
-            this._advance();
-            this.line++;
-            this.col = 1;
-            return;
-        }
-
-        // Carriage return (skip)
-        if (c === '\r') {
-            this._advance();
-            return;
-        }
-
-        // Whitespace
-        if (c === ' ' || c === '\t') {
-            this._advance();
-            return;
-        }
-
-        // Comment (single quote or REM)
-        if (c === "'" || this._isRem()) {
-            this._skipLine();
-            return;
-        }
-
-        // Number
-        if (this._isDigit(c) || (c === '.' && this._isDigit(this._peek(1)))) {
-            this._scanNumber();
-            return;
-        }
-
-        // Hex number (&H...)
-        if (c === '&' && (this._peek(1) === 'H' || this._peek(1) === 'h')) {
-            this._scanHexNumber();
-            return;
-        }
-
-        // String
-        if (c === '"') {
-            this._scanString();
-            return;
-        }
-
-        // Identifier/Keyword
-        if (this._isAlpha(c)) {
-            this._scanIdentifier();
-            return;
-        }
-
-        // Punctuation
-        if ('(),;:#.'.includes(c)) {
-            this.tokens.push(TokenPool.acquire(TokenType.PUNCTUATION, c, this.line, this.col));
-            this._advance();
-            return;
-        }
-
-        // Operators
-        if ('+-*/^=<>\\'.includes(c)) {
-            this._scanOperator();
-            return;
-        }
-
-        // Unknown character - skip
-        this._advance();
-    }
-
-    /** @private */
-    _scanNumber() {
-        const startCol = this.col;
-        const startPos = this.pos;
-        let hasDot = false;
-
-        while (this.pos < this.len) {
-            const c = this.src[this.pos];
-            if (this._isDigit(c)) {
-                this._advance();
-            } else if (c === '.' && !hasDot) {
-                hasDot = true;
-                this._advance();
-            } else {
-                break;
-            }
-        }
-
-        // Handle type suffixes (#, !, &, %)
-        if ('#!&%'.includes(this.src[this.pos])) {
-            this._advance();
-        }
-
-        // Extract value using slice (faster than concatenation)
-        const val = this.src.slice(startPos, this.pos);
-        this.tokens.push(TokenPool.acquire(TokenType.NUMBER, val, this.line, startCol));
-    }
-
-    /** @private */
-    _scanHexNumber() {
-        const startCol = this.col;
-        this._advance(); // &
-        this._advance(); // H
-        
-        let val = '';
-        while (this.pos < this.len && /[0-9A-Fa-f]/.test(this.src[this.pos])) {
-            val += this.src[this.pos];
-            this._advance();
-        }
-
-        const decimal = parseInt(val, 16) || 0;
-        this.tokens.push(TokenPool.acquire(TokenType.NUMBER, String(decimal), this.line, startCol));
-    }
-
-    /** @private */
-    _scanString() {
-        const startCol = this.col;
-        const startLine = this.line;
-        this._advance(); // Skip opening quote
-        let val = '';
-
-        while (this.pos < this.len && this.src[this.pos] !== '"' && this.src[this.pos] !== '\n') {
-            val += this.src[this.pos];
-            this._advance();
-        }
-
-        // Check for unclosed string (reached newline or EOF without closing quote)
-        if (this.src[this.pos] !== '"') {
-            // Still create the token but log warning for debugging
-            console.warn(`[Lexer] Unclosed string literal at line ${startLine}, col ${startCol}`);
-        } else {
-            this._advance(); // Skip closing quote
-        }
-        
-        this.tokens.push(TokenPool.acquire(TokenType.STRING, val, this.line, startCol));
-    }
-
-    /** @private */
-    _scanIdentifier() {
-        const startCol = this.col;
-        const startPos = this.pos;
-        
-        // Scan identifier without string concatenation (much faster)
-        while (this.pos < this.len && this._isAlphaNumeric(this.src[this.pos])) {
-            this._advance();
-        }
-
-        // Type suffix ($, %, &, !, #)
-        const hasSuffix = '$%&!#'.includes(this.src[this.pos]);
-        if (hasSuffix) {
-            this._advance();
-        }
-
-        // Extract value using slice (faster than concatenation)
-        const val = this.src.slice(startPos, this.pos);
-        const upper = val.toUpperCase();
-        const type = KEYWORDS.has(upper) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
-        this.tokens.push(TokenPool.acquire(type, type === TokenType.KEYWORD ? upper : val, this.line, startCol));
-    }
-
-    /** @private */
-    _scanOperator() {
-        const c = this.src[this.pos];
-        const n = this._peek(1);
-
-        // Two-char operators
-        if ((c === '<' || c === '>') && n === '=') {
-            this.tokens.push(TokenPool.acquire(TokenType.OPERATOR, c + '=', this.line, this.col));
-            this._advance();
-            this._advance();
-            return;
-        }
-
-        if (c === '<' && n === '>') {
-            this.tokens.push(TokenPool.acquire(TokenType.OPERATOR, '<>', this.line, this.col));
-            this._advance();
-            this._advance();
-            return;
-        }
-
-        this.tokens.push(TokenPool.acquire(TokenType.OPERATOR, c, this.line, this.col));
-        this._advance();
-    }
-
-    /** @private */
-    _advance() {
-        this.pos++;
-        this.col++;
-    }
-
-    /** @private */
-    _peek(offset) {
-        const p = this.pos + offset;
-        return p < this.len ? this.src[p] : null;
-    }
-
-    /** @private */
-    _isDigit(c) {
-        return c >= '0' && c <= '9';
-    }
-
-    /** @private */
-    _isAlpha(c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c === '_';
-    }
-
-    /** @private */
-    _isAlphaNumeric(c) {
-        return this._isAlpha(c) || this._isDigit(c);
-    }
-
-    /** @private */
-    _isRem() {
-        // Optimized: Check characters directly instead of substring+toUpperCase
-        // Use bitwise OR for case-insensitive comparison (faster than multiple comparisons)
-        const c0 = this.src.charCodeAt(this.pos) | 32; // Convert to lowercase
-        const c1 = this.src.charCodeAt(this.pos + 1) | 32;
-        const c2 = this.src.charCodeAt(this.pos + 2) | 32;
-        
-        // 'r' = 114, 'e' = 101, 'm' = 109 in lowercase
-        const isRem = (c0 === 114) && (c1 === 101) && (c2 === 109);
-        
-        if (!isRem) return false;
-        
-        const c3 = this.src[this.pos + 3];
-        return this.pos + 3 >= this.len || c3 === ' ' || c3 === '\t' || c3 === '\n';
-    }
-
-    /** @private */
-    _skipLine() {
-        while (this.pos < this.len && this.src[this.pos] !== '\n') {
-            this._advance();
-        }
-    }
+    tokens.length = count
+    return tokens
+  }
 }
 
-module.exports = Lexer;
-module.exports.TokenPool = TokenPool;
+module.exports = Lexer
+module.exports.TokenPool = TokenPool

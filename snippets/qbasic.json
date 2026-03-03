@@ -903,5 +903,131 @@
 			"$0"
 		],
 		"description": "Creates a simple menu system."
+	},
+	"String - UpperCase": {
+		"prefix": "ucase",
+		"body": [
+			"UCASE$(${1:string})"
+		],
+		"description": "Converts a string to uppercase."
+	},
+	"String - LowerCase": {
+		"prefix": "lcase",
+		"body": [
+			"LCASE$(${1:string})"
+		],
+		"description": "Converts a string to lowercase."
+	},
+	"String - Left Substring": {
+		"prefix": "left",
+		"body": [
+			"LEFT$(${1:string}, ${2:length})"
+		],
+		"description": "Returns the leftmost characters of a string."
+	},
+	"String - Right Substring": {
+		"prefix": "right",
+		"body": [
+			"RIGHT$(${1:string}, ${2:length})"
+		],
+		"description": "Returns the rightmost characters of a string."
+	},
+	"String - Middle Substring": {
+		"prefix": "mid",
+		"body": [
+			"MID$(${1:string}, ${2:start}, ${3:length})"
+		],
+		"description": "Returns a substring from the middle."
+	},
+	"String - Trim": {
+		"prefix": "trim",
+		"body": [
+			"LTRIM$(RTRIM$(${1:string}))"
+		],
+		"description": "Removes leading and trailing spaces from a string."
+	},
+	"String - Find Position": {
+		"prefix": "instr",
+		"body": [
+			"INSTR(${1:1}, ${2:stringToSearch}, ${3:targetString})"
+		],
+		"description": "Finds the position of a substring within a string."
+	},
+	"Math - Absolute Value": {
+		"prefix": "abs",
+		"body": [
+			"ABS(${1:number})"
+		],
+		"description": "Returns the absolute (positive) value."
+	},
+	"Math - Square Root": {
+		"prefix": "sqr",
+		"body": [
+			"SQR(${1:number})"
+		],
+		"description": "Returns the square root."
+	},
+	"Math - Power / Exponent": {
+		"prefix": "power",
+		"body": [
+			"${1:base} ^ ${2:exponent}"
+		],
+		"description": "Raises a number to a power."
+	},
+	"File - Make Directory": {
+		"prefix": "mkdir",
+		"body": [
+			"MKDIR \"${1:folderName}\""
+		],
+		"description": "Creates a new directory."
+	},
+	"File - Remove Directory": {
+		"prefix": "rmdir",
+		"body": [
+			"RMDIR \"${1:folderName}\""
+		],
+		"description": "Removes an empty directory."
+	},
+	"File - Delete File": {
+		"prefix": "kill",
+		"body": [
+			"KILL \"${1:filename.txt}\""
+		],
+		"description": "Deletes a designated file."
+	},
+	"File - Rename File": {
+		"prefix": "rename",
+		"body": [
+			"NAME \"${1:oldFile.txt}\" AS \"${2:newFile.txt}\""
+		],
+		"description": "Renames a file or directory."
+	},
+	"System - Read Timer": {
+		"prefix": "timer",
+		"body": [
+			"TIMER"
+		],
+		"description": "Returns the number of seconds elapsed since midnight."
+	},
+	"System - Call External Program": {
+		"prefix": "shell",
+		"body": [
+			"SHELL \"${1:command}\""
+		],
+		"description": "Executes an external command or program."
+	},
+	"Array - Find Upper Bound": {
+		"prefix": "ubound",
+		"body": [
+			"UBOUND(${1:arrayName})"
+		],
+		"description": "Returns the highest available index for a given array."
+	},
+	"Array - Find Lower Bound": {
+		"prefix": "lbound",
+		"body": [
+			"LBOUND(${1:arrayName})"
+		],
+		"description": "Returns the lowest available index for a given array."
 	}
 }

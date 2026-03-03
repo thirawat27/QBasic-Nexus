@@ -16,11 +16,12 @@
 
 const vscode = require("vscode")
 const path = require("path")
+const pathe = require("pathe")
 const fs = require("fs").promises
 const os = require("os")
 const { spawn, execFile } = require("child_process")
 
-// Import modules
+// Static providers — always needed, load eagerly
 const {
   QBasicDocumentSymbolProvider,
   QBasicDefinitionProvider,
@@ -36,9 +37,30 @@ const {
   QBasicOnTypeFormattingEditProvider,
   invalidateCache,
 } = require("./providers")
-const InternalTranspiler = require("./src/compiler/transpiler")
-const WebviewManager = require("./src/managers/WebviewManager")
-const TutorialManager = require("./src/managers/TutorialManager")
+const { getIncrementalLinter } = require("./src/managers/IncrementalLinter")
+
+// ── Lazy-loaded modules (load on first use, not at activation) ──────────────
+let _WebviewManager = null
+let _TutorialManager = null
+let _InternalTranspiler = null
+
+function getWebviewManager() {
+  if (!_WebviewManager)
+    _WebviewManager = require("./src/managers/WebviewManager")
+  return _WebviewManager
+}
+
+function getTutorialManager() {
+  if (!_TutorialManager)
+    _TutorialManager = require("./src/managers/TutorialManager")
+  return _TutorialManager
+}
+
+function getInternalTranspiler() {
+  if (!_InternalTranspiler)
+    _InternalTranspiler = require("./src/compiler/transpiler")
+  return _InternalTranspiler
+}
 
 // ============================================================================
 // CONSTANTS
@@ -66,9 +88,7 @@ const COMMANDS = Object.freeze({
   COMPILE_RUN: "qbasic-nexus.compileAndRun",
   RUN_CRT: "qbasic-nexus.runInCrt",
   START_TUTORIAL: "qbasic-nexus.startTutorial",
-  EXTRACT_SUB: "qbasic-nexus.extractToSub",
   SHOW_STATS: "qbasic-nexus.showCodeStats",
-  TOGGLE_COMMENT: "qbasic-nexus.toggleComment",
 })
 
 // ============================================================================
@@ -205,58 +225,19 @@ function log(message, type = "info") {
 }
 
 // ============================================================================
-// LINTING
+// LINTING  (Phase 2.2 – IncrementalLinter)
 // ============================================================================
 
-// Track pending lint operations per document to avoid redundant linting
-const pendingLints = new Map()
-
 /**
- * Lint a QBasic document and update diagnostics
+ * Schedule a lint for a QBasic document using the incremental linter.
+ * Replaces the old per-call transpiler creation with a shared singleton.
  */
 function lintDocument(document) {
   if (!document || document.languageId !== CONFIG.LANGUAGE_ID) return
   if (!getConfig(CONFIG.ENABLE_LINT, true)) return
 
-  const uriKey = document.uri.toString()
-
-  // Cancel pending lint for this document
-  if (pendingLints.has(uriKey)) {
-    clearTimeout(pendingLints.get(uriKey))
-  }
-
   const delay = getConfig(CONFIG.LINT_DELAY, 500)
-
-  const timerId = setTimeout(() => {
-    pendingLints.delete(uriKey)
-
-    try {
-      const transpiler = new InternalTranspiler()
-      const errors = transpiler.lint(document.getText())
-      const lineCount = document.lineCount
-
-      const diagnostics = errors.map((err) => {
-        const line = Math.max(0, Math.min(err.line, lineCount - 1))
-        const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER)
-
-        const diagnostic = new vscode.Diagnostic(
-          range,
-          err.message,
-          getSeverity(err.severity || "error"),
-        )
-        diagnostic.source = "QBasic Nexus"
-        diagnostic.code = err.code || "E001"
-
-        return diagnostic
-      })
-
-      diagnosticCollection.set(document.uri, diagnostics)
-    } catch (error) {
-      console.error("[QBasic Nexus] Linting error:", error.message)
-    }
-  }, delay)
-
-  pendingLints.set(uriKey, timerId)
+  getIncrementalLinter().schedule(document, diagnosticCollection, delay)
 }
 
 // Lookup table for severity (faster than switch)
@@ -309,8 +290,8 @@ async function activate(context) {
 
   extensionContext = context
 
-  // Initialize Tutorial Manager with WebviewManager reference
-  TutorialManager.setWebviewManager(WebviewManager)
+  // TutorialManager ↔ WebviewManager wiring is deferred to first use
+  // (see START_TUTORIAL command handler below)
 
   // Initialize diagnostic collection
   diagnosticCollection =
@@ -404,12 +385,13 @@ async function activate(context) {
       executeCompile(true),
     ),
     vscode.commands.registerCommand(COMMANDS.RUN_CRT, runInCrt),
-    vscode.commands.registerCommand(COMMANDS.START_TUTORIAL, () =>
-      TutorialManager.startTutorial(extensionContext),
-    ),
+    vscode.commands.registerCommand(COMMANDS.START_TUTORIAL, () => {
+      // Lazy-wire on first use: load both modules and connect them
+      const tm = getTutorialManager()
+      tm.setWebviewManager(getWebviewManager())
+      return tm.startTutorial(extensionContext)
+    }),
     vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
-    vscode.commands.registerCommand(COMMANDS.TOGGLE_COMMENT, toggleComment),
-    vscode.commands.registerCommand(COMMANDS.EXTRACT_SUB, extractToSub),
   )
 
   // Event handlers with optimized debouncing
@@ -433,6 +415,34 @@ async function activate(context) {
       // Lint and update stats
       lintDocument(e.document)
       throttledStatsUpdate(e.document)
+    }),
+    vscode.workspace.onWillSaveTextDocument((e) => {
+      const autoFormat = getConfig(CONFIG.AUTO_FORMAT, true)
+      if (autoFormat && e.document.languageId === CONFIG.LANGUAGE_ID) {
+        try {
+          // Retrieve editor formatting options or default to 4 spaces
+          const editor = vscode.window.activeTextEditor
+          const tabSize =
+            editor && editor.document === e.document
+              ? editor.options.tabSize
+              : 4
+          const insertSpaces =
+            editor && editor.document === e.document
+              ? editor.options.insertSpaces
+              : true
+
+          const formatter = new QBasicDocumentFormattingEditProvider()
+          const edits = formatter.provideDocumentFormattingEdits(e.document, {
+            tabSize,
+            insertSpaces,
+          })
+          if (edits && edits.length > 0) {
+            e.waitUntil(Promise.resolve(edits))
+          }
+        } catch (err) {
+          console.error("Format on save failed:", err)
+        }
+      }
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
       lintDocument(doc)
@@ -518,84 +528,6 @@ async function showCodeStatsDetail() {
   )
 }
 
-/**
- * Toggle comment for selected lines
- */
-async function toggleComment() {
-  const editor = vscode.window.activeTextEditor
-  if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) return
-
-  const doc = editor.document
-  const selection = editor.selection
-
-  await editor.edit((editBuilder) => {
-    for (let i = selection.start.line; i <= selection.end.line; i++) {
-      const line = doc.lineAt(i)
-      const text = line.text
-      const trimmed = text.trimStart()
-      const leadingSpaces = text.length - trimmed.length
-
-      if (trimmed.startsWith("'")) {
-        // Uncomment
-        const newText =
-          text.substring(0, leadingSpaces) + trimmed.substring(1).trimStart()
-        editBuilder.replace(line.range, newText)
-      } else {
-        // Comment
-        const newText = text.substring(0, leadingSpaces) + "' " + trimmed
-        editBuilder.replace(line.range, newText)
-      }
-    }
-  })
-}
-
-/**
- * Extract selected code to a SUB
- */
-async function extractToSub(document, range) {
-  if (!document || !range) {
-    const editor = vscode.window.activeTextEditor
-    if (!editor) return
-    document = editor.document
-    range = editor.selection
-  }
-
-  const selectedText = document.getText(range)
-  if (!selectedText.trim()) {
-    vscode.window.showWarningMessage("Please select code to extract.")
-    return
-  }
-
-  const subName = await vscode.window.showInputBox({
-    prompt: "Enter name for the new SUB",
-    placeHolder: "MySub",
-    validateInput: (value) => {
-      if (!value) return "Name is required"
-      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
-        return "Invalid identifier name"
-      }
-      return null
-    },
-  })
-
-  if (!subName) return
-
-  const editor = vscode.window.activeTextEditor
-  if (!editor) return
-
-  await editor.edit((editBuilder) => {
-    // Replace selected code with CALL
-    editBuilder.replace(range, `CALL ${subName}`)
-
-    // Add SUB at end of document
-    const endPos = new vscode.Position(document.lineCount, 0)
-    const subCode = `\n\nSUB ${subName}\n    ${selectedText.split("\n").join("\n    ")}\nEND SUB`
-    editBuilder.insert(endPos, subCode)
-  })
-
-  vscode.window.showInformationMessage(`✅ Extracted to SUB ${subName}`)
-}
-
 // ============================================================================
 // COMPILE COMMAND
 // ============================================================================
@@ -662,11 +594,12 @@ async function runInCrt() {
     log("Transpiling for CRT Webview...", "info")
 
     // Transpile with 'web' target
+    const InternalTranspiler = getInternalTranspiler()
     const transpiler = new InternalTranspiler()
     const jsCode = transpiler.transpile(sourceCode, "web")
 
     // Launch Webview
-    await WebviewManager.runCode(
+    await getWebviewManager().runCode(
       jsCode,
       fileName,
       extensionContext.extensionUri,
@@ -721,6 +654,7 @@ async function runInternalTranspiler(document, shouldRun) {
   }
 
   try {
+    const InternalTranspiler = getInternalTranspiler()
     const transpiler = new InternalTranspiler()
     const outputExe = path.join(sourceDir, baseName + ".exe")
     const tempJs = path.join(sourceDir, `${baseName}._qbnx_.js`)
@@ -1090,11 +1024,8 @@ function updateStatusBar() {
 function deactivate() {
   console.log("[QBasic Nexus] Extension deactivated")
 
-  // Clear all pending lint timers
-  for (const timerId of pendingLints.values()) {
-    clearTimeout(timerId)
-  }
-  pendingLints.clear()
+  // Dispose the incremental linter (cancels all pending timers)
+  getIncrementalLinter().dispose()
 
   // Dispose resources
   statusBarItem?.dispose()
