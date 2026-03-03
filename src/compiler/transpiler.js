@@ -888,9 +888,6 @@ class Parser {
       if (!id) break
       const name = id.value
 
-      // Debug parsing
-      // console.log('Parsed ID:', name, 'Next:', this._peek());
-
       if (this._check(TokenType.PUNCTUATION) && this._peek().value === "(") {
         // Array element read
         this._matchPunc("(")

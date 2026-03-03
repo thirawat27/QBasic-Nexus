@@ -14,12 +14,14 @@
 
 "use strict"
 
+// Load vscode at top-level — was incorrectly re-required on every lint cycle
+const vscode = require("vscode")
 const InternalTranspiler = require("../compiler/transpiler")
 const { IncrementalTracker } = require("../compiler/cache")
 
 /**
  * Per-document linting state.
- * @typedef {{ tracker: IncrementalTracker, lastDiags: Array, transpiler: InternalTranspiler }} DocState
+ * @typedef {{ tracker: IncrementalTracker, lastDiags: Array }} DocState
  */
 
 class IncrementalLinter {
@@ -68,6 +70,7 @@ class IncrementalLinter {
 
   /**
    * Cancel and remove state for a closed document.
+   * Called from extension.js onDidCloseTextDocument to prevent memory leaks.
    * @param {string} uriKey
    */
   removeDocument(uriKey) {
@@ -110,8 +113,6 @@ class IncrementalLinter {
       // Reuse transpiler instance (avoids object creation overhead)
       const errors = this._transpiler.lint(source)
 
-      const vscode = require("vscode")
-
       const diagnostics = errors.map((err) => {
         const line = Math.max(0, Math.min(err.line, lineCount - 1))
         const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER)
@@ -131,27 +132,14 @@ class IncrementalLinter {
   }
 }
 
-// Severity lookup table (faster than switch)
-const _SEVERITY_MAP = {
-  warning: 2, // DiagnosticSeverity.Warning
-  info: 3, // DiagnosticSeverity.Information
-  hint: 4, // DiagnosticSeverity.Hint
-  error: 0, // DiagnosticSeverity.Error
-}
-
+// Severity lookup — maps directly to vscode enum (removed redundant int indirection table)
 function _getSeverity(level) {
-  // We require vscode lazily here since this module is loaded by Node tests too
-  const vscode = require("vscode")
-  const sev = _SEVERITY_MAP[level]
-  if (sev === undefined) return vscode.DiagnosticSeverity.Error
-  switch (sev) {
-    case 0:
-      return vscode.DiagnosticSeverity.Error
-    case 2:
+  switch (level) {
+    case "warning":
       return vscode.DiagnosticSeverity.Warning
-    case 3:
+    case "info":
       return vscode.DiagnosticSeverity.Information
-    case 4:
+    case "hint":
       return vscode.DiagnosticSeverity.Hint
     default:
       return vscode.DiagnosticSeverity.Error

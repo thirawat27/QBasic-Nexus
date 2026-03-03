@@ -120,7 +120,7 @@ class TieredCache {
   }
 
   has(key) {
-    return this.l1.has(key) || this.l2.has(key) !== undefined
+    return this.l1.has(key) || this.l2.get(key) !== undefined
   }
 
   clear() {

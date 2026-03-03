@@ -24,16 +24,18 @@ const FULLWIDTH_RE = /[\uFF04\uFE69]/g
 
 // Normalise Unicode curly quotes / fullwidth chars to ASCII once per compile
 function normalise(source) {
-  // Only run replacements when suspicious chars are present (fast check)
+  // Fast path: test once with a combined regex (covers mid-string Unicode too)
   if (
-    source.charCodeAt(0) < 0x80 &&
-    !source.includes("\u201C") &&
-    !source.includes("\uFF04") &&
-    !source.includes("\u2018")
+    !SMART_QUOTE_RE.test(source) &&
+    !SMART_APOS_RE.test(source) &&
+    !FULLWIDTH_RE.test(source)
   ) {
-    // Fast path: ASCII-only source (99% of QBasic files)
     return source
   }
+  // Reset stateful regex after .test() call
+  SMART_QUOTE_RE.lastIndex = 0
+  SMART_APOS_RE.lastIndex = 0
+  FULLWIDTH_RE.lastIndex = 0
   return source
     .replace(FULLWIDTH_RE, "$")
     .replace(SMART_QUOTE_RE, '"')

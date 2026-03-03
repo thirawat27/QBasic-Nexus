@@ -14,8 +14,8 @@
 const vscode = require("vscode")
 const fs = require("fs").promises
 const mitt = require("mitt")
-// pathe for cross-platform path handling (Windows-safe, no backslash issues)
-const pathe = require("pathe")
+// pathe: cross-platform path util (always uses forward slashes, safe on Windows)
+const { join: pathJoin } = require("pathe")
 
 /** Chunk size for large code payloads (64 KB) */
 const CHUNK_SIZE = 64 * 1024
@@ -242,22 +242,19 @@ class WebviewManager {
    * @private
    */
   static async _getHtmlForWebview(webview, extensionUri) {
+    // Use pathe.join for consistent forward-slash paths, then convert to vscode URI
+    const baseFsPath = extensionUri.fsPath
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, "src", "webview", "crt.css"),
+      vscode.Uri.file(pathJoin(baseFsPath, "src", "webview", "crt.css")),
     )
     const jsUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, "src", "webview", "runtime.js"),
+      vscode.Uri.file(pathJoin(baseFsPath, "src", "webview", "runtime.js")),
     )
 
     // Cache the raw HTML template; replace URIs each time (they're session-bound)
     if (!WebviewManager._htmlCache) {
-      const htmlPath = vscode.Uri.joinPath(
-        extensionUri,
-        "src",
-        "webview",
-        "runner.html",
-      )
-      WebviewManager._htmlCache = await fs.readFile(htmlPath.fsPath, "utf8")
+      const htmlPath = pathJoin(baseFsPath, "src", "webview", "runner.html")
+      WebviewManager._htmlCache = await fs.readFile(htmlPath, "utf8")
     }
 
     return WebviewManager._htmlCache
