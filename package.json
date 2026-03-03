@@ -34,12 +34,14 @@
     "devDependencies": {
         "@types/mocha": "^10.0.10",
         "@types/node": "25.x",
-        "@types/vscode": "^1.105.0",
+        "@types/vscode": "^1.109.0",
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
-        "eslint": "^9.39.2"
+        "eslint": "^10.0.2"
     },
-    "dependencies": {},
+    "dependencies": {
+        "pkg": "^5.8.1"
+    },
     "categories": [
         "Programming Languages",
         "Snippets",
@@ -211,11 +213,11 @@
                     "type": "string",
                     "enum": [
                         "QB64 (Recommended)",
-                        "Internal (JS Transpiler)"
+                        "Qbasic Nexus"
                     ],
                     "enumDescriptions": [
                         "Compile with QB64 for native executable (best performance)",
-                        "Transpile to JavaScript and run via Node.js (backup mode)"
+                        "Transpile QBasic to JavaScript via internal engine, then package as a native .exe using pkg"
                     ],
                     "default": "QB64 (Recommended)",
                     "markdownDescription": "Select the compilation mode.",
