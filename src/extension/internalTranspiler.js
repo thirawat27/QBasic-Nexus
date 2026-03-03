@@ -16,7 +16,9 @@ const { getOutputChannel, getTerminal, log } = require("./utils")
 const { updateStatusBar } = require("./statusBar")
 const { getInternalTranspiler } = require("./lazyModules")
 
-// pkg-compatible Node.js header — tells pkg which Node version to bundle
+// pkg-compatible Node.js header
+// Shebang only needed on macOS/Linux; Windows ignores it but it causes no harm.
+// Having it lets the fallback CLI `pkg` mode work on all platforms.
 const PKG_HEADER = `#!/usr/bin/env node
 // Built by QBasic Nexus — https://github.com/thirawat27/QBasic-Nexus
 `
@@ -66,7 +68,9 @@ async function runInternalTranspiler(document, shouldRun) {
   try {
     const InternalTranspiler = getInternalTranspiler()
     const transpiler = new InternalTranspiler()
-    const outputExe = path.join(sourceDir, baseName + ".exe")
+    // Platform-aware output extension: .exe on Windows, no extension elsewhere
+    const exeExt = process.platform === "win32" ? ".exe" : ""
+    const outputExe = path.join(sourceDir, baseName + exeExt)
     const tempJs = path.join(sourceDir, `${baseName}._qbnx_.js`)
 
     await vscode.window.withProgress(
@@ -110,32 +114,22 @@ async function runInternalTranspiler(document, shouldRun) {
         channel.appendLine("")
         report(65, "Packaging to .exe…")
 
+        // Cross-platform target detection
+        const platformTargets = {
+          win32: "node18-win-x64",
+          darwin: "node18-macos-x64",
+          linux: "node18-linux-x64",
+          alpine: "node18-alpine-x64",
+        }
+        const target = platformTargets[process.platform] || "node18-win-x64"
+
         try {
           // pkg programmatic API — suppresses the "> pkg@x.x.x" CLI banner
           const pkgApi = require("pkg")
-
-          // Cross-platform target detection
-          const platformTargets = {
-            win32: "node18-win-x64",
-            darwin: "node18-macos-x64",
-            linux: "node18-linux-x64",
-            alpine: "node18-alpine-x64",
-          }
-          const target = platformTargets[process.platform] || "node18-win-x64"
-
           await pkgApi.exec([tempJs, "--target", target, "--output", outputExe])
         } catch (_) {
           // fallback: spawn CLI if API unavailable
           channel.appendLine("  ⚠ pkg API unavailable, falling back to CLI…")
-
-          // Cross-platform target detection (same as above)
-          const platformTargets = {
-            win32: "node18-win-x64",
-            darwin: "node18-macos-x64",
-            linux: "node18-linux-x64",
-            alpine: "node18-alpine-x64",
-          }
-          const target = platformTargets[process.platform] || "node18-win-x64"
 
           await new Promise((resolve, reject) => {
             const proc = spawn(
@@ -150,9 +144,11 @@ async function runInternalTranspiler(document, shouldRun) {
               code === 0 ? resolve() : reject(new Error(`pkg exit ${code}`)),
             )
           })
-        } finally {
-          fs.unlink(tempJs).catch(() => {})
         }
+
+        // Clean up temp JS only AFTER pkg has fully finished
+        // (also cleaned in outer catch/finally via the variable kept in closure)
+        await fs.unlink(tempJs).catch(() => {})
 
         report(100, "Done ✓")
         channel.appendLine("")
@@ -170,7 +166,10 @@ async function runInternalTranspiler(document, shouldRun) {
     channel.appendLine("")
 
     vscode.window
-      .showInformationMessage(`✅ Compiled: ${baseName}.exe`, "Open Folder")
+      .showInformationMessage(
+        `✅ Compiled: ${baseName}${exeExt}`,
+        "Open Folder",
+      )
       .then((choice) => {
         if (choice === "Open Folder") {
           vscode.commands.executeCommand(
@@ -212,16 +211,14 @@ function runExecutable(exePath) {
   const dir = path.dirname(exePath)
   const exe = path.basename(exePath)
 
-  // Use platform-appropriate command, with properly escaped paths.
-  // Windows: use cmd /c to avoid PowerShell dependency and single-quote issues.
-  // Double-quoting handles paths with spaces.
   if (process.platform === "win32") {
-    // Escape any embedded double-quotes in the path (edge case)
-    const safeDir = dir.replace(/"/g, '\\"')
-    const safeExe = exe.replace(/"/g, '\\"')
-    term.sendText(`cmd /c "cd /d "${safeDir}" && "${safeExe}""`)
+    // Use start "title" /wait so cmd.exe handles quoting correctly even with
+    // spaces in dir or exe name. The empty first arg is the window title.
+    const safeDir = dir.replace(/"/g, '""')
+    const safeExe = exe.replace(/"/g, '""')
+    term.sendText(`cmd /c "cd /d "${safeDir}" && start "" /wait "${safeExe}""`)
   } else {
-    // macOS / Linux: use single-quoted paths (safe for most filenames)
+    // macOS / Linux: single-quote each segment; escape any embedded single-quotes
     const safeDir = dir.replace(/'/g, "'\\''")
     const safeExe = exe.replace(/'/g, "'\\''")
     term.sendText(`cd '${safeDir}' && './${safeExe}'`)

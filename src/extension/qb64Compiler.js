@@ -93,8 +93,9 @@ function compileWithQB64(document, compilerPath, channel) {
 
     // Build arguments
     const extraArgs = (getConfig(CONFIG.COMPILER_ARGS) || "")
-      .split(" ")
-      .filter((arg) => arg.trim().length > 0)
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
 
     const args = ["-x", "-c", sourcePath, "-o", outputPath, ...extraArgs]
 
@@ -113,8 +114,10 @@ function compileWithQB64(document, compilerPath, channel) {
     const startTime = process.hrtime()
 
     // Spawn process
+    // Use sourceDir as cwd so QB64 resolves $INCLUDE and relative paths correctly
+    // (compiler dir is NOT the right cwd on macOS/Linux)
     const proc = spawn(compilerPath, args, {
-      cwd: path.dirname(compilerPath),
+      cwd: sourceDir,
       shell: false,
     })
 

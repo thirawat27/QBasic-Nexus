@@ -41,6 +41,7 @@
         "eslint": "^10.0.2"
     },
     "dependencies": {
+        "@appthreat/caxa": "^2.0.13",
         "defu": "^6.1.4",
         "flru": "^1.0.2",
         "magic-string": "^0.30.21",

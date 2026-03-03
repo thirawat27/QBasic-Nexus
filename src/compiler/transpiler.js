@@ -210,7 +210,7 @@ class Parser {
     if (this._matchKw("WEND")) return this._parseWend()
     if (this._matchKw("SELECT")) return this._parseSelect()
     if (this._matchKw("EXIT")) return this._parseExit()
-    if (this._matchKw("STOP")) return this._emit('throw "STOP";')
+    if (this._matchKw("STOP")) return this._emit('throw "__END__"; // STOP')
 
     // Variables & Data
     if (this._matchKw("DIM")) return this._parseDim()
@@ -299,7 +299,7 @@ class Parser {
     if (this._matchKw("POKE")) return this._parsePoke()
 
     // ============ NEW: System Commands ============
-    if (this._matchKw("SYSTEM")) return this._emit('throw "SYSTEM";')
+    if (this._matchKw("SYSTEM")) return this._emit('throw "__END__"; // SYSTEM')
     if (this._matchKw("RUN")) return this._parseRun()
     if (this._matchKw("CHAIN")) return this._parseChain()
     if (this._matchKw("SHELL") || this._matchKw("_SHELL"))
@@ -572,7 +572,7 @@ class Parser {
       this._decIndent()
       this._emit("} // END FUNCTION")
     } else {
-      this._emit("return; // END")
+      this._emit('throw "__END__"; // END')
     }
   }
 
@@ -1420,7 +1420,7 @@ class Parser {
   _parseLimit() {
     // _LIMIT fps - Frame rate limiter
     const fps = this._parseExpr()
-    this._emit(`await window.runtime.limit(${fps});`)
+    this._emit(`await _runtime.limit?.(${fps});`)
   }
 
   // =========================================================================
@@ -1481,7 +1481,7 @@ class Parser {
     }
 
     this._emit(
-      `window.runtime.putimage(${dx1}, ${dy1}, ${dx2}, ${dy2}, ${srcId}, ${dstId}, ${sx1}, ${sy1}, ${sx2}, ${sy2});`,
+      `_runtime.putimage?.(${dx1}, ${dy1}, ${dx2}, ${dy2}, ${srcId}, ${dstId}, ${sx1}, ${sy1}, ${sx2}, ${sy2});`,
     )
   }
 
@@ -1496,13 +1496,13 @@ class Parser {
     this._matchPunc(",")
     const text = this._parseExpr()
 
-    this._emit(`window.runtime.printstring(${x}, ${y}, ${text});`)
+    this._emit(`_runtime.printstring?.(${x}, ${y}, ${text});`)
   }
 
   _parseFreeImage() {
     // _FREEIMAGE imageId
     const id = this._parseExpr()
-    this._emit(`window.runtime.freeimage(${id});`)
+    this._emit(`_runtime.freeimage?.(${id});`)
   }
 
   _parseMouseShow() {
@@ -1511,25 +1511,25 @@ class Parser {
     if (!this._isStmtEnd()) {
       style = this._parseExpr()
     }
-    this._emit(`window.runtime.mouseshow(${style});`)
+    this._emit(`_runtime.mouseshow?.(${style});`)
   }
 
   _parseSndPlay() {
     // _SNDPLAY sid
     const sid = this._parseExpr()
-    this._emit(`window.runtime.sndplay(${sid});`)
+    this._emit(`_runtime.sndplay?.(${sid});`)
   }
 
   _parseSndLoop() {
     // _SNDLOOP sid
     const sid = this._parseExpr()
-    this._emit(`window.runtime.sndloop(${sid});`)
+    this._emit(`_runtime.sndloop?.(${sid});`)
   }
 
   _parseSndClose() {
     // _SNDCLOSE sid
     const sid = this._parseExpr()
-    this._emit(`window.runtime.sndclose(${sid});`)
+    this._emit(`_runtime.sndclose?.(${sid});`)
   }
 
   _parseDefFn() {
@@ -2399,7 +2399,12 @@ class Parser {
       this.output.push(`
 const readline = require('readline');
 const { spawn } = require('child_process');
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: process.stdin.isTTY || false,
+  crlfDelay: Infinity,
+});
 
 function _print(text, newline) {
   if (newline) console.log(text);
@@ -2407,7 +2412,12 @@ function _print(text, newline) {
 }
 
 function _input(prompt) {
-  return new Promise(resolve => rl.question(prompt, answer => resolve(answer)));
+  return new Promise(resolve => {
+    if (rl.terminal === false || !process.stdin.isTTY) {
+      process.stdout.write(prompt || '');
+    }
+    rl.question(prompt || '', answer => resolve(answer));
+  });
 }
 
 function _cls() {
@@ -2417,82 +2427,84 @@ function _cls() {
     } else if (this.target === "web") {
       this.output.push(`
 // Web Runtime Environment (Optimized v1.1.0)
-// Safe window check to prevent ReferenceError in non-browser contexts
-const _runtime = (typeof window !== 'undefined' && window.runtime) ? window.runtime : {};
+// Safe runtime reference — works in both browser and Node.js (pkg)
+const _runtime = (typeof globalThis !== 'undefined' && globalThis.runtime) ? globalThis.runtime
+               : (typeof window   !== 'undefined' && window.runtime)       ? window.runtime
+               : {};
 const _print = _runtime.print || console.log;
-const _input = _runtime.input || prompt;
-const _cls = window.runtime?.cls || console.clear;
-const _locate = window.runtime?.locate || (() => {});
-const _color = window.runtime?.color || (() => {});
-const _beep = window.runtime?.beep || (() => {});
-const _sound = window.runtime?.sound || (() => {});
-const _play = window.runtime?.play || (() => {});
-const _screen = window.runtime?.screen || (() => {});
-const _width = window.runtime?.width || (() => {});
-const _pset = window.runtime?.pset || (() => {});
-const _preset = window.runtime?.preset || (() => {});
-const _line = window.runtime?.line || (() => {});
-const _circle = window.runtime?.circle || (() => {});
-const _get = window.runtime?.get || (() => {});
-const _put = window.runtime?.put || (() => {});
-const _mouseinput = window.runtime?.mouseinput || (() => 0);
-const _mousex = window.runtime?.mousex || (() => 0);
-const _mousey = window.runtime?.mousey || (() => 0);
-const _mousebutton = window.runtime?.mousebutton || (() => 0);
-const _timer = window.runtime?.timer || (() => Date.now() / 1000);
+const _input = _runtime.input || (typeof prompt !== 'undefined' ? prompt : (() => ''));
+const _cls = _runtime.cls || console.clear;
+const _locate = _runtime.locate || (() => {});
+const _color = _runtime.color || (() => {});
+const _beep = _runtime.beep || (() => {});
+const _sound = _runtime.sound || (() => {});
+const _play = _runtime.play || (() => {});
+const _screen = _runtime.screen || (() => {});
+const _width = _runtime.width || (() => {});
+const _pset = _runtime.pset || (() => {});
+const _preset = _runtime.preset || (() => {});
+const _line = _runtime.line || (() => {});
+const _circle = _runtime.circle || (() => {});
+const _get = _runtime.get || (() => {});
+const _put = _runtime.put || (() => {});
+const _mouseinput = _runtime.mouseinput || (() => 0);
+const _mousex = _runtime.mousex || (() => 0);
+const _mousey = _runtime.mousey || (() => 0);
+const _mousebutton = _runtime.mousebutton || (() => 0);
+const _timer = _runtime.timer || (() => Date.now() / 1000);
 
 // Advanced Image Functions
-const _LOADIMAGE = window.runtime?.loadimage || (() => -1);
-const _NEWIMAGE = window.runtime?.newimage || (() => -1);
-const _COPYIMAGE = window.runtime?.copyimage || (() => -1);
-const _FREEIMAGE = window.runtime?.freeimage || (() => {});
-const _PUTIMAGE = window.runtime?.putimage || (() => {});
-const _PRINTSTRING = window.runtime?.printstring || (() => {});
+const _LOADIMAGE = _runtime.loadimage || (() => -1);
+const _NEWIMAGE = _runtime.newimage || (() => -1);
+const _COPYIMAGE = _runtime.copyimage || (() => -1);
+const _FREEIMAGE = _runtime.freeimage || (() => {});
+const _PUTIMAGE = _runtime.putimage || (() => {});
+const _PRINTSTRING = _runtime.printstring || (() => {});
 
 // Advanced Mouse Functions
-const _MOUSEWHEEL = window.runtime?.mousewheel || (() => 0);
-const _MOUSEHIDE = window.runtime?.mousehide || (() => {});
-const _MOUSESHOW = window.runtime?.mouseshow || (() => {});
+const _MOUSEWHEEL = _runtime.mousewheel || (() => 0);
+const _MOUSEHIDE = _runtime.mousehide || (() => {});
+const _MOUSESHOW = _runtime.mouseshow || (() => {});
 
 // Advanced Keyboard Functions
-const _KEYDOWN = window.runtime?.keydown || (() => 0);
-const _KEYHIT = window.runtime?.keyhit || (() => 0);
-const _KEYCLEAR = window.runtime?.keyclear || (() => {});
+const _KEYDOWN = _runtime.keydown || (() => 0);
+const _KEYHIT = _runtime.keyhit || (() => 0);
+const _KEYCLEAR = _runtime.keyclear || (() => {});
 
 // Advanced Sound Functions
-const _SNDOPEN = window.runtime?.sndopen || (() => -1);
-const _SNDPLAY = window.runtime?.sndplay || (() => {});
-const _SNDLOOP = window.runtime?.sndloop || (() => {});
-const _SNDCLOSE = window.runtime?.sndclose || (() => {});
+const _SNDOPEN = _runtime.sndopen || (() => -1);
+const _SNDPLAY = _runtime.sndplay || (() => {});
+const _SNDLOOP = _runtime.sndloop || (() => {});
+const _SNDCLOSE = _runtime.sndclose || (() => {});
 
 // RGB Color Functions
-const _RGB32 = window.runtime?.rgb32 || ((r, g, b, a) => ((a||255) << 24) | (r << 16) | (g << 8) | b);
-const _RGBA32 = window.runtime?.rgba32 || _RGB32;
-const _RED32 = window.runtime?.red32 || ((c) => (c >> 16) & 0xFF);
-const _GREEN32 = window.runtime?.green32 || ((c) => (c >> 8) & 0xFF);
-const _BLUE32 = window.runtime?.blue32 || ((c) => c & 0xFF);
-const _ALPHA32 = window.runtime?.alpha32 || ((c) => (c >> 24) & 0xFF);
+const _RGB32 = _runtime.rgb32 || ((r, g, b, a) => ((a||255) << 24) | (r << 16) | (g << 8) | b);
+const _RGBA32 = _runtime.rgba32 || _RGB32;
+const _RED32 = _runtime.red32 || ((c) => (c >> 16) & 0xFF);
+const _GREEN32 = _runtime.green32 || ((c) => (c >> 8) & 0xFF);
+const _BLUE32 = _runtime.blue32 || ((c) => c & 0xFF);
+const _ALPHA32 = _runtime.alpha32 || ((c) => (c >> 24) & 0xFF);
 
 // Performance Functions
-const _LIMIT = window.runtime?.limit || (async () => {});
-const _DISPLAY = window.runtime?.display || (() => {});
+const _LIMIT = _runtime.limit || (async () => {});
+const _DISPLAY = _runtime.display || (() => {});
 
 // Advanced Math Functions
-const _CEIL = window.runtime?.ceil || Math.ceil;
-const _ROUND = window.runtime?.round || Math.round;
-const _HYPOT = window.runtime?.hypot || Math.hypot;
-const _D2R = window.runtime?.d2r || ((d) => d * (Math.PI / 180));
-const _R2D = window.runtime?.r2d || ((r) => r * (180 / Math.PI));
+const _CEIL = _runtime.ceil || Math.ceil;
+const _ROUND = _runtime.round || Math.round;
+const _HYPOT = _runtime.hypot || Math.hypot;
+const _D2R = _runtime.d2r || ((d) => d * (Math.PI / 180));
+const _R2D = _runtime.r2d || ((r) => r * (180 / Math.PI));
 
 // Extended Math Functions (from qbjs-main)
-const _ACOS = window.runtime?.acos || Math.acos;
-const _ASIN = window.runtime?.asin || Math.asin;
-const _ATAN2 = window.runtime?.atan2 || Math.atan2;
-const _FIX = window.runtime?.fix || ((x) => x < 0 ? Math.ceil(x) : Math.floor(x));
-const _SGN = window.runtime?.sgn || ((x) => x > 0 ? 1 : x < 0 ? -1 : 0);
+const _ACOS = _runtime.acos || Math.acos;
+const _ASIN = _runtime.asin || Math.asin;
+const _ATAN2 = _runtime.atan2 || Math.atan2;
+const _FIX = _runtime.fix || ((x) => x < 0 ? Math.ceil(x) : Math.floor(x));
+const _SGN = _runtime.sgn || ((x) => x > 0 ? 1 : x < 0 ? -1 : 0);
 
 // String Functions (for convenience)
-const _INSTR = window.runtime?.instr || ((a, b, c) => {
+const _INSTR = _runtime.instr || ((a, b, c) => {
   let start = 1, source, search;
   if (c !== undefined) { start = a; source = String(b); search = String(c); }
   else { source = String(a); search = String(b); }
@@ -2501,9 +2513,9 @@ const _INSTR = window.runtime?.instr || ((a, b, c) => {
 });
 
 // System Functions
-const _DESKTOPWIDTH = window.runtime?.desktopwidth || (() => window.screen.width);
-const _DESKTOPHEIGHT = window.runtime?.desktopheight || (() => window.screen.height);
-const _PAINT = window.runtime?.paint || (() => {});
+const _DESKTOPWIDTH = _runtime.desktopwidth || (() => (typeof screen !== 'undefined' ? screen.width : 1920));
+const _DESKTOPHEIGHT = _runtime.desktopheight || (() => (typeof screen !== 'undefined' ? screen.height : 1080));
+const _PAINT = _runtime.paint || (() => {});
 
 // Frame rate limiter (legacy)
 let _lastLimitTime = Date.now();
@@ -2688,6 +2700,11 @@ function _rnd() {
     // Screen/Width stubs - only for Node.js (web has them from runtime)
     if (this.target === "node") {
       this.output.push(`
+// Safe cross-environment runtime reference (Node.js / pkg)
+const _runtime = (typeof globalThis !== 'undefined' && globalThis.runtime) ? globalThis.runtime
+               : (typeof window   !== 'undefined' && window.runtime)       ? window.runtime
+               : {};
+
 // Screen mode (stub)
 let _screenMode = 0;
 function _screen(mode) {
@@ -2705,11 +2722,12 @@ function _width(cols, rows) {
 
     // Common code for both targets
     this.output.push(`
+
 // INKEY$ support
 let _inkeyBuffer = '';
 function INKEY() {
-  if (typeof window !== 'undefined' && window.runtime && window.runtime['inkey$']) {
-      return window.runtime['inkey$']();
+  if (typeof _runtime['inkey$'] === 'function') {
+      return _runtime['inkey$']();
   }
   const key = _inkeyBuffer;
   _inkeyBuffer = '';
@@ -2721,13 +2739,13 @@ const _files = {};
 let _nextFileNum = 1;
 
 // Mapped to runtime if available
-const _openFunc = window.runtime?.open || (() => {});
-const _closeFunc = window.runtime?.close || (() => {});
-const _printFileFunc = window.runtime?.printFile || (() => {});
-const _inputFileFunc = window.runtime?.inputFile || (() => {});
+const _openFunc = _runtime.open || (() => {});
+const _closeFunc = _runtime.close || (() => {});
+const _printFileFunc = _runtime.printFile || (() => {});
+const _inputFileFunc = _runtime.inputFile || (() => {});
 
 async function _open(filename, mode, filenum) {
-  if (typeof window !== 'undefined' && window.runtime) {
+  if (_runtime.open) {
       await _openFunc(filename, mode, filenum);
       return;
   }
@@ -2735,7 +2753,7 @@ async function _open(filename, mode, filenum) {
 }
 
 async function _close(filenum) {
-  if (typeof window !== 'undefined' && window.runtime) {
+  if (_runtime.close) {
       await _closeFunc(filenum);
       return;
   }
@@ -2770,19 +2788,31 @@ try {
   _emitFooter() {
     this.output.push(`
 } catch (e) {
-  if (e === "STOP") {
-      console.log("Program Stopped");
+  if (e === "__END__" || e === "STOP") {
+    // Normal program termination — do nothing, fall through to finally
   } else if (typeof e === 'string' && e.startsWith('GOTO_')) {
-      // GOTO jumped - normal execution ended via GOTO
-      console.log("Program ended via GOTO");
+    // GOTO jumped out of main body — normal for top-level GOTOs
   } else if (e && e.message) {
-      console.error('Runtime Error:', e.message);
-      if (typeof window !== 'undefined' && window.runtime?.error) {
-          window.runtime.error(e.message);
-      }
+    process.stderr.write('\nRuntime Error: ' + e.message + '\n');
+    if (typeof _runtime !== 'undefined' && typeof _runtime.error === 'function') {
+      _runtime.error(e.message);
+    }
+  } else if (e !== undefined && e !== null) {
+    process.stderr.write('\nError: ' + String(e) + '\n');
   }
 } finally {
-  ${this.target === "node" ? "rl.close();" : ""}
+  ${
+    this.target === "node"
+      ? `
+  // Flush stdout before exit
+  if (process.stdout.write('')) {
+    rl.close();
+    process.exit(0);
+  } else {
+    process.stdout.once('drain', () => { rl.close(); process.exit(0); });
+  }`
+      : ""
+  }
 }
 })();
 `)

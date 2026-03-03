@@ -6,6 +6,7 @@
 "use strict"
 
 const vscode = require("vscode")
+const path = require("path")
 const { CONFIG } = require("./constants")
 const { getOutputChannel } = require("./utils")
 
@@ -64,7 +65,7 @@ async function showCodeStatsDetail() {
   ch.clear()
   ch.show(true) // show without stealing focus
 
-  const fileName = doc.fileName.replace(/\\/g, "/").split("/").pop()
+  const fileName = path.basename(doc.fileName)
 
   ch.appendLine("╔══════════════════════════════════════════════════╗")
   ch.appendLine("║          📊 QBasic Nexus — Code Statistics        ║")
