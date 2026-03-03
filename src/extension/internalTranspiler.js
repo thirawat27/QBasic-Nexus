@@ -201,28 +201,52 @@ async function runInternalTranspiler(document, shouldRun) {
 }
 
 /**
- * Run compiled executable
+ * Run compiled executable using Node.js native child_process
+ * (no external packages — mirrors what the `open` npm package does internally)
  * @param {string} exePath - Full path to the executable
  */
 function runExecutable(exePath) {
-  const term = getTerminal()
-  term.show()
+  const channel = getOutputChannel()
 
-  const dir = path.dirname(exePath)
-  const exe = path.basename(exePath)
-
+  // Pick the platform-specific launcher:
+  //   Windows  → "cmd" with /c "start "" "<exe>""
+  //   macOS    → "open"
+  //   Linux    → "xdg-open"
+  let child
   if (process.platform === "win32") {
-    // Use start "title" /wait so cmd.exe handles quoting correctly even with
-    // spaces in dir or exe name. The empty first arg is the window title.
-    const safeDir = dir.replace(/"/g, '""')
-    const safeExe = exe.replace(/"/g, '""')
-    term.sendText(`cmd /c "cd /d "${safeDir}" && start "" /wait "${safeExe}""`)
+    // `start ""` opens a new console window for the exe.
+    // We wrap inside cmd /c so Node doesn't need to find "start" itself.
+    child = spawn("cmd", ["/c", "start", "", exePath], {
+      cwd: path.dirname(exePath),
+      detached: true, // let the child outlive the extension host
+      stdio: "ignore", // detach stdio so the process is truly independent
+      shell: false,
+    })
+  } else if (process.platform === "darwin") {
+    child = spawn("open", [exePath], {
+      cwd: path.dirname(exePath),
+      detached: true,
+      stdio: "ignore",
+    })
   } else {
-    // macOS / Linux: single-quote each segment; escape any embedded single-quotes
-    const safeDir = dir.replace(/'/g, "'\\''")
-    const safeExe = exe.replace(/'/g, "'\\''")
-    term.sendText(`cd '${safeDir}' && './${safeExe}'`)
+    // Linux / other POSIX
+    child = spawn("xdg-open", [exePath], {
+      cwd: path.dirname(exePath),
+      detached: true,
+      stdio: "ignore",
+    })
   }
+
+  // Detach the child so it runs independently after the parent closes
+  child.unref()
+
+  child.on("error", (err) => {
+    channel.appendLine(`  ⚠ Could not launch executable: ${err.message}`)
+    const term = getTerminal()
+    term.show()
+    const safeExe = exePath.replace(/"/g, '""')
+    term.sendText(`cmd /c "${safeExe}"`)
+  })
 }
 
 module.exports = { runInternalTranspiler, runExecutable }
