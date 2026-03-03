@@ -1,339 +1,299 @@
 /**
- * Compiler wrapper that provides a unified interface for QBasic compilation
- * Integrates lexer, transpiler, caching, and error recovery systems
+ * QBasic Nexus - High-Performance Compiler Wrapper
+ * =================================================
+ * Unified compiler interface with caching and error recovery
+ * 
+ * @author Thirawat27
+ * @version 1.2.0
  */
 
-"use strict"
+'use strict';
 
-const Lexer = require("./lexer")
-const workerManager = require("./WorkerManager")
-const { getGlobalCache } = require("./cache")
-const { DiagnosticCollector, ErrorCategory } = require("./diagnostics")
-const vm = require("vm")
+const Lexer = require('./lexer');
+const InternalTranspiler = require('./transpiler');
+const { getGlobalCache } = require('./cache');
+const { DiagnosticCollector, ErrorCategory, ErrorRecovery } = require('./error-recovery');
 
-// Default compilation options
+/**
+ * Compiler options
+ */
 const DEFAULT_OPTIONS = {
-  target: "web",
-  cache: true,
-  strictMode: false,
-  optimizationLevel: 2,
-  sourceMap: false,
-  maxErrors: 100,
-}
+    target: 'web',           // 'web' or 'node'
+    cache: true,             // Enable compilation cache
+    strictMode: false,       // Strict error checking
+    optimizationLevel: 2,    // 0=none, 1=basic, 2=aggressive
+    sourceMap: false,        // Generate source maps
+    maxErrors: 100           // Maximum errors before stopping
+};
 
-// Encapsulates the result of a compilation including code, diagnostics, and metadata
+/**
+ * Compilation result
+ */
 class CompilationResult {
-  constructor(code, diagnostics, metadata = {}) {
-    this.code = code
-    this.diagnostics = diagnostics
-    this.metadata = metadata
-    this.success = !diagnostics.hasErrors()
-  }
-
-  isSuccess() {
-    return this.success
-  }
-
-  getCode() {
-    return this.code
-  }
-
-  getDiagnostics() {
-    return this.diagnostics.getAll()
-  }
-
-  getErrors() {
-    return this.diagnostics.getBySeverity("error")
-  }
-
-  getWarnings() {
-    return this.diagnostics.getBySeverity("warning")
-  }
-
-  formatDiagnostics() {
-    return this.diagnostics.format()
-  }
-
-  getMetadata() {
-    return this.metadata
-  }
+    constructor(code, diagnostics, metadata = {}) {
+        this.code = code;
+        this.diagnostics = diagnostics;
+        this.metadata = metadata;
+        this.success = !diagnostics.hasErrors();
+    }
+    
+    /**
+     * Check if compilation was successful
+     */
+    isSuccess() {
+        return this.success;
+    }
+    
+    /**
+     * Get generated code
+     */
+    getCode() {
+        return this.code;
+    }
+    
+    /**
+     * Get all diagnostics
+     */
+    getDiagnostics() {
+        return this.diagnostics.getAll();
+    }
+    
+    /**
+     * Get errors only
+     */
+    getErrors() {
+        return this.diagnostics.getBySeverity('error');
+    }
+    
+    /**
+     * Get warnings only
+     */
+    getWarnings() {
+        return this.diagnostics.getBySeverity('warning');
+    }
+    
+    /**
+     * Format diagnostics for display
+     */
+    formatDiagnostics() {
+        return this.diagnostics.format();
+    }
+    
+    /**
+     * Get compilation metadata
+     */
+    getMetadata() {
+        return this.metadata;
+    }
 }
 
-// Main compiler class that orchestrates lexing, parsing, and code generation
+/**
+ * High-performance QBasic compiler
+ */
 class Compiler {
-  constructor(options = {}) {
-    this.options = { ...DEFAULT_OPTIONS, ...options }
-    this.cache = this.options.cache ? getGlobalCache() : null
-    this.stats = {
-      compilations: 0,
-      cacheHits: 0,
-      cacheMisses: 0,
-      totalTime: 0,
-      avgTime: 0,
+    constructor(options = {}) {
+        this.options = { ...DEFAULT_OPTIONS, ...options };
+        this.cache = this.options.cache ? getGlobalCache() : null;
+        this.stats = {
+            compilations: 0,
+            cacheHits: 0,
+            cacheMisses: 0,
+            totalTime: 0,
+            avgTime: 0
+        };
     }
-  }
-
-  // Compiles QBasic source code to JavaScript, using cache when available
-  async compile(source) {
-    const startTime = process.hrtime.bigint()
-
-    if (this.cache) {
-      const cached = this.cache.getCode(source, this.options.target)
-      if (cached) {
-        this.stats.cacheHits++
-        this.stats.compilations++
-
-        const diagnostics = new DiagnosticCollector()
-        for (const err of cached.errors || []) {
-          diagnostics.add(err)
+    
+    /**
+     * Compile QBasic source code
+     */
+    compile(source) {
+        const startTime = process.hrtime.bigint();
+        
+        // Check cache first
+        if (this.cache) {
+            const cached = this.cache.getCode(source, this.options.target);
+            if (cached) {
+                this.stats.cacheHits++;
+                this.stats.compilations++;
+                
+                const diagnostics = new DiagnosticCollector();
+                for (const err of cached.errors || []) {
+                    diagnostics.add(err);
+                }
+                
+                return new CompilationResult(cached.code, diagnostics, {
+                    cached: true,
+                    cacheAge: Date.now() - cached.timestamp
+                });
+            }
+            this.stats.cacheMisses++;
         }
-
-        return new CompilationResult(cached.code, diagnostics, {
-          cached: true,
-          cacheAge: Date.now() - cached.timestamp,
-        })
-      }
-      this.stats.cacheMisses++
-    }
-
-    const diagnostics = new DiagnosticCollector()
-
-    try {
-      const lexerStart = process.hrtime.bigint()
-      const lexer = new Lexer(source)
-      const tokens = lexer.tokenize()
-      const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1000000
-
-      const parserStart = process.hrtime.bigint()
-      const code = await workerManager.transpileAsync(
-        source,
-        this.options.target,
-      )
-      const parserTime = Number(process.hrtime.bigint() - parserStart) / 1000000
-
-      // Add Acorn Validation to catch Transpiler bugs
-      try {
-        const acorn = require("acorn")
-        acorn.parse(code, {
-          ecmaVersion: 2022,
-          sourceType: "script",
-          locations: true,
-          ranges: true,
-          allowReturnOutsideFunction: true,
-        })
-      } catch (acornErr) {
-        diagnostics.error(
-          ErrorCategory.RUNTIME,
-          `Transpiler generated invalid JavaScript: ${acornErr.message}`,
-          acornErr.loc?.line || 1,
-          acornErr.loc?.column || 0,
-        )
-      }
-
-      const errors = await workerManager.lintAsync(source)
-      for (const err of errors) {
-        diagnostics.error(
-          ErrorCategory.SYNTAX,
-          err.message,
-          err.line,
-          err.column,
-        )
-      }
-
-      // Step 2: Use SWC for ultra-fast transpilation, optimization, and minification
-      let finalCode = code
-      if (!diagnostics.hasErrors()) {
+        
+        // Initialize diagnostic collector
+        const diagnostics = new DiagnosticCollector();
+        
         try {
-          const swc = require("@swc/core")
-          const swcResult = await swc.transform(code, {
-            jsc: {
-              parser: { syntax: "ecmascript" },
-              target: "es2022",
-              minify: {
-                compress: { unused: true, drop_console: false },
-                mangle: true,
-              },
-            },
-            minify: true,
-            sourceMaps: false,
-          })
-
-          let optimizedCode = swcResult.code
-
-          // Step 3: Bundle with esbuild (In-Memory)
-          const esbuild = require("esbuild")
-          const bundled = await esbuild.build({
-            stdin: {
-              contents: optimizedCode,
-              loader: "js",
-              resolveDir: process.cwd(),
-            },
-            bundle: true,
-            minify: true,
-            write: false,
-            outfile: "out.js",
-            target: "es2022",
-            format: this.options.target === "node" ? "cjs" : "iife",
-          })
-
-          finalCode = bundled.outputFiles[0].text
-        } catch (optimizeErr) {
-          // Fallback to original code if optimization pipeline fails and log issue
-          console.warn(
-            "[QBasic Nexus] Optimization Pipeline failed",
-            optimizeErr,
-          )
+            // Lexical analysis
+            const lexerStart = process.hrtime.bigint();
+            const lexer = new Lexer(source);
+            const tokens = lexer.tokenize();
+            const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1000000;
+            
+            // Syntax analysis and code generation
+            const parserStart = process.hrtime.bigint();
+            const transpiler = new InternalTranspiler();
+            const code = transpiler.transpile(source, this.options.target);
+            const parserTime = Number(process.hrtime.bigint() - parserStart) / 1000000;
+            
+            // Get errors using lint method
+            const errors = transpiler.lint(source);
+            for (const err of errors) {
+                diagnostics.error(
+                    ErrorCategory.SYNTAX,
+                    err.message,
+                    err.line,
+                    err.column
+                );
+            }
+            
+            // Cache result if enabled
+            if (this.cache && !diagnostics.hasErrors()) {
+                this.cache.setCode(source, this.options.target, code, diagnostics.getAll());
+            }
+            
+            // Update statistics
+            const totalTime = Number(process.hrtime.bigint() - startTime) / 1000000;
+            this.stats.compilations++;
+            this.stats.totalTime += totalTime;
+            this.stats.avgTime = this.stats.totalTime / this.stats.compilations;
+            
+            return new CompilationResult(code, diagnostics, {
+                cached: false,
+                lexerTime,
+                parserTime,
+                totalTime,
+                tokenCount: tokens.length,
+                lineCount: source.split('\n').length,
+                sourceSize: source.length
+            });
+            
+        } catch (error) {
+            // Handle unexpected errors
+            diagnostics.error(
+                ErrorCategory.RUNTIME,
+                `Internal compiler error: ${error.message}`,
+                1,
+                0
+            );
+            
+            return new CompilationResult('', diagnostics, {
+                cached: false,
+                error: error.message
+            });
         }
-      }
-
-      if (this.cache && !diagnostics.hasErrors()) {
-        this.cache.setCode(
-          source,
-          this.options.target,
-          finalCode,
-          diagnostics.getAll(),
-        )
-      }
-
-      const totalTime = Number(process.hrtime.bigint() - startTime) / 1000000
-      this.stats.compilations++
-      this.stats.totalTime += totalTime
-      this.stats.avgTime = this.stats.totalTime / this.stats.compilations
-
-      return new CompilationResult(finalCode, diagnostics, {
-        cached: false,
-        lexerTime,
-        parserTime,
-        totalTime,
-        tokenCount: tokens.length,
-        lineCount: source.split("\n").length,
-        sourceSize: source.length,
-      })
-    } catch (error) {
-      diagnostics.error(
-        ErrorCategory.RUNTIME,
-        `Internal compiler error: ${error.message}`,
-        1,
-        0,
-      )
-
-      return new CompilationResult("", diagnostics, {
-        cached: false,
-        error: error.message,
-      })
     }
-  }
-
-  // Compiles and immediately executes code (Node.js target only)
-  async compileAndRun(source) {
-    const result = await this.compile(source)
-
-    if (!result.isSuccess()) {
-      throw new Error("Compilation failed:\n" + result.formatDiagnostics())
+    
+    /**
+     * Compile and run (for Node.js target)
+     */
+    async compileAndRun(source) {
+        const result = this.compile(source);
+        
+        if (!result.isSuccess()) {
+            throw new Error('Compilation failed:\n' + result.formatDiagnostics());
+        }
+        
+        if (this.options.target !== 'node') {
+            throw new Error('compileAndRun is only available for Node.js target');
+        }
+        
+        // Execute the generated code
+        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+        const fn = new AsyncFunction(result.getCode());
+        return await fn();
     }
-
-    if (this.options.target !== "node") {
-      throw new Error("compileAndRun is only available for Node.js target")
+    
+    /**
+     * Get compiler statistics
+     */
+    getStats() {
+        const stats = { ...this.stats };
+        
+        if (this.cache) {
+            stats.cache = this.cache.getStats();
+        }
+        
+        return stats;
     }
-
-    // --- NATIVE V8 JIT EXECUTION ENGINE ---
-    // Encapsulating the Javascript execution using V8's native Virtual Machine framework
-    // This pre-compiles and optimizes the code akin to real native C++ runtime behavior
-    const context = vm.createContext({
-      require: require,
-      console: console,
-      process: process,
-      setTimeout: setTimeout,
-      clearTimeout: clearTimeout,
-      setInterval: setInterval,
-      clearInterval: clearInterval,
-      Buffer: Buffer,
-      __dirname: __dirname,
-      Error: Error,
-      Math: Math,
-      Date: Date,
-    })
-
-    const script = new vm.Script(result.getCode(), {
-      filename: "QBasicNativeRuntime.js",
-      produceCachedData: true,
-      displayErrors: true,
-    })
-
-    // Execute directly in the native V8 Sandbox execution layer
-    return await script.runInContext(context)
-  }
-
-  getStats() {
-    const stats = { ...this.stats }
-
-    if (this.cache) {
-      stats.cache = this.cache.getStats()
+    
+    /**
+     * Clear cache
+     */
+    clearCache() {
+        if (this.cache) {
+            this.cache.clear();
+        }
     }
-
-    return stats
-  }
-
-  clearCache() {
-    if (this.cache) {
-      this.cache.clear()
+    
+    /**
+     * Reset statistics
+     */
+    resetStats() {
+        this.stats = {
+            compilations: 0,
+            cacheHits: 0,
+            cacheMisses: 0,
+            totalTime: 0,
+            avgTime: 0
+        };
     }
-  }
-
-  resetStats() {
-    this.stats = {
-      compilations: 0,
-      cacheHits: 0,
-      cacheMisses: 0,
-      totalTime: 0,
-      avgTime: 0,
-    }
-  }
-
-  formatStats() {
-    const stats = this.getStats()
-    const hitRate =
-      stats.compilations > 0
-        ? ((stats.cacheHits / stats.compilations) * 100).toFixed(2)
-        : "0.00"
-
-    return `
+    
+    /**
+     * Format statistics for display
+     */
+    formatStats() {
+        const stats = this.getStats();
+        const hitRate = stats.compilations > 0 
+            ? ((stats.cacheHits / stats.compilations) * 100).toFixed(2)
+            : '0.00';
+        
+        return `
 Compiler Statistics:
   Total Compilations: ${stats.compilations}
   Cache Hits: ${stats.cacheHits} (${hitRate}%)
   Cache Misses: ${stats.cacheMisses}
   Average Time: ${stats.avgTime.toFixed(3)} ms
   Total Time: ${stats.totalTime.toFixed(3)} ms
-${
-  stats.cache
-    ? `
+${stats.cache ? `
 Cache Statistics:
   Hit Rate: ${stats.cache.hitRate}
   Token Cache: ${stats.cache.tokenCache.utilization}
   Code Cache: ${stats.cache.codeCache.utilization}
-`
-    : ""
-}
-        `.trim()
-  }
+` : ''}
+        `.trim();
+    }
 }
 
-// Convenience function for one-off compilation
-async function compile(source, options = {}) {
-  const compiler = new Compiler(options)
-  return await compiler.compile(source)
+/**
+ * Quick compile function for simple use cases
+ */
+function compile(source, options = {}) {
+    const compiler = new Compiler(options);
+    return compiler.compile(source);
 }
 
-// Convenience function for compile and execute in one step
+/**
+ * Quick compile and run function
+ */
 async function compileAndRun(source, options = {}) {
-  const compiler = new Compiler({ ...options, target: "node" })
-  return await compiler.compileAndRun(source)
+    const compiler = new Compiler({ ...options, target: 'node' });
+    return await compiler.compileAndRun(source);
 }
 
 module.exports = {
-  Compiler,
-  CompilationResult,
-  compile,
-  compileAndRun,
-  DEFAULT_OPTIONS,
-}
+    Compiler,
+    CompilationResult,
+    compile,
+    compileAndRun,
+    DEFAULT_OPTIONS
+};

@@ -1,3 +1,34 @@
+/**
+ * QBasic Nexus - Next-Gen Neon CRT Runtime v1.1.0
+ * ===============================================
+ * The heartbeat of QBasic Nexus's execution environment. This advanced runtime
+ * simulates a retro CRT experience with modern Neon aesthetics while ensuring
+ * peak performance and stability.
+ * 
+ * 🚀 v1.1.0 Key Improvements & Optimizations:
+ * 
+ * 1. 🛡️ Robust Resource Management:
+ *    - Strict limits on Images (100), Sounds (32), and Buffers to prevent memory leaks.
+ *    - Intelligent auto-cleanup strategies that recycle oldest resources first.
+ *    - Input event listener sanitation to ensure clean restarts.
+ * 
+ * 2. 💾 Persistent Virtual File System (VFS):
+ *    - Fully functional in-memory filesystem with 10MB storage limit.
+ *    - Persistent data storage powered by localStorage for specific use cases.
+ * 
+ * 3. 🏎️ High-Performance Graphics:
+ *    - Optimized Canvas API usage with limited repaints.
+ *    - Cached Glow effects and RGB calculations for buttery smooth rendering.
+ *    - SpanPool architecture to minimize DOM thrashing and GC pressure.
+ * 
+ * 4. 🔊 Enhanced Audio Engine:
+ *    - Async audio context handling with precise oscillator tracking.
+ *    - Proper gain node management for clear, artifact-free sound.
+ * 
+ * @author Thirawat27
+ * @version 1.1.0
+ */
+
 /* global requestAnimationFrame, cancelAnimationFrame, Image, Audio, requestIdleCallback */
 
 (function() {
@@ -12,6 +43,7 @@
     const canvas = document.getElementById('gfx-layer');
     
     // Global directives for linters
+    /* global localStorage */
 
     // =========================================================================
     // STATE

@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "Professional QBasic/QB64 Environment with Real-time Diagnostics, Neon Graphics, and Advanced Web Transpiler.",
-    "version": "1.4.0",
+    "version": "1.2.0",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -18,15 +18,6 @@
     "engines": {
         "vscode": "^1.105.0"
     },
-    "capabilities": {
-        "untrustedWorkspaces": {
-            "supported": "limited",
-            "description": "QBasic Nexus requires trust for running compiled code."
-        },
-        "virtualWorkspaces": {
-            "supported": true
-        }
-    },
     "main": "./extension.js",
     "scripts": {
         "lint": "eslint .",
@@ -36,21 +27,19 @@
         "benchmark": "node test/benchmark-compiler.js",
         "test:compiler": "node test/test-transpiler.js",
         "test:variables": "node test/test-variable-declaration.js",
-        "test:providers": "node test/test-providers.js",
-        "test:all": "npm run test:compiler && npm run test:variables && npm run test:providers && npm run benchmark",
+        "test:all": "npm run test:compiler && npm run test:variables && npm run benchmark",
         "package": "vsce package",
         "publish": "vsce publish"
     },
     "devDependencies": {
-        "@eslint/js": "^10.0.1",
         "@types/mocha": "^10.0.10",
         "@types/node": "25.x",
         "@types/vscode": "^1.105.0",
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
-        "eslint": "^10.0.2",
-        "globals": "^17.4.0"
+        "eslint": "^9.39.2"
     },
+    "dependencies": {},
     "categories": [
         "Programming Languages",
         "Snippets",
@@ -91,43 +80,38 @@
         "commands": [
             {
                 "command": "qbasic-nexus.compile",
-                "title": "QBasic Compile 🔨",
+                "title": "QBasic: Compile 🔨",
                 "icon": "$(tools)"
             },
             {
                 "command": "qbasic-nexus.compileAndRun",
-                "title": "QBasic Compile & Run 🌀",
+                "title": "QBasic: Compile & Run 🌀",
                 "icon": "$(play)"
             },
             {
                 "command": "qbasic-nexus.runInCrt",
-                "title": "QBasic Run in Retro CRT 📺",
+                "title": "QBasic: Run in Retro CRT 📺",
                 "icon": "$(device-desktop)"
             },
             {
                 "command": "qbasic-nexus.startTutorial",
-                "title": "QBasic Start Interactive Tutorial 🎮",
+                "title": "QBasic: Start Interactive Tutorial 🎮",
                 "icon": "$(mortar-board)"
             },
             {
                 "command": "qbasic-nexus.showCodeStats",
-                "title": "QBasic Show Code Statistics 📊",
+                "title": "QBasic: Show Code Statistics 📊",
                 "icon": "$(graph)"
             },
             {
                 "command": "qbasic-nexus.toggleComment",
-                "title": "QBasic Toggle Comment 💬",
+                "title": "QBasic: Toggle Comment 💬",
                 "icon": "$(comment)"
             },
             {
                 "command": "qbasic-nexus.extractToSub",
-                "title": "QBasic Extract to SUB 📦",
+                "title": "QBasic: Extract to SUB 📦",
                 "icon": "$(symbol-method)"
-            },
-            {
-                "command": "qbasic-nexus.showVersion",
-                "title": "QBasic Show Version 🏷️",
-                "icon": "$(info)"
             }
         ],
         "menus": {
@@ -227,11 +211,11 @@
                     "type": "string",
                     "enum": [
                         "QB64 (Recommended)",
-                        "QBasic Nexus"
+                        "Internal (JS Transpiler)"
                     ],
                     "enumDescriptions": [
                         "Compile with QB64 for native executable (best performance)",
-                        "Run instantly in Web Runtime with full UI/Audio capabilities"
+                        "Transpile to JavaScript and run via Node.js (backup mode)"
                     ],
                     "default": "QB64 (Recommended)",
                     "markdownDescription": "Select the compilation mode.",
@@ -262,49 +246,8 @@
                     "default": false,
                     "markdownDescription": "Automatically format the document when saving.",
                     "scope": "resource"
-                },
-                "qbasic-nexus.enableAutoDetection": {
-                    "type": "boolean",
-                    "default": true,
-                    "markdownDescription": "Automatically detect QB64 compiler installation on startup.",
-                    "scope": "machine"
-                },
-                "qbasic-nexus.terminalIntegration": {
-                    "type": "string",
-                    "enum": [
-                        "integrated",
-                        "external"
-                    ],
-                    "enumDescriptions": [
-                        "Use VS Code integrated terminal",
-                        "Use external system terminal"
-                    ],
-                    "default": "integrated",
-                    "markdownDescription": "Terminal to use for running compiled programs.",
-                    "scope": "resource"
-                },
-                "qbasic-nexus.nativeOptimizations": {
-                    "type": "boolean",
-                    "default": true,
-                    "markdownDescription": "Enable native platform optimizations for better performance.",
-                    "scope": "resource"
-                },
-                "qbasic-nexus.workerThreads": {
-                    "type": "number",
-                    "default": 0,
-                    "minimum": 0,
-                    "maximum": 16,
-                    "markdownDescription": "Number of worker threads for compilation (0 = auto-detect based on CPU cores).",
-                    "scope": "machine"
                 }
             }
         }
-    },
-    "dependencies": {
-        "@swc/core": "^1.15.18",
-        "acorn": "^8.16.0",
-        "esbuild": "^0.27.3",
-        "lodash": "^4.17.23",
-        "pkg": "^5.8.1"
     }
 }

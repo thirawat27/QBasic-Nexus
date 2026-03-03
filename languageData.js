@@ -1,8 +1,21 @@
+/**
+ * QBasic Nexus - Language Data
+ * =============================
+ * Keyword and function definitions for IntelliSense features.
+ * 
+ * @author Thirawat27
+ * @version 1.1.0
+ * @license MIT
+ */
+
 'use strict';
 
-// QBasic keyword definitions for IntelliSense
+// ============================================================================
+// KEYWORDS
+// ============================================================================
 
 const KEYWORDS = {
+    // I/O
     PRINT: { label: 'PRINT', detail: 'Output text to the screen' },
     INPUT: { label: 'INPUT', detail: 'Get user input from keyboard' },
     CLS: { label: 'CLS', detail: 'Clear the screen' },
@@ -12,6 +25,7 @@ const KEYWORDS = {
     POS: { label: 'POS', detail: 'Returns current cursor column' },
     BEEP: { label: 'BEEP', detail: 'Produce a beep sound' },
 
+    // Control Flow
     IF: { label: 'IF', detail: 'Conditional statement' },
     THEN: { label: 'THEN', detail: 'Execute if condition is true' },
     ELSE: { label: 'ELSE', detail: 'Alternative branch' },
@@ -22,6 +36,7 @@ const KEYWORDS = {
     STOP: { label: 'STOP', detail: 'Stop program execution' },
     SYSTEM: { label: 'SYSTEM', detail: 'Exit program and return to OS' },
 
+    // Loops
     FOR: { label: 'FOR', detail: 'Counting loop' },
     TO: { label: 'TO', detail: 'Loop end value' },
     STEP: { label: 'STEP', detail: 'Loop increment' },
@@ -33,6 +48,7 @@ const KEYWORDS = {
     UNTIL: { label: 'UNTIL', detail: 'Loop until condition' },
     EXIT: { label: 'EXIT', detail: 'Exit loop/sub/function early' },
 
+    // Variables
     DIM: { label: 'DIM', detail: 'Declare variable/array' },
     AS: { label: 'AS', detail: 'Specify data type' },
     CONST: { label: 'CONST', detail: 'Define constant' },
@@ -44,6 +60,7 @@ const KEYWORDS = {
     PRESERVE: { label: 'PRESERVE', detail: 'Keep data when using REDIM' },
     ERASE: { label: 'ERASE', detail: 'Clear array' },
 
+    // Data Types
     INTEGER: { label: 'INTEGER', detail: '16-bit signed integer (-32768 to 32767)' },
     LONG: { label: 'LONG', detail: '32-bit signed integer' },
     SINGLE: { label: 'SINGLE', detail: '32-bit floating point' },
@@ -55,6 +72,7 @@ const KEYWORDS = {
     _FLOAT: { label: '_FLOAT', detail: 'QB64: Extended precision float' },
     _UNSIGNED: { label: '_UNSIGNED', detail: 'QB64: Unsigned number modifier' },
 
+    // Procedures
     SUB: { label: 'SUB', detail: 'Define subroutine' },
     FUNCTION: { label: 'FUNCTION', detail: 'Define function' },
     CALL: { label: 'CALL', detail: 'Call subroutine' },
@@ -63,10 +81,12 @@ const KEYWORDS = {
     BYVAL: { label: 'BYVAL', detail: 'Pass parameter by value' },
     BYREF: { label: 'BYREF', detail: 'Pass parameter by reference' },
 
+    // Data Statements
     DATA: { label: 'DATA', detail: 'Store data values' },
     READ: { label: 'READ', detail: 'Read data values' },
     RESTORE: { label: 'RESTORE', detail: 'Reset data pointer' },
 
+    // Operators
     AND: { label: 'AND', detail: 'Logical/bitwise AND' },
     OR: { label: 'OR', detail: 'Logical/bitwise OR' },
     NOT: { label: 'NOT', detail: 'Logical/bitwise NOT' },
@@ -75,10 +95,12 @@ const KEYWORDS = {
     IMP: { label: 'IMP', detail: 'Logical implication' },
     EQV: { label: 'EQV', detail: 'Logical equivalence' },
 
+    // Branching
     GOTO: { label: 'GOTO', detail: 'Jump to label' },
     GOSUB: { label: 'GOSUB', detail: 'Call subroutine at label' },
     ON: { label: 'ON', detail: 'Branch on value or event' },
 
+    // File I/O
     OPEN: { label: 'OPEN', detail: 'Open a file' },
     CLOSE: { label: 'CLOSE', detail: 'Close a file' },
     PRINT_HASH: { label: 'PRINT #', detail: 'Write to file' },
@@ -98,6 +120,7 @@ const KEYWORDS = {
     RMDIR: { label: 'RMDIR', detail: 'Remove directory' },
     CHDIR: { label: 'CHDIR', detail: 'Change directory' },
 
+    // Graphics
     SCREEN: { label: 'SCREEN', detail: 'Set screen mode' },
     PSET: { label: 'PSET', detail: 'Set pixel color' },
     PRESET: { label: 'PRESET', detail: 'Reset pixel' },
@@ -111,11 +134,14 @@ const KEYWORDS = {
     PALETTE: { label: 'PALETTE', detail: 'Set palette colors' },
     PCOPY: { label: 'PCOPY', detail: 'Copy screen page' },
 
+    // Sound
     SOUND: { label: 'SOUND', detail: 'Play sound' },
     PLAY: { label: 'PLAY', detail: 'Play music string' },
 
+    // Type/Structure
     TYPE: { label: 'TYPE', detail: 'Define user type' },
 
+    // Misc
     SLEEP: { label: 'SLEEP', detail: 'Pause execution' },
     TIMER: { label: 'TIMER', detail: 'Seconds since midnight' },
     REM: { label: 'REM', detail: 'Comment line' },
@@ -125,12 +151,14 @@ const KEYWORDS = {
     OPTION: { label: 'OPTION', detail: 'Set compiler options' },
     BASE: { label: 'BASE', detail: 'Set array base (0 or 1)' },
 
+    // Error Handling
     ON_ERROR: { label: 'ON ERROR', detail: 'Set error handler' },
     RESUME: { label: 'RESUME', detail: 'Resume after error' },
     ERR: { label: 'ERR', detail: 'Error code' },
     ERL: { label: 'ERL', detail: 'Error line number' },
     ERROR: { label: 'ERROR', detail: 'Simulate error' },
 
+    // QB64 Specific
     _TITLE: { label: '_TITLE', detail: 'QB64: Set window title' },
     _FULLSCREEN: { label: '_FULLSCREEN', detail: 'QB64: Toggle fullscreen' },
     _NEWIMAGE: { label: '_NEWIMAGE', detail: 'QB64: Create new image' },
@@ -173,8 +201,12 @@ const KEYWORDS = {
     _CONNECTED: { label: '_CONNECTED', detail: 'QB64: Check network connection' }
 };
 
-// QBasic function definitions for IntelliSense
+// ============================================================================
+// FUNCTIONS
+// ============================================================================
+
 const FUNCTIONS = {
+    // String Functions
     'MID$': {
         detail: 'Get substring',
         documentation: '**MID$(string, start, length)**\n\nReturns `length` characters starting at position `start`.\n\n**Example:**\n```qbasic\ns$ = MID$("Hello World", 7, 5)\n\' Result: "World"\n```',
@@ -286,6 +318,7 @@ const FUNCTIONS = {
         params: ['number']
     },
 
+    // Math Functions
     'ABS': {
         detail: 'Absolute value',
         documentation: '**ABS(n)**\n\nReturns the absolute value of a number.\n\n**Example:**\n```qbasic\nn = ABS(-5)\n\' Result: 5\n```',
@@ -367,6 +400,7 @@ const FUNCTIONS = {
         params: ['n']
     },
 
+    // Array Functions
     'LBOUND': {
         detail: 'Lower bound',
         documentation: '**LBOUND(array[, dimension])**\n\nReturns the lower bound of an array.\n\n**Example:**\n```qbasic\nDIM a(10 TO 20)\nn = LBOUND(a)\n\' Result: 10\n```',
@@ -378,6 +412,7 @@ const FUNCTIONS = {
         params: ['array', 'dimension']
     },
 
+    // System Functions
     'TIMER': {
         detail: 'Seconds since midnight',
         documentation: '**TIMER**\n\nReturns the number of seconds since midnight.\n\n**Example:**\n```qbasic\nstart! = TIMER\n\' ... do something ...\nelapsed! = TIMER - start!\n```',
@@ -409,6 +444,7 @@ const FUNCTIONS = {
         params: ['command$']
     },
 
+    // File Functions
     'FREEFILE': {
         detail: 'Next free file number',
         documentation: '**FREEFILE**\n\nReturns the next available file number.\n\n**Example:**\n```qbasic\nf% = FREEFILE\nOPEN "data.txt" FOR INPUT AS #f%\n```',
@@ -425,6 +461,7 @@ const FUNCTIONS = {
         params: ['n', 'filenumber']
     },
 
+    // QB64 Specific Functions
     '_SNDLEN': {
         detail: 'Sound length',
         documentation: '**_SNDLEN(handle)**\n\nReturns the length of a sound in seconds.',
@@ -446,5 +483,9 @@ const FUNCTIONS = {
         params: ['image']
     }
 };
+
+// ============================================================================
+// QB64 METACOMMANDS
+// ============================================================================
 
 module.exports = { KEYWORDS, FUNCTIONS };

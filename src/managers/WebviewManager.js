@@ -1,187 +1,195 @@
 /**
- * Webview Manager - Cross-Platform Implementation
- * Manages the CRT webview panel lifecycle with platform optimizations
+ * QBasic Nexus - Webview Manager
+ * ==============================
+ * Manages the CRT Webview panel lifecycle and communication.
+ * 
+ * @author Thirawat27
+ * @version 1.0.8
  */
 
-"use strict"
+'use strict';
 
-const vscode = require("vscode")
-const fs = require("fs").promises
-const path = require("path")
+const vscode = require('vscode');
+const fs = require('fs').promises;
 
-// Import cross-platform utilities
-const { toUnixPath } = require("../utils/pathUtils")
-
-// Manages the CRT webview panel lifecycle and communication with the runtime
+/**
+ * Manages the Retro CRT Webview panel.
+ */
 class WebviewManager {
-  static currentPanel = undefined
-  static viewType = "qbasicNexusCrt"
-  static _disposables = []
-  static _maxDisposables = 100 // Limit to prevent memory leak
+    /** @type {vscode.WebviewPanel | undefined} */
+    static currentPanel = undefined;
 
-  /**
-   * Add a disposable with automatic cleanup when limit is reached.
-   * Prevents memory leaks by limiting max disposables to 100.
-   * @param {vscode.Disposable} d - Disposable to add
-   */
-  static _addDisposable(d) {
-    if (WebviewManager._disposables.length >= WebviewManager._maxDisposables) {
-      const old = WebviewManager._disposables.shift()
-      old.dispose()
-    }
-    WebviewManager._disposables.push(d)
-  }
+    /** @type {string} */
+    static viewType = 'qbasicNexusCrt';
 
-  static async createOrShow(extensionUri) {
-    const column = vscode.window.activeTextEditor?.viewColumn
+    /** @type {Array} Disposables for cleanup */
+    static _disposables = [];
 
-    if (WebviewManager.currentPanel) {
-      WebviewManager.currentPanel.reveal(column)
-      return
-    }
+    /**
+     * Creates or reveals the CRT Webview panel.
+     * @param {vscode.Uri} extensionUri - The extension's URI.
+     */
+    static async createOrShow(extensionUri) {
+        const column = vscode.window.activeTextEditor?.viewColumn;
 
-    const panel = vscode.window.createWebviewPanel(
-      WebviewManager.viewType,
-      "QBasic CRT 📺",
-      column || vscode.ViewColumn.Two,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(extensionUri, "src", "webview"),
-        ],
-      },
-    )
-
-    WebviewManager.currentPanel = panel
-
-    try {
-      panel.webview.html = await WebviewManager._getHtmlForWebview(
-        panel.webview,
-        extensionUri,
-      )
-    } catch (err) {
-      vscode.window.showErrorMessage(`Failed to load CRT: ${err.message}`)
-      panel.dispose()
-      WebviewManager.currentPanel = undefined
-      return
-    }
-
-    WebviewManager._addDisposable(
-      panel.webview.onDidReceiveMessage((message) => {
-        try {
-          if (message.type === "check_output") {
-            const TutorialManager = require("./TutorialManager")
-            const completed = TutorialManager.checkResult(message.content)
-            if (completed && panel.webview) {
-              panel.webview.postMessage({ type: "quest_complete" })
-            }
-          } else if (message.type === "error") {
-            console.error("[QBasic CRT] Runtime error:", message.content)
-          }
-        } catch (err) {
-          console.error("[QBasic CRT] Message handler error:", err)
+        // If we already have a panel, show it.
+        if (WebviewManager.currentPanel) {
+            WebviewManager.currentPanel.reveal(column);
+            return;
         }
-      }),
-    )
 
-    panel.onDidDispose(() => {
-      WebviewManager.currentPanel = undefined
-      WebviewManager._disposables.forEach((d) => d.dispose())
-      WebviewManager._disposables = []
-      // Clear HTML cache so a fresh template is read on next open
-      WebviewManager._htmlCache = null
-    })
-  }
+        // Otherwise, create a new panel.
+        const panel = vscode.window.createWebviewPanel(
+            WebviewManager.viewType,
+            'QBasic CRT 📺',
+            column || vscode.ViewColumn.Two,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'src', 'webview')]
+            }
+        );
 
-  static async runCode(code, filename, extensionUri) {
-    try {
-      const TutorialManager = require("./TutorialManager")
-      TutorialManager.clearHistory()
-    } catch {}
+        WebviewManager.currentPanel = panel;
 
-    if (!WebviewManager.currentPanel) {
-      await WebviewManager.createOrShow(extensionUri)
+        // Set content
+        try {
+            panel.webview.html = await WebviewManager._getHtmlForWebview(panel.webview, extensionUri);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to load CRT: ${err.message}`);
+            panel.dispose();
+            WebviewManager.currentPanel = undefined;
+            return;
+        }
+
+        // Handle messages from Webview (lazy-load TutorialManager)
+        WebviewManager._disposables.push(
+            panel.webview.onDidReceiveMessage(
+                message => {
+                    try {
+                        if (message.type === 'check_output') {
+                            // Lazy-load to avoid circular dependency
+                            const TutorialManager = require('./TutorialManager');
+                            const completed = TutorialManager.checkResult(message.content);
+                            if (completed && panel.webview) {
+                                panel.webview.postMessage({ type: 'quest_complete' });
+                            }
+                        } else if (message.type === 'error') {
+                            console.error('[QBasic CRT] Runtime error:', message.content);
+                        }
+                    } catch (err) {
+                        console.error('[QBasic CRT] Message handler error:', err);
+                    }
+                }
+            )
+        );
+
+        // Cleanup when closed
+        panel.onDidDispose(() => {
+            WebviewManager.currentPanel = undefined;
+            // Dispose all handlers
+            WebviewManager._disposables.forEach(d => d.dispose());
+            WebviewManager._disposables = [];
+        });
     }
 
-    if (!WebviewManager.currentPanel) {
-      vscode.window.showErrorMessage("Failed to open CRT panel.")
-      return
+    /**
+     * Runs transpiled code in the CRT Webview.
+     * @param {string} code - The JavaScript code to execute.
+     * @param {string} filename - The source filename for display.
+     * @param {vscode.Uri} extensionUri - The extension's URI.
+     */
+    static async runCode(code, filename, extensionUri) {
+        // Reset tutorial history for new run
+        try {
+            const TutorialManager = require('./TutorialManager');
+            TutorialManager.clearHistory();
+        } catch { /* Ignore if not loaded */ }
+
+        if (!WebviewManager.currentPanel) {
+            await WebviewManager.createOrShow(extensionUri);
+        }
+
+        // Ensure panel exists after creation attempt
+        if (!WebviewManager.currentPanel) {
+            vscode.window.showErrorMessage('Failed to open CRT panel.');
+            return;
+        }
+
+        // Ensure visible
+        WebviewManager.currentPanel.reveal();
+
+        // Send code to webview
+        WebviewManager.currentPanel.webview.postMessage({
+            type: 'execute',
+            code: code,
+            filename: filename
+        });
     }
 
-    WebviewManager.currentPanel.reveal()
-
-    WebviewManager.currentPanel.webview.postMessage({
-      type: "execute",
-      code: code,
-      filename: filename,
-    })
-  }
-
-  static clearScreen() {
-    if (WebviewManager.currentPanel) {
-      WebviewManager.currentPanel.webview.postMessage({ type: "clear" })
-    }
-  }
-
-  static dispose() {
-    if (WebviewManager.currentPanel) {
-      WebviewManager.currentPanel.dispose()
-      WebviewManager.currentPanel = undefined
-    }
-  }
-
-  static isActive() {
-    return WebviewManager.currentPanel !== undefined
-  }
-
-  static _htmlCache = null
-
-  static async _getHtmlForWebview(webview, extensionUri) {
-    // Use cross-platform path resolution
-    const cssPath = vscode.Uri.joinPath(
-      extensionUri,
-      "src",
-      "webview",
-      "crt.css",
-    )
-    const jsPath = vscode.Uri.joinPath(
-      extensionUri,
-      "src",
-      "webview",
-      "runtime.js",
-    )
-    const htmlPath = vscode.Uri.joinPath(
-      extensionUri,
-      "src",
-      "webview",
-      "runner.html",
-    )
-
-    // Convert to webview URIs (handles platform differences internally)
-    const cssUri = webview.asWebviewUri(cssPath)
-    const jsUri = webview.asWebviewUri(jsPath)
-
-    let html = WebviewManager._htmlCache
-
-    if (!html) {
-      try {
-        // Use fsPath which is platform-specific
-        html = await fs.readFile(htmlPath.fsPath, "utf8")
-        WebviewManager._htmlCache = html
-      } catch (err) {
-        console.error("[WebviewManager] Failed to load HTML template:", err)
-        throw new Error(`Failed to load CRT template: ${err.message}`)
-      }
+    /**
+     * Clears the CRT screen.
+     */
+    static clearScreen() {
+        if (WebviewManager.currentPanel) {
+            WebviewManager.currentPanel.webview.postMessage({ type: 'clear' });
+        }
     }
 
-    // Replace placeholders with actual URIs
-    // Ensure URIs use forward slashes for web compatibility
-    return html
-      .replace(/\{\{cspSource\}\}/g, webview.cspSource)
-      .replace("{{cssUri}}", cssUri.toString())
-      .replace("{{jsUri}}", jsUri.toString())
-  }
+    /**
+     * Disposes the current panel.
+     */
+    static dispose() {
+        if (WebviewManager.currentPanel) {
+            WebviewManager.currentPanel.dispose();
+            WebviewManager.currentPanel = undefined;
+        }
+    }
+
+    /**
+     * Checks if the panel is currently active.
+     * @returns {boolean}
+     */
+    static isActive() {
+        return WebviewManager.currentPanel !== undefined;
+    }
+
+    /** @type {string|null} Cache for HTML content */
+    static _htmlCache = null;
+
+    /**
+     * Generates the HTML content for the Webview.
+     * @param {vscode.Webview} webview - The webview instance.
+     * @param {vscode.Uri} extensionUri - The extension's URI.
+     * @returns {Promise<string>} The HTML content.
+     * @private
+     */
+    static async _getHtmlForWebview(webview, extensionUri) {
+        const cssPath = vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'crt.css');
+        const jsPath = vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'runtime.js');
+
+        const cssUri = webview.asWebviewUri(cssPath);
+        const jsUri = webview.asWebviewUri(jsPath);
+
+        let html = WebviewManager._htmlCache;
+        
+        if (!html) {
+             const htmlPath = vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'runner.html');
+             html = await fs.readFile(htmlPath.fsPath, 'utf8');
+             WebviewManager._htmlCache = html;
+        }
+
+        // Replace placeholders with actual URIs
+        // We do this every time because URIs might change if webview is recreated? 
+        // Actually, asWebviewUri results are tied to the webview instance/session. 
+        // So we must replace on the fresh template.
+        return html
+            .replace(/\{\{cspSource\}\}/g, webview.cspSource)
+            .replace('{{cssUri}}', cssUri.toString())
+            .replace('{{jsUri}}', jsUri.toString());
+    }
+
+
 }
 
-module.exports = WebviewManager
+module.exports = WebviewManager;

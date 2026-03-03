@@ -1,128 +1,172 @@
-"use strict"
+/**
+ * QBasic Nexus - Tutorial Manager
+ * ===============================
+ * Handles interactive tutorial lessons and result validation.
+ * 
+ * @author Thirawat27
+ * @version 1.0.8
+ */
 
-const vscode = require("vscode")
-const lessons = require("../tutorials/tutorialData")
+'use strict';
 
-// Manages interactive QBasic tutorial lessons and validates user output
+const vscode = require('vscode');
+const lessons = require('../tutorials/data');
+
+/**
+ * Manages interactive QBasic tutorials.
+ */
 class TutorialManager {
-  static currentLesson = null
-  static _webviewManager = null
-  static _extensionContext = null
+    /** @type {Object | null} Current active lesson */
+    static currentLesson = null;
 
-  static setWebviewManager(wm) {
-    TutorialManager._webviewManager = wm
-  }
+    /** @type {Object | null} Reference to WebviewManager (set externally to avoid circular deps) */
+    static _webviewManager = null;
 
-  static async startTutorial(extensionContext) {
-    if (!extensionContext) {
-      vscode.window.showErrorMessage("Extension context not available.")
-      return
+    /** @type {vscode.ExtensionContext | null} Stored extension context for reuse */
+    static _extensionContext = null;
+
+    /**
+     * Sets the WebviewManager reference (called during extension activation).
+     * @param {Object} wm - The WebviewManager class.
+     */
+    static setWebviewManager(wm) {
+        TutorialManager._webviewManager = wm;
     }
 
-    TutorialManager._extensionContext = extensionContext
-    const items = lessons.map((l) => ({
-      label: `$(mortar-board) ${l.title}`,
-      description: l.objective,
-      detail: l.description,
-      lessonId: l.id,
-    }))
+    /**
+     * Starts the interactive tutorial by showing a lesson picker.
+     * @param {vscode.ExtensionContext} extensionContext - The extension context.
+     */
+    static async startTutorial(extensionContext) {
+        if (!extensionContext) {
+            vscode.window.showErrorMessage('Extension context not available.');
+            return;
+        }
 
-    const selected = await vscode.window.showQuickPick(items, {
-      placeHolder: "🎮 Select a Level to Play",
-      matchOnDescription: true,
-    })
+        // Store context for reuse (e.g., Next Level)
+        TutorialManager._extensionContext = extensionContext;
 
-    if (!selected) return
+        // Build lesson picker items
+        const items = lessons.map(l => ({
+            label: `$(mortar-board) ${l.title}`,
+            description: l.objective,
+            detail: l.description,
+            lessonId: l.id
+        }));
 
-    const lesson = lessons.find((l) => l.id === selected.lessonId)
-    if (!lesson) {
-      vscode.window.showErrorMessage("Lesson not found. Please try again.")
-      return
-    }
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: '🎮 Select a Level to Play',
+            matchOnDescription: true
+        });
 
-    if (!lesson.template || !lesson.matchRegex) {
-      vscode.window.showErrorMessage(
-        "Invalid lesson data. Missing template or match criteria.",
-      )
-      return
-    }
+        if (!selected) return;
 
-    TutorialManager.currentLesson = lesson
-    const doc = await vscode.workspace.openTextDocument({
-      content: lesson.template,
-      language: "qbasic",
-    })
-    await vscode.window.showTextDocument(doc, {
-      viewColumn: vscode.ViewColumn.One,
-    })
-    const WebviewManager = TutorialManager._webviewManager
-    if (!WebviewManager) {
-      vscode.window.showWarningMessage("Webview Manager not initialized.")
-      return
-    }
+        const lesson = lessons.find(l => l.id === selected.lessonId);
+        if (!lesson) {
+            vscode.window.showErrorMessage('Lesson not found. Please try again.');
+            return;
+        }
 
-    await WebviewManager.createOrShow(extensionContext.extensionUri)
-    setTimeout(() => {
-      if (WebviewManager.currentPanel) {
-        WebviewManager.currentPanel.webview.postMessage({
-          type: "start_quest",
-          quest: {
-            title: lesson.title,
-            objective: lesson.objective,
-          },
-        })
-      }
-    }, 800)
-  }
+        // Validate lesson data
+        if (!lesson.template || !lesson.matchRegex) {
+            vscode.window.showErrorMessage('Invalid lesson data. Missing template or match criteria.');
+            return;
+        }
 
-  static _outputHistory = ""
+        TutorialManager.currentLesson = lesson;
 
-  static clearHistory() {
-    TutorialManager._outputHistory = ""
-  }
+        // 1. Open a new untitled file with template code
+        const doc = await vscode.workspace.openTextDocument({
+            content: lesson.template,
+            language: 'qbasic'
+        });
+        await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One });
 
-  static checkResult(output) {
-    if (!TutorialManager.currentLesson) return false
+        // 2. Open CRT Webview and show objective HUD
+        const WebviewManager = TutorialManager._webviewManager;
+        if (!WebviewManager) {
+            vscode.window.showWarningMessage('Webview Manager not initialized.');
+            return;
+        }
 
-    const lesson = TutorialManager.currentLesson
-    TutorialManager._outputHistory += output
+        await WebviewManager.createOrShow(extensionContext.extensionUri);
 
-    try {
-      const passed = lesson.matchRegex.test(TutorialManager._outputHistory)
-
-      if (passed) {
-        vscode.window
-          .showInformationMessage(
-            `🎉 Mission Complete: ${lesson.title}!`,
-            "Next Level",
-          )
-          .then((selection) => {
-            if (
-              selection === "Next Level" &&
-              TutorialManager._extensionContext
-            ) {
-              TutorialManager.startTutorial(TutorialManager._extensionContext)
+        // Wait for webview to be ready, then send quest data
+        setTimeout(() => {
+            if (WebviewManager.currentPanel) {
+                WebviewManager.currentPanel.webview.postMessage({
+                    type: 'start_quest',
+                    quest: {
+                        title: lesson.title,
+                        objective: lesson.objective
+                    }
+                });
             }
-          })
-        TutorialManager.currentLesson = null
-        TutorialManager._outputHistory = ""
-        return true
-      }
-    } catch (err) {
-      console.error("[TutorialManager] Regex match error:", err)
+        }, 800);
     }
 
-    return false
-  }
+    /** @type {string} Accumulated output for validation */
+    static _outputHistory = '';
 
-  static getCurrentLesson() {
-    return TutorialManager.currentLesson
-  }
+    /**
+     * Clear the output history (called when new code is run).
+     */
+    static clearHistory() {
+        TutorialManager._outputHistory = '';
+    }
 
-  static reset() {
-    TutorialManager.currentLesson = null
-    TutorialManager._extensionContext = null
-  }
+    /**
+     * Checks if the output matches the current lesson's goal.
+     * @param {string} output - The output from the CRT (chunk).
+     * @returns {boolean} True if passed.
+     */
+    static checkResult(output) {
+        if (!TutorialManager.currentLesson) return false;
+
+        const lesson = TutorialManager.currentLesson;
+        
+        // Accumulate output
+        TutorialManager._outputHistory += output;
+
+        try {
+            // Check against full history
+            const passed = lesson.matchRegex.test(TutorialManager._outputHistory);
+
+            if (passed) {
+                vscode.window.showInformationMessage(
+                    `🎉 Mission Complete: ${lesson.title}!`,
+                    'Next Level'
+                ).then(selection => {
+                    if (selection === 'Next Level' && TutorialManager._extensionContext) {
+                        TutorialManager.startTutorial(TutorialManager._extensionContext);
+                    }
+                });
+                TutorialManager.currentLesson = null;
+                TutorialManager._outputHistory = ''; // Reset on success
+                return true;
+            }
+        } catch (err) {
+            console.error('[TutorialManager] Regex match error:', err);
+        }
+
+        return false;
+    }
+
+    /**
+     * Gets the current lesson (for debugging/testing)
+     * @returns {Object|null}
+     */
+    static getCurrentLesson() {
+        return TutorialManager.currentLesson;
+    }
+
+    /**
+     * Resets the tutorial state
+     */
+    static reset() {
+        TutorialManager.currentLesson = null;
+        TutorialManager._extensionContext = null;
+    }
 }
 
-module.exports = TutorialManager
+module.exports = TutorialManager;
