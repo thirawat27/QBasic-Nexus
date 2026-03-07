@@ -6,6 +6,7 @@
 "use strict"
 
 const Lexer = require("./lexer")
+const { TokenPool } = require("./lexer")
 const InternalTranspiler = require("./parser")
 const { getGlobalCache } = require("./cache")
 const {
@@ -24,6 +25,16 @@ const DEFAULT_OPTIONS = {
   optimizationLevel: 2, // 0=none, 1=basic, 2=aggressive
   sourceMap: false, // Generate source maps
   maxErrors: 100, // Maximum errors before stopping
+}
+
+function countLines(source) {
+  if (!source) return 0
+
+  let count = 1
+  for (let i = 0; i < source.length; i++) {
+    if (source.charCodeAt(i) === 10) count++
+  }
+  return count
 }
 
 /**
@@ -108,6 +119,7 @@ class Compiler {
    */
   compile(source) {
     const startTime = process.hrtime.bigint()
+    let tokens = null
 
     // Check cache first (no tokenization needed)
     if (this.cache) {
@@ -135,7 +147,7 @@ class Compiler {
       // ── Tokenize ONCE ──────────────────────────────────────────────
       const lexerStart = process.hrtime.bigint()
       const lexer = new Lexer(source)
-      const tokens = lexer.tokenize()
+      tokens = lexer.tokenize()
       const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1_000_000
 
       // ── Parse + codegen (reuse token array — no re-tokenize) ───────
@@ -168,16 +180,6 @@ class Compiler {
         )
       }
 
-      // Release tokens back to pool
-      try {
-        const { TokenPool } = require("./lexer")
-        if (TokenPool && typeof TokenPool.releaseAll === "function") {
-          TokenPool.releaseAll(tokens)
-        }
-      } catch (_e) {
-        /* ignore */
-      }
-
       const totalTime = Number(process.hrtime.bigint() - startTime) / 1_000_000
       this.stats.compilations++
       this.stats.totalTime += totalTime
@@ -189,7 +191,7 @@ class Compiler {
         parserTime,
         totalTime,
         tokenCount: tokens.length,
-        lineCount: source.split("\n").length,
+        lineCount: countLines(source),
         sourceSize: source.length,
       })
     } catch (error) {
@@ -204,6 +206,10 @@ class Compiler {
         cached: false,
         error: error.message,
       })
+    } finally {
+      if (tokens && typeof TokenPool?.releaseAll === "function") {
+        TokenPool.releaseAll(tokens)
+      }
     }
   }
 

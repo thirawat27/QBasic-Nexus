@@ -7,7 +7,7 @@
 
 const vscode = require("vscode")
 const { KEYWORDS, FUNCTIONS } = require("../../languageData")
-const { escapeRegex } = require("./patterns")
+const { makeIdentifierRegex } = require("./patterns")
 
 class QBasicRenameProvider {
   provideRenameEdits(document, position, newName) {
@@ -30,18 +30,20 @@ class QBasicRenameProvider {
     }
 
     const edits = new vscode.WorkspaceEdit()
-    const wordPattern = new RegExp(`\\b${escapeRegex(oldName)}\\b`, "gi")
+    const wordPattern = makeIdentifierRegex(oldName, "gi")
 
     for (let i = 0; i < document.lineCount; i++) {
       const line = document.lineAt(i).text
       let match
+
+      wordPattern.lastIndex = 0
 
       while ((match = wordPattern.exec(line)) !== null) {
         const range = new vscode.Range(
           i,
           match.index,
           i,
-          match.index + oldName.length,
+          match.index + match[0].length,
         )
         edits.replace(document.uri, range, newName)
       }

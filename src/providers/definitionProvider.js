@@ -6,22 +6,32 @@
 "use strict"
 
 const vscode = require("vscode")
-const { PATTERNS } = require("./patterns")
+const { PATTERNS, escapeRegex, IDENTIFIER_CHAR_CLASS } = require("./patterns")
 
 class QBasicDefinitionProvider {
   provideDefinition(document, position) {
     const wordRange = document.getWordRangeAtPosition(
       position,
-      /[a-zA-Z_][a-zA-Z0-9_]*/,
+      PATTERNS.IDENTIFIER,
     )
     if (!wordRange) return null
 
     const word = document.getText(wordRange)
+    const escapedWord = escapeRegex(word)
     const patterns = [
-      new RegExp(`^\\s*(?:SUB|FUNCTION|TYPE)\\s+${word}\\b`, "i"),
-      new RegExp(`^${word}:`, "i"),
-      new RegExp(`^\\s*CONST\\s+${word}\\b`, "i"),
-      new RegExp(`\\bDIM\\s+(?:SHARED\\s+)?${word}\\b`, "i"),
+      new RegExp(
+        `^\\s*(?:SUB|FUNCTION|TYPE)\\s+${escapedWord}(?![${IDENTIFIER_CHAR_CLASS}])`,
+        "i",
+      ),
+      new RegExp(`^${escapedWord}:(?![${IDENTIFIER_CHAR_CLASS}])`, "i"),
+      new RegExp(
+        `^\\s*CONST\\s+${escapedWord}(?![${IDENTIFIER_CHAR_CLASS}])`,
+        "i",
+      ),
+      new RegExp(
+        `\\bDIM\\s+(?:SHARED\\s+)?${escapedWord}(?![${IDENTIFIER_CHAR_CLASS}])`,
+        "i",
+      ),
     ]
 
     for (let i = 0; i < document.lineCount; i++) {

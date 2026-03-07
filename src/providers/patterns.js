@@ -27,8 +27,10 @@ const PATTERNS = Object.freeze({
     /^\s*(?:SUB|FUNCTION|TYPE|IF\b.+\bTHEN\s*$|DO|FOR|SELECT|WHILE)\b/i,
   BLOCK_END: /^\s*(?:END\s+(?:SUB|FUNCTION|TYPE|IF|SELECT)|LOOP|NEXT|WEND)\b/i,
   BLOCK_MID: /^\s*(?:ELSE|ELSEIF|CASE)\b/i,
-  IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/,
+  IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_$%!#&]*/,
 })
+
+const IDENTIFIER_CHAR_CLASS = "A-Za-z0-9_$%!#&"
 
 // ── Global pattern SOURCES — callers must create `new RegExp(src, flags)` ────
 // Keeping only the source prevents lastIndex state from leaking across calls.
@@ -68,11 +70,20 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
+function makeIdentifierRegex(identifier, flags = "g") {
+  return new RegExp(
+    `(?<![${IDENTIFIER_CHAR_CLASS}])${escapeRegex(identifier)}(?![${IDENTIFIER_CHAR_CLASS}])`,
+    flags,
+  )
+}
+
 module.exports = {
   PATTERNS,
   PATTERN_SRC,
+  IDENTIFIER_CHAR_CLASS,
   escapeRegex,
   makeDimRegex,
   makeAssignRegex,
+  makeIdentifierRegex,
   makeWordRegex,
 }

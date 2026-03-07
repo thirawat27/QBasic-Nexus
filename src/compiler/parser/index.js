@@ -6,6 +6,7 @@
 
 const { TokenType, BUILTIN_FUNCS } = require("../constants")
 const Lexer = require("../lexer")
+const { TokenPool } = require("../lexer")
 
 class Parser {
   constructor(tokens, target = "node") {
@@ -57,9 +58,11 @@ class InternalTranspiler {
       target = "web"
     }
 
+    let tokens = null
+
     try {
       const lexer = new Lexer(source)
-      const tokens = lexer.tokenize()
+      tokens = lexer.tokenize()
 
       // Safety check for token array
       if (!Array.isArray(tokens) || tokens.length === 0) {
@@ -69,20 +72,14 @@ class InternalTranspiler {
       const parser = new Parser(tokens, target)
       const result = parser.parse()
 
-      // Release tokens back to pool for memory efficiency
-      try {
-        const TokenPool = require("../lexer").TokenPool
-        if (TokenPool && typeof TokenPool.releaseAll === "function") {
-          TokenPool.releaseAll(tokens)
-        }
-      } catch (_e) {
-        /* TokenPool not accessible, ignore */
-      }
-
       return result
     } catch (e) {
       console.error("[Transpiler] Compilation error:", e.message)
       return `// Compilation error: ${e.message}\nconsole.error("Compilation failed: ${e.message.replace(/"/g, '\\"')}");`
+    } finally {
+      if (tokens && typeof TokenPool?.releaseAll === "function") {
+        TokenPool.releaseAll(tokens)
+      }
     }
   }
 
@@ -137,9 +134,11 @@ class InternalTranspiler {
     if (!source || typeof source !== "string" || source.trim().length === 0) {
       return []
     }
+    let tokens = null
+
     try {
       const lexer = new Lexer(source)
-      const tokens = lexer.tokenize()
+      tokens = lexer.tokenize()
       // Delegate to lintTokens to avoid code duplication
       return this.lintTokens(tokens)
     } catch (e) {
@@ -150,6 +149,10 @@ class InternalTranspiler {
           column: 0,
         },
       ]
+    } finally {
+      if (tokens && typeof TokenPool?.releaseAll === "function") {
+        TokenPool.releaseAll(tokens)
+      }
     }
   }
 }

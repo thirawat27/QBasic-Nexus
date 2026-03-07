@@ -120,6 +120,7 @@ test("CompilationCache respects enabled=false", () => {
 // ─── Phase 2: Transpiler pipeline ────────────────────────────────────────────
 console.log("\n📦 Phase 2: Transpiler Pipeline Tests")
 const InternalTranspiler = require("../src/compiler/transpiler")
+const { makeIdentifierRegex } = require("../src/providers/patterns")
 
 test('Transpile PRINT "Hello"', () => {
   const t = new InternalTranspiler()
@@ -137,6 +138,28 @@ test("Lint returns array", () => {
   const t = new InternalTranspiler()
   const errors = t.lint('PRINT "OK"')
   if (!Array.isArray(errors)) throw new Error("Lint did not return array")
+})
+
+test("Identifier regex matches QBasic suffix variables", () => {
+  const pattern = makeIdentifierRegex("player$", "gi")
+  const matches = []
+
+  for (const line of ['PRINT player$', 'player$ = "ok"']) {
+    pattern.lastIndex = 0
+    let match
+    while ((match = pattern.exec(line)) !== null) {
+      matches.push(match[0])
+    }
+  }
+
+  if (matches.length !== 2) {
+    throw new Error(`Expected 2 matches, got ${matches.length}`)
+  }
+
+  pattern.lastIndex = 0
+  if (pattern.test("player$Extra = 1")) {
+    throw new Error("Identifier regex should not match partial identifiers")
+  }
 })
 
 // ─── Phase 1.2: Compiler wrapper ─────────────────────────────────────────────

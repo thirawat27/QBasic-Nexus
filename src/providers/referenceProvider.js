@@ -6,7 +6,7 @@
 "use strict"
 
 const vscode = require("vscode")
-const { escapeRegex } = require("./patterns")
+const { makeIdentifierRegex } = require("./patterns")
 
 class QBasicReferenceProvider {
   provideReferences(document, position, context) {
@@ -18,7 +18,7 @@ class QBasicReferenceProvider {
 
     const word = document.getText(wordRange)
     const references = []
-    const wordPattern = new RegExp(`\\b${escapeRegex(word)}\\b`, "gi")
+    const wordPattern = makeIdentifierRegex(word, "gi")
 
     for (let i = 0; i < document.lineCount; i++) {
       const line = document.lineAt(i).text
@@ -39,7 +39,7 @@ class QBasicReferenceProvider {
         references.push(
           new vscode.Location(
             document.uri,
-            new vscode.Range(i, match.index, i, match.index + word.length),
+            new vscode.Range(i, match.index, i, match.index + match[0].length),
           ),
         )
       }

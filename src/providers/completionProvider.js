@@ -17,6 +17,10 @@ const {
 const { QBasicDocumentSymbolProvider } = require("./symbolProvider")
 
 class QBasicCompletionItemProvider {
+  constructor() {
+    this._symbolProvider = new QBasicDocumentSymbolProvider()
+  }
+
   provideCompletionItems(document, _position) {
     // Use pre-cached static items for keywords and functions
     const items = [
@@ -37,9 +41,7 @@ class QBasicCompletionItemProvider {
     }
 
     // User-defined SUBs and FUNCTIONs (dynamic, needs per-document scan)
-    const symbols = new QBasicDocumentSymbolProvider().provideDocumentSymbols(
-      document,
-    )
+    const symbols = this._symbolProvider.provideDocumentSymbols(document)
     for (const sym of symbols) {
       if (
         sym.kind === vscode.SymbolKind.Function ||

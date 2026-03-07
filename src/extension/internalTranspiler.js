@@ -8,6 +8,7 @@
 const vscode = require("vscode")
 const path = require("path")
 const fs = require("fs").promises
+const os = require("os")
 const { spawn } = require("child_process")
 const MagicString = require("magic-string")
 const { CONFIG } = require("./constants")
@@ -57,6 +58,8 @@ async function runInternalTranspiler(document, shouldRun) {
   state.isCompiling = true
   updateStatusBar()
 
+  let tempJs = null
+
   // ── progress bar helper (printed to Output Channel) ──────────────────────
   const BAR_WIDTH = 24
   function makeBar(pct, label) {
@@ -71,7 +74,7 @@ async function runInternalTranspiler(document, shouldRun) {
     // Platform-aware output extension: .exe on Windows, no extension elsewhere
     const exeExt = process.platform === "win32" ? ".exe" : ""
     const outputExe = path.join(sourceDir, baseName + exeExt)
-    const tempJs = path.join(sourceDir, `${baseName}._qbnx_.js`)
+    tempJs = path.join(os.tmpdir(), `${baseName}_${Date.now()}._qbnx_.js`)
 
     await vscode.window.withProgress(
       {
@@ -195,6 +198,9 @@ async function runInternalTranspiler(document, shouldRun) {
     log(`Error: ${error.message}`, "error")
     vscode.window.showErrorMessage(`❌ Build Error: ${error.message}`)
   } finally {
+    if (tempJs) {
+      await fs.unlink(tempJs).catch(() => {})
+    }
     state.isCompiling = false
     updateStatusBar()
   }

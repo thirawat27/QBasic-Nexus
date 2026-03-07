@@ -34,6 +34,7 @@
   - [📺 Advanced Web Runtime](#-advanced-web-runtime)
   - [📊 Professional IDE Tools](#-professional-ide-tools)
 - [🎮 The Ultimate Interactive Curriculum](#-the-ultimate-interactive-curriculum)
+- [🔥 Introducing QBNex Compiler](#-introducing-qbnex-compiler)
 - [⚙️ Prerequisites](#️-prerequisites)
 - [🚀 Getting Started](#-getting-started)
 - [🎬 Web Runtime Capabilities](#-web-runtime-capabilities)
@@ -91,6 +92,22 @@ New to QBasic, or just need to knock off the rust? The **Interactive Tutorial Mo
    - **Advanced Structures**: Custom `TYPE` structs, `SUB`s, and `GLOBAL/SHARED` scopes.
    - **Graphics & Audio**: Draw geometry with `CIRCLE`/`PAINT` and play music with `PLAY`.
 4. Read the objective, write the code, and press `F5`—the engine transpiles and verifies your logic instantly!
+
+---
+
+## 🔥 Introducing QBNex Compiler
+
+Looking for a modern, high-performance alternative to **QB64**? Meet **QBNex**, a next-generation QBasic/QuickBASIC compiler developed entirely in **Rust** by **Thirawat27**.
+
+Designed from the ground up to seamlessly integrate with the QBasic Nexus extension, QBNex brings legacy BASIC development into the modern era with unparalleled speed and memory safety.
+
+**Key Advantages:**
+
+- 🚀 **Blazingly Fast**: Powered by Rust for extreme compilation and execution speeds.
+- 🛡️ **Memory Safe**: Solid backend architecture ensuring stability over decades-old legacy engines.
+- 🔌 **Native Synergy**: Perfect alternative backend compiler for testing and running your code within the extension.
+
+📥 **Download QBNex**: [Get the latest version from GitHub Releases](https://github.com/thirawat27/QBasic-Nexus/releases)
 
 ---
 

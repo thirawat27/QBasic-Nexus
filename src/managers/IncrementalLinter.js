@@ -21,7 +21,7 @@ const { IncrementalTracker } = require("../compiler/cache")
 
 /**
  * Per-document linting state.
- * @typedef {{ tracker: IncrementalTracker, lastDiags: Array }} DocState
+ * @typedef {{ tracker: IncrementalTracker, lastDiags: Array, lastLintVersion: number, pendingVersion: number | null }} DocState
  */
 
 class IncrementalLinter {
@@ -49,19 +49,31 @@ class IncrementalLinter {
 
     // Cancel any already-pending lint for this doc
     const existing = this._pendingTimers.get(key)
-    if (existing) clearTimeout(existing)
-
-    // Choose adaptive delay: fewer dirty lines → shorter wait
     const state = this._getOrCreateState(key)
     const newSource = document.getText()
     const changedLines = state.tracker.detectChanges(newSource)
+
+    if (state.lastLintVersion === document.version) {
+      diagnosticCollection.set(document.uri, state.lastDiags)
+      return
+    }
+
+    if (existing && state.pendingVersion === document.version) {
+      return
+    }
+
+    if (existing) clearTimeout(existing)
+
     const adaptiveDelay =
       changedLines.size <= 5
         ? Math.min(baseDelay, 150) // tiny edit → respond faster
         : baseDelay
 
+    const scheduledVersion = document.version
+    state.pendingVersion = scheduledVersion
     const timerId = setTimeout(() => {
       this._pendingTimers.delete(key)
+      if (state.pendingVersion !== scheduledVersion) return
       this._runLint(document, diagnosticCollection, state)
     }, adaptiveDelay)
 
@@ -91,10 +103,12 @@ class IncrementalLinter {
 
   _getOrCreateState(key) {
     if (!this._docStates.has(key)) {
-      this._docStates.set(key, {
-        tracker: new IncrementalTracker(),
-        lastDiags: [],
-      })
+        this._docStates.set(key, {
+          tracker: new IncrementalTracker(),
+          lastDiags: [],
+          lastLintVersion: -1,
+          pendingVersion: null,
+        })
     }
     return this._docStates.get(key)
   }
@@ -124,10 +138,13 @@ class IncrementalLinter {
       })
 
       state.lastDiags = diagnostics
+      state.lastLintVersion = document.version
+      state.pendingVersion = null
       collection.set(document.uri, diagnostics)
     } catch (err) {
       // Never let linting crash the extension
       console.error("[IncrementalLinter] Error:", err.message)
+      state.pendingVersion = null
     }
   }
 }
