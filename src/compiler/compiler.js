@@ -6,7 +6,7 @@
 "use strict"
 
 const Lexer = require("./lexer")
-const InternalTranspiler = require("./transpiler")
+const InternalTranspiler = require("./parser")
 const { getGlobalCache } = require("./cache")
 const {
   DiagnosticCollector,

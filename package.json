@@ -1,8 +1,8 @@
 {
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
-    "description": "Professional QBasic/QB64 Environment with High-Performance Compiler, Real-time Diagnostics, Neon Graphics, and Advanced Web Transpiler.",
-    "version": "1.4.0",
+    "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
+    "version": "1.4.1",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",

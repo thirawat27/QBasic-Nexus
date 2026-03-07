@@ -16,8 +16,7 @@ let _WebviewManager = null
  * @returns {typeof import("../compiler/transpiler")}
  */
 function getInternalTranspiler() {
-  if (!_InternalTranspiler)
-    _InternalTranspiler = require("../compiler/transpiler")
+  if (!_InternalTranspiler) _InternalTranspiler = require("../compiler/parser")
   return _InternalTranspiler
 }
 
