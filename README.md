@@ -16,7 +16,6 @@
     <a href="#-troubleshooting">Troubleshooting</a>
   </p>
   <p>
-    <img src="https://img.shields.io/badge/version-1.4.0-blue.svg" alt="Version" />
     <img src="https://img.shields.io/badge/VS%20Code-1.105.0+-green.svg" alt="VS Code" />
     <img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="License" />
   </p>
