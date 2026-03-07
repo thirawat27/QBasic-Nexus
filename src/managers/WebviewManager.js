@@ -83,23 +83,26 @@ class WebviewManager {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(extensionUri, "src", "webview"),
-        ],
+        localResourceRoots: [extensionUri],
       },
     )
 
     WebviewManager.currentPanel = panel
 
     try {
-      panel.webview.html = await WebviewManager._getHtmlForWebview(
+      const html = await WebviewManager._getHtmlForWebview(
         panel.webview,
         extensionUri,
       )
+      if (WebviewManager.currentPanel === panel) {
+        panel.webview.html = html
+      }
     } catch (err) {
       vscode.window.showErrorMessage(`Failed to load CRT: ${err.message}`)
-      panel.dispose()
-      WebviewManager.currentPanel = undefined
+      if (WebviewManager.currentPanel === panel) {
+        panel.dispose()
+        WebviewManager.currentPanel = undefined
+      }
       return
     }
 
@@ -233,31 +236,35 @@ class WebviewManager {
     return WebviewManager.currentPanel !== undefined
   }
 
-  /**
-   * Build HTML content for the Webview.
-   * Uses pathe for safe cross-platform URI joining.
-   * @param {vscode.Webview} webview
-   * @param {vscode.Uri} extensionUri
-   * @returns {Promise<string>}
-   * @private
-   */
   static async _getHtmlForWebview(webview, extensionUri) {
-    // Use pathe.join for consistent forward-slash paths, then convert to vscode URI
-    const baseFsPath = extensionUri.fsPath
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.file(pathJoin(baseFsPath, "src", "webview", "crt.css")),
+      vscode.Uri.joinPath(extensionUri, "src", "webview", "crt.css"),
     )
     const jsUri = webview.asWebviewUri(
-      vscode.Uri.file(pathJoin(baseFsPath, "src", "webview", "runtime.js")),
+      vscode.Uri.joinPath(extensionUri, "src", "webview", "runtime.js"),
     )
 
-    // Cache the raw HTML template; replace URIs each time (they're session-bound)
     if (!WebviewManager._htmlCache) {
-      const htmlPath = pathJoin(baseFsPath, "src", "webview", "runner.html")
-      WebviewManager._htmlCache = await fs.readFile(htmlPath, "utf8")
+      try {
+        const htmlUri = vscode.Uri.joinPath(
+          extensionUri,
+          "src",
+          "webview",
+          "runner.html",
+        )
+        const htmlUint8Array = await vscode.workspace.fs.readFile(htmlUri)
+        WebviewManager._htmlCache = new TextDecoder().decode(htmlUint8Array)
+      } catch (err) {
+        console.error("Failed to load runner.html", err)
+        return "<html><body>Failed to load CRT template.</body></html>"
+      }
     }
 
     return WebviewManager._htmlCache
+      .replace(
+        /<meta\s+http-equiv="Content-Security-Policy"[\s\S]*?>/i,
+        `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'; img-src ${webview.cspSource} data: blob:;">`,
+      )
       .replace(/\{\{cspSource\}\}/g, webview.cspSource)
       .replace("{{cssUri}}", cssUri.toString())
       .replace("{{jsUri}}", jsUri.toString())

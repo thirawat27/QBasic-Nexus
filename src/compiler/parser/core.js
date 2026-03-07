@@ -551,12 +551,12 @@ try {
   } else if (typeof e === 'string' && e.startsWith('GOTO_')) {
     // GOTO jumped out of main body — normal for top-level GOTOs
   } else if (e && e.message) {
-    process.stderr.write('\nRuntime Error: ' + e.message + '\n');
+    process.stderr.write('\\nRuntime Error: ' + e.message + '\\n');
     if (typeof _runtime !== 'undefined' && typeof _runtime.error === 'function') {
       _runtime.error(e.message);
     }
   } else if (e !== undefined && e !== null) {
-    process.stderr.write('\nError: ' + String(e) + '\n');
+    process.stderr.write('\\nError: ' + String(e) + '\\n');
   }
 } finally {
   ${
@@ -671,29 +671,29 @@ try {
     }
   },
 
-_check(type) {
-  return this._peek()?.type === type
-},
+  _check(type) {
+    return this._peek()?.type === type
+  },
 
-_matchOp(op) {
-  const t = this._peek()
-  if (t?.type === TokenType.OPERATOR && t.value === op) {
-    this._advance()
-    return true
-  }
-  return false
-},
+  _matchOp(op) {
+    const t = this._peek()
+    if (t?.type === TokenType.OPERATOR && t.value === op) {
+      this._advance()
+      return true
+    }
+    return false
+  },
 
-_peek() {
-  if (this._cachedPeekPos === this.pos) {
+  _peek() {
+    if (this._cachedPeekPos === this.pos) {
+      return this._cachedPeek
+    }
+    this._cachedPeek = this.tokens[this.pos] || null
+    this._cachedPeekPos = this.pos
     return this._cachedPeek
-  }
-  this._cachedPeek = this.tokens[this.pos] || null
-  this._cachedPeekPos = this.pos
-  return this._cachedPeek
-},
+  },
 
-_prev() {
-  return this.pos > 0 ? this.tokens[this.pos - 1] : null
+  _prev() {
+    return this.pos > 0 ? this.tokens[this.pos - 1] : null
+  },
 }
-};
