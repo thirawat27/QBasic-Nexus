@@ -1,159 +1,159 @@
 // Auto-extracted Mixin
-"use strict"
-const { TokenType, BUILTIN_FUNCS } = require("../constants")
+'use strict';
+const { TokenType, BUILTIN_FUNCS } = require('../constants');
 module.exports = {
-  _init(tokens, target = "node") {
-    this.tokens = tokens
-    this.target = target
+  _init(tokens, target = 'node') {
+    this.tokens = tokens;
+    this.target = target;
 
-    this.pos = 0
-    this.indent = 0
+    this.pos = 0;
+    this.indent = 0;
 
     /** @type {string[]} Pre-allocate output array for better performance */
-    this.output = []
+    this.output = [];
     // Estimate output size: ~3 lines per token on average
-    const estimatedLines = Math.floor(tokens.length * 3)
+    const estimatedLines = Math.floor(tokens.length * 3);
     if (estimatedLines > 100) {
-      this.output = new Array(estimatedLines)
-      this.output.length = 0
+      this.output = new Array(estimatedLines);
+      this.output.length = 0;
     }
 
     /** @type {Array<{line: number, message: string, column: number}>} */
-    this.errors = []
+    this.errors = [];
 
     /** @type {Set<string>} Global SHARED variables */
-    this.scopes = [new Set()]
-    this.sharedVars = new Set()
+    this.scopes = [new Set()];
+    this.sharedVars = new Set();
 
     /** @type {string[]} DATA statement values */
-    this.dataValues = []
+    this.dataValues = [];
 
     /** @type {string|null} Name of function currently being parsed */
-    this.currentFunction = null
+    this.currentFunction = null;
 
     /** @type {Set<string>} Collected labels for GOTO/GOSUB support */
-    this.labels = new Set()
+    this.labels = new Set();
 
     /** @type {Map<string, string[]>} Label code blocks for GOTO state machine */
-    this.labelBlocks = new Map()
+    this.labelBlocks = new Map();
 
     // Performance optimization: Cache frequently accessed token properties
-    this._cachedPeek = null
-    this._cachedPeekPos = -1
+    this._cachedPeek = null;
+    this._cachedPeekPos = -1;
   },
 
   parse() {
     // Pre-pass: Collect all DATA values first
     // This is necessary because DATA statements can appear anywhere in QBasic
     // but must be available for READ statements from the start
-    this._collectDataValues()
+    this._collectDataValues();
 
-    this._emitHeader()
+    this._emitHeader();
 
     while (!this._isEnd()) {
-      this._skipNewlines()
-      if (this._isEnd()) break
+      this._skipNewlines();
+      if (this._isEnd()) break;
 
       try {
-        this._parseStatement()
+        this._parseStatement();
       } catch (e) {
-        this._recordError(e.message)
-        this._sync()
+        this._recordError(e.message);
+        this._sync();
       }
     }
 
-    this._emitFooter()
-    return this.output.join("\n")
+    this._emitFooter();
+    return this.output.join('\n');
   },
 
   get currentVars() {
-    return this.scopes[this.scopes.length - 1]
+    return this.scopes[this.scopes.length - 1];
   },
 
   _addVar(name) {
-    this.currentVars.add(name)
+    this.currentVars.add(name);
   },
 
   _hasVar(name) {
     // Check current scope first
-    if (this.currentVars.has(name)) return true
+    if (this.currentVars.has(name)) return true;
 
     // If in global scope (depth 1), no upper scopes to check
-    if (this.scopes.length === 1) return false
+    if (this.scopes.length === 1) return false;
 
     // If in SUB/FUNCTION, only access global variables if they are SHARED
-    return this.sharedVars.has(name)
+    return this.sharedVars.has(name);
   },
 
   _enterScope() {
-    this.scopes.push(new Set())
+    this.scopes.push(new Set());
   },
 
   _exitScope() {
-    this.scopes.pop()
+    this.scopes.pop();
   },
 
   _collectDataValues() {
-    const savedPos = this.pos
+    const savedPos = this.pos;
 
     while (!this._isEnd()) {
       // Collect labels for GOTO/GOSUB support
       if (this._check(TokenType.IDENTIFIER)) {
-        const next = this.tokens[this.pos + 1]
-        if (next?.type === TokenType.PUNCTUATION && next?.value === ":") {
-          this.labels.add(this._peek().value)
+        const next = this.tokens[this.pos + 1];
+        if (next?.type === TokenType.PUNCTUATION && next?.value === ':') {
+          this.labels.add(this._peek().value);
         }
       }
 
-      if (this._matchKw("DATA")) {
+      if (this._matchKw('DATA')) {
         do {
-          let val = "0"
-          if (this._check(TokenType.STRING)) val = `"${this._advance().value}"`
-          else if (this._check(TokenType.NUMBER)) val = this._advance().value
+          let val = '0';
+          if (this._check(TokenType.STRING)) val = `"${this._advance().value}"`;
+          else if (this._check(TokenType.NUMBER)) val = this._advance().value;
           else if (this._check(TokenType.IDENTIFIER))
-            val = `"${this._advance().value}"`
-          else if (!this._isStmtEnd()) this._advance()
-          else break
-          this.dataValues.push(val)
-        } while (this._matchPunc(","))
+            val = `"${this._advance().value}"`;
+          else if (!this._isStmtEnd()) this._advance();
+          else break;
+          this.dataValues.push(val);
+        } while (this._matchPunc(','));
       } else {
-        this._advance()
+        this._advance();
       }
     }
 
     // Reset position for main pass
-    this.pos = savedPos
+    this.pos = savedPos;
   },
 
   _recordError(msg) {
-    const tok = this._peek()
+    const tok = this._peek();
     this.errors.push({
       line: (tok?.line || 1) - 1,
       message: msg,
       column: tok?.col || 0,
-    })
+    });
   },
 
   _sync() {
-    this._advance()
+    this._advance();
     while (!this._isEnd()) {
-      if (this._prev()?.type === TokenType.NEWLINE) return
-      if (this._check(TokenType.KEYWORD)) return
-      this._advance()
+      if (this._prev()?.type === TokenType.NEWLINE) return;
+      if (this._check(TokenType.KEYWORD)) return;
+      this._advance();
     }
   },
 
   _emit(code) {
-    this.output.push("  ".repeat(this.indent) + code)
+    this.output.push('  '.repeat(this.indent) + code);
   },
 
   _emitHeader() {
     this.output.push(`// Generated by QBasic Nexus
 'use strict';
-`)
+`);
 
     // Runtime environment abstraction
-    if (this.target === "node") {
+    if (this.target === 'node') {
       this.output.push(`
 const readline = require('readline');
 const { spawn } = require('child_process');
@@ -181,8 +181,8 @@ function _input(prompt) {
 function _cls() {
   console.clear();
 }
-`)
-    } else if (this.target === "web") {
+`);
+    } else if (this.target === 'web') {
       this.output.push(`
 // Web Runtime Environment (Optimized v1.1.0)
 // Safe runtime reference — works in both browser and Node.js (pkg)
@@ -285,7 +285,7 @@ async function _limit(fps) {
   }
   _lastLimitTime = Date.now();
 }
-`)
+`);
     }
 
     this.output.push(`
@@ -303,9 +303,9 @@ function _makeArray(init, ...dims) {
 
 // Screen position tracking (for LOCATE)
 let _cursorRow = 1, _cursorCol = 1;
-`)
+`);
     // Node.js specific I/O functions
-    if (this.target === "node") {
+    if (this.target === 'node') {
       this.output.push(`
 function _locate(row, col) {
   _cursorRow = row;
@@ -428,11 +428,11 @@ function _sound(freq, duration) {
     }
   });
 }
-`)
+`);
     }
 
     this.output.push(`
-const _DATA = [${this.dataValues.join(", ")}];
+const _DATA = [${this.dataValues.join(', ')}];
 let _DATA_PTR = 0;
 
 function _read() {
@@ -453,10 +453,10 @@ function _rnd() {
   _rndSeed = (_rndSeed * 9301 + 49297) % 233280;
   return _rndSeed / 233280;
 }
-`)
+`);
 
     // Screen/Width stubs - only for Node.js (web has them from runtime)
-    if (this.target === "node") {
+    if (this.target === 'node') {
       this.output.push(`
 // Safe cross-environment runtime reference (Node.js / pkg)
 const _runtime = (typeof globalThis !== 'undefined' && globalThis.runtime) ? globalThis.runtime
@@ -475,7 +475,7 @@ function _width(cols, rows) {
   _screenWidth = cols;
   _screenHeight = rows || 25;
 }
-`)
+`);
     }
 
     // Common code for both targets
@@ -540,7 +540,7 @@ const FALSE = 0;
 
 (async () => {
 try {
-`)
+`);
   },
 
   _emitFooter() {
@@ -560,7 +560,7 @@ try {
   }
 } finally {
   ${
-    this.target === "node"
+    this.target === 'node'
       ? `
   // Flush stdout before exit
   if (process.stdout.write('')) {
@@ -569,131 +569,131 @@ try {
   } else {
     process.stdout.once('drain', () => { rl.close(); process.exit(0); });
   }`
-      : ""
+      : ''
   }
 }
 })();
-`)
+`);
   },
 
   _matchPunc(c) {
-    const t = this._peek()
+    const t = this._peek();
     if (t?.type === TokenType.PUNCTUATION && t.value === c) {
-      this._advance()
-      return true
+      this._advance();
+      return true;
     }
-    return false
+    return false;
   },
 
   _consume(type) {
-    if (this._check(type)) return this._advance()
-    return null
+    if (this._check(type)) return this._advance();
+    return null;
   },
 
   _consumeKw(kw) {
-    this._matchKw(kw)
+    this._matchKw(kw);
   },
 
   _consumeOp(op) {
-    this._matchOp(op)
+    this._matchOp(op);
   },
 
   _consumeToken() {
     if (this._isEnd()) {
-      const lastToken = this._prev()
+      const lastToken = this._prev();
       return {
-        type: "EOF",
-        value: "",
+        type: 'EOF',
+        value: '',
         line: lastToken?.line || 1,
         col: lastToken?.col || 0,
-      }
+      };
     }
-    const token = this._advance()
+    const token = this._advance();
     return (
       token || {
-        type: "UNKNOWN",
-        value: "",
+        type: 'UNKNOWN',
+        value: '',
         line: this._prev()?.line || 1,
         col: 0,
       }
-    )
+    );
   },
 
   _decIndent() {
-    this.indent = Math.max(0, this.indent - 1)
+    this.indent = Math.max(0, this.indent - 1);
   },
 
   _matchKw(kw) {
     if (this._checkKw(kw)) {
-      this._advance()
-      return true
+      this._advance();
+      return true;
     }
-    return false
+    return false;
   },
 
   _checkKw(kw) {
-    const t = this._peek()
-    return t?.type === TokenType.KEYWORD && t.value === kw
+    const t = this._peek();
+    return t?.type === TokenType.KEYWORD && t.value === kw;
   },
 
   _advance() {
     if (!this._isEnd()) {
-      this.pos++
+      this.pos++;
       // Invalidate cache
-      this._cachedPeekPos = -1
+      this._cachedPeekPos = -1;
     }
-    return this._prev()
+    return this._prev();
   },
 
   _isEnd() {
-    return this._check(TokenType.EOF)
+    return this._check(TokenType.EOF);
   },
 
   _skipNewlines() {
-    while (this._check(TokenType.NEWLINE)) this._advance()
+    while (this._check(TokenType.NEWLINE)) this._advance();
   },
 
   _isStmtEnd() {
-    const t = this._peek()
+    const t = this._peek();
     if (!t || t.type === TokenType.EOF || t.type === TokenType.NEWLINE)
-      return true
+      return true;
     if (
       t.type === TokenType.KEYWORD &&
-      ["THEN", "ELSE", "ELSEIF"].includes(t.value)
+      ['THEN', 'ELSE', 'ELSEIF'].includes(t.value)
     )
-      return true
-    return false
+      return true;
+    return false;
   },
 
   _skipToEndOfLine() {
     while (!this._isStmtEnd() && !this._isEnd()) {
-      this._advance()
+      this._advance();
     }
   },
 
   _check(type) {
-    return this._peek()?.type === type
+    return this._peek()?.type === type;
   },
 
   _matchOp(op) {
-    const t = this._peek()
+    const t = this._peek();
     if (t?.type === TokenType.OPERATOR && t.value === op) {
-      this._advance()
-      return true
+      this._advance();
+      return true;
     }
-    return false
+    return false;
   },
 
   _peek() {
     if (this._cachedPeekPos === this.pos) {
-      return this._cachedPeek
+      return this._cachedPeek;
     }
-    this._cachedPeek = this.tokens[this.pos] || null
-    this._cachedPeekPos = this.pos
-    return this._cachedPeek
+    this._cachedPeek = this.tokens[this.pos] || null;
+    this._cachedPeekPos = this.pos;
+    return this._cachedPeek;
   },
 
   _prev() {
-    return this.pos > 0 ? this.tokens[this.pos - 1] : null
+    return this.pos > 0 ? this.tokens[this.pos - 1] : null;
   },
-}
+};

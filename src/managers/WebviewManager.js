@@ -9,16 +9,16 @@
  *  - Proper disposable cleanup on panel close
  */
 
-"use strict"
+'use strict';
 
-const vscode = require("vscode")
-const fs = require("fs").promises
-const mitt = require("mitt")
+const vscode = require('vscode');
+const fs = require('fs').promises;
+const mitt = require('mitt');
 // pathe: cross-platform path util (always uses forward slashes, safe on Windows)
-const { join: pathJoin } = require("pathe")
+const { join: pathJoin } = require('pathe');
 
 /** Chunk size for large code payloads (64 KB) */
-const CHUNK_SIZE = 64 * 1024
+const CHUNK_SIZE = 64 * 1024;
 
 /**
  * @typedef {'panelOpened' | 'panelClosed' | 'codeExecuted' | 'questComplete' | 'runtimeError'} WebviewEvent
@@ -28,7 +28,7 @@ const CHUNK_SIZE = 64 * 1024
 // Internal event bus – used to decouple WebviewManager from TutorialManager
 // ─────────────────────────────────────────────────────────────────────────────
 /** @type {import('mitt').Emitter<Record<WebviewEvent, any>>} */
-const emitter = mitt()
+const emitter = mitt();
 
 /**
  * Subscribe to internal WebviewManager events.
@@ -36,7 +36,7 @@ const emitter = mitt()
  * @param {Function} handler
  */
 function onWebviewEvent(event, handler) {
-  emitter.on(event, handler)
+  emitter.on(event, handler);
 }
 
 /**
@@ -45,7 +45,7 @@ function onWebviewEvent(event, handler) {
  * @param {Function} handler
  */
 function offWebviewEvent(event, handler) {
-  emitter.off(event, handler)
+  emitter.off(event, handler);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,89 +53,89 @@ function offWebviewEvent(event, handler) {
 // ─────────────────────────────────────────────────────────────────────────────
 class WebviewManager {
   /** @type {vscode.WebviewPanel | undefined} */
-  static currentPanel = undefined
+  static currentPanel = undefined;
 
   /** @type {string} */
-  static viewType = "qbasicNexusCrt"
+  static viewType = 'qbasicNexusCrt';
 
   /** @type {vscode.Disposable[]} */
-  static _disposables = []
+  static _disposables = [];
 
   /** @type {string | null} Cached raw HTML template */
-  static _htmlCache = null
+  static _htmlCache = null;
 
   /**
    * Creates or reveals the CRT Webview panel.
    * @param {vscode.Uri} extensionUri
    */
   static async createOrShow(extensionUri) {
-    const column = vscode.window.activeTextEditor?.viewColumn
+    const column = vscode.window.activeTextEditor?.viewColumn;
 
     if (WebviewManager.currentPanel) {
-      WebviewManager.currentPanel.reveal(column)
-      return
+      WebviewManager.currentPanel.reveal(column);
+      return;
     }
 
     const panel = vscode.window.createWebviewPanel(
       WebviewManager.viewType,
-      "QBasic CRT 📺",
+      'QBasic CRT 📺',
       column || vscode.ViewColumn.Two,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [extensionUri],
       },
-    )
+    );
 
-    WebviewManager.currentPanel = panel
+    WebviewManager.currentPanel = panel;
 
     try {
       const html = await WebviewManager._getHtmlForWebview(
         panel.webview,
         extensionUri,
-      )
+      );
       if (WebviewManager.currentPanel === panel) {
-        panel.webview.html = html
+        panel.webview.html = html;
       }
     } catch (err) {
-      vscode.window.showErrorMessage(`Failed to load CRT: ${err.message}`)
+      vscode.window.showErrorMessage(`Failed to load CRT: ${err.message}`);
       if (WebviewManager.currentPanel === panel) {
-        panel.dispose()
-        WebviewManager.currentPanel = undefined
+        panel.dispose();
+        WebviewManager.currentPanel = undefined;
       }
-      return
+      return;
     }
 
     // Message handler (lazy-load TutorialManager to break circular deps)
     WebviewManager._disposables.push(
       panel.webview.onDidReceiveMessage((message) => {
         try {
-          if (message.type === "check_output") {
-            const TutorialManager = require("./TutorialManager")
-            const completed = TutorialManager.checkResult(message.content)
+          if (message.type === 'check_output') {
+            const TutorialManager = require('./TutorialManager');
+            const completed = TutorialManager.checkResult(message.content);
             if (completed && panel.webview) {
-              panel.webview.postMessage({ type: "quest_complete" })
-              emitter.emit("questComplete", message.content)
+              panel.webview.postMessage({ type: 'quest_complete' });
+              emitter.emit('questComplete', message.content);
             }
-          } else if (message.type === "error") {
-            console.error("[QBasic CRT] Runtime error:", message.content)
-            emitter.emit("runtimeError", message.content)
+          } else if (message.type === 'error') {
+            console.error('[QBasic CRT] Runtime error:', message.content);
+            emitter.emit('runtimeError', message.content);
           }
         } catch (err) {
-          console.error("[QBasic CRT] Message handler error:", err)
+          console.error('[QBasic CRT] Message handler error:', err);
         }
       }),
-    )
+    );
 
     // Cleanup on close
     panel.onDidDispose(() => {
-      WebviewManager.currentPanel = undefined
-      WebviewManager._disposables.forEach((d) => d.dispose())
-      WebviewManager._disposables = []
-      emitter.emit("panelClosed", undefined)
-    })
+      WebviewManager.currentPanel = undefined;
+      WebviewManager._disposables.forEach((d) => d.dispose());
+      WebviewManager._disposables = [];
+      emitter.emit('panelClosed', undefined);
+    });
 
-    emitter.emit("panelOpened", undefined)
+    emitter.emit('panelOpened', undefined);
   }
 
   /**
@@ -147,36 +147,36 @@ class WebviewManager {
   static async runCode(code, filename, extensionUri) {
     // Reset tutorial history for a fresh run
     try {
-      const TutorialManager = require("./TutorialManager")
-      TutorialManager.clearHistory()
+      const TutorialManager = require('./TutorialManager');
+      TutorialManager.clearHistory();
     } catch {
       /* Optional – ignore if TM not loaded */
     }
 
     if (!WebviewManager.currentPanel) {
-      await WebviewManager.createOrShow(extensionUri)
+      await WebviewManager.createOrShow(extensionUri);
     }
 
     if (!WebviewManager.currentPanel) {
-      vscode.window.showErrorMessage("Failed to open CRT panel.")
-      return
+      vscode.window.showErrorMessage('Failed to open CRT panel.');
+      return;
     }
 
-    WebviewManager.currentPanel.reveal()
+    WebviewManager.currentPanel.reveal();
 
     // ── Chunked transfer for large payloads ──────────────────────────────
     if (code.length > CHUNK_SIZE) {
-      await WebviewManager._sendChunked(code, filename)
+      await WebviewManager._sendChunked(code, filename);
     } else {
       // Small payload: send in one message (common case)
       WebviewManager.currentPanel.webview.postMessage({
-        type: "execute",
+        type: 'execute',
         code,
         filename,
-      })
+      });
     }
 
-    emitter.emit("codeExecuted", { filename, codeSize: code.length })
+    emitter.emit('codeExecuted', { filename, codeSize: code.length });
   }
 
   /**
@@ -186,32 +186,32 @@ class WebviewManager {
    * @param {string} filename
    */
   static async _sendChunked(code, filename) {
-    const panel = WebviewManager.currentPanel
-    if (!panel) return
+    const panel = WebviewManager.currentPanel;
+    if (!panel) return;
 
-    const total = Math.ceil(code.length / CHUNK_SIZE)
+    const total = Math.ceil(code.length / CHUNK_SIZE);
 
     for (let i = 0; i < code.length; i += CHUNK_SIZE) {
-      const chunk = code.slice(i, i + CHUNK_SIZE)
-      const chunkIdx = Math.floor(i / CHUNK_SIZE)
-      const isFirst = chunkIdx === 0
-      const isLast = i + CHUNK_SIZE >= code.length
+      const chunk = code.slice(i, i + CHUNK_SIZE);
+      const chunkIdx = Math.floor(i / CHUNK_SIZE);
+      const isFirst = chunkIdx === 0;
+      const isLast = i + CHUNK_SIZE >= code.length;
 
       panel.webview.postMessage({
         type: isFirst
-          ? "execute_start"
+          ? 'execute_start'
           : isLast
-            ? "execute_end"
-            : "execute_chunk",
+            ? 'execute_end'
+            : 'execute_chunk',
         chunk,
         filename: isFirst ? filename : undefined,
         chunkIdx,
         totalChunks: total,
-      })
+      });
 
       // Yield to UI thread between chunks (prevents freezing)
       if (!isLast) {
-        await new Promise((r) => setImmediate(r))
+        await new Promise((r) => setImmediate(r));
       }
     }
   }
@@ -219,44 +219,44 @@ class WebviewManager {
   /** Clear the CRT screen. */
   static clearScreen() {
     if (WebviewManager.currentPanel) {
-      WebviewManager.currentPanel.webview.postMessage({ type: "clear" })
+      WebviewManager.currentPanel.webview.postMessage({ type: 'clear' });
     }
   }
 
   /** Dispose the current panel. */
   static dispose() {
     if (WebviewManager.currentPanel) {
-      WebviewManager.currentPanel.dispose()
-      WebviewManager.currentPanel = undefined
+      WebviewManager.currentPanel.dispose();
+      WebviewManager.currentPanel = undefined;
     }
   }
 
   /** @returns {boolean} */
   static isActive() {
-    return WebviewManager.currentPanel !== undefined
+    return WebviewManager.currentPanel !== undefined;
   }
 
   static async _getHtmlForWebview(webview, extensionUri) {
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, "src", "webview", "crt.css"),
-    )
+      vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'crt.css'),
+    );
     const jsUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, "src", "webview", "runtime.js"),
-    )
+      vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'runtime.js'),
+    );
 
     if (!WebviewManager._htmlCache) {
       try {
         const htmlUri = vscode.Uri.joinPath(
           extensionUri,
-          "src",
-          "webview",
-          "runner.html",
-        )
-        const htmlUint8Array = await vscode.workspace.fs.readFile(htmlUri)
-        WebviewManager._htmlCache = new TextDecoder().decode(htmlUint8Array)
+          'src',
+          'webview',
+          'runner.html',
+        );
+        const htmlUint8Array = await vscode.workspace.fs.readFile(htmlUri);
+        WebviewManager._htmlCache = new TextDecoder().decode(htmlUint8Array);
       } catch (err) {
-        console.error("Failed to load runner.html", err)
-        return "<html><body>Failed to load CRT template.</body></html>"
+        console.error('Failed to load runner.html', err);
+        return '<html><body>Failed to load CRT template.</body></html>';
       }
     }
 
@@ -266,11 +266,11 @@ class WebviewManager {
         `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'; img-src ${webview.cspSource} data: blob:;">`,
       )
       .replace(/\{\{cspSource\}\}/g, webview.cspSource)
-      .replace("{{cssUri}}", cssUri.toString())
-      .replace("{{jsUri}}", jsUri.toString())
+      .replace('{{cssUri}}', cssUri.toString())
+      .replace('{{jsUri}}', jsUri.toString());
   }
 }
 
-module.exports = WebviewManager
-module.exports.onWebviewEvent = onWebviewEvent
-module.exports.offWebviewEvent = offWebviewEvent
+module.exports = WebviewManager;
+module.exports.onWebviewEvent = onWebviewEvent;
+module.exports.offWebviewEvent = offWebviewEvent;

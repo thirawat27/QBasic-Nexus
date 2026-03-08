@@ -13,7 +13,7 @@
  *    `new RegExp(PATTERN_SRC.xxx, flags)` to get an independent instance.
  */
 
-"use strict"
+'use strict';
 
 // ── Non-global patterns — safe to share directly ─────────────────────────────
 const PATTERNS = Object.freeze({
@@ -28,9 +28,9 @@ const PATTERNS = Object.freeze({
   BLOCK_END: /^\s*(?:END\s+(?:SUB|FUNCTION|TYPE|IF|SELECT)|LOOP|NEXT|WEND)\b/i,
   BLOCK_MID: /^\s*(?:ELSE|ELSEIF|CASE)\b/i,
   IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_$%!#&]*/,
-})
+});
 
-const IDENTIFIER_CHAR_CLASS = "A-Za-z0-9_$%!#&"
+const IDENTIFIER_CHAR_CLASS = 'A-Za-z0-9_$%!#&';
 
 // ── Global pattern SOURCES — callers must create `new RegExp(src, flags)` ────
 // Keeping only the source prevents lastIndex state from leaking across calls.
@@ -38,7 +38,7 @@ const PATTERN_SRC = Object.freeze({
   DIM: String.raw`\bDIM\s+(?:SHARED\s+)?([a-zA-Z_][a-zA-Z0-9_$%!#&]*)`,
   ASSIGN: String.raw`\b([a-zA-Z_][a-zA-Z0-9_$%!#&]*)\s*=`,
   WORD: String.raw`[a-zA-Z_][a-zA-Z0-9_$%!#&]*`,
-})
+});
 
 // Convenience factory helpers ─────────────────────────────────────────────────
 /**
@@ -46,7 +46,7 @@ const PATTERN_SRC = Object.freeze({
  * @returns {RegExp}  global, case-insensitive
  */
 function makeDimRegex() {
-  return new RegExp(PATTERN_SRC.DIM, "gi")
+  return new RegExp(PATTERN_SRC.DIM, 'gi');
 }
 
 /**
@@ -54,7 +54,7 @@ function makeDimRegex() {
  * @returns {RegExp}  global
  */
 function makeAssignRegex() {
-  return new RegExp(PATTERN_SRC.ASSIGN, "g")
+  return new RegExp(PATTERN_SRC.ASSIGN, 'g');
 }
 
 /**
@@ -62,19 +62,19 @@ function makeAssignRegex() {
  * @returns {RegExp}  global
  */
 function makeWordRegex() {
-  return new RegExp(PATTERN_SRC.WORD, "g")
+  return new RegExp(PATTERN_SRC.WORD, 'g');
 }
 
 // Shared utility: escape special regex characters in a string
 function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function makeIdentifierRegex(identifier, flags = "g") {
+function makeIdentifierRegex(identifier, flags = 'g') {
   return new RegExp(
     `(?<![${IDENTIFIER_CHAR_CLASS}])${escapeRegex(identifier)}(?![${IDENTIFIER_CHAR_CLASS}])`,
     flags,
-  )
+  );
 }
 
 module.exports = {
@@ -86,4 +86,4 @@ module.exports = {
   makeAssignRegex,
   makeIdentifierRegex,
   makeWordRegex,
-}
+};

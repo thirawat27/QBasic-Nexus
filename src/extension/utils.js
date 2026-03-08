@@ -3,79 +3,79 @@
  * Shared utility functions used throughout the extension
  */
 
-"use strict"
+'use strict';
 
-const vscode = require("vscode")
-const fs = require("fs").promises
-const { defu } = require("defu")
-const { CONFIG } = require("./constants")
-const { state } = require("./state")
+const vscode = require('vscode');
+const fs = require('fs').promises;
+const { defu } = require('defu');
+const { CONFIG } = require('./constants');
+const { state } = require('./state');
 
 // Default values for every known config key
 const CONFIG_DEFAULTS = Object.freeze({
   [CONFIG.COMPILER_PATH]: null,
   [CONFIG.COMPILER_MODE]: CONFIG.MODE_QB64,
-  [CONFIG.COMPILER_ARGS]: "",
+  [CONFIG.COMPILER_ARGS]: '',
   [CONFIG.ENABLE_LINT]: true,
   [CONFIG.LINT_DELAY]: 500,
   [CONFIG.AUTO_FORMAT]: true,
-})
+});
 
 /**
  * Create a debounced version of a function with cancel support
  */
 function debounce(fn, delay) {
-  let timer = null
+  let timer = null;
   const debounced = (...args) => {
-    if (timer) clearTimeout(timer)
+    if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      timer = null
-      fn(...args)
-    }, delay)
-  }
+      timer = null;
+      fn(...args);
+    }, delay);
+  };
   // Allow cancellation to prevent stale callbacks
   debounced.cancel = () => {
     if (timer) {
-      clearTimeout(timer)
-      timer = null
+      clearTimeout(timer);
+      timer = null;
     }
-  }
-  return debounced
+  };
+  return debounced;
 }
 
 /**
  * Create a throttled version of a function with trailing call support
  */
 function throttle(fn, limit) {
-  let inThrottle = false
-  let lastArgs = null
-  let timeoutId = null
+  let inThrottle = false;
+  let lastArgs = null;
+  let timeoutId = null;
 
   const throttled = (...args) => {
     if (!inThrottle) {
-      fn(...args)
-      inThrottle = true
+      fn(...args);
+      inThrottle = true;
       timeoutId = setTimeout(() => {
-        inThrottle = false
+        inThrottle = false;
         if (lastArgs) {
-          fn(...lastArgs)
-          lastArgs = null
+          fn(...lastArgs);
+          lastArgs = null;
         }
-      }, limit)
+      }, limit);
     } else {
-      lastArgs = args // Save latest args for trailing call
+      lastArgs = args; // Save latest args for trailing call
     }
-  }
+  };
   // Allow cancellation
   throttled.cancel = () => {
     if (timeoutId) {
-      clearTimeout(timeoutId)
-      timeoutId = null
+      clearTimeout(timeoutId);
+      timeoutId = null;
     }
-    inThrottle = false
-    lastArgs = null
-  }
-  return throttled
+    inThrottle = false;
+    lastArgs = null;
+  };
+  return throttled;
 }
 
 /**
@@ -85,9 +85,9 @@ function getOutputChannel() {
   if (!state.outputChannel) {
     state.outputChannel = vscode.window.createOutputChannel(
       CONFIG.OUTPUT_CHANNEL,
-    )
+    );
   }
-  return state.outputChannel
+  return state.outputChannel;
 }
 
 /**
@@ -97,10 +97,10 @@ function getTerminal() {
   if (!state.terminal || state.terminal.exitStatus !== undefined) {
     state.terminal = vscode.window.createTerminal({
       name: CONFIG.TERMINAL_NAME,
-      iconPath: new vscode.ThemeIcon("terminal"),
-    })
+      iconPath: new vscode.ThemeIcon('terminal'),
+    });
   }
-  return state.terminal
+  return state.terminal;
 }
 
 /**
@@ -108,10 +108,10 @@ function getTerminal() {
  */
 async function fileExists(filePath) {
   try {
-    await fs.access(filePath)
-    return true
+    await fs.access(filePath);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -122,14 +122,14 @@ async function fileExists(filePath) {
  * @param {*} [fallback] - override fallback (optional, CONFIG_DEFAULTS used if omitted)
  */
 function getConfig(key, fallback = undefined) {
-  const raw = vscode.workspace.getConfiguration(CONFIG.SECTION).get(key)
+  const raw = vscode.workspace.getConfiguration(CONFIG.SECTION).get(key);
   // Build a single-key object, merge with defaults, return the value
-  const merged = defu({ [key]: raw }, CONFIG_DEFAULTS)
-  const value = merged[key]
+  const merged = defu({ [key]: raw }, CONFIG_DEFAULTS);
+  const value = merged[key];
   // If still undefined/null AND a manual fallback was given, use it
   if ((value === undefined || value === null) && fallback !== undefined)
-    return fallback
-  return value
+    return fallback;
+  return value;
 }
 
 /**
@@ -138,28 +138,28 @@ function getConfig(key, fallback = undefined) {
  * @returns {Record<string, any>}
  */
 function getAllConfig() {
-  const section = vscode.workspace.getConfiguration(CONFIG.SECTION)
-  const raw = {}
+  const section = vscode.workspace.getConfiguration(CONFIG.SECTION);
+  const raw = {};
   for (const key of Object.keys(CONFIG_DEFAULTS)) {
-    raw[key] = section.get(key)
+    raw[key] = section.get(key);
   }
-  return defu(raw, CONFIG_DEFAULTS)
+  return defu(raw, CONFIG_DEFAULTS);
 }
 
 /**
  * Log message to output channel
  */
-function log(message, type = "info") {
-  const channel = getOutputChannel()
+function log(message, type = 'info') {
+  const channel = getOutputChannel();
   const prefix =
     {
-      info: "ℹ️",
-      success: "✅",
-      error: "❌",
-      warning: "⚠️",
-      debug: "🔍",
-    }[type] || ""
-  channel.appendLine(`${prefix} ${message}`)
+      info: 'ℹ️',
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      debug: '🔍',
+    }[type] || '';
+  channel.appendLine(`${prefix} ${message}`);
 }
 
 module.exports = {
@@ -171,4 +171,4 @@ module.exports = {
   getConfig,
   getAllConfig,
   log,
-}
+};

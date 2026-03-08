@@ -6,18 +6,18 @@
  * This is the single source of truth for deferred module access.
  */
 
-"use strict"
+'use strict';
 
-let _InternalTranspiler = null
-let _WebviewManager = null
+let _InternalTranspiler = null;
+let _WebviewManager = null;
 
 /**
  * Lazy-load and cache the InternalTranspiler class.
  * @returns {typeof import("../compiler/transpiler")}
  */
 function getInternalTranspiler() {
-  if (!_InternalTranspiler) _InternalTranspiler = require("../compiler/parser")
-  return _InternalTranspiler
+  if (!_InternalTranspiler) _InternalTranspiler = require('../compiler/parser');
+  return _InternalTranspiler;
 }
 
 /**
@@ -25,8 +25,8 @@ function getInternalTranspiler() {
  * @returns {typeof import("../managers/WebviewManager")}
  */
 function getWebviewManager() {
-  if (!_WebviewManager) _WebviewManager = require("../managers/WebviewManager")
-  return _WebviewManager
+  if (!_WebviewManager) _WebviewManager = require('../managers/WebviewManager');
+  return _WebviewManager;
 }
 
-module.exports = { getInternalTranspiler, getWebviewManager }
+module.exports = { getInternalTranspiler, getWebviewManager };

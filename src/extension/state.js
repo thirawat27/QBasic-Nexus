@@ -3,7 +3,7 @@
  * Shared mutable state across the extension modules
  */
 
-"use strict"
+'use strict';
 
 // Global mutable state — exported as a single object so mutations are visible
 // across all modules that import this.
@@ -15,6 +15,6 @@ const state = {
   diagnosticCollection: null,
   isCompiling: false,
   extensionContext: null,
-}
+};
 
-module.exports = { state }
+module.exports = { state };

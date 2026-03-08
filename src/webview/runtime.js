@@ -39,8 +39,6 @@
   const canvas = document.getElementById("gfx-layer")
 
   // Global directives for linters
-  /* global localStorage */
-
   // =========================================================================
   // STATE
   // =========================================================================
@@ -685,6 +683,7 @@
       filename: filename,
       mode: mode,
       content: content,
+      lines: mode === "INPUT" ? content.split("\n") : null,
       position: 0,
       buffer: "", // For output buffering
     }
@@ -734,10 +733,13 @@
     const fh = fileHandles[filenum]
     if (!fh) return ""
 
-    const lines = fh.content.split("\n")
+    // Use cached lines array to avoid O(N) split on every line read
+    if (!fh.lines && fh.content) fh.lines = fh.content.split("\n")
+    else if (!fh.lines) fh.lines = []
+
     let res = ""
-    if (fh.position < lines.length) {
-      res = lines[fh.position]
+    if (fh.position < fh.lines.length) {
+      res = fh.lines[fh.position]
       fh.position++
     }
     return res

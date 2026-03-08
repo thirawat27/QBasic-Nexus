@@ -9,6 +9,6 @@
  * All actual provider logic lives in src/providers/*.js
  */
 
-"use strict"
+'use strict';
 
-module.exports = require("./src/providers/index")
+module.exports = require('./src/providers/index');

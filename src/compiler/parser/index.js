@@ -2,37 +2,37 @@
  * QBasic Nexus - Core Transpiler / Parser Assembled
  */
 
-"use strict"
+'use strict';
 
-const { TokenType, BUILTIN_FUNCS } = require("../constants")
-const Lexer = require("../lexer")
-const { TokenPool } = require("../lexer")
+const { TokenType, BUILTIN_FUNCS } = require('../constants');
+const Lexer = require('../lexer');
+const { TokenPool } = require('../lexer');
 
 class Parser {
-  constructor(tokens, target = "node") {
+  constructor(tokens, target = 'node') {
     // Call the initialized method that we mapped from core.js
     if (this._init) {
-      this._init(tokens, target)
+      this._init(tokens, target);
     }
   }
 }
 
 function mixin(target, ...sources) {
   for (const source of sources) {
-    Object.defineProperties(target, Object.getOwnPropertyDescriptors(source))
+    Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
   }
 }
 
 mixin(
   Parser.prototype,
-  require("./core"),
-  require("./expressions"),
-  require("./io"),
-  require("./graphics"),
-  require("./system"),
-  require("./types"),
-  require("./statements"),
-)
+  require('./core'),
+  require('./expressions'),
+  require('./io'),
+  require('./graphics'),
+  require('./system'),
+  require('./types'),
+  require('./statements'),
+);
 
 class InternalTranspiler {
   /**
@@ -41,44 +41,44 @@ class InternalTranspiler {
    * @param {string} target - 'node' or 'web'.
    * @returns {string} Generated JavaScript code.
    */
-  transpile(source, target = "node") {
+  transpile(source, target = 'node') {
     // Input validation
     if (source === null || source === undefined) {
-      return "// Empty source"
+      return '// Empty source';
     }
-    if (typeof source !== "string") {
-      source = String(source)
+    if (typeof source !== 'string') {
+      source = String(source);
     }
     if (source.trim().length === 0) {
-      return "// Empty source"
+      return '// Empty source';
     }
 
     // Validate target
-    if (target !== "node" && target !== "web") {
-      target = "web"
+    if (target !== 'node' && target !== 'web') {
+      target = 'web';
     }
 
-    let tokens = null
+    let tokens = null;
 
     try {
-      const lexer = new Lexer(source)
-      tokens = lexer.tokenize()
+      const lexer = new Lexer(source);
+      tokens = lexer.tokenize();
 
       // Safety check for token array
       if (!Array.isArray(tokens) || tokens.length === 0) {
-        return "// No tokens generated"
+        return '// No tokens generated';
       }
 
-      const parser = new Parser(tokens, target)
-      const result = parser.parse()
+      const parser = new Parser(tokens, target);
+      const result = parser.parse();
 
-      return result
+      return result;
     } catch (e) {
-      console.error("[Transpiler] Compilation error:", e.message)
-      return `// Compilation error: ${e.message}\nconsole.error("Compilation failed: ${e.message.replace(/"/g, '\\"')}");`
+      console.error('[Transpiler] Compilation error:', e.message);
+      return `// Compilation error: ${e.message}\nconsole.error("Compilation failed: ${e.message.replace(/"/g, '\\"')}");`;
     } finally {
-      if (tokens && typeof TokenPool?.releaseAll === "function") {
-        TokenPool.releaseAll(tokens)
+      if (tokens && typeof TokenPool?.releaseAll === 'function') {
+        TokenPool.releaseAll(tokens);
       }
     }
   }
@@ -90,21 +90,21 @@ class InternalTranspiler {
    * @param {string} target - 'node' or 'web'.
    * @returns {{ code: string, errors: Array }} Result object.
    */
-  transpileTokens(tokens, target = "web") {
+  transpileTokens(tokens, target = 'web') {
     if (!Array.isArray(tokens) || tokens.length === 0) {
-      return { code: "// No tokens generated", errors: [] }
+      return { code: '// No tokens generated', errors: [] };
     }
-    if (target !== "node" && target !== "web") target = "web"
+    if (target !== 'node' && target !== 'web') target = 'web';
     try {
-      const parser = new Parser(tokens, target)
-      const code = parser.parse()
-      return { code, errors: parser.errors || [] }
+      const parser = new Parser(tokens, target);
+      const code = parser.parse();
+      return { code, errors: parser.errors || [] };
     } catch (e) {
-      console.error(e.stack)
+      console.error(e.stack);
       return {
         code: `// Compilation error: ${e.message}`,
         errors: [{ line: 0, message: e.message, column: 0 }],
-      }
+      };
     }
   }
 
@@ -114,13 +114,13 @@ class InternalTranspiler {
    * @returns {Array<{line: number, message: string, column: number}>}
    */
   lintTokens(tokens) {
-    if (!Array.isArray(tokens) || tokens.length === 0) return []
+    if (!Array.isArray(tokens) || tokens.length === 0) return [];
     try {
-      const parser = new Parser(tokens, "node")
-      parser.parse()
-      return parser.errors || []
+      const parser = new Parser(tokens, 'node');
+      parser.parse();
+      return parser.errors || [];
     } catch (e) {
-      return [{ line: 0, message: `Parser error: ${e.message}`, column: 0 }]
+      return [{ line: 0, message: `Parser error: ${e.message}`, column: 0 }];
     }
   }
 
@@ -131,16 +131,16 @@ class InternalTranspiler {
    */
   lint(source) {
     // Input validation
-    if (!source || typeof source !== "string" || source.trim().length === 0) {
-      return []
+    if (!source || typeof source !== 'string' || source.trim().length === 0) {
+      return [];
     }
-    let tokens = null
+    let tokens = null;
 
     try {
-      const lexer = new Lexer(source)
-      tokens = lexer.tokenize()
+      const lexer = new Lexer(source);
+      tokens = lexer.tokenize();
       // Delegate to lintTokens to avoid code duplication
-      return this.lintTokens(tokens)
+      return this.lintTokens(tokens);
     } catch (e) {
       return [
         {
@@ -148,13 +148,13 @@ class InternalTranspiler {
           message: `Lexer/Parser error: ${e.message}`,
           column: 0,
         },
-      ]
+      ];
     } finally {
-      if (tokens && typeof TokenPool?.releaseAll === "function") {
-        TokenPool.releaseAll(tokens)
+      if (tokens && typeof TokenPool?.releaseAll === 'function') {
+        TokenPool.releaseAll(tokens);
       }
     }
   }
 }
 
-module.exports = InternalTranspiler
+module.exports = InternalTranspiler;

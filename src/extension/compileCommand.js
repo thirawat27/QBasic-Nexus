@@ -3,14 +3,14 @@
  * Entry point for compile / compile-and-run commands
  */
 
-"use strict"
+'use strict';
 
-const vscode = require("vscode")
-const { CONFIG } = require("./constants")
-const { state } = require("./state")
-const { getConfig } = require("./utils")
-const { runInternalTranspiler } = require("./internalTranspiler")
-const { runQB64Compiler } = require("./qb64Compiler")
+const vscode = require('vscode');
+const { CONFIG } = require('./constants');
+const { state } = require('./state');
+const { getConfig } = require('./utils');
+const { runInternalTranspiler } = require('./internalTranspiler');
+const { runQB64Compiler } = require('./qb64Compiler');
 
 /**
  * Execute compile (and optionally run) command
@@ -19,38 +19,38 @@ const { runQB64Compiler } = require("./qb64Compiler")
 async function executeCompile(shouldRun) {
   if (state.isCompiling) {
     vscode.window.showInformationMessage(
-      "⏳ Compilation already in progress...",
-    )
-    return
+      '⏳ Compilation already in progress...',
+    );
+    return;
   }
 
-  const editor = vscode.window.activeTextEditor
+  const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) {
-    vscode.window.showWarningMessage("📄 Please open a QBasic file first.")
-    return
+    vscode.window.showWarningMessage('📄 Please open a QBasic file first.');
+    return;
   }
 
-  const document = editor.document
+  const document = editor.document;
 
   // Auto-save if dirty
   if (document.isDirty) {
-    const saved = await document.save()
+    const saved = await document.save();
     if (!saved) {
       vscode.window.showWarningMessage(
-        "💾 File must be saved before compiling.",
-      )
-      return
+        '💾 File must be saved before compiling.',
+      );
+      return;
     }
   }
 
   // Get compiler mode
-  const mode = getConfig(CONFIG.COMPILER_MODE)
+  const mode = getConfig(CONFIG.COMPILER_MODE);
 
   if (mode === CONFIG.MODE_INTERNAL) {
-    await runInternalTranspiler(document, shouldRun)
+    await runInternalTranspiler(document, shouldRun);
   } else {
-    await runQB64Compiler(document, shouldRun)
+    await runQB64Compiler(document, shouldRun);
   }
 }
 
-module.exports = { executeCompile }
+module.exports = { executeCompile };

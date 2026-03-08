@@ -2,6 +2,41 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.4.3] - 2026-03-08
+
+### 🚀 Performance Improvements
+
+#### UI & Linter Optimizations
+
+- **Zero-Lag Typing**: Replaced costly synchronous `detectChanges` string splitting in `IncrementalLinter` with an adaptive length-difference heuristic. This completely eliminates UI freezing and lagging when typing in large files (10,000+ lines).
+
+#### Web Runtime (CRT) Optimizations
+
+- **VFS Read Speed (O(1))**: Fixed a severe $O(N^2)$ bottleneck in `vfsInput()` by caching parsed file line arrays. This significantly speeds up consecutive file reading operations (`INPUT #`) in the virtual file system.
+
+### 🧹 Code Maintenance
+
+- **Linting & Code Quality**: Added `@eslint/js` and `globals` to development dependencies. Scanned and resolved over 3,000 minor styling warnings, unused variables, and shadowing errors across the entire codebase to improve engine caching.
+- **Dead Code Cleanup**: Removed redeclarations of global `localStorage` in `runtime.js` and cleaned up unused variable imports in compiler and extensions modules.
+
+---
+
+## [1.4.2] - 2026-03-07
+
+### 🧹 Compiler Maintenance
+
+- **Temp File Cleanup**: Ensures the internal transpiler automatically deletes intermediate `_qbnx_.js` files after compilation, preventing workspace clutter.
+
+---
+
+## [1.4.1] - 2026-03-07
+
+### 🐛 Bug Fixes
+
+- **Webview Fix**: Resolved an "InvalidStateError" preventing the Service Worker from registering correctly, which caused the Retro CRT webview to fail to load in some environments.
+
+---
+
 ## [1.4.0] - 2026-03-03
 
 ### 🌍 Cross-Platform Compatibility

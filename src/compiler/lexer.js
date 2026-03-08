@@ -10,17 +10,17 @@
  *  - Flyweight pattern: keyword strings are interned via KEYWORDS Set
  */
 
-"use strict"
+'use strict';
 
-const moo = require("moo")
-const { TokenType, KEYWORDS } = require("./constants")
+const moo = require('moo');
+const { TokenType, KEYWORDS } = require('./constants');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pre-compiled character-level helpers (used in fallback only)
 // ─────────────────────────────────────────────────────────────────────────────
-const SMART_QUOTE_RE = /[\u201C\u201D\u201E\u201F]/g
-const SMART_APOS_RE = /[\u2018\u2019\u201A\u201B]/g
-const FULLWIDTH_RE = /[\uFF04\uFE69]/g
+const SMART_QUOTE_RE = /[\u201C\u201D\u201E\u201F]/g;
+const SMART_APOS_RE = /[\u2018\u2019\u201A\u201B]/g;
+const FULLWIDTH_RE = /[\uFF04\uFE69]/g;
 
 // Normalise Unicode curly quotes / fullwidth chars to ASCII once per compile
 function normalise(source) {
@@ -30,16 +30,16 @@ function normalise(source) {
     !SMART_APOS_RE.test(source) &&
     !FULLWIDTH_RE.test(source)
   ) {
-    return source
+    return source;
   }
   // Reset stateful regex after .test() call
-  SMART_QUOTE_RE.lastIndex = 0
-  SMART_APOS_RE.lastIndex = 0
-  FULLWIDTH_RE.lastIndex = 0
+  SMART_QUOTE_RE.lastIndex = 0;
+  SMART_APOS_RE.lastIndex = 0;
+  FULLWIDTH_RE.lastIndex = 0;
   return source
-    .replace(FULLWIDTH_RE, "$")
+    .replace(FULLWIDTH_RE, '$')
     .replace(SMART_QUOTE_RE, '"')
-    .replace(SMART_APOS_RE, "'")
+    .replace(SMART_APOS_RE, "'");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,19 +78,19 @@ const MOO_RULES = {
 
   // Anything else – skip unknown chars without crashing
   UNKNOWN: { match: /[^\s]/ },
-}
+};
 
-const mooLexer = moo.compile(MOO_RULES)
+const mooLexer = moo.compile(MOO_RULES);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Token class & Pool
 // ─────────────────────────────────────────────────────────────────────────────
 class Token {
   constructor(type, value, line, col) {
-    this.type = type
-    this.value = value
-    this.line = line
-    this.col = col
+    this.type = type;
+    this.value = value;
+    this.line = line;
+    this.col = col;
   }
 }
 
@@ -101,40 +101,40 @@ const TokenPool = {
   // Pre-allocate a batch to warm the pool
   _preallocated: false,
   _preallocate() {
-    if (this._preallocated) return
-    this._preallocated = true
+    if (this._preallocated) return;
+    this._preallocated = true;
     for (let i = 0; i < 300; i++) {
-      this._pool.push(new Token("", "", 0, 0))
+      this._pool.push(new Token('', '', 0, 0));
     }
   },
 
   acquire(type, value, line, col) {
-    this._preallocate()
+    this._preallocate();
     if (this._pool.length > 0) {
-      const t = this._pool.pop()
-      t.type = type
-      t.value = value
-      t.line = line
-      t.col = col
-      return t
+      const t = this._pool.pop();
+      t.type = type;
+      t.value = value;
+      t.line = line;
+      t.col = col;
+      return t;
     }
-    return new Token(type, value, line, col)
+    return new Token(type, value, line, col);
   },
 
   releaseAll(tokens) {
-    const free = this._maxSize - this._pool.length
-    const n = Math.min(tokens.length, free)
+    const free = this._maxSize - this._pool.length;
+    const n = Math.min(tokens.length, free);
     for (let i = 0; i < n; i++) {
-      tokens[i].value = ""
-      this._pool.push(tokens[i])
+      tokens[i].value = '';
+      this._pool.push(tokens[i]);
     }
   },
 
   clear() {
-    this._pool.length = 0
-    this._preallocated = false
+    this._pool.length = 0;
+    this._preallocated = false;
   },
-}
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FastLexer – public API (drop-in replacement for the old Lexer)
@@ -144,7 +144,7 @@ class Lexer {
    * @param {string} source - QBasic source code
    */
   constructor(source) {
-    this.src = normalise(source)
+    this.src = normalise(source);
   }
 
   /**
@@ -152,101 +152,101 @@ class Lexer {
    * @returns {Token[]}
    */
   tokenize() {
-    mooLexer.reset(this.src)
+    mooLexer.reset(this.src);
 
     // Pre-allocate with a rough estimate (avg ~1 token per 6 chars)
-    const estimated = Math.max(64, Math.floor(this.src.length / 6))
-    const tokens = new Array(estimated)
-    let count = 0
+    const estimated = Math.max(64, Math.floor(this.src.length / 6));
+    const tokens = new Array(estimated);
+    let count = 0;
 
     for (const mTok of mooLexer) {
-      let type, value
-      const raw = mTok.value
-      const line = mTok.line
-      const col = mTok.col
+      let type, value;
+      const raw = mTok.value;
+      const line = mTok.line;
+      const col = mTok.col;
 
       switch (mTok.type) {
-        case "WS":
-        case "UNKNOWN":
+        case 'WS':
+        case 'UNKNOWN':
           // Silently skip whitespace and unknown chars
-          continue
+          continue;
 
-        case "COMMENT":
+        case 'COMMENT':
           // Skip comments entirely
-          continue
+          continue;
 
-        case "NEWLINE":
-          type = TokenType.NEWLINE
-          value = "\n"
-          break
+        case 'NEWLINE':
+          type = TokenType.NEWLINE;
+          value = '\n';
+          break;
 
-        case "NUMBER":
-          type = TokenType.NUMBER
-          value = raw
-          break
+        case 'NUMBER':
+          type = TokenType.NUMBER;
+          value = raw;
+          break;
 
-        case "HEX": {
+        case 'HEX': {
           // Convert &Hxx → decimal string
-          type = TokenType.NUMBER
-          const hexDigits = raw.slice(2) // strip &H
-          value = String(parseInt(hexDigits, 16) || 0)
-          break
+          type = TokenType.NUMBER;
+          const hexDigits = raw.slice(2); // strip &H
+          value = String(parseInt(hexDigits, 16) || 0);
+          break;
         }
 
-        case "STRING":
+        case 'STRING':
           // Strip surrounding quotes (moo includes them)
-          type = TokenType.STRING
+          type = TokenType.STRING;
           value = raw.startsWith('"')
             ? raw.slice(1, raw.endsWith('"') ? -1 : undefined)
-            : raw
-          break
+            : raw;
+          break;
 
-        case "IDENT": {
+        case 'IDENT': {
           // Flyweight: uppercase keywords are interned in KEYWORDS Set
-          const upper = raw.toUpperCase()
+          const upper = raw.toUpperCase();
           if (KEYWORDS.has(upper)) {
-            type = TokenType.KEYWORD
-            value = upper // interned canonical form
+            type = TokenType.KEYWORD;
+            value = upper; // interned canonical form
           } else {
-            type = TokenType.IDENTIFIER
-            value = raw
+            type = TokenType.IDENTIFIER;
+            value = raw;
           }
-          break
+          break;
         }
 
-        case "OPERATOR":
-          type = TokenType.OPERATOR
-          value = raw
-          break
+        case 'OPERATOR':
+          type = TokenType.OPERATOR;
+          value = raw;
+          break;
 
-        case "PUNCTUATION":
-          type = TokenType.PUNCTUATION
-          value = raw
-          break
+        case 'PUNCTUATION':
+          type = TokenType.PUNCTUATION;
+          value = raw;
+          break;
 
         default:
           // Safety net – should not happen
-          continue
+          continue;
       }
 
       // Grow array only when needed (rare)
-      if (count >= tokens.length) tokens.length = count * 2
-      tokens[count++] = TokenPool.acquire(type, value, line, col)
+      if (count >= tokens.length) tokens.length = count * 2;
+      tokens[count++] = TokenPool.acquire(type, value, line, col);
     }
 
     // Append EOF sentinel
-    if (count >= tokens.length) tokens.length = count + 1
+    if (count >= tokens.length) tokens.length = count + 1;
     tokens[count++] = TokenPool.acquire(
       TokenType.EOF,
-      "",
+      '',
       mooLexer.line,
       mooLexer.col,
-    )
+    );
 
-    tokens.length = count
-    return tokens
+    tokens.length = count;
+    return tokens;
   }
 }
 
-module.exports = Lexer
-module.exports.TokenPool = TokenPool
+module.exports = Lexer;
+module.exports.TokenPool = TokenPool;

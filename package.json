@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.4.2",
+    "version": "1.4.3",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -33,12 +33,14 @@
         "publish": "vsce publish"
     },
     "devDependencies": {
+        "@eslint/js": "^10.0.1",
         "@types/mocha": "^10.0.10",
         "@types/node": "25.x",
         "@types/vscode": "^1.107.0",
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
-        "eslint": "^10.0.3"
+        "eslint": "^10.0.3",
+        "globals": "^17.4.0"
     },
     "dependencies": {
         "@appthreat/caxa": "^2.0.13",

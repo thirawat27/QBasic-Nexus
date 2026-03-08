@@ -3,38 +3,38 @@
  * Unified compiler interface with caching and error recovery
  */
 
-"use strict"
+'use strict';
 
-const Lexer = require("./lexer")
-const { TokenPool } = require("./lexer")
-const InternalTranspiler = require("./parser")
-const { getGlobalCache } = require("./cache")
+const Lexer = require('./lexer');
+const { TokenPool } = require('./lexer');
+const InternalTranspiler = require('./parser');
+const { getGlobalCache } = require('./cache');
 const {
   DiagnosticCollector,
   ErrorCategory,
   ErrorRecovery,
-} = require("./error-recovery")
+} = require('./error-recovery');
 
 /**
  * Compiler options
  */
 const DEFAULT_OPTIONS = {
-  target: "web", // 'web' or 'node'
+  target: 'web', // 'web' or 'node'
   cache: true, // Enable compilation cache
   strictMode: false, // Strict error checking
   optimizationLevel: 2, // 0=none, 1=basic, 2=aggressive
   sourceMap: false, // Generate source maps
   maxErrors: 100, // Maximum errors before stopping
-}
+};
 
 function countLines(source) {
-  if (!source) return 0
+  if (!source) return 0;
 
-  let count = 1
+  let count = 1;
   for (let i = 0; i < source.length; i++) {
-    if (source.charCodeAt(i) === 10) count++
+    if (source.charCodeAt(i) === 10) count++;
   }
-  return count
+  return count;
 }
 
 /**
@@ -42,59 +42,59 @@ function countLines(source) {
  */
 class CompilationResult {
   constructor(code, diagnostics, metadata = {}) {
-    this.code = code
-    this.diagnostics = diagnostics
-    this.metadata = metadata
-    this.success = !diagnostics.hasErrors()
+    this.code = code;
+    this.diagnostics = diagnostics;
+    this.metadata = metadata;
+    this.success = !diagnostics.hasErrors();
   }
 
   /**
    * Check if compilation was successful
    */
   isSuccess() {
-    return this.success
+    return this.success;
   }
 
   /**
    * Get generated code
    */
   getCode() {
-    return this.code
+    return this.code;
   }
 
   /**
    * Get all diagnostics
    */
   getDiagnostics() {
-    return this.diagnostics.getAll()
+    return this.diagnostics.getAll();
   }
 
   /**
    * Get errors only
    */
   getErrors() {
-    return this.diagnostics.getBySeverity("error")
+    return this.diagnostics.getBySeverity('error');
   }
 
   /**
    * Get warnings only
    */
   getWarnings() {
-    return this.diagnostics.getBySeverity("warning")
+    return this.diagnostics.getBySeverity('warning');
   }
 
   /**
    * Format diagnostics for display
    */
   formatDiagnostics() {
-    return this.diagnostics.format()
+    return this.diagnostics.format();
   }
 
   /**
    * Get compilation metadata
    */
   getMetadata() {
-    return this.metadata
+    return this.metadata;
   }
 }
 
@@ -103,62 +103,62 @@ class CompilationResult {
  */
 class Compiler {
   constructor(options = {}) {
-    this.options = { ...DEFAULT_OPTIONS, ...options }
-    this.cache = this.options.cache ? getGlobalCache() : null
+    this.options = { ...DEFAULT_OPTIONS, ...options };
+    this.cache = this.options.cache ? getGlobalCache() : null;
     this.stats = {
       compilations: 0,
       cacheHits: 0,
       cacheMisses: 0,
       totalTime: 0,
       avgTime: 0,
-    }
+    };
   }
 
   /**
    * Compile QBasic source code
    */
   compile(source) {
-    const startTime = process.hrtime.bigint()
-    let tokens = null
+    const startTime = process.hrtime.bigint();
+    let tokens = null;
 
     // Check cache first (no tokenization needed)
     if (this.cache) {
-      const cached = this.cache.getCode(source, this.options.target)
+      const cached = this.cache.getCode(source, this.options.target);
       if (cached) {
-        this.stats.cacheHits++
-        this.stats.compilations++
+        this.stats.cacheHits++;
+        this.stats.compilations++;
 
-        const diagnostics = new DiagnosticCollector()
+        const diagnostics = new DiagnosticCollector();
         for (const err of cached.errors || []) {
-          diagnostics.add(err)
+          diagnostics.add(err);
         }
 
         return new CompilationResult(cached.code, diagnostics, {
           cached: true,
           cacheAge: Date.now() - cached.timestamp,
-        })
+        });
       }
-      this.stats.cacheMisses++
+      this.stats.cacheMisses++;
     }
 
-    const diagnostics = new DiagnosticCollector()
+    const diagnostics = new DiagnosticCollector();
 
     try {
       // ── Tokenize ONCE ──────────────────────────────────────────────
-      const lexerStart = process.hrtime.bigint()
-      const lexer = new Lexer(source)
-      tokens = lexer.tokenize()
-      const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1_000_000
+      const lexerStart = process.hrtime.bigint();
+      const lexer = new Lexer(source);
+      tokens = lexer.tokenize();
+      const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1_000_000;
 
       // ── Parse + codegen (reuse token array — no re-tokenize) ───────
-      const parserStart = process.hrtime.bigint()
-      const transpiler = new InternalTranspiler()
+      const parserStart = process.hrtime.bigint();
+      const transpiler = new InternalTranspiler();
       const { code, errors } = transpiler.transpileTokens(
         tokens,
         this.options.target,
-      )
+      );
       const parserTime =
-        Number(process.hrtime.bigint() - parserStart) / 1_000_000
+        Number(process.hrtime.bigint() - parserStart) / 1_000_000;
 
       // Collect errors directly from the parse result (no extra lint pass)
       for (const err of errors) {
@@ -167,7 +167,7 @@ class Compiler {
           err.message,
           err.line,
           err.column,
-        )
+        );
       }
 
       // Cache the result if clean
@@ -177,13 +177,13 @@ class Compiler {
           this.options.target,
           code,
           diagnostics.getAll(),
-        )
+        );
       }
 
-      const totalTime = Number(process.hrtime.bigint() - startTime) / 1_000_000
-      this.stats.compilations++
-      this.stats.totalTime += totalTime
-      this.stats.avgTime = this.stats.totalTime / this.stats.compilations
+      const totalTime = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+      this.stats.compilations++;
+      this.stats.totalTime += totalTime;
+      this.stats.avgTime = this.stats.totalTime / this.stats.compilations;
 
       return new CompilationResult(code, diagnostics, {
         cached: false,
@@ -193,22 +193,22 @@ class Compiler {
         tokenCount: tokens.length,
         lineCount: countLines(source),
         sourceSize: source.length,
-      })
+      });
     } catch (error) {
       diagnostics.error(
         ErrorCategory.RUNTIME,
         `Internal compiler error: ${error.message}`,
         1,
         0,
-      )
+      );
 
-      return new CompilationResult("", diagnostics, {
+      return new CompilationResult('', diagnostics, {
         cached: false,
         error: error.message,
-      })
+      });
     } finally {
-      if (tokens && typeof TokenPool?.releaseAll === "function") {
-        TokenPool.releaseAll(tokens)
+      if (tokens && typeof TokenPool?.releaseAll === 'function') {
+        TokenPool.releaseAll(tokens);
       }
     }
   }
@@ -217,35 +217,35 @@ class Compiler {
    * Compile and run (for Node.js target)
    */
   async compileAndRun(source) {
-    const result = this.compile(source)
+    const result = this.compile(source);
 
     if (!result.isSuccess()) {
-      throw new Error("Compilation failed:\n" + result.formatDiagnostics())
+      throw new Error('Compilation failed:\n' + result.formatDiagnostics());
     }
 
-    if (this.options.target !== "node") {
-      throw new Error("compileAndRun is only available for Node.js target")
+    if (this.options.target !== 'node') {
+      throw new Error('compileAndRun is only available for Node.js target');
     }
 
     // Execute the generated code
     const AsyncFunction = Object.getPrototypeOf(
       async function () {},
-    ).constructor
-    const fn = new AsyncFunction(result.getCode())
-    return await fn()
+    ).constructor;
+    const fn = new AsyncFunction(result.getCode());
+    return await fn();
   }
 
   /**
    * Get compiler statistics
    */
   getStats() {
-    const stats = { ...this.stats }
+    const stats = { ...this.stats };
 
     if (this.cache) {
-      stats.cache = this.cache.getStats()
+      stats.cache = this.cache.getStats();
     }
 
-    return stats
+    return stats;
   }
 
   /**
@@ -253,7 +253,7 @@ class Compiler {
    */
   clearCache() {
     if (this.cache) {
-      this.cache.clear()
+      this.cache.clear();
     }
   }
 
@@ -267,18 +267,18 @@ class Compiler {
       cacheMisses: 0,
       totalTime: 0,
       avgTime: 0,
-    }
+    };
   }
 
   /**
    * Format statistics for display
    */
   formatStats() {
-    const stats = this.getStats()
+    const stats = this.getStats();
     const hitRate =
       stats.compilations > 0
         ? ((stats.cacheHits / stats.compilations) * 100).toFixed(2)
-        : "0.00"
+        : '0.00';
 
     return `
 Compiler Statistics:
@@ -295,9 +295,9 @@ Cache Statistics:
   Token Cache: ${stats.cache.tokenCache.utilization}
   Code Cache: ${stats.cache.codeCache.utilization}
 `
-    : ""
+    : ''
 }
-        `.trim()
+        `.trim();
   }
 }
 
@@ -305,16 +305,16 @@ Cache Statistics:
  * Quick compile function for simple use cases
  */
 function compile(source, options = {}) {
-  const compiler = new Compiler(options)
-  return compiler.compile(source)
+  const compiler = new Compiler(options);
+  return compiler.compile(source);
 }
 
 /**
  * Quick compile and run function
  */
 async function compileAndRun(source, options = {}) {
-  const compiler = new Compiler({ ...options, target: "node" })
-  return await compiler.compileAndRun(source)
+  const compiler = new Compiler({ ...options, target: 'node' });
+  return await compiler.compileAndRun(source);
 }
 
 module.exports = {
@@ -323,4 +323,4 @@ module.exports = {
   compile,
   compileAndRun,
   DEFAULT_OPTIONS,
-}
+};

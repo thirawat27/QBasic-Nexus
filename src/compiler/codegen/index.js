@@ -5,79 +5,79 @@
  * outputs highly optimized JavaScript code.
  */
 
-"use strict"
+'use strict';
 
 class CodeGenerator {
-  constructor(ast, target = "node") {
-    this.ast = ast
-    this.target = target
-    this.output = []
-    this.indentLevel = 0
+  constructor(ast, target = 'node') {
+    this.ast = ast;
+    this.target = target;
+    this.output = [];
+    this.indentLevel = 0;
   }
 
   generate() {
-    this._emitHeader()
-    this._visit(this.ast)
-    this._emitFooter()
-    return this.output.join("\n")
+    this._emitHeader();
+    this._visit(this.ast);
+    this._emitFooter();
+    return this.output.join('\n');
   }
 
   _emit(code) {
-    this.output.push("  ".repeat(this.indentLevel) + code)
+    this.output.push('  '.repeat(this.indentLevel) + code);
   }
 
   _visit(node) {
-    if (!node) return
+    if (!node) return;
 
     switch (node.type) {
-      case "Program":
+      case 'Program':
         for (const stmt of node.body) {
-          this._visit(stmt)
+          this._visit(stmt);
         }
-        break
-      case "Block":
-        this.indentLevel++
+        break;
+      case 'Block':
+        this.indentLevel++;
         for (const stmt of node.statements) {
-          this._visit(stmt)
+          this._visit(stmt);
         }
-        this.indentLevel--
-        break
-      case "PrintStatement":
+        this.indentLevel--;
+        break;
+      case 'PrintStatement':
         this._emit(
-          `await _print(${node.args.map((a) => this._visitExpr(a)).join(", ")});`,
-        )
-        break
+          `await _print(${node.args.map((a) => this._visitExpr(a)).join(', ')});`,
+        );
+        break;
       // Additional nodes map exactly to their output strings
       default:
-        throw new Error(`CodeGenerator: Unknown node type ${node.type}`)
+        throw new Error(`CodeGenerator: Unknown node type ${node.type}`);
     }
   }
 
   _visitExpr(expr) {
-    if (!expr) return "null"
+    if (!expr) return 'null';
     switch (expr.type) {
-      case "Literal":
-        return expr.dataType === "STRING" ? `"${expr.value}"` : expr.value
-      case "Identifier":
-        return expr.name
-      case "BinaryExpression":
-        return `${this._visitExpr(expr.left)} ${expr.operator} ${this._visitExpr(expr.right)}`
+      case 'Literal':
+        return expr.dataType === 'STRING' ? `"${expr.value}"` : expr.value;
+      case 'Identifier':
+        return expr.name;
+      case 'BinaryExpression':
+        return `${this._visitExpr(expr.left)} ${expr.operator} ${this._visitExpr(expr.right)}`;
       default:
-        return `/* Unhandled Expr: ${expr.type} */`
+        return `/* Unhandled Expr: ${expr.type} */`;
     }
   }
 
   _emitHeader() {
-    this._emit("// QBasic Nexus - Auto-generated Code")
-    this._emit("async function main() {")
-    this.indentLevel++
+    this._emit('// QBasic Nexus - Auto-generated Code');
+    this._emit('async function main() {');
+    this.indentLevel++;
   }
 
   _emitFooter() {
-    this.indentLevel--
-    this._emit("}")
-    this._emit("main().catch(console.error);")
+    this.indentLevel--;
+    this._emit('}');
+    this._emit('main().catch(console.error);');
   }
 }
 
-module.exports = CodeGenerator
+module.exports = CodeGenerator;

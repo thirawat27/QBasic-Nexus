@@ -14,28 +14,28 @@
  * Entry point — wires everything together and delegates to focused sub-modules.
  */
 
-"use strict"
+'use strict';
 
-const vscode = require("vscode")
+const vscode = require('vscode');
 
 // ── Sub-modules ──────────────────────────────────────────────────────────────
-const { CONFIG, COMMANDS } = require("./src/extension/constants")
-const { state } = require("./src/extension/state")
+const { CONFIG, COMMANDS } = require('./src/extension/constants');
+const { state } = require('./src/extension/state');
 const {
   debounce,
   throttle,
   getOutputChannel,
-} = require("./src/extension/utils")
+} = require('./src/extension/utils');
 const {
   updateStatusBar,
   updateCodeStats,
-} = require("./src/extension/statusBar")
-const { lintDocument } = require("./src/extension/linting")
-const { showCodeStatsDetail } = require("./src/extension/codeStats")
-const { executeCompile } = require("./src/extension/compileCommand")
-const { runInCrt } = require("./src/extension/crtRunner")
-const { getWebviewManager } = require("./src/extension/lazyModules")
-const { getIncrementalLinter } = require("./src/managers/IncrementalLinter")
+} = require('./src/extension/statusBar');
+const { lintDocument } = require('./src/extension/linting');
+const { showCodeStatsDetail } = require('./src/extension/codeStats');
+const { executeCompile } = require('./src/extension/compileCommand');
+const { runInCrt } = require('./src/extension/crtRunner');
+const { getWebviewManager } = require('./src/extension/lazyModules');
+const { getIncrementalLinter } = require('./src/managers/IncrementalLinter');
 
 // ── Language Providers ───────────────────────────────────────────────────────
 const {
@@ -52,15 +52,15 @@ const {
   QBasicCodeActionProvider,
   QBasicReferenceProvider,
   QBasicOnTypeFormattingEditProvider,
-} = require("./src/providers/index")
+} = require('./src/providers/index');
 
 // ── Lazy-loaded modules ──────────────────────────────────────────────────────
-let _TutorialManager = null
+let _TutorialManager = null;
 
 function getTutorialManager() {
   if (!_TutorialManager)
-    _TutorialManager = require("./src/managers/TutorialManager")
-  return _TutorialManager
+    _TutorialManager = require('./src/managers/TutorialManager');
+  return _TutorialManager;
 }
 
 // ============================================================================
@@ -68,33 +68,33 @@ function getTutorialManager() {
 // ============================================================================
 
 async function activate(context) {
-  console.log("[QBasic Nexus] ⚡ Extension activated")
-  const startTime = Date.now()
+  console.log('[QBasic Nexus] ⚡ Extension activated');
+  const startTime = Date.now();
 
-  state.extensionContext = context
+  state.extensionContext = context;
 
   // Initialize diagnostic collection
   state.diagnosticCollection =
-    vscode.languages.createDiagnosticCollection("qbasic-nexus")
-  context.subscriptions.push(state.diagnosticCollection)
+    vscode.languages.createDiagnosticCollection('qbasic-nexus');
+  context.subscriptions.push(state.diagnosticCollection);
 
   // Initialize status bars
   state.statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
     100,
-  )
-  state.statusBarItem.command = COMMANDS.COMPILE_RUN
-  context.subscriptions.push(state.statusBarItem)
+  );
+  state.statusBarItem.command = COMMANDS.COMPILE_RUN;
+  context.subscriptions.push(state.statusBarItem);
 
   state.statsBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100,
-  )
-  state.statsBarItem.command = COMMANDS.SHOW_STATS
-  context.subscriptions.push(state.statsBarItem)
+  );
+  state.statsBarItem.command = COMMANDS.SHOW_STATS;
+  context.subscriptions.push(state.statsBarItem);
 
   // ── Register language providers ──────────────────────────────────────────
-  const selector = { language: CONFIG.LANGUAGE_ID, scheme: "file" }
+  const selector = { language: CONFIG.LANGUAGE_ID, scheme: 'file' };
 
   context.subscriptions.push(
     // Core providers
@@ -118,8 +118,8 @@ async function activate(context) {
     vscode.languages.registerSignatureHelpProvider(
       selector,
       new QBasicSignatureHelpProvider(),
-      "(",
-      ",",
+      '(',
+      ',',
     ),
 
     // Enhanced providers
@@ -152,9 +152,9 @@ async function activate(context) {
     vscode.languages.registerOnTypeFormattingEditProvider(
       selector,
       new QBasicOnTypeFormattingEditProvider(),
-      "\n",
+      '\n',
     ),
-  )
+  );
 
   // ── Register commands ────────────────────────────────────────────────────
   context.subscriptions.push(
@@ -167,92 +167,92 @@ async function activate(context) {
     vscode.commands.registerCommand(COMMANDS.RUN_CRT, runInCrt),
     vscode.commands.registerCommand(COMMANDS.START_TUTORIAL, () => {
       // Lazy-wire on first use: load both modules and connect them
-      const tm = getTutorialManager()
-      tm.setWebviewManager(getWebviewManager())
-      return tm.startTutorial(state.extensionContext)
+      const tm = getTutorialManager();
+      tm.setWebviewManager(getWebviewManager());
+      return tm.startTutorial(state.extensionContext);
     }),
     vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
-  )
+  );
 
   // ── Event handlers ───────────────────────────────────────────────────────
-  const throttledStatsUpdate = throttle(updateCodeStats, 500)
-  const debouncedStatusUpdate = debounce(updateStatusBar, 200)
+  const throttledStatsUpdate = throttle(updateCodeStats, 500);
+  const debouncedStatusUpdate = debounce(updateStatusBar, 200);
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) => {
-      debouncedStatusUpdate()
+      debouncedStatusUpdate();
       if (editor) {
-        lintDocument(editor.document)
-        throttledStatsUpdate(editor.document)
+        lintDocument(editor.document);
+        throttledStatsUpdate(editor.document);
       } else {
-        if (state.statsBarItem) state.statsBarItem.hide()
+        if (state.statsBarItem) state.statsBarItem.hide();
       }
     }),
     vscode.workspace.onDidChangeTextDocument((e) => {
       // Invalidate cache
-      invalidateCache(e.document.uri)
+      invalidateCache(e.document.uri);
 
       // Lint and update stats
-      lintDocument(e.document)
-      throttledStatsUpdate(e.document)
+      lintDocument(e.document);
+      throttledStatsUpdate(e.document);
     }),
     vscode.workspace.onWillSaveTextDocument((e) => {
       const autoFormat = vscode.workspace
         .getConfiguration(CONFIG.SECTION)
-        .get(CONFIG.AUTO_FORMAT, true)
+        .get(CONFIG.AUTO_FORMAT, true);
       if (autoFormat && e.document.languageId === CONFIG.LANGUAGE_ID) {
         try {
-          const editor = vscode.window.activeTextEditor
+          const editor = vscode.window.activeTextEditor;
           const tabSize =
             editor && editor.document === e.document
               ? editor.options.tabSize
-              : 4
+              : 4;
           const insertSpaces =
             editor && editor.document === e.document
               ? editor.options.insertSpaces
-              : true
+              : true;
 
-          const formatter = new QBasicDocumentFormattingEditProvider()
+          const formatter = new QBasicDocumentFormattingEditProvider();
           const edits = formatter.provideDocumentFormattingEdits(e.document, {
             tabSize,
             insertSpaces,
-          })
+          });
           if (edits && edits.length > 0) {
-            e.waitUntil(Promise.resolve(edits))
+            e.waitUntil(Promise.resolve(edits));
           }
         } catch (err) {
-          console.error("Format on save failed:", err)
+          console.error('Format on save failed:', err);
         }
       }
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      lintDocument(doc)
-      updateCodeStats(doc)
+      lintDocument(doc);
+      updateCodeStats(doc);
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration(CONFIG.SECTION)) {
-        updateStatusBar()
+        updateStatusBar();
       }
     }),
     vscode.window.onDidCloseTerminal((t) => {
-      if (t === state.terminal) state.terminal = null
+      if (t === state.terminal) state.terminal = null;
     }),
     // Memory leak fix: remove incremental linter state when doc is closed
     vscode.workspace.onDidCloseTextDocument((doc) => {
-      getIncrementalLinter().removeDocument(doc.uri.toString())
+      getIncrementalLinter().removeDocument(doc.uri.toString());
     }),
-  )
+  );
 
   // ── Initial setup ────────────────────────────────────────────────────────
-  updateStatusBar()
+  updateStatusBar();
   if (vscode.window.activeTextEditor) {
-    const doc = vscode.window.activeTextEditor.document
-    lintDocument(doc)
-    updateCodeStats(doc)
+    const doc = vscode.window.activeTextEditor.document;
+    lintDocument(doc);
+    updateCodeStats(doc);
   }
 
-  const activationTime = Date.now() - startTime
-  console.log(`[QBasic Nexus] ✅ Ready in ${activationTime}ms`)
+  const activationTime = Date.now() - startTime;
+  console.log(`[QBasic Nexus] ✅ Ready in ${activationTime}ms`);
 }
 
 // ============================================================================
@@ -260,25 +260,25 @@ async function activate(context) {
 // ============================================================================
 
 function deactivate() {
-  console.log("[QBasic Nexus] Extension deactivated")
+  console.log('[QBasic Nexus] Extension deactivated');
 
   // Dispose the incremental linter (cancels all pending timers)
-  getIncrementalLinter().dispose()
+  getIncrementalLinter().dispose();
 
   // Dispose VS Code resources
-  state.statusBarItem?.dispose()
-  state.statsBarItem?.dispose()
-  state.outputChannel?.dispose()
-  state.diagnosticCollection?.dispose()
-  state.terminal?.dispose()
+  state.statusBarItem?.dispose();
+  state.statsBarItem?.dispose();
+  state.outputChannel?.dispose();
+  state.diagnosticCollection?.dispose();
+  state.terminal?.dispose();
 
   // Clear references
-  state.statusBarItem = null
-  state.statsBarItem = null
-  state.outputChannel = null
-  state.diagnosticCollection = null
-  state.terminal = null
-  state.extensionContext = null
+  state.statusBarItem = null;
+  state.statsBarItem = null;
+  state.outputChannel = null;
+  state.diagnosticCollection = null;
+  state.terminal = null;
+  state.extensionContext = null;
 }
 
-module.exports = { activate, deactivate }
+module.exports = { activate, deactivate };
