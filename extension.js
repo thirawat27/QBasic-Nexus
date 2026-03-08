@@ -24,7 +24,6 @@ const { state } = require('./src/extension/state');
 const {
   debounce,
   throttle,
-  getOutputChannel,
 } = require('./src/extension/utils');
 const {
   updateStatusBar,
@@ -34,6 +33,14 @@ const { lintDocument } = require('./src/extension/linting');
 const { showCodeStatsDetail } = require('./src/extension/codeStats');
 const { executeCompile } = require('./src/extension/compileCommand');
 const { runInCrt } = require('./src/extension/crtRunner');
+const {
+  removeLineNumbers,
+  renumberLines,
+} = require('./src/commands/lineNumbers');
+const {
+  showAsciiChart,
+  insertChrFromAsciiChart,
+} = require('./src/extension/asciiChart');
 const { getWebviewManager } = require('./src/extension/lazyModules');
 const { getIncrementalLinter } = require('./src/managers/IncrementalLinter');
 
@@ -172,6 +179,18 @@ async function activate(context) {
       return tm.startTutorial(state.extensionContext);
     }),
     vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
+    vscode.commands.registerCommand(
+      COMMANDS.REMOVE_LINE_NUMBERS,
+      removeLineNumbers,
+    ),
+    vscode.commands.registerCommand(COMMANDS.RENUMBER_LINES, renumberLines),
+    vscode.commands.registerCommand(COMMANDS.SHOW_ASCII_CHART, () =>
+      showAsciiChart(context.extensionUri),
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.INSERT_CHR_FROM_ASCII,
+      insertChrFromAsciiChart,
+    ),
   );
 
   // ── Event handlers ───────────────────────────────────────────────────────
@@ -240,6 +259,7 @@ async function activate(context) {
     // Memory leak fix: remove incremental linter state when doc is closed
     vscode.workspace.onDidCloseTextDocument((doc) => {
       getIncrementalLinter().removeDocument(doc.uri.toString());
+      invalidateCache(doc.uri);
     }),
   );
 

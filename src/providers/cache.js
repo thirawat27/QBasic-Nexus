@@ -7,11 +7,11 @@
 
 const vscode = require('vscode');
 const { KEYWORDS, FUNCTIONS } = require('../../languageData');
+const { invalidateDocumentAnalysis } = require('../shared/documentAnalysis');
 
 // Version-based cache: invalidates when document content changes (more accurate than TTL)
-// symbolCache / variableCache store { data, version } keyed by URI string
+// symbolCache stores { data, version } keyed by URI string
 const symbolCache = new Map();
-const variableCache = new Map();
 
 // Pre-built completion items for keywords/functions (immutable, never changes)
 let cachedKeywordItems = null;
@@ -65,24 +65,11 @@ function setCachedSymbols(document, data) {
   symbolCache.set(document.uri.toString(), { data, version: document.version });
 }
 
-function getCachedVariables(document) {
-  const entry = variableCache.get(document.uri.toString());
-  if (entry && entry.version === document.version) return entry.data;
-  return null;
-}
-
-function setCachedVariables(document, data) {
-  variableCache.set(document.uri.toString(), {
-    data,
-    version: document.version,
-  });
-}
-
 // Clear cache when document is closed / deleted
 function invalidateCache(uri) {
   const key = uri.toString();
   symbolCache.delete(key);
-  variableCache.delete(key);
+  invalidateDocumentAnalysis(uri);
 }
 
 module.exports = {
@@ -90,7 +77,5 @@ module.exports = {
   getFunctionCompletionItems,
   getCachedSymbols,
   setCachedSymbols,
-  getCachedVariables,
-  setCachedVariables,
   invalidateCache,
 };

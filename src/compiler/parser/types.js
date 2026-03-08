@@ -1,6 +1,6 @@
 // Auto-extracted Mixin
 'use strict';
-const { TokenType, BUILTIN_FUNCS } = require('../constants');
+const { TokenType } = require('../constants');
 module.exports = {
 _parseDim() {
     let isShared = false;

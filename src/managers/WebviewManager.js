@@ -12,10 +12,7 @@
 'use strict';
 
 const vscode = require('vscode');
-const fs = require('fs').promises;
 const mitt = require('mitt');
-// pathe: cross-platform path util (always uses forward slashes, safe on Windows)
-const { join: pathJoin } = require('pathe');
 
 /** Chunk size for large code payloads (64 KB) */
 const CHUNK_SIZE = 64 * 1024;

@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.4.3",
+    "version": "1.5.0",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -24,11 +24,14 @@
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
         "test": "vscode-test",
-        "benchmark": "node test/benchmark-compiler.js",
+        "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
+        "benchmark:compiler": "node test/benchmark-compiler.js",
+        "benchmark:editor": "node test/benchmark-editor.js",
         "test:compiler": "node test/test-transpiler.js",
         "test:variables": "node test/test-variable-declaration.js",
+        "test:features": "node test/test-editor-features.js",
         "test:integration": "node test/test-integration.js",
-        "test:all": "npm run test:compiler && npm run test:variables && npm run test:integration && npm run benchmark",
+        "test:all": "npm run test:compiler && npm run test:variables && npm run test:features && npm run test:integration && npm run benchmark",
         "package": "vsce package",
         "publish": "vsce publish"
     },
@@ -114,6 +117,26 @@
                 "command": "qbasic-nexus.showCodeStats",
                 "title": "QBasic Show Code Statistics 📊",
                 "icon": "$(graph)"
+            },
+            {
+                "command": "qbasic-nexus.removeLineNumbers",
+                "title": "QBasic Remove Line Numbers 🔢",
+                "icon": "$(list-ordered)"
+            },
+            {
+                "command": "qbasic-nexus.renumberLines",
+                "title": "QBasic Renumber Lines 🔄",
+                "icon": "$(symbol-number)"
+            },
+            {
+                "command": "qbasic-nexus.showAsciiChart",
+                "title": "QBasic Show ASCII Chart 📋",
+                "icon": "$(symbol-string)"
+            },
+            {
+                "command": "qbasic-nexus.insertChrFromAsciiChart",
+                "title": "QBasic Insert CHR$() at Cursor ✍️",
+                "icon": "$(insert)"
             }
         ],
         "menus": {
@@ -137,6 +160,26 @@
                     "command": "qbasic-nexus.startTutorial",
                     "when": "resourceLangId == qbasic",
                     "group": "1_qbasic@4"
+                },
+                {
+                    "command": "qbasic-nexus.removeLineNumbers",
+                    "when": "resourceLangId == qbasic",
+                    "group": "2_qbasicTools@1"
+                },
+                {
+                    "command": "qbasic-nexus.renumberLines",
+                    "when": "resourceLangId == qbasic",
+                    "group": "2_qbasicTools@2"
+                },
+                {
+                    "command": "qbasic-nexus.showAsciiChart",
+                    "when": "resourceLangId == qbasic",
+                    "group": "2_qbasicTools@3"
+                },
+                {
+                    "command": "qbasic-nexus.insertChrFromAsciiChart",
+                    "when": "resourceLangId == qbasic",
+                    "group": "2_qbasicTools@4"
                 }
             ],
             "editor/title": [
@@ -166,6 +209,21 @@
             {
                 "command": "qbasic-nexus.showCodeStats",
                 "key": "ctrl+shift+i",
+                "when": "resourceLangId == qbasic"
+            },
+            {
+                "command": "qbasic-nexus.removeLineNumbers",
+                "key": "ctrl+alt+r",
+                "when": "editorTextFocus && resourceLangId == qbasic"
+            },
+            {
+                "command": "qbasic-nexus.renumberLines",
+                "key": "ctrl+alt+n",
+                "when": "editorTextFocus && resourceLangId == qbasic"
+            },
+            {
+                "command": "qbasic-nexus.showAsciiChart",
+                "key": "ctrl+alt+a",
                 "when": "resourceLangId == qbasic"
             }
         ],
@@ -232,6 +290,20 @@
                     "type": "boolean",
                     "default": true,
                     "markdownDescription": "Automatically format the document and auto-capitalize keywords when saving (mimicking classic QBasic IDE).",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.lineNumberStart": {
+                    "type": "number",
+                    "default": 1,
+                    "minimum": 1,
+                    "markdownDescription": "Starting line number used by **QBasic: Renumber Lines**.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.lineNumberStep": {
+                    "type": "number",
+                    "default": 1,
+                    "minimum": 1,
+                    "markdownDescription": "Increment used by **QBasic: Renumber Lines**.",
                     "scope": "resource"
                 }
             }

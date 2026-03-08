@@ -2,7 +2,6 @@
 /**
  * Final integration test - all Phase 1-3 components
  */
-const { performance } = require('perf_hooks');
 let passed = 0,
   failed = 0;
 
@@ -70,7 +69,6 @@ const {
   CompilationCache,
   TieredCache,
   fnv1a,
-  getGlobalCache,
 } = require('../src/compiler/cache');
 
 test('FNV-1a deterministic', () => {

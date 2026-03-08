@@ -7,13 +7,14 @@
 
 const vscode = require('vscode');
 const { KEYWORDS, FUNCTIONS } = require('../../languageData');
-const { makeIdentifierRegex } = require('./patterns');
+const { PATTERNS } = require('./patterns');
+const { findDocumentIdentifierMatches } = require('../shared/documentAnalysis');
 
 class QBasicRenameProvider {
   provideRenameEdits(document, position, newName) {
     const wordRange = document.getWordRangeAtPosition(
       position,
-      /[a-zA-Z_][a-zA-Z0-9_$%!#&]*/,
+      PATTERNS.IDENTIFIER,
     );
     if (!wordRange) return null;
 
@@ -30,23 +31,11 @@ class QBasicRenameProvider {
     }
 
     const edits = new vscode.WorkspaceEdit();
-    const wordPattern = makeIdentifierRegex(oldName, 'gi');
+    const matches = findDocumentIdentifierMatches(document, oldName);
 
-    for (let i = 0; i < document.lineCount; i++) {
-      const line = document.lineAt(i).text;
-      let match;
-
-      wordPattern.lastIndex = 0;
-
-      while ((match = wordPattern.exec(line)) !== null) {
-        const range = new vscode.Range(
-          i,
-          match.index,
-          i,
-          match.index + match[0].length,
-        );
-        edits.replace(document.uri, range, newName);
-      }
+    for (const { line, start, end } of matches) {
+      const range = new vscode.Range(line, start, line, end);
+      edits.replace(document.uri, range, newName);
     }
 
     return edits;
@@ -55,7 +44,7 @@ class QBasicRenameProvider {
   prepareRename(document, position) {
     const wordRange = document.getWordRangeAtPosition(
       position,
-      /[a-zA-Z_][a-zA-Z0-9_$%!#&]*/,
+      PATTERNS.IDENTIFIER,
     );
     if (!wordRange) {
       throw new Error('Cannot rename this element');

@@ -109,14 +109,14 @@ function benchmarkCompile(source, iterations = 100) {
         // Lexer benchmark
         const lexerStart = process.hrtime.bigint();
         const lexer = new Lexer(source);
-        const tokens = lexer.tokenize();
+        lexer.tokenize();
         const lexerEnd = process.hrtime.bigint();
         times.lexer.push(Number(lexerEnd - lexerStart) / 1000000); // Convert to ms
         
         // Parser benchmark (full transpilation)
         const parserStart = process.hrtime.bigint();
         const transpiler = new InternalTranspiler();
-        const code = transpiler.transpile(source, 'web');
+        transpiler.transpile(source, 'web');
         const parserEnd = process.hrtime.bigint();
         times.parser.push(Number(parserEnd - parserStart) / 1000000);
         

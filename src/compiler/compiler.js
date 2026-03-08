@@ -12,7 +12,6 @@ const { getGlobalCache } = require('./cache');
 const {
   DiagnosticCollector,
   ErrorCategory,
-  ErrorRecovery,
 } = require('./error-recovery');
 
 /**

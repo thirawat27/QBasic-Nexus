@@ -4,7 +4,6 @@
 
 'use strict';
 
-const { TokenType, BUILTIN_FUNCS } = require('../constants');
 const Lexer = require('../lexer');
 const { TokenPool } = require('../lexer');
 

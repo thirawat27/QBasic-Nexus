@@ -7,6 +7,7 @@
 
 const vscode = require('vscode');
 const { CONFIG, COMMANDS } = require('./constants');
+const { getDocumentAnalysis } = require('../shared/documentAnalysis');
 const { state } = require('./state');
 const { getConfig } = require('./utils');
 
@@ -57,21 +58,10 @@ function updateCodeStats(document) {
     return;
   }
 
-  const text = document.getText();
-  const lines = document.lineCount;
-  const codeLines = text.split('\n').filter((line) => {
-    const trimmed = line.trim();
-    return (
-      trimmed &&
-      !trimmed.startsWith("'") &&
-      !trimmed.toUpperCase().startsWith('REM ')
-    );
-  }).length;
-  const subCount = (text.match(/^\s*SUB\s+/gim) || []).length;
-  const funcCount = (text.match(/^\s*FUNCTION\s+/gim) || []).length;
+  const analysis = getDocumentAnalysis(document);
 
-  state.statsBarItem.text = `$(code) ${codeLines}L | ${subCount}S ${funcCount}F`;
-  state.statsBarItem.tooltip = `Lines: ${lines} (${codeLines} code)\nSUBs: ${subCount}\nFUNCTIONs: ${funcCount}`;
+  state.statsBarItem.text = `$(code) ${analysis.codeLines}L | ${analysis.subCount}S ${analysis.funcCount}F`;
+  state.statsBarItem.tooltip = `Lines: ${analysis.totalLines} (${analysis.codeLines} code)\nSUBs: ${analysis.subCount}\nFUNCTIONs: ${analysis.funcCount}`;
   state.statsBarItem.show();
 }
 

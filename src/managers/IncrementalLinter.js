@@ -17,7 +17,6 @@
 // Load vscode at top-level — was incorrectly re-required on every lint cycle
 const vscode = require('vscode');
 const InternalTranspiler = require('../compiler/parser');
-const { IncrementalTracker } = require('../compiler/cache');
 
 /**
  * Per-document linting state.

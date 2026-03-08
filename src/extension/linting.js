@@ -5,7 +5,6 @@
 
 'use strict';
 
-const vscode = require('vscode');
 const { getIncrementalLinter } = require('../managers/IncrementalLinter');
 const { CONFIG } = require('./constants');
 const { state } = require('./state');

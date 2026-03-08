@@ -110,7 +110,6 @@ function testVariableDeclaration() {
             
             // Check if code contains proper variable declarations
             const hasLetDeclarations = code.includes('let ');
-            const hasUndefinedVars = /\b(?:x|y|arr|player|i|a|b|c|result|name\$|price|quantity|tax|total|matrix)\b/.test(code);
             
             // Try to evaluate the code to see if it throws "not defined" error
             try {
@@ -142,7 +141,7 @@ function testVariableDeclaration() {
                     }
                 `;
                 
-                const fn = new AsyncFunction(mockRuntime + '\n' + code);
+                new AsyncFunction(mockRuntime + '\n' + code);
                 
                 // This will throw if there are undefined variables
                 // We don't actually run it, just check if it compiles

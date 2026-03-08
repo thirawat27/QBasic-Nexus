@@ -6,81 +6,54 @@
 'use strict';
 
 const vscode = require('vscode');
-const { KEYWORDS } = require('../../languageData');
-const { PATTERNS, makeDimRegex, makeAssignRegex } = require('./patterns');
 const {
   getKeywordCompletionItems,
   getFunctionCompletionItems,
-  getCachedVariables,
-  setCachedVariables,
 } = require('./cache');
-const { QBasicDocumentSymbolProvider } = require('./symbolProvider');
+const {
+  SYMBOL_KIND,
+  getDocumentAnalysis,
+} = require('../shared/documentAnalysis');
 
 class QBasicCompletionItemProvider {
-  constructor() {
-    this._symbolProvider = new QBasicDocumentSymbolProvider();
-  }
-
   provideCompletionItems(document, _position) {
     // Use pre-cached static items for keywords and functions
     const items = [
       ...getKeywordCompletionItems(),
       ...getFunctionCompletionItems(),
     ];
+    const analysis = getDocumentAnalysis(document);
 
     // Variables from document (dynamic, needs per-document scan)
-    const vars = this._scanVariables(document);
-    for (const v of vars) {
+    for (const variableName of analysis.variables) {
       const item = new vscode.CompletionItem(
-        v,
+        variableName,
         vscode.CompletionItemKind.Variable,
       );
       item.detail = 'Variable';
-      item.sortText = `2_${v}`;
+      item.sortText = `2_${variableName}`;
       items.push(item);
     }
 
-    // User-defined SUBs and FUNCTIONs (dynamic, needs per-document scan)
-    const symbols = this._symbolProvider.provideDocumentSymbols(document);
-    for (const sym of symbols) {
+    // User-defined SUBs and FUNCTIONs share the same cached analysis pass.
+    for (const symbol of analysis.symbols) {
       if (
-        sym.kind === vscode.SymbolKind.Function ||
-        sym.kind === vscode.SymbolKind.Method
+        symbol.kind === SYMBOL_KIND.FUNCTION ||
+        symbol.kind === SYMBOL_KIND.METHOD
       ) {
         const item = new vscode.CompletionItem(
-          sym.name,
-          sym.kind === vscode.SymbolKind.Function
+          symbol.name,
+          symbol.kind === SYMBOL_KIND.FUNCTION
             ? vscode.CompletionItemKind.Function
             : vscode.CompletionItemKind.Method,
         );
-        item.detail = sym.detail;
-        item.sortText = `3_${sym.name}`;
+        item.detail = symbol.detail;
+        item.sortText = `3_${symbol.name}`;
         items.push(item);
       }
     }
 
     return items;
-  }
-
-  _scanVariables(document) {
-    const cached = getCachedVariables(document);
-    if (cached) return cached;
-
-    const text = document.getText();
-    const vars = new Set();
-
-    // Use factory helpers to get fresh regex instances with independent lastIndex
-    const dimRe = makeDimRegex();
-    const assignRe = makeAssignRegex();
-
-    let m;
-    while ((m = dimRe.exec(text))) vars.add(m[1]);
-    while ((m = assignRe.exec(text))) {
-      if (!KEYWORDS[m[1].toUpperCase()]) vars.add(m[1]);
-    }
-
-    setCachedVariables(document, vars);
-    return vars;
   }
 }
 

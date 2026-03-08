@@ -1,6 +1,5 @@
 // Auto-extracted Mixin
 'use strict';
-const { TokenType, BUILTIN_FUNCS } = require('../constants');
 module.exports = {
 _parseLocate() {
     const row = this._parseExpr();

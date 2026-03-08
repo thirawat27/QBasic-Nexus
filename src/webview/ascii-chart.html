@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src {{cspSource}} data: blob:; style-src {{cspSource}}; script-src {{cspSource}};">
+  <title>QBasic ASCII Chart</title>
+  <link rel="stylesheet" href="{{cssUri}}">
+</head>
+<body class="ascii-chart">
+  <div class="ascii-shell">
+    <aside class="ascii-panel ascii-panel--sidebar">
+      <section class="ascii-hero">
+        <div class="ascii-hero__top">
+          <div class="ascii-logo-shell">
+            <img src="{{logoUri}}" alt="QBasic Nexus logo" class="ascii-logo">
+          </div>
+          <div>
+            <p class="ascii-eyebrow">QBasic Nexus</p>
+            <h1 class="ascii-title">ASCII / CP437 Chart</h1>
+            <p class="ascii-copy">Pick any character and copy it as a glyph or as <code>CHR$()</code> instantly.</p>
+            <div class="ascii-hero__stats">
+              <span>256 Glyphs</span>
+              <span>CP437</span>
+              <span>Copy First</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="ascii-selection">
+        <div class="ascii-preview">
+          <div class="ascii-preview__char" id="previewChar">┌</div>
+          <div class="ascii-meta" id="meta"></div>
+        </div>
+
+        <div class="ascii-actions">
+          <button class="ascii-button ascii-button--blue" id="copyChar" type="button">Copy Character</button>
+          <button class="ascii-button ascii-button--green" id="copyChr" type="button">Copy CHR$()</button>
+        </div>
+
+        <p class="ascii-hint">To insert directly into the editor, use the <code>QBasic Insert CHR$() at Cursor</code> command.</p>
+      </section>
+    </aside>
+
+    <main class="ascii-panel ascii-panel--board">
+      <section class="ascii-toolbar">
+        <div class="ascii-toolbar__copy">
+          <div>
+            <strong>Code Page 437 Reference</strong>
+            <span>Search by glyph, decimal code, hex code, name, or description.</span>
+          </div>
+        </div>
+
+        <input id="search" class="ascii-search" type="search" placeholder="Search code, hex, name, group, or keyword">
+        <div class="ascii-filters" id="filters"></div>
+      </section>
+
+      <section class="ascii-grid" id="grid"></section>
+    </main>
+  </div>
+
+  <script id="ascii-data" type="application/json">{{asciiDataJson}}</script>
+  <script src="{{jsUri}}"></script>
+</body>
+</html>

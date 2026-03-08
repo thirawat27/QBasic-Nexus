@@ -19,6 +19,8 @@ const CONFIG_DEFAULTS = Object.freeze({
   [CONFIG.ENABLE_LINT]: true,
   [CONFIG.LINT_DELAY]: 500,
   [CONFIG.AUTO_FORMAT]: true,
+  [CONFIG.LINE_NUMBER_START]: 1,
+  [CONFIG.LINE_NUMBER_STEP]: 1,
 });
 
 /**

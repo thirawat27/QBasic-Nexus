@@ -13,6 +13,8 @@ const CONFIG = Object.freeze({
   ENABLE_LINT: 'enableLinting',
   LINT_DELAY: 'lintDelay',
   AUTO_FORMAT: 'autoFormatOnSave',
+  LINE_NUMBER_START: 'lineNumberStart',
+  LINE_NUMBER_STEP: 'lineNumberStep',
   MODE_QB64: 'QB64 (Recommended)',
   MODE_INTERNAL: 'Qbasic Nexus',
   LANGUAGE_ID: 'qbasic',
@@ -28,6 +30,10 @@ const COMMANDS = Object.freeze({
   RUN_CRT: 'qbasic-nexus.runInCrt',
   START_TUTORIAL: 'qbasic-nexus.startTutorial',
   SHOW_STATS: 'qbasic-nexus.showCodeStats',
+  REMOVE_LINE_NUMBERS: 'qbasic-nexus.removeLineNumbers',
+  RENUMBER_LINES: 'qbasic-nexus.renumberLines',
+  SHOW_ASCII_CHART: 'qbasic-nexus.showAsciiChart',
+  INSERT_CHR_FROM_ASCII: 'qbasic-nexus.insertChrFromAsciiChart',
 });
 
 module.exports = { CONFIG, COMMANDS };

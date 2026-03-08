@@ -11,7 +11,6 @@ const fs = require('fs').promises;
 const os = require('os');
 const { spawn } = require('child_process');
 const MagicString = require('magic-string');
-const { CONFIG } = require('./constants');
 const { state } = require('./state');
 const { getOutputChannel, getTerminal, log } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
