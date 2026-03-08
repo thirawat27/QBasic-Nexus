@@ -16,7 +16,7 @@
     },
     "homepage": "https://github.com/thirawat27/QBasic-Nexus#readme",
     "engines": {
-        "vscode": "^1.105.0"
+        "vscode": "^1.107.0"
     },
     "main": "./extension.js",
     "scripts": {
@@ -35,10 +35,10 @@
     "devDependencies": {
         "@types/mocha": "^10.0.10",
         "@types/node": "25.x",
-        "@types/vscode": "^1.105.0",
+        "@types/vscode": "^1.107.0",
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
-        "eslint": "^10.0.2"
+        "eslint": "^10.0.3"
     },
     "dependencies": {
         "@appthreat/caxa": "^2.0.13",
