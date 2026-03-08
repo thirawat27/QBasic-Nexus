@@ -8,8 +8,15 @@ const {
   buildChrQuickPickItems,
   getAsciiEntry,
 } = require('../src/extension/asciiChart');
+const { findActiveCall } = require('../src/shared/callContext');
+const {
+  collectQBasicFoldingRanges,
+  formatQBasicLines,
+  getOnTypeIndentText,
+} = require('../src/shared/editorLayout');
 const {
   analyzeQBasicText,
+  findDefinitionInAnalysis,
   findIdentifierMatchesInAnalysis,
   getDocumentAnalysis,
   invalidateDocumentAnalysis,
@@ -88,6 +95,64 @@ test('CHR quick pick items expose CP437 symbols with CHR syntax', () => {
   assertEqual(item.description, 'Dec 218 • Hex 0xDA', 'Quick pick description should expose code metadata');
 });
 
+test('call context resolves suffix function names', () => {
+  const context = findActiveCall('PRINT LEFT$("HELLO", ');
+
+  assertEqual(context.name, 'LEFT$', 'Should detect the active suffix function name');
+  assertEqual(context.activeParameter, 1, 'Comma count should map to the second parameter');
+});
+
+test('call context tracks nested calls without counting inner commas', () => {
+  const inner = findActiveCall('PRINT MID$(LEFT$("ABC", ');
+  const outer = findActiveCall('PRINT MID$(LEFT$("ABC", 2), 1, ');
+
+  assertEqual(inner.name, 'LEFT$', 'Inner unfinished call should stay active');
+  assertEqual(inner.activeParameter, 1, 'Inner call should count its own commas');
+  assertEqual(outer.name, 'MID$', 'After closing the inner call, the outer call should become active');
+  assertEqual(outer.activeParameter, 2, 'Outer call should ignore commas consumed inside nested calls');
+});
+
+test('formatter preserves suffix identifiers and escaped quotes while capitalizing keywords', () => {
+  const formatted = formatQBasicLines(
+    ['if flag% = 1 then', 'print "and ""or"" stay lower", flag%'],
+    { insertSpaces: true, tabSize: 2 },
+  );
+
+  assertEqual(formatted[0], 'IF flag% = 1 THEN', 'Formatter should capitalize IF and THEN');
+  assertEqual(
+    formatted[1],
+    '  PRINT "and ""or"" stay lower", flag%',
+    'Formatter should preserve escaped quotes and suffix variables',
+  );
+});
+
+test('folding helper keeps trailing comment blocks at EOF', () => {
+  const ranges = collectQBasicFoldingRanges([
+    'SUB Demo',
+    'PRINT 1',
+    'END SUB',
+    "' comment one",
+    'REM comment two',
+  ]);
+
+  assertEqual(ranges.length, 2, 'Should create one code fold and one trailing comment fold');
+  assertEqual(ranges[1].start, 3, 'Trailing comment fold should start at the first comment');
+  assertEqual(ranges[1].end, 4, 'Trailing comment fold should extend to EOF');
+});
+
+test('on-type indent helper handles block middles and enders', () => {
+  assertEqual(
+    getOnTypeIndentText('    ELSE'),
+    '        ',
+    'ELSE should indent the next line one level deeper',
+  );
+  assertEqual(
+    getOnTypeIndentText('    END IF'),
+    '    ',
+    'END IF should keep the current indent level',
+  );
+});
+
 test('document analysis computes stats, symbols, and variables in one pass', () => {
   const analysis = analyzeQBasicText(
     [
@@ -124,6 +189,17 @@ test('document analysis computes stats, symbols, and variables in one pass', () 
     'Assigned variable should be captured',
   );
   assertEqual(analysis.symbols.length, 4, 'Expected CONST, TYPE, SUB, and label symbols');
+});
+
+test('document analysis captures every DIM variable on the same line', () => {
+  const analysis = analyzeQBasicText(
+    'DIM alpha, beta(10) AS INTEGER, gamma$\nPRINT beta(1), gamma$',
+  );
+
+  assertEqual(analysis.dimCount, 1, 'DIM statement count should stay per statement');
+  assertEqual(analysis.variables.includes('alpha'), true, 'First DIM variable should be captured');
+  assertEqual(analysis.variables.includes('beta'), true, 'Array DIM variable should be captured');
+  assertEqual(analysis.variables.includes('gamma$'), true, 'Suffix DIM variable should be captured');
 });
 
 test('document analysis cache reuses the same result for the same version', () => {
@@ -167,6 +243,18 @@ test('identifier matching skips declarations when requested', () => {
   assertEqual(withDeclaration.length, 4, 'Rename path should include declaration');
 });
 
+test('identifier matching excludes later DIM declarations on shared declaration lines', () => {
+  const analysis = analyzeQBasicText(
+    ['DIM alpha, beta(10) AS INTEGER', 'PRINT beta(1)', 'beta = 2'].join('\n'),
+  );
+
+  const refsOnly = findIdentifierMatchesInAnalysis(analysis, 'beta', {
+    includeDeclaration: false,
+  });
+
+  assertEqual(refsOnly.length, 2, 'Second DIM declaration should not leak into references');
+});
+
 test('identifier matching respects QBasic suffix identifiers', () => {
   const analysis = analyzeQBasicText(
     ['DIM player$', 'player$ = "ok"', 'PRINT player$', 'PRINT player$Extra'].join(
@@ -176,6 +264,37 @@ test('identifier matching respects QBasic suffix identifiers', () => {
 
   const matches = findIdentifierMatchesInAnalysis(analysis, 'player$');
   assertEqual(matches.length, 3, 'Suffix identifier should match exact symbol only');
+});
+
+test('definition lookup resolves later DIM variables and keeps exact ranges', () => {
+  const source = 'DIM alpha, beta(10) AS INTEGER, gamma$\nPRINT gamma$\n';
+  const analysis = analyzeQBasicText(source);
+  const betaDefinition = findDefinitionInAnalysis(analysis, 'beta');
+  const gammaDefinition = findDefinitionInAnalysis(analysis, 'gamma$');
+
+  assertEqual(betaDefinition.line, 0, 'beta should resolve to the DIM line');
+  assertEqual(
+    betaDefinition.start,
+    source.indexOf('beta'),
+    'beta should resolve to the exact identifier column',
+  );
+  assertEqual(
+    gammaDefinition.start,
+    source.indexOf('gamma$'),
+    'gamma$ should resolve to the exact suffix identifier column',
+  );
+});
+
+test('definition lookup resolves user-defined procedures and constants', () => {
+  const source = ['CONST LIMIT = 10', 'TYPE Point', 'END TYPE', 'FUNCTION Add', 'END FUNCTION'].join('\n');
+  const analysis = analyzeQBasicText(source);
+  const constDefinition = findDefinitionInAnalysis(analysis, 'LIMIT');
+  const typeDefinition = findDefinitionInAnalysis(analysis, 'Point');
+  const functionDefinition = findDefinitionInAnalysis(analysis, 'Add');
+
+  assertEqual(constDefinition.line, 0, 'CONST definition should be indexed');
+  assertEqual(typeDefinition.line, 1, 'TYPE definition should be indexed');
+  assertEqual(functionDefinition.line, 3, 'FUNCTION definition should be indexed');
 });
 
 console.log('\n════════════════════════════════════════');

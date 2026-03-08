@@ -101,7 +101,7 @@ async function activate(context) {
   context.subscriptions.push(state.statsBarItem);
 
   // ── Register language providers ──────────────────────────────────────────
-  const selector = { language: CONFIG.LANGUAGE_ID, scheme: 'file' };
+  const selector = { language: CONFIG.LANGUAGE_ID };
 
   context.subscriptions.push(
     // Core providers

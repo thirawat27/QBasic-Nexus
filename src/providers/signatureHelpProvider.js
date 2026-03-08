@@ -7,24 +7,20 @@
 
 const vscode = require('vscode');
 const { FUNCTIONS } = require('../../languageData');
+const { findActiveCall } = require('../shared/callContext');
 
 class QBasicSignatureHelpProvider {
   provideSignatureHelp(document, position) {
     const lineText = document.lineAt(position).text;
     const textBefore = lineText.substring(0, position.character);
 
-    // Find function call
-    const match = textBefore.match(/([a-zA-Z_][a-zA-Z0-9_$]*)\s*\(([^)]*)$/);
-    if (!match) return null;
+    const callContext = findActiveCall(textBefore);
+    if (!callContext) return null;
 
-    const funcName = match[1].toUpperCase();
-    const argsText = match[2];
+    const funcName = callContext.name.toUpperCase();
     const funcData = FUNCTIONS[funcName];
 
     if (!funcData || !funcData.params) return null;
-
-    // Count commas for active parameter
-    const commaCount = (argsText.match(/,/g) || []).length;
 
     const sig = new vscode.SignatureInformation(
       `${funcName}(${funcData.params.join(', ')})`,
@@ -37,7 +33,10 @@ class QBasicSignatureHelpProvider {
     const help = new vscode.SignatureHelp();
     help.signatures = [sig];
     help.activeSignature = 0;
-    help.activeParameter = Math.min(commaCount, funcData.params.length - 1);
+    help.activeParameter = Math.min(
+      callContext.activeParameter,
+      funcData.params.length - 1,
+    );
 
     return help;
   }

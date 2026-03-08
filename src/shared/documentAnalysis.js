@@ -22,6 +22,81 @@ const GOTO_RE = /\bGOTO\b/gi;
 const GOSUB_RE = /\bGOSUB\b/gi;
 const SELECT_CASE_RE = /^\s*SELECT\s+CASE\b/i;
 const DECLARATION_CONTEXT_RE = /\b(?:DIM|SUB|FUNCTION|TYPE|CONST)\s*$/i;
+const DIM_PREFIX_RE = /^\s*DIM\s+(?:SHARED\s+)?/i;
+
+function registerDefinition(definitions, name, definition) {
+  const key = name.toUpperCase();
+  if (!definitions.has(key)) {
+    definitions.set(key, definition);
+  }
+}
+
+function getCaptureRange(match, groupValue) {
+  if (!match || typeof groupValue !== 'string') {
+    return { start: 0, end: 0 };
+  }
+
+  const fullMatch = match[0] || '';
+  const relativeStart = fullMatch.toUpperCase().lastIndexOf(groupValue.toUpperCase());
+  const start =
+    (match.index ?? 0) + (relativeStart >= 0 ? relativeStart : 0);
+
+  return {
+    start,
+    end: start + groupValue.length,
+  };
+}
+
+function extractDimDeclarations(line = '') {
+  const prefixMatch = DIM_PREFIX_RE.exec(line);
+  if (!prefixMatch) return [];
+
+  const declarations = [];
+  const bodyStart = prefixMatch[0].length;
+  const body = line.slice(bodyStart);
+
+  let segmentStart = 0;
+  let depth = 0;
+
+  const pushSegment = (segmentEnd) => {
+    const rawSegment = body.slice(segmentStart, segmentEnd);
+    const leadingWhitespace = rawSegment.match(/^\s*/)?.[0].length || 0;
+    const trimmedSegment = rawSegment.slice(leadingWhitespace);
+    const nameMatch = /^([a-zA-Z_][a-zA-Z0-9_$%!#&]*)/.exec(trimmedSegment);
+
+    if (nameMatch) {
+      const start = bodyStart + segmentStart + leadingWhitespace;
+      declarations.push({
+        name: nameMatch[1],
+        start,
+        end: start + nameMatch[1].length,
+      });
+    }
+
+    segmentStart = segmentEnd + 1;
+  };
+
+  for (let index = 0; index < body.length; index++) {
+    const char = body[index];
+
+    if (char === '(') {
+      depth++;
+      continue;
+    }
+
+    if (char === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (char === ',' && depth === 0) {
+      pushSegment(index);
+    }
+  }
+
+  pushSegment(body.length);
+  return declarations;
+}
 
 function analyzeQBasicText(text = '') {
   if (typeof text !== 'string') {
@@ -33,6 +108,7 @@ function analyzeQBasicText(text = '') {
   const assignRe = makeAssignRegex();
   const variables = new Set();
   const symbols = [];
+  const definitions = new Map();
 
   let codeLines = 0;
   let commentLines = 0;
@@ -72,9 +148,32 @@ function analyzeQBasicText(text = '') {
 
     dimRe.lastIndex = 0;
     let match;
-    while ((match = dimRe.exec(line)) !== null) {
+    const dimDeclarations = extractDimDeclarations(line);
+    if (dimDeclarations.length > 0) {
       dimCount++;
-      variables.add(match[1]);
+      for (const declaration of dimDeclarations) {
+        variables.add(declaration.name);
+        registerDefinition(definitions, declaration.name, {
+          line: index,
+          start: declaration.start,
+          end: declaration.end,
+          detail: 'DIM',
+          kind: 'variable',
+        });
+      }
+    } else {
+      while ((match = dimRe.exec(line)) !== null) {
+        dimCount++;
+        variables.add(match[1]);
+        const range = getCaptureRange(match, match[1]);
+        registerDefinition(definitions, match[1], {
+          line: index,
+          start: range.start,
+          end: range.end,
+          detail: 'DIM',
+          kind: 'variable',
+        });
+      }
     }
 
     assignRe.lastIndex = 0;
@@ -107,6 +206,14 @@ function analyzeQBasicText(text = '') {
         kind,
         line: index,
       });
+      const range = getCaptureRange(match, match[2]);
+      registerDefinition(definitions, match[2], {
+        line: index,
+        start: range.start,
+        end: range.end,
+        detail: match[1].toUpperCase(),
+        kind,
+      });
       continue;
     }
 
@@ -117,6 +224,14 @@ function analyzeQBasicText(text = '') {
         detail: 'TYPE',
         kind: SYMBOL_KIND.STRUCT,
         line: index,
+      });
+      const range = getCaptureRange(match, match[1]);
+      registerDefinition(definitions, match[1], {
+        line: index,
+        start: range.start,
+        end: range.end,
+        detail: 'TYPE',
+        kind: SYMBOL_KIND.STRUCT,
       });
       continue;
     }
@@ -129,6 +244,14 @@ function analyzeQBasicText(text = '') {
         kind: SYMBOL_KIND.CONSTANT,
         line: index,
       });
+      const range = getCaptureRange(match, match[1]);
+      registerDefinition(definitions, match[1], {
+        line: index,
+        start: range.start,
+        end: range.end,
+        detail: 'CONST',
+        kind: SYMBOL_KIND.CONSTANT,
+      });
       continue;
     }
 
@@ -139,6 +262,14 @@ function analyzeQBasicText(text = '') {
         detail: 'Label',
         kind: SYMBOL_KIND.EVENT,
         line: index,
+      });
+      const range = getCaptureRange(match, match[1]);
+      registerDefinition(definitions, match[1], {
+        line: index,
+        start: range.start,
+        end: range.end,
+        detail: 'Label',
+        kind: SYMBOL_KIND.EVENT,
       });
     }
   }
@@ -161,6 +292,7 @@ function analyzeQBasicText(text = '') {
     textLength: text.length,
     variables: Array.from(variables),
     symbols,
+    definitions,
     identifierMatchCache: new Map(),
   };
 }
@@ -191,12 +323,23 @@ function clearDocumentAnalysisCache() {
   analysisCache.clear();
 }
 
+function findDefinitionInAnalysis(analysis, identifier) {
+  if (!analysis?.definitions || !identifier) {
+    return null;
+  }
+
+  return analysis.definitions.get(identifier.toUpperCase()) || null;
+}
+
 function findIdentifierMatchesInAnalysis(analysis, identifier, options = {}) {
   if (!analysis || !Array.isArray(analysis.lines) || !identifier) {
     return [];
   }
 
   const includeDeclaration = options.includeDeclaration !== false;
+  const definition = includeDeclaration
+    ? null
+    : findDefinitionInAnalysis(analysis, identifier);
   const cacheKey = `${identifier.toUpperCase()}\x00${includeDeclaration ? '1' : '0'}`;
 
   if (analysis.identifierMatchCache?.has(cacheKey)) {
@@ -214,6 +357,16 @@ function findIdentifierMatchesInAnalysis(analysis, identifier, options = {}) {
 
     while ((match = wordPattern.exec(line)) !== null) {
       if (!includeDeclaration) {
+        const isDefinitionMatch =
+          definition &&
+          definition.line === lineNumber &&
+          definition.start === match.index &&
+          definition.end === match.index + match[0].length;
+
+        if (isDefinitionMatch) {
+          continue;
+        }
+
         const beforeMatch = line.substring(0, match.index);
         if (DECLARATION_CONTEXT_RE.test(beforeMatch)) {
           continue;
@@ -246,6 +399,8 @@ module.exports = {
   getDocumentAnalysis,
   invalidateDocumentAnalysis,
   clearDocumentAnalysisCache,
+  extractDimDeclarations,
+  findDefinitionInAnalysis,
   findIdentifierMatchesInAnalysis,
   findDocumentIdentifierMatches,
 };
