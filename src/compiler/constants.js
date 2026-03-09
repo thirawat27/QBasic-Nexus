@@ -235,9 +235,9 @@ const BUILTIN_FUNCS = Object.freeze({
     
     // ========== File Functions (stubs for web) ==========
     'FREEFILE': '(() => _nextFileNum++)',
-    'EOF': '(n => _files[n]?.eof ?? true)',
-    'LOF': '(n => _files[n]?.data?.length ?? 0)',
-    'LOC': '(n => _files[n]?.pos ?? 0)',
+    'EOF': '(n => _openFiles[n]?.eof ?? true)',
+    'LOF': '(n => _openFiles[n]?.data?.length ?? 0)',
+    'LOC': '(n => _openFiles[n]?.pos ?? 0)',
     
     // ========== QB64 System ==========
     '_FILEEXISTS': '(f => false)',
@@ -252,6 +252,7 @@ const BUILTIN_FUNCS = Object.freeze({
     
     // ========== Keyboard Input ==========
     'INKEY$': 'INKEY',
+    'POINT': '_POINT',
     
     // ========== Screen/Cursor Functions ==========
     'CSRLIN': '(() => typeof window !== "undefined" && window.runtime ? window.runtime.CSRLIN : _cursorRow)',
@@ -280,6 +281,19 @@ const BUILTIN_FUNCS = Object.freeze({
     '_HEIGHT': '((img) => typeof window !== "undefined" && window.runtime ? window.runtime.screenHeight() : 25)',
     '_FONTHEIGHT': '(() => 16)',
     '_FONTWIDTH': '(() => 8)',
+
+    // ========== QB64 Runtime-backed Functions ==========
+    '_LOADIMAGE': '_LOADIMAGE',
+    '_NEWIMAGE': '_NEWIMAGE',
+    '_COPYIMAGE': '_COPYIMAGE',
+    '_SNDOPEN': '_SNDOPEN',
+    '_MOUSEINPUT': '_MOUSEINPUT',
+    '_MOUSEX': '_MOUSEX',
+    '_MOUSEY': '_MOUSEY',
+    '_MOUSEBUTTON': '_MOUSEBUTTON',
+    '_MOUSEWHEEL': '_MOUSEWHEEL',
+    '_KEYDOWN': '_KEYDOWN',
+    '_KEYHIT': '_KEYHIT',
     
     // ========== Additional String Functions ==========
     'INPUT$': '((n, filenum) => { throw new Error("INPUT$ requires file I/O - use QB64 mode"); })',

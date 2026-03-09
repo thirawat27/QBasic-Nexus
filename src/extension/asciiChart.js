@@ -557,6 +557,14 @@ async function showAsciiChart(extensionUri) {
   currentPanel.webview.html = await getAsciiChartHtml(currentPanel, extensionUri);
 
   currentPanel.webview.onDidReceiveMessage(async (message) => {
+    if (
+      !message ||
+      typeof message !== 'object' ||
+      typeof message.type !== 'string'
+    ) {
+      return;
+    }
+
     const entry = getAsciiEntry(Number(message.code));
     if (!entry) return;
 

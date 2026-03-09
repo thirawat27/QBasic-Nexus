@@ -21,13 +21,37 @@ _parseCall() {
   },
 
 _parseExpr() {
-    return this._parseOr();
+    return this._parseImp();
+  },
+
+_parseImp() {
+    let left = this._parseEqv();
+    while (this._matchKw('IMP')) {
+      left = `((~(${left})) | (${this._parseEqv()}))`;
+    }
+    return left;
+  },
+
+_parseEqv() {
+    let left = this._parseXor();
+    while (this._matchKw('EQV')) {
+      left = `(~((${left}) ^ (${this._parseXor()})))`;
+    }
+    return left;
+  },
+
+_parseXor() {
+    let left = this._parseOr();
+    while (this._matchKw('XOR')) {
+      left = `((${left}) ^ (${this._parseOr()}))`;
+    }
+    return left;
   },
 
 _parseOr() {
     let left = this._parseAnd();
     while (this._matchKw('OR')) {
-      left = `(${left} || ${this._parseAnd()})`;
+      left = `((${left}) | (${this._parseAnd()}))`;
     }
     return left;
   },
@@ -35,7 +59,7 @@ _parseOr() {
 _parseAnd() {
     let left = this._parseCompare();
     while (this._matchKw('AND')) {
-      left = `(${left} && ${this._parseCompare()})`;
+      left = `((${left}) & (${this._parseCompare()}))`;
     }
     return left;
   },
@@ -43,12 +67,12 @@ _parseAnd() {
 _parseCompare() {
     let left = this._parseAdd();
     while (true) {
-      if (this._matchOp('=')) left = `(${left} === ${this._parseAdd()})`;
-      else if (this._matchOp('<>')) left = `(${left} !== ${this._parseAdd()})`;
-      else if (this._matchOp('<=')) left = `(${left} <= ${this._parseAdd()})`;
-      else if (this._matchOp('>=')) left = `(${left} >= ${this._parseAdd()})`;
-      else if (this._matchOp('<')) left = `(${left} < ${this._parseAdd()})`;
-      else if (this._matchOp('>')) left = `(${left} > ${this._parseAdd()})`;
+      if (this._matchOp('=')) left = `(((${left}) === (${this._parseAdd()})) ? -1 : 0)`;
+      else if (this._matchOp('<>')) left = `(((${left}) !== (${this._parseAdd()})) ? -1 : 0)`;
+      else if (this._matchOp('<=')) left = `(((${left}) <= (${this._parseAdd()})) ? -1 : 0)`;
+      else if (this._matchOp('>=')) left = `(((${left}) >= (${this._parseAdd()})) ? -1 : 0)`;
+      else if (this._matchOp('<')) left = `(((${left}) < (${this._parseAdd()})) ? -1 : 0)`;
+      else if (this._matchOp('>')) left = `(((${left}) > (${this._parseAdd()})) ? -1 : 0)`;
       else break;
     }
     return left;
@@ -89,14 +113,21 @@ _parseAdd() {
   },
 
 _parseMul() {
-    let left = this._parseUnary();
+    let left = this._parsePow();
     while (true) {
-      if (this._matchOp('*')) left = this._optimizeBinOp(left, this._parseUnary(), '*');
-      else if (this._matchOp('/')) left = this._optimizeBinOp(left, this._parseUnary(), '/');
-      else if (this._matchOp('\\')) left = this._optimizeBinOp(left, this._parseUnary(), '\\');
-      else if (this._matchOp('^')) left = this._optimizeBinOp(left, this._parseUnary(), '^');
-      else if (this._matchKw('MOD')) left = this._optimizeBinOp(left, this._parseUnary(), 'MOD');
+      if (this._matchOp('*')) left = this._optimizeBinOp(left, this._parsePow(), '*');
+      else if (this._matchOp('/')) left = this._optimizeBinOp(left, this._parsePow(), '/');
+      else if (this._matchOp('\\')) left = this._optimizeBinOp(left, this._parsePow(), '\\');
+      else if (this._matchKw('MOD')) left = this._optimizeBinOp(left, this._parsePow(), 'MOD');
       else break;
+    }
+    return left;
+  },
+
+_parsePow() {
+    const left = this._parseUnary();
+    if (this._matchOp('^')) {
+      return this._optimizeBinOp(left, this._parsePow(), '^');
     }
     return left;
   },
@@ -104,7 +135,7 @@ _parseMul() {
 _parseUnary() {
     if (this._matchOp('-')) return `(-${this._parseUnary()})`;
     if (this._matchOp('+')) return this._parseUnary();
-    if (this._matchKw('NOT')) return `(!${this._parseUnary()})`;
+    if (this._matchKw('NOT')) return `(~(${this._parseUnary()}))`;
     return this._parsePrimary();
   },
 
@@ -156,7 +187,7 @@ _parsePrimary() {
     if (this._matchPunc('(')) {
       const args = this._parseArgs();
       this._matchPunc(')');
-      return `${fnName}(${args})`;
+      return `(await ${fnName}(${args}))`;
     }
 
     // Check for member access: p1.Name
@@ -183,7 +214,7 @@ _parsePrimary() {
 
     // If it's a built-in function (like RND) and no args, call it
     if (builtin && !this._hasVar(name)) {
-      return `${fnName}()`; // e.g. Math.random()
+      return `(await ${fnName}())`; // e.g. Math.random()
     }
 
     // Auto-declare undefined variables with default values
@@ -191,7 +222,7 @@ _parsePrimary() {
     if (!builtin && !this._hasVar(name)) {
       this._addVar(name);
       const defaultValue = name.endsWith('$') ? '""' : '0';
-      this._emit(`let ${name} = ${defaultValue}; // Auto-declared`);
+      this._emitVar(name, defaultValue, '// Auto-declared');
     }
 
     return builtin ? fnName : name;

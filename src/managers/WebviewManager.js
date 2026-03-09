@@ -13,6 +13,10 @@
 
 const vscode = require('vscode');
 const mitt = require('mitt');
+const {
+  buildWebviewCsp,
+  validateWebviewCodePayload,
+} = require('../extension/processUtils');
 
 /** Chunk size for large code payloads (64 KB) */
 const CHUNK_SIZE = 64 * 1024;
@@ -61,6 +65,12 @@ class WebviewManager {
   /** @type {string | null} Cached raw HTML template */
   static _htmlCache = null;
 
+  /** @type {boolean} */
+  static _panelReady = false;
+
+  /** @type {Array<Record<string, any>>} */
+  static _pendingMessages = [];
+
   /**
    * Creates or reveals the CRT Webview panel.
    * @param {vscode.Uri} extensionUri
@@ -85,6 +95,8 @@ class WebviewManager {
     );
 
     WebviewManager.currentPanel = panel;
+    WebviewManager._panelReady = false;
+    WebviewManager._pendingMessages = [];
 
     try {
       const html = await WebviewManager._getHtmlForWebview(
@@ -107,13 +119,24 @@ class WebviewManager {
     WebviewManager._disposables.push(
       panel.webview.onDidReceiveMessage((message) => {
         try {
+          if (
+            !message ||
+            typeof message !== 'object' ||
+            typeof message.type !== 'string'
+          ) {
+            return;
+          }
+
           if (message.type === 'check_output') {
             const TutorialManager = require('./TutorialManager');
             const completed = TutorialManager.checkResult(message.content);
             if (completed && panel.webview) {
-              panel.webview.postMessage({ type: 'quest_complete' });
+              WebviewManager.postMessage({ type: 'quest_complete' });
               emitter.emit('questComplete', message.content);
             }
+          } else if (message.type === 'ready') {
+            WebviewManager._panelReady = true;
+            void WebviewManager._flushPendingMessages();
           } else if (message.type === 'error') {
             console.error('[QBasic CRT] Runtime error:', message.content);
             emitter.emit('runtimeError', message.content);
@@ -127,6 +150,8 @@ class WebviewManager {
     // Cleanup on close
     panel.onDidDispose(() => {
       WebviewManager.currentPanel = undefined;
+      WebviewManager._panelReady = false;
+      WebviewManager._pendingMessages = [];
       WebviewManager._disposables.forEach((d) => d.dispose());
       WebviewManager._disposables = [];
       emitter.emit('panelClosed', undefined);
@@ -142,6 +167,18 @@ class WebviewManager {
    * @param {vscode.Uri} extensionUri
    */
   static async runCode(code, filename, extensionUri) {
+    const payloadError = validateWebviewCodePayload(code);
+    if (payloadError) {
+      vscode.window.showErrorMessage(payloadError);
+      emitter.emit('runtimeError', payloadError);
+      return;
+    }
+
+    const safeFilename =
+      typeof filename === 'string' && filename.trim()
+        ? filename
+        : 'program.bas';
+
     // Reset tutorial history for a fresh run
     try {
       const TutorialManager = require('./TutorialManager');
@@ -163,17 +200,17 @@ class WebviewManager {
 
     // ── Chunked transfer for large payloads ──────────────────────────────
     if (code.length > CHUNK_SIZE) {
-      await WebviewManager._sendChunked(code, filename);
+      await WebviewManager._sendChunked(code, safeFilename);
     } else {
       // Small payload: send in one message (common case)
-      WebviewManager.currentPanel.webview.postMessage({
+      await WebviewManager.postMessage({
         type: 'execute',
         code,
-        filename,
+        filename: safeFilename,
       });
     }
 
-    emitter.emit('codeExecuted', { filename, codeSize: code.length });
+    emitter.emit('codeExecuted', { filename: safeFilename, codeSize: code.length });
   }
 
   /**
@@ -183,9 +220,6 @@ class WebviewManager {
    * @param {string} filename
    */
   static async _sendChunked(code, filename) {
-    const panel = WebviewManager.currentPanel;
-    if (!panel) return;
-
     const total = Math.ceil(code.length / CHUNK_SIZE);
 
     for (let i = 0; i < code.length; i += CHUNK_SIZE) {
@@ -194,7 +228,7 @@ class WebviewManager {
       const isFirst = chunkIdx === 0;
       const isLast = i + CHUNK_SIZE >= code.length;
 
-      panel.webview.postMessage({
+      await WebviewManager.postMessage({
         type: isFirst
           ? 'execute_start'
           : isLast
@@ -216,7 +250,7 @@ class WebviewManager {
   /** Clear the CRT screen. */
   static clearScreen() {
     if (WebviewManager.currentPanel) {
-      WebviewManager.currentPanel.webview.postMessage({ type: 'clear' });
+      void WebviewManager.postMessage({ type: 'clear' });
     }
   }
 
@@ -231,6 +265,56 @@ class WebviewManager {
   /** @returns {boolean} */
   static isActive() {
     return WebviewManager.currentPanel !== undefined;
+  }
+
+  static async postMessage(message) {
+    const panel = WebviewManager.currentPanel;
+    if (!panel) return false;
+
+    if (!WebviewManager._panelReady) {
+      if (WebviewManager._replacesQueuedExecution(message.type)) {
+        WebviewManager._pendingMessages = WebviewManager._pendingMessages.filter(
+          (entry) => !WebviewManager._isExecutionMessageType(entry.type),
+        );
+      }
+      WebviewManager._pendingMessages.push(message);
+      return true;
+    }
+
+    return panel.webview.postMessage(message);
+  }
+
+  static async _flushPendingMessages() {
+    const panel = WebviewManager.currentPanel;
+    if (!panel || !WebviewManager._panelReady) return;
+
+    const pending = WebviewManager._pendingMessages;
+    WebviewManager._pendingMessages = [];
+
+    for (const message of pending) {
+      if (
+        !WebviewManager.currentPanel ||
+        WebviewManager.currentPanel !== panel ||
+        !WebviewManager._panelReady
+      ) {
+        break;
+      }
+      await panel.webview.postMessage(message);
+    }
+  }
+
+  static _isExecutionMessageType(type) {
+    return (
+      type === 'execute' ||
+      type === 'execute_start' ||
+      type === 'execute_chunk' ||
+      type === 'execute_end' ||
+      type === 'clear'
+    );
+  }
+
+  static _replacesQueuedExecution(type) {
+    return type === 'execute' || type === 'execute_start' || type === 'clear';
   }
 
   static async _getHtmlForWebview(webview, extensionUri) {
@@ -260,7 +344,7 @@ class WebviewManager {
     return WebviewManager._htmlCache
       .replace(
         /<meta\s+http-equiv="Content-Security-Policy"[\s\S]*?>/i,
-        `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'; img-src ${webview.cspSource} data: blob:;">`,
+        `<meta http-equiv="Content-Security-Policy" content="${buildWebviewCsp(webview.cspSource)}">`,
       )
       .replace(/\{\{cspSource\}\}/g, webview.cspSource)
       .replace('{{cssUri}}', cssUri.toString())

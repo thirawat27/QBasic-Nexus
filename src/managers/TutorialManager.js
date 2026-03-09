@@ -15,19 +15,8 @@ class TutorialManager {
     /** @type {Object | null} Current active lesson */
     static currentLesson = null;
 
-    /** @type {Object | null} Reference to WebviewManager (set externally to avoid circular deps) */
-    static _webviewManager = null;
-
     /** @type {vscode.ExtensionContext | null} Stored extension context for reuse */
     static _extensionContext = null;
-
-    /**
-     * Sets the WebviewManager reference (called during extension activation).
-     * @param {Object} wm - The WebviewManager class.
-     */
-    static setWebviewManager(wm) {
-        TutorialManager._webviewManager = wm;
-    }
 
     /**
      * Starts the interactive tutorial by showing a lesson picker.
@@ -64,41 +53,65 @@ class TutorialManager {
         }
 
         // Validate lesson data
-        if (!lesson.template || !lesson.matchRegex) {
-            vscode.window.showErrorMessage('Invalid lesson data. Missing template or match criteria.');
+        if (!lesson.template) {
+            vscode.window.showErrorMessage('Invalid lesson data. Missing tutorial template.');
             return;
         }
 
+        TutorialManager.clearHistory();
         TutorialManager.currentLesson = lesson;
 
-        // 1. Open a new untitled file with template code
+        // Open a new untitled file with tutorial explanation + example code
         const doc = await vscode.workspace.openTextDocument({
-            content: lesson.template,
+            content: TutorialManager.buildLessonDocument(lesson),
             language: 'qbasic'
         });
-        await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One });
+        const editor = await vscode.window.showTextDocument(doc, {
+            viewColumn: vscode.ViewColumn.One
+        });
 
-        // 2. Open CRT Webview and show objective HUD
-        const WebviewManager = TutorialManager._webviewManager;
-        if (!WebviewManager) {
-            vscode.window.showWarningMessage('Webview Manager not initialized.');
-            return;
+        const startLine = TutorialManager.findTemplateStartLine(doc);
+        const position = new vscode.Position(startLine, 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(
+            new vscode.Range(position, position),
+            vscode.TextEditorRevealType.InCenter,
+        );
+    }
+
+    /**
+     * Builds the tutorial document content shown to the user.
+     * @param {Object} lesson
+     * @returns {string}
+     */
+    static buildLessonDocument(lesson) {
+        const headerLines = [
+            "' ============================================================",
+            `' Tutorial: ${lesson.title}`,
+            lesson.objective ? `' Objective: ${lesson.objective}` : null,
+            lesson.description ? `' Explanation: ${lesson.description}` : null,
+            lesson.hint ? `' Hint: ${lesson.hint}` : null,
+            "' ============================================================",
+            '',
+        ].filter(Boolean);
+
+        return `${headerLines.join('\n')}${lesson.template}`;
+    }
+
+    /**
+     * Finds the first executable line after the tutorial comment header.
+     * @param {vscode.TextDocument} document
+     * @returns {number}
+     */
+    static findTemplateStartLine(document) {
+        for (let index = 0; index < document.lineCount; index++) {
+            const text = document.lineAt(index).text.trim();
+            if (text && !text.startsWith("'")) {
+                return index;
+            }
         }
 
-        await WebviewManager.createOrShow(extensionContext.extensionUri);
-
-        // Wait for webview to be ready, then send quest data
-        setTimeout(() => {
-            if (WebviewManager.currentPanel) {
-                WebviewManager.currentPanel.webview.postMessage({
-                    type: 'start_quest',
-                    quest: {
-                        title: lesson.title,
-                        objective: lesson.objective
-                    }
-                });
-            }
-        }, 800);
+        return 0;
     }
 
     /** @type {string} Accumulated output for validation */
@@ -125,6 +138,13 @@ class TutorialManager {
         TutorialManager._outputHistory += output;
 
         try {
+            if (
+                lesson.matchRegex &&
+                (lesson.matchRegex.global || lesson.matchRegex.sticky)
+            ) {
+                lesson.matchRegex.lastIndex = 0;
+            }
+
             // Check against full history
             const passed = lesson.matchRegex.test(TutorialManager._outputHistory);
 

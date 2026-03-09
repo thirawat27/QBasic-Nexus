@@ -37,6 +37,7 @@
   const vscode = acquireVsCodeApi();
   const screen = document.getElementById('screen');
   const canvas = document.getElementById('gfx-layer');
+  const MAX_EXECUTE_CODE_SIZE = 8 * 1024 * 1024;
 
   // Global directives for linters
   // =========================================================================
@@ -86,7 +87,8 @@
 
   // QBasic 16-color palette - Enhanced Neon for visibility on dark backgrounds
   // Brighter than original CGA/EGA for modern displays
-  const COLORS = Object.freeze([
+  // Mutable palette so PALETTE/PALETTE USING can update entries at runtime.
+  const COLORS = [
     '#0a0a0a',
     '#3388FF',
     '#00DD44',
@@ -103,7 +105,7 @@
     '#FF66FF',
     '#FFFF66',
     '#FFFFFF',
-  ]);
+  ];
 
   // =========================================================================
   // OBJECT POOLING - Reduce GC pressure with memory limits
@@ -904,6 +906,38 @@
     ctx.fillRect(absX | 0, absY | 0, 1, 1);
     lastX = absX;
     lastY = absY;
+  }
+
+  function _point(x, y) {
+    if (!ctx) return 0;
+
+    const px = x | 0;
+    const py = y | 0;
+    if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) {
+      return 0;
+    }
+
+    const data = ctx.getImageData(px, py, 1, 1).data;
+    const r = data[0];
+    const g = data[1];
+    const b = data[2];
+
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < 16; index++) {
+      const rgb = _getColorRGB(index);
+      const distance =
+        Math.abs(rgb.r - r) + Math.abs(rgb.g - g) + Math.abs(rgb.b - b);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+        if (distance === 0) {
+          break;
+        }
+      }
+    }
+
+    return bestIndex;
   }
 
   function _line(x1, y1, x2, y2, c, box, fill, step1, step2) {
@@ -1918,6 +1952,7 @@
     // Graphics
     pset: _pset,
     preset: _preset,
+    point: _point,
     line: _line,
     circle: _circle,
     get: _get,
@@ -2636,15 +2671,42 @@
     }
   }
 
+  function failIncomingProgram(reason) {
+    window._chunkBuffer = undefined;
+    window._chunkFilename = undefined;
+    window._chunkBytes = 0;
+    window._chunkExpectedIndex = 0;
+    window._chunkTotalChunks = 0;
+    showError(reason);
+    console.error('[QBasic Runtime]', reason);
+    vscode.postMessage({ type: 'error', content: reason });
+  }
+
   // =========================================================================
   // MESSAGE HANDLER
   // =========================================================================
 
   window.addEventListener('message', async (event) => {
     const message = event.data;
+    if (
+      !message ||
+      typeof message !== 'object' ||
+      typeof message.type !== 'string'
+    ) {
+      return;
+    }
 
     switch (message.type) {
       case 'execute':
+        if (typeof message.code !== 'string') {
+          failIncomingProgram('Invalid execute payload.');
+          break;
+        }
+        if (message.code.length > MAX_EXECUTE_CODE_SIZE) {
+          failIncomingProgram('Program too large for CRT runtime.');
+          break;
+        }
+
         // =========================================================
         // RESOURCE CLEANUP - Essential for stability
         // =========================================================
@@ -2739,7 +2801,7 @@
         }
 
         // Show running indicator
-        print('▶ RUNNING: ' + message.filename, true);
+        print('▶ RUNNING: ' + String(message.filename || 'program.bas'), true);
         print('', true);
 
         try {
@@ -2760,24 +2822,80 @@
       // ── Chunked transfer support (Phase 3.1) ─────────────────────
       case 'execute_start':
         // Begin receiving a large program in chunks
+        if (
+          typeof message.chunk !== 'string' ||
+          !Number.isInteger(message.chunkIdx) ||
+          !Number.isInteger(message.totalChunks) ||
+          message.chunkIdx !== 0 ||
+          message.totalChunks < 2
+        ) {
+          failIncomingProgram('Invalid execute_start payload.');
+          break;
+        }
+        if (message.chunk.length > MAX_EXECUTE_CODE_SIZE) {
+          failIncomingProgram('Program too large for CRT runtime.');
+          break;
+        }
         window._chunkBuffer = message.chunk;
         window._chunkFilename = message.filename;
+        window._chunkBytes = message.chunk.length;
+        window._chunkExpectedIndex = 1;
+        window._chunkTotalChunks = message.totalChunks;
         break;
 
       case 'execute_chunk':
         // Accumulate subsequent chunks
-        if (window._chunkBuffer !== undefined) {
+        if (
+          window._chunkBuffer !== undefined &&
+          typeof message.chunk === 'string' &&
+          Number.isInteger(message.chunkIdx) &&
+          Number.isInteger(message.totalChunks)
+        ) {
+          if (
+            message.totalChunks !== window._chunkTotalChunks ||
+            message.chunkIdx !== window._chunkExpectedIndex ||
+            message.chunkIdx >= window._chunkTotalChunks - 1
+          ) {
+            failIncomingProgram('Chunk sequence is invalid.');
+            break;
+          }
+          if (window._chunkBytes + message.chunk.length > MAX_EXECUTE_CODE_SIZE) {
+            failIncomingProgram('Program too large for CRT runtime.');
+            break;
+          }
           window._chunkBuffer += message.chunk;
+          window._chunkBytes += message.chunk.length;
+          window._chunkExpectedIndex += 1;
         }
         break;
 
       case 'execute_end':
         // Final chunk – assemble and execute
-        if (window._chunkBuffer !== undefined) {
+        if (
+          window._chunkBuffer !== undefined &&
+          typeof message.chunk === 'string' &&
+          Number.isInteger(message.chunkIdx) &&
+          Number.isInteger(message.totalChunks)
+        ) {
+          if (
+            message.totalChunks !== window._chunkTotalChunks ||
+            message.chunkIdx !== window._chunkExpectedIndex ||
+            message.chunkIdx !== window._chunkTotalChunks - 1
+          ) {
+            failIncomingProgram('Final chunk sequence is invalid.');
+            break;
+          }
+          if (window._chunkBytes + message.chunk.length > MAX_EXECUTE_CODE_SIZE) {
+            failIncomingProgram('Program too large for CRT runtime.');
+            break;
+          }
           const assembledCode = window._chunkBuffer + message.chunk;
           const assembledFilename = window._chunkFilename || '';
           window._chunkBuffer = undefined;
           window._chunkFilename = undefined;
+          window._chunkBytes = 0;
+          window._chunkExpectedIndex = 0;
+          window._chunkTotalChunks = 0;
 
           // Reuse the same cleanup + execution path as 'execute'
           window.dispatchEvent(
@@ -2799,8 +2917,8 @@
       case 'quest_complete': {
         const desc = document.getElementById('quest-desc');
         if (desc) {
-          desc.innerHTML =
-            '<span style="color:#0f0">✅ MISSION COMPLETE!</span>';
+          desc.textContent = 'MISSION COMPLETE!';
+          desc.style.color = '#0f0';
         }
         break;
       }

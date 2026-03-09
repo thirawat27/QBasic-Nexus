@@ -11,6 +11,10 @@ const { spawn } = require('child_process');
 const { CONFIG } = require('./constants');
 const { state } = require('./state');
 const { getOutputChannel, getConfig, fileExists } = require('./utils');
+const {
+  splitCommandLineArgs,
+  parseQb64CompilerOutput,
+} = require('./processUtils');
 const { updateStatusBar } = require('./statusBar');
 const { runExecutable, runInternalTranspiler } = require('./internalTranspiler');
 
@@ -92,10 +96,9 @@ function compileWithQB64(document, compilerPath, channel) {
     );
 
     // Build arguments
-    const extraArgs = (getConfig(CONFIG.COMPILER_ARGS) || '')
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+    const extraArgs = splitCommandLineArgs(
+      getConfig(CONFIG.COMPILER_ARGS) || '',
+    );
 
     const args = ['-x', '-c', sourcePath, '-o', outputPath, ...extraArgs];
 
@@ -172,30 +175,18 @@ function compileWithQB64(document, compilerPath, channel) {
  */
 function parseCompilerErrors(output, uri) {
   const diagnostics = [];
-  const filename = path.basename(uri.fsPath).toLowerCase();
+  const filename = path.basename(uri.fsPath);
 
-  // Pattern: filename.bas:line: error message
-  const pattern =
-    /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi;
-
-  let match;
-  while ((match = pattern.exec(output)) !== null) {
-    const [, file, lineStr, message] = match;
-
-    if (file.toLowerCase() === filename) {
-      const line = Math.max(0, parseInt(lineStr, 10) - 1);
-      const severity = message.toLowerCase().includes('warning')
+  for (const entry of parseQb64CompilerOutput(output, filename)) {
+    const diagnostic = new vscode.Diagnostic(
+      new vscode.Range(entry.line, 0, entry.line, Number.MAX_SAFE_INTEGER),
+      entry.message,
+      entry.severity === 'warning'
         ? vscode.DiagnosticSeverity.Warning
-        : vscode.DiagnosticSeverity.Error;
-
-      const diagnostic = new vscode.Diagnostic(
-        new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
-        message.trim(),
-        severity,
-      );
-      diagnostic.source = 'QB64';
-      diagnostics.push(diagnostic);
-    }
+        : vscode.DiagnosticSeverity.Error,
+    );
+    diagnostic.source = 'QB64';
+    diagnostics.push(diagnostic);
   }
 
   state.diagnosticCollection.set(uri, diagnostics);

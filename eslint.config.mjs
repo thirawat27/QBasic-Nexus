@@ -39,6 +39,9 @@ export default [
             "constructor-super": "warn",
             "valid-typeof": "warn",
         },
-        ignores: ["**/*.d.ts"]
+        ignores: [
+            "**/*.d.ts",
+            ".vscode-test/**",
+        ]
     }
 ];

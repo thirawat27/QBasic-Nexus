@@ -14,6 +14,7 @@ _parseStatement() {
       return this._parseLine();
     }
     if (this._matchKw('CIRCLE')) return this._parseCircle();
+    if (this._matchKw('PAINT')) return this._parsePaint();
     if (this._matchKw('PSET')) return this._parsePset();
     if (this._matchKw('PRESET')) return this._parsePreset();
     if (this._matchKw('GET')) return this._parseGet();
@@ -44,6 +45,8 @@ _parseStatement() {
     if (this._matchKw('RESTORE')) return this._parseRestore();
     if (this._matchKw('SWAP')) return this._parseSwap();
     if (this._matchKw('ERASE')) return this._parseErase();
+    if (this._matchKw('LSET')) return this._parseLset(false);
+    if (this._matchKw('RSET')) return this._parseLset(true);
     if (this._matchKw('LET')) return this._parseAssignment();
 
     // Screen & I/O
@@ -207,7 +210,6 @@ _parseLabel() {
       this._emit(`// Label: ${label.value}`);
       this._emit(`async function ${label.value}() {`);
       this.indent++;
-      this._enterScope();
 
       // Collect statements until next label, SUB, FUNCTION, or RETURN
       while (!this._isEnd()) {
@@ -236,7 +238,6 @@ _parseLabel() {
         this._parseStatement();
       }
 
-      this._exitScope();
       this.indent--;
       this._emit(`} // End Label: ${label.value}`);
     }
@@ -306,7 +307,11 @@ _parseFor() {
     if (!id) throw new Error('Expected variable after FOR');
 
     const name = id.value;
-    this._addVar(name);
+    let loopTarget = name;
+    if (!this._hasVar(name)) {
+      this._addVar(name);
+      loopTarget = `var ${name}`;
+    }
 
     this._consumeOp('=');
     const start = this._parseExpr();
@@ -321,7 +326,7 @@ _parseFor() {
 
     // Robust loop condition for dynamic step sign
     this._emit(
-      `for (let ${name} = ${start}; (${step} >= 0) ? ${name} <= ${end} : ${name} >= ${end}; ${name} += ${step}) {`,
+      `for (${loopTarget} = ${start}; (${step} >= 0) ? ${name} <= ${end} : ${name} >= ${end}; ${name} += ${step}) {`,
     );
     this.indent++;
   },
@@ -402,7 +407,7 @@ _parseAssignment() {
       // Ensure array is declared
       if (!this._hasVar(name)) {
         this._addVar(name);
-        this._emit(`let ${name} = [];`);
+        this._emitVar(name, '[]');
       }
 
       this._emit(`${name}[${idx}]${suffix} = ${val};`);
@@ -419,7 +424,7 @@ _parseAssignment() {
         // Ensure struct is declared
         if (!this._hasVar(name)) {
           this._addVar(name);
-          this._emit(`let ${name} = {};`);
+          this._emitVar(name, '{}');
         }
 
         this._emit(`${name}.${member.value} = ${val};`);
@@ -432,7 +437,7 @@ _parseAssignment() {
       const val = this._parseExpr();
       if (!this._hasVar(name)) {
         this._addVar(name);
-        this._emit(`let ${name} = ${val};`);
+        this._emitVar(name, val);
       } else {
         this._emit(`${name} = ${val};`);
       }
@@ -449,6 +454,23 @@ _parseSwap() {
     const v1 = id1.value;
     const v2 = id2.value;
     this._emit(`[${v1}, ${v2}] = [${v2}, ${v1}];`);
+  },
+
+_parseLset(isRightJustify) {
+    const id = this._consume(TokenType.IDENTIFIER);
+    if (!id) throw new Error(`Expected variable after ${isRightJustify ? 'RSET' : 'LSET'}`);
+
+    const name = id.value;
+    if (!this._hasVar(name)) {
+      this._addVar(name);
+      this._emitVar(name, '""');
+    }
+
+    this._consumeOp('=');
+    const value = this._parseExpr();
+    this._emit(
+      `${name} = ${isRightJustify ? '_rset' : '_lset'}(${name}, ${value});`,
+    );
   },
 
 _parseSelect() {
@@ -576,7 +598,7 @@ _parseFunction() {
     args.forEach((a) => this._addVar(a));
 
     this._addVar(name);
-    this._emit(`let ${name} = ${name.endsWith('$') ? '""' : '0'};`);
+    this._emitVar(name, name.endsWith('$') ? '""' : '0');
     this.currentFunction = name;
   },
 
@@ -605,7 +627,10 @@ _parseGosub() {
         this._emit(`await ${label.value}(); // GOSUB ${label.value}`);
       } else {
         this._emit(
-          `await ${label.value}(); // GOSUB ${label.value} (label may be undefined)`,
+          `// GOSUB ${label.value} - label not found`,
+        );
+        this._recordError(
+          `GOSUB ${label.value}: Label not defined. Make sure label exists as 'labelname:'.`,
         );
       }
     }
@@ -688,7 +713,7 @@ _parseDefFn() {
     this._consumeOp('=');
     const expr = this._parseExpr();
 
-    this._emit(`const ${name} = (${args.join(', ')}) => ${expr};`);
+    this._emit(`const ${name} = async (${args.join(', ')}) => ${expr};`);
   },
 
 _parseLprint() {
@@ -978,22 +1003,44 @@ _parseOnStatement() {
       const labels = [];
       do {
         const label = this._consume(TokenType.IDENTIFIER);
-        if (label) labels.push(label.value);
+        if (label) {
+          labels.push(label.value);
+          if (!this.labels.has(label.value)) {
+            this._recordError(
+              `ON...GOTO ${label.value}: Label not defined. Make sure label exists as 'labelname:'.`,
+            );
+          }
+        }
       } while (this._matchPunc(','));
 
-      this._emit(`// ON ${expr} GOTO ${labels.join(', ')} (limited support)`);
-      this._recordError(
-        'ON...GOTO not fully supported in JS transpiler. Use QB64 mode.',
+      this._emit(
+        `{ const _on_idx = ${expr}; const _on_targets = [${labels
+          .map(
+            (label) =>
+              `{ fn: (typeof ${label} === "function" ? ${label} : null), name: "${label}" }`,
+          )
+          .join(', ')}]; if (_on_idx >= 1 && _on_idx <= ${labels.length}) { const _on_target = _on_targets[_on_idx - 1]; if (_on_target.fn) { await _on_target.fn(); throw "GOTO_" + _on_target.name; } } }`,
       );
     } else if (this._matchKw('GOSUB')) {
       const labels = [];
       do {
         const label = this._consume(TokenType.IDENTIFIER);
-        if (label) labels.push(label.value);
+        if (label) {
+          labels.push(label.value);
+          if (!this.labels.has(label.value)) {
+            this._recordError(
+              `ON...GOSUB ${label.value}: Label not defined. Make sure label exists as 'labelname:'.`,
+            );
+          }
+        }
       } while (this._matchPunc(','));
 
       this._emit(
-        `{ const _on_idx = ${expr}; if (_on_idx >= 1 && _on_idx <= ${labels.length}) { await [${labels.join(', ')}][_on_idx - 1](); } }`,
+        `{ const _on_idx = ${expr}; const _on_targets = [${labels
+          .map(
+            (label) => `(typeof ${label} === "function" ? ${label} : null)`,
+          )
+          .join(', ')}]; if (_on_idx >= 1 && _on_idx <= ${labels.length}) { const _on_target = _on_targets[_on_idx - 1]; if (_on_target) { await _on_target(); } } }`,
       );
     } else if (this._matchKw('ERROR')) {
       // ON ERROR GOTO label

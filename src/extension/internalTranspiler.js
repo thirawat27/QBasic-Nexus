@@ -12,9 +12,10 @@ const os = require('os');
 const { spawn } = require('child_process');
 const MagicString = require('magic-string');
 const { state } = require('./state');
-const { getOutputChannel, getTerminal, log } = require('./utils');
+const { getOutputChannel, log } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
 const { getInternalTranspiler } = require('./lazyModules');
+const { resolvePkgTarget } = require('./processUtils');
 
 // pkg-compatible Node.js header
 // Shebang only needed on macOS/Linux; Windows ignores it but it causes no harm.
@@ -114,16 +115,9 @@ async function runInternalTranspiler(document, shouldRun) {
 
         // ── 3: pkg packaging (60 → 100%) ───────────────────────────────
         channel.appendLine('');
-        report(65, 'Packaging to .exe…');
+        report(65, 'Packaging native executable…');
 
-        // Cross-platform target detection
-        const platformTargets = {
-          win32: 'node18-win-x64',
-          darwin: 'node18-macos-x64',
-          linux: 'node18-linux-x64',
-          alpine: 'node18-alpine-x64',
-        };
-        const target = platformTargets[process.platform] || 'node18-win-x64';
+        const target = resolvePkgTarget();
 
         try {
           // pkg programmatic API — suppresses the "> pkg@x.x.x" CLI banner
@@ -132,12 +126,22 @@ async function runInternalTranspiler(document, shouldRun) {
         } catch (_) {
           // fallback: spawn CLI if API unavailable
           channel.appendLine('  ⚠ pkg API unavailable, falling back to CLI…');
+          const pkgPackageJson = require.resolve('pkg/package.json');
+          const pkgPackage = require('pkg/package.json');
+          const pkgBinRelative =
+            typeof pkgPackage.bin === 'string'
+              ? pkgPackage.bin
+              : pkgPackage.bin?.pkg;
+          const pkgBinPath = path.join(
+            path.dirname(pkgPackageJson),
+            pkgBinRelative,
+          );
 
           await new Promise((resolve, reject) => {
             const proc = spawn(
-              'pkg',
-              [tempJs, '--target', target, '--output', outputExe],
-              { shell: true, env: process.env },
+              process.execPath,
+              [pkgBinPath, tempJs, '--target', target, '--output', outputExe],
+              { shell: false, env: process.env },
             );
             proc.stdout.on('data', (d) => channel.append(d.toString()));
             proc.stderr.on('data', (d) => channel.append(d.toString()));
@@ -212,46 +216,31 @@ async function runInternalTranspiler(document, shouldRun) {
  */
 function runExecutable(exePath) {
   const channel = getOutputChannel();
+  const child = spawn(exePath, [], {
+    cwd: path.dirname(exePath),
+    detached: true,
+    stdio: 'ignore',
+    shell: false,
+  });
 
-  // Pick the platform-specific launcher:
-  //   Windows  → "cmd" with /c "start "" "<exe>""
-  //   macOS    → "open"
-  //   Linux    → "xdg-open"
-  let child;
-  if (process.platform === 'win32') {
-    // `start ""` opens a new console window for the exe.
-    // We wrap inside cmd /c so Node doesn't need to find "start" itself.
-    child = spawn('cmd', ['/c', 'start', '', exePath], {
-      cwd: path.dirname(exePath),
-      detached: true, // let the child outlive the extension host
-      stdio: 'ignore', // detach stdio so the process is truly independent
-      shell: false,
-    });
-  } else if (process.platform === 'darwin') {
-    child = spawn('open', [exePath], {
-      cwd: path.dirname(exePath),
-      detached: true,
-      stdio: 'ignore',
-    });
-  } else {
-    // Linux / other POSIX
-    child = spawn('xdg-open', [exePath], {
-      cwd: path.dirname(exePath),
-      detached: true,
-      stdio: 'ignore',
-    });
-  }
+  child.on('error', async (err) => {
+    channel.appendLine(`  ⚠ Could not launch executable: ${err.message}`);
+    try {
+      const opened = await vscode.env.openExternal(vscode.Uri.file(exePath));
+      if (!opened) {
+        channel.appendLine(
+          '  ⚠ VS Code could not open the executable externally.',
+        );
+      }
+    } catch (openErr) {
+      channel.appendLine(
+        `  ⚠ External open fallback failed: ${openErr.message}`,
+      );
+    }
+  });
 
   // Detach the child so it runs independently after the parent closes
   child.unref();
-
-  child.on('error', (err) => {
-    channel.appendLine(`  ⚠ Could not launch executable: ${err.message}`);
-    const term = getTerminal();
-    term.show();
-    const safeExe = exePath.replace(/"/g, '""');
-    term.sendText(`cmd /c "${safeExe}"`);
-  });
 }
 
 module.exports = { runInternalTranspiler, runExecutable };
