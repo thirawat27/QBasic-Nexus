@@ -2,6 +2,33 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.0] - 2026-03-09
+
+### 🚀 Features
+
+- **Interactive Tutorial**: Added `QBasic Start Interactive Tutorial 🎮` command to help new users learn QBasic directly within VS Code.
+- **Code Statistics**: New `QBasic Show Code Statistics 📊` command (Ctrl+Shift+I) to analyze your code structure, line counts, and complexity.
+
+### ✨ Interactive Tools
+
+- **ASCII Chart**: Added a built-in `QBasic Show ASCII Chart 📋` reference (Ctrl+Alt+A).
+- **Quick Insert**: Added `QBasic Insert CHR$() at Cursor ✍️` to easily pick and insert characters from the ASCII chart.
+- **Line Number Management**:
+  - Added `QBasic Remove Line Numbers 🔢` (Ctrl+Alt+R) for modernizing legacy code.
+  - Added `QBasic Renumber Lines 🔄` (Ctrl+Alt+N) for traditional BASIC workflow.
+
+### 🐛 Bug Fixes
+
+- **Documentation**: Fixed a broken anchor link in the README header that prevented navigation to the "Features" section.
+- **Internal Cleanup**: Fixed minor bugs in the transpiler logic during the 1.5.0 release cycle.
+
+### 📝 Documentation
+
+- **Open VSX**: Added Open VSX version badge to README.
+- **Refinement**: Improved README readability and formatted the feature comparison table.
+
+---
+
 ## [1.4.3] - 2026-03-08
 
 ### 🚀 Performance Improvements
