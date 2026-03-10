@@ -18,13 +18,13 @@
      <img src="https://badgen.net/open-vsx/v/thirawat27/qbasic-nexus" alt="Version" />
     <img src="https://img.shields.io/badge/VS%20Code-1.107.0+-green.svg" alt="VS Code" />
     <img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="License" />
-    
+
   </p>
 </div>
 
 <br>
 
-**QBasic Nexus** transforms VS Code into an immensely powerful retro-coding station. Engineered from the ground up for raw performance, it features a blazingly fast custom transpiler, multi-tiered caching, and out-of-the-box Windows `.exe` compilation. Whether you're a veteran developer reviving classic code or a newcomer learning the roots of programming, QBasic Nexus provides an unmatched, modern experience for **QBasic** and **QB64**.
+**QBasic Nexus** transforms VS Code into an immensely powerful retro-coding station. Engineered from the ground up for raw performance, it features a blazingly fast custom transpiler, multi-tiered caching, and out-of-the-box cross-platform executable compilation. Whether you're a veteran developer reviving classic code or a newcomer learning the roots of programming, QBasic Nexus provides an unmatched, modern experience for **QBasic** and **QB64**.
 
 ---
 
@@ -67,21 +67,21 @@ QBasic Nexus offers two compilation modes, each with different requirements.
 The internal transpiler works out of the box with zero setup. You can write QBasic code and immediately
 
 - Run it in the beautiful Retro CRT viewer inside VS Code
-- Compile it into a standalone Node.js-based `.exe` file
+- Compile it into a standalone cross-platform executable
 - Test and debug without any external dependencies
 
 This mode is perfect for learning, prototyping, and quick testing.
 
 **How QBasic Nexus Internal Works**
 
-The internal compiler transpiles your QBasic code to JavaScript, then packages it with Node.js runtime using `pkg` to create a standalone executable.
+The internal compiler transpiles your QBasic code to JavaScript, then packages it with Node.js runtime using `@yao-pkg/pkg` to create a standalone executable.
 
 **Key Characteristics**
 
-- **File Size** - Executables are typically 40-50MB (includes Node.js runtime)
+- **File Size** - Executables are typically 30-40MB (includes Node.js runtime, compressed with GZip)
 - **Performance** - Slightly slower than native QB64 compilation, but excellent for most use cases
 - **Compatibility** - Supports 400+ QBasic/QB64 keywords and functions
-- **Platform** - Currently generates Windows executables (.exe) on all platforms
+- **Platform** - Generates native executables for Windows, macOS, Linux, and Alpine
 
 **Limitations Compared to QB64**
 
@@ -490,8 +490,8 @@ Each compilation mode produces different results. Here's a detailed comparison t
 | **System Access**       | Full (files, hardware) | Limited (virtual FS) | None (sandboxed)   |
 | **Graphics**            | All SCREEN modes       | SCREEN 13 only       | SCREEN 13 only     |
 | **Audio**               | Full QB64 audio        | PLAY & SOUND         | PLAY & SOUND       |
-| **Distribution**        | Single .exe            | Single .exe          | Requires VS Code   |
-| **Cross-Platform**      | Platform-specific      | Windows only         | Any platform       |
+| **Distribution**        | Single executable      | Single executable    | Requires VS Code   |
+| **Cross-Platform**      | Platform-specific      | All platforms        | Any platform       |
 | **Setup Required**      | QB64 installation      | None                 | None               |
 | **Best For**            | Production apps        | Quick testing        | Demos & learning   |
 
@@ -508,13 +508,13 @@ Each compilation mode produces different results. Here's a detailed comparison t
 **When using QBasic Nexus mode**
 
 - Code is transpiled to JavaScript
-- Packaged as a standalone `.exe` using Node.js and `pkg`
-- Larger file size (~40-50MB) but includes entire runtime
+- Packaged as a standalone executable using Node.js and `@yao-pkg/pkg`
+- Moderate file size (~30-40MB) with GZip compression, includes entire runtime
 - Slightly slower startup but good runtime performance
 - Virtual file system limited to 10MB
 - No external dependencies needed
 - Perfect for quick prototyping and testing
-- Currently generates Windows executables only
+- Generates native executables for Windows, macOS, Linux, and Alpine
 
 **When using Retro CRT viewer**
 
@@ -868,7 +868,7 @@ Structured sections   Start 1000, Step 1000
 
 QBasic Nexus doesn't just parse text—it deeply analyzes it using an enterprise-grade compiler pipeline that dramatically outpaces legacy tools.
 
-- **Zero-Setup Native Windows Executables (.exe)** - Instantly compile QBasic code directly to standalone `.exe` files using the internal backend powered by `pkg`. No QB64 installation required for prototyping and distribution!
+- **Zero-Setup Cross-Platform Executables** - Instantly compile QBasic code directly to standalone native executables for Windows, macOS, Linux, and Alpine using the internal backend powered by `@yao-pkg/pkg`. No QB64 installation required for prototyping and distribution!
 - **High-Performance Lexer** - Powered by `moo`, achieving over **1,200 KB/s+ throughput** during compilation with zero-copy token passing to eliminate redundant processing.
 - **Tiered Cache Architecture** - Includes an L1 Hot Cache and an L2 LRU memory pool powered by lightning-fast FNV-1a hashing. Re-compiling unchanged or slightly modified code is virtually instantaneous (0.03ms cache hits).
 - **Dual Pipeline Integration** - Run your code natively via the local **QB64** compiler for heavy-duty system access, or use the **QBasic Nexus Internal** engine for instant logic tests and virtualized sandboxing.

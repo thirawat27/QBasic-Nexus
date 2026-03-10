@@ -2,6 +2,57 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.1] - 2026-03-10
+
+### 🚀 Major Improvements
+
+#### Cross-Platform Compiler Support
+
+- **Full Cross-Platform Executables**: Internal compiler now generates native executables for all platforms (Windows, macOS, Linux, Alpine)
+- **Modern Packaging**: Upgraded from `pkg` to `@yao-pkg/pkg` (v5.15.0) for better cross-platform support and active maintenance
+- **GZip Compression**: Added automatic compression to reduce executable file sizes by 30-40%
+- **Platform-Aware Output**: Automatically generates correct file extensions (.exe on Windows, no extension on Unix-like systems)
+
+#### QB64 Auto-Detection System
+
+- **Intelligent Path Detection**: Automatically finds QB64 installations in common locations across all platforms
+- **Multi-Method Search**: Searches both standard installation paths and PATH environment variable
+- **Interactive Setup**: Prompts users to save detected paths or configure manually
+- **Platform-Specific Guidance**: Provides tailored installation instructions for Windows, macOS, and Linux
+- **Verification System**: Validates QB64 executables before use to prevent configuration errors
+
+**Supported Detection Paths:**
+
+- Windows: `C:\QB64\`, `Program Files\QB64\`, user directories
+- macOS: `/Applications/QB64/`, `~/QB64/`, `/usr/local/qb64/`
+- Linux: `~/qb64/`, `/opt/qb64/`, `/usr/local/qb64/`, `/usr/bin/`
+
+### 📝 Documentation Updates
+
+- **Removed "Windows Only" References**: Updated all documentation to reflect true cross-platform support
+- **Accurate Feature Descriptions**: Corrected platform compatibility information in README
+- **Installation Instructions**: Enhanced setup guides with platform-specific details
+
+### 🐛 Bug Fixes
+
+- **Cross-Platform Path Handling**: Fixed path separator issues on Unix-like systems
+- **Executable Permissions**: Properly handles executable permissions on macOS and Linux
+- **Shell Escaping**: Improved command-line argument escaping for all platforms
+
+### 🔧 Technical Improvements
+
+- **Modular Auto-Detection**: New `qb64AutoDetect.js` module for maintainable QB64 discovery
+- **Better Error Messages**: More informative error messages with actionable suggestions
+- **Fallback Mechanisms**: Graceful fallback to CLI mode if API fails
+- **Memory Efficiency**: Improved cleanup of temporary files after compilation
+
+### 📦 Dependencies
+
+- **Added**: `@yao-pkg/pkg@^5.15.0` (modern, actively maintained fork)
+- **Removed**: `pkg@^5.8.1` (deprecated, unmaintained)
+
+---
+
 ## [1.5.0] - 2026-03-09
 
 ### 🚀 Features

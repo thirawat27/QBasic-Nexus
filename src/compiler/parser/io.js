@@ -24,7 +24,7 @@ _parsePrint() {
       }
       // Append newline by default unless silenced?
       // Simplified: always append newline for now
-      this._emit(`await _printFile(${filenum}, \`${line}\\n\`);`);
+      this._emit(`await _printFileFunc(${filenum}, \`${line}\\n\`);`);
       return;
     }
 
@@ -58,14 +58,8 @@ _parseInput() {
       const id = this._consume(TokenType.IDENTIFIER);
       if (!id) throw new Error('Expected variable after INPUT #');
 
-      const name = id.value;
-      if (!this._hasVar(name)) {
-        this._addVar(name);
-        this._emitVar(name, name.endsWith('$') ? '""' : '0');
-      }
-
       // Generate code to read line and assign
-      this._emit(`${name} = await _inputFile(${filenum});`);
+      this._emit(`${id.value} = await _inputFileFunc(${filenum});`);
       return;
     }
 
@@ -86,7 +80,7 @@ _parseInput() {
       const name = id.value;
       if (!this._hasVar(name)) {
         this._addVar(name);
-        this._emitVar(name, name.endsWith('$') ? '""' : '0');
+        this._emit(`let ${name} = ${name.endsWith('$') ? '""' : '0'};`);
       }
 
       this._emit(`${name} = await _input("${escaped}");`);
@@ -136,7 +130,7 @@ _parseRead() {
         // Simple variable read
         if (!this._hasVar(name)) {
           this._addVar(name);
-          this._emitVar(name, name.endsWith('$') ? '""' : '0');
+          this._emit(`let ${name} = ${name.endsWith('$') ? '""' : '0'};`);
         }
 
         this._emit(`${name} = _read();`);
@@ -171,7 +165,7 @@ _parseLineInput() {
 
     if (!this._hasVar(name)) {
       this._addVar(name);
-      this._emitVar(name, '""');
+      this._emit(`let ${name} = "";`);
     }
 
     this._emit(`${name} = await _input("${escaped}");`);
@@ -272,28 +266,28 @@ _parseOpen() {
     this._matchPunc('#');
     const fileNum = this._parseExpr();
 
-    this._emit(`await _open(${filename}, "${mode}", ${fileNum});`);
+    this._emit(`_open(${filename}, "${mode}", ${fileNum});`);
   },
 
 _parseClose() {
     if (this._isStmtEnd()) {
-      this._emit('await _closeAll();');
+      this._emit('_closeAll();');
       return;
     }
 
     do {
       this._matchPunc('#');
       const fileNum = this._parseExpr();
-      this._emit(`await _close(${fileNum});`);
+      this._emit(`_close(${fileNum});`);
     } while (this._matchPunc(','));
   },
 
-  _parseFiles() {
+_parseFiles() {
     // FILES [filespec]
     let spec = '""';
     if (!this._isStmtEnd()) {
       spec = this._parseExpr();
     }
-    this._emit(`await _listFiles(${spec});`);
+    this._emit(`await _files(${spec});`);
   }
 };

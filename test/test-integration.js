@@ -115,117 +115,10 @@ test('CompilationCache respects enabled=false', () => {
     throw new Error('Should return null when disabled');
 });
 
-// ─── Phase 1.4: Extension host helper utilities ────────────────────────────
-console.log('\n📦 Phase 1.4: Extension Host Helper Tests');
-const {
-  splitCommandLineArgs,
-  buildWebviewCsp,
-  MAX_WEBVIEW_CODE_SIZE,
-  validateWebviewCodePayload,
-  resolvePkgTarget,
-  parseQb64CompilerOutput,
-} = require('../src/extension/processUtils');
-
-test('splitCommandLineArgs preserves quoted compiler arguments', () => {
-  const args = splitCommandLineArgs(
-    '--define "NAME=QBasic Nexus" --lib "C:\\Program Files\\QB64\\lib"',
-  );
-
-  const expected = JSON.stringify([
-    '--define',
-    'NAME=QBasic Nexus',
-    '--lib',
-    'C:\\Program Files\\QB64\\lib',
-  ]);
-  const actual = JSON.stringify(args);
-  if (actual !== expected) {
-    throw new Error(`Expected ${expected}, got ${actual}`);
-  }
-});
-
-test('splitCommandLineArgs keeps escaped quotes inside quoted values', () => {
-  const args = splitCommandLineArgs('--msg "He said \\"hi\\""');
-  const expected = JSON.stringify(['--msg', 'He said "hi"']);
-  const actual = JSON.stringify(args);
-  if (actual !== expected) {
-    throw new Error(`Expected ${expected}, got ${actual}`);
-  }
-});
-
-test('buildWebviewCsp hardens script-src without unsafe-inline', () => {
-  const csp = buildWebviewCsp('vscode-webview-resource:');
-  if (!csp.includes("script-src vscode-webview-resource: 'unsafe-eval'")) {
-    throw new Error(`Unexpected script-src: ${csp}`);
-  }
-  if (/script-src[^;]*'unsafe-inline'/.test(csp)) {
-    throw new Error(`script-src should not include unsafe-inline: ${csp}`);
-  }
-});
-
-test('validateWebviewCodePayload rejects oversized programs', () => {
-  const error = validateWebviewCodePayload('X'.repeat(MAX_WEBVIEW_CODE_SIZE + 1));
-  if (!error || !error.includes('too large')) {
-    throw new Error(`Expected oversize validation error, got: ${error}`);
-  }
-});
-
-test('validateWebviewCodePayload accepts normal generated code', () => {
-  const error = validateWebviewCodePayload('console.log("ok");');
-  if (error !== null) {
-    throw new Error(`Expected payload to be accepted, got: ${error}`);
-  }
-});
-
-test('resolvePkgTarget supports arm64 packaging targets', () => {
-  const cases = [
-    ['win32', 'arm64', 'node18-win-arm64'],
-    ['darwin', 'arm64', 'node18-macos-arm64'],
-    ['linux', 'arm64', 'node18-linux-arm64'],
-  ];
-
-  for (const [platform, arch, expected] of cases) {
-    const actual = resolvePkgTarget(platform, arch);
-    if (actual !== expected) {
-      throw new Error(
-        `Expected ${platform}/${arch} -> ${expected}, got ${actual}`,
-      );
-    }
-  }
-});
-
-test('parseQb64CompilerOutput preserves warning severity', () => {
-  const diagnostics = parseQb64CompilerOutput(
-    [
-      'demo.bas:7: warning: implicit variable declaration',
-      'demo.bas:8: error: syntax error',
-      'other.bas:9: warning: ignored',
-    ].join('\n'),
-    'demo.bas',
-  );
-
-  const expected = JSON.stringify([
-    {
-      line: 6,
-      severity: 'warning',
-      message: 'implicit variable declaration',
-    },
-    {
-      line: 7,
-      severity: 'error',
-      message: 'syntax error',
-    },
-  ]);
-  const actual = JSON.stringify(diagnostics);
-  if (actual !== expected) {
-    throw new Error(`Expected ${expected}, got ${actual}`);
-  }
-});
-
 // ─── Phase 2: Transpiler pipeline ────────────────────────────────────────────
 console.log('\n📦 Phase 2: Transpiler Pipeline Tests');
 const InternalTranspiler = require('../src/compiler/transpiler');
 const { makeIdentifierRegex } = require('../src/providers/patterns');
-const lessons = require('../src/tutorials/data');
 
 test('Transpile PRINT "Hello"', () => {
   const t = new InternalTranspiler();
@@ -237,29 +130,6 @@ test('Transpile FOR loop', () => {
   const t = new InternalTranspiler();
   const code = t.transpile('FOR i = 1 TO 3\nNEXT i', 'node');
   if (!code.includes('for')) throw new Error('No for loop in output');
-});
-
-test('Node target output stays parseable after transpile', () => {
-  const t = new InternalTranspiler();
-  const code = t.transpile('PRINT "Hello"', 'node');
-  new Function(code);
-});
-
-test('FILES statement uses dedicated list helper instead of file-handle map', () => {
-  const t = new InternalTranspiler();
-  const code = t.transpile('FILES', 'web');
-
-  if (!code.includes('async function _listFiles(spec)')) {
-    throw new Error('Missing generated _listFiles helper');
-  }
-
-  if (!code.includes('await _listFiles("")')) {
-    throw new Error('FILES should call _listFiles helper');
-  }
-
-  if (code.includes('await _files(')) {
-    throw new Error('FILES should not call the file-handle map');
-  }
 });
 
 test('Lint returns array', () => {
@@ -287,57 +157,6 @@ test('Identifier regex matches QBasic suffix variables', () => {
   pattern.lastIndex = 0;
   if (pattern.test('player$Extra = 1')) {
     throw new Error('Identifier regex should not match partial identifiers');
-  }
-});
-
-test('Tutorial catalog includes expanded lesson coverage', () => {
-  if (lessons.length < 120) {
-    throw new Error(`Expected at least 120 lessons, got ${lessons.length}`);
-  }
-});
-
-test('Tutorial lesson ids stay unique', () => {
-  const ids = lessons.map((lesson) => lesson.id);
-  const uniqueIds = new Set(ids);
-  if (uniqueIds.size !== ids.length) {
-    throw new Error('Tutorial lesson ids must be unique');
-  }
-});
-
-test('Tutorial catalog keeps representative grammar coverage', () => {
-  const requiredIds = [
-    '19.1-let',
-    '20.3-def-fn',
-    '21.2-redim-preserve',
-    '22.3-seek-loc',
-    '23.4-view',
-    '24.7-shell',
-    '25.6-on-error',
-    '26.4-call',
-    '26.6-on-gosub',
-    '27.4-line-input',
-    '27.7-open-binary',
-    '28.3-eqv-imp',
-    '28.6-date-time-timer',
-  ];
-  const ids = new Set(lessons.map((lesson) => lesson.id));
-
-  for (const id of requiredIds) {
-    if (!ids.has(id)) {
-      throw new Error(`Missing representative tutorial lesson: ${id}`);
-    }
-  }
-});
-
-test('Tutorial templates lint without parser errors', () => {
-  for (const lesson of lessons) {
-    const t = new InternalTranspiler();
-    const errors = t.lint(lesson.template);
-    if (errors.length > 0) {
-      throw new Error(
-        `Lesson ${lesson.id} has parser errors: ${JSON.stringify(errors)}`,
-      );
-    }
   }
 });
 

@@ -19,6 +19,7 @@ const CONFIG = Object.freeze({
   MODE_INTERNAL: 'Qbasic Nexus',
   LANGUAGE_ID: 'qbasic',
   OUTPUT_CHANNEL: 'QBasic Nexus',
+  TERMINAL_NAME: 'QBasic Nexus',
   CMD_RETRO: 'qbasic-nexus.runInCrt',
   CMD_TUTORIAL: 'qbasic-nexus.startTutorial',
 });

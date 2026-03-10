@@ -11,12 +11,9 @@ const { spawn } = require('child_process');
 const { CONFIG } = require('./constants');
 const { state } = require('./state');
 const { getOutputChannel, getConfig, fileExists } = require('./utils');
-const {
-  splitCommandLineArgs,
-  parseQb64CompilerOutput,
-} = require('./processUtils');
 const { updateStatusBar } = require('./statusBar');
 const { runExecutable, runInternalTranspiler } = require('./internalTranspiler');
+const { findQB64, getInstallInstructions } = require('./qb64AutoDetect');
 
 /**
  * Entry point: validate config then drive the QB64 compilation
@@ -24,30 +21,77 @@ const { runExecutable, runInternalTranspiler } = require('./internalTranspiler')
  * @param {boolean} shouldRun
  */
 async function runQB64Compiler(document, shouldRun) {
-  const compilerPath = getConfig(CONFIG.COMPILER_PATH);
+  let compilerPath = getConfig(CONFIG.COMPILER_PATH);
 
-  // Validate compiler path
+  // Auto-detect QB64 if not configured
   if (!compilerPath) {
-    const choice = await vscode.window.showWarningMessage(
-      '⚠️ QB64 compiler path is not configured.',
-      'Open Settings',
-      'Use Internal Mode',
-    );
+    const channel = getOutputChannel();
+    channel.appendLine('🔍 QB64 path not configured, attempting auto-detection...');
 
-    if (choice === 'Open Settings') {
-      vscode.commands.executeCommand(
-        'workbench.action.openSettings',
-        `${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`,
+    compilerPath = await findQB64();
+
+    if (compilerPath) {
+      channel.appendLine(`✅ Found QB64 at: ${compilerPath}`);
+
+      // Ask user if they want to save this path
+      const choice = await vscode.window.showInformationMessage(
+        `Found QB64 at:\n${compilerPath}\n\nWould you like to use this path?`,
+        'Yes, save this path',
+        'No, configure manually',
+        'Use Internal Mode',
       );
-    } else if (choice === 'Use Internal Mode') {
-      await vscode.workspace
-        .getConfiguration(CONFIG.SECTION)
-        .update(CONFIG.COMPILER_MODE, CONFIG.MODE_INTERNAL, true);
-      await runInternalTranspiler(document, shouldRun);
+
+      if (choice === 'Yes, save this path') {
+        await vscode.workspace
+          .getConfiguration(CONFIG.SECTION)
+          .update(CONFIG.COMPILER_PATH, compilerPath, true);
+        channel.appendLine('💾 QB64 path saved to settings');
+      } else if (choice === 'No, configure manually') {
+        vscode.commands.executeCommand(
+          'workbench.action.openSettings',
+          `${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`,
+        );
+        return;
+      } else if (choice === 'Use Internal Mode') {
+        await vscode.workspace
+          .getConfiguration(CONFIG.SECTION)
+          .update(CONFIG.COMPILER_MODE, CONFIG.MODE_INTERNAL, true);
+        await runInternalTranspiler(document, shouldRun);
+        return;
+      } else {
+        return; // User cancelled
+      }
+    } else {
+      // QB64 not found
+      channel.appendLine('❌ QB64 not found in common locations');
+      channel.appendLine('');
+      channel.appendLine(getInstallInstructions());
+
+      const choice = await vscode.window.showWarningMessage(
+        '⚠️ QB64 not found. Please install QB64 or use Internal Mode.',
+        'Open Settings',
+        'Use Internal Mode',
+        'Installation Guide',
+      );
+
+      if (choice === 'Open Settings') {
+        vscode.commands.executeCommand(
+          'workbench.action.openSettings',
+          `${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`,
+        );
+      } else if (choice === 'Use Internal Mode') {
+        await vscode.workspace
+          .getConfiguration(CONFIG.SECTION)
+          .update(CONFIG.COMPILER_MODE, CONFIG.MODE_INTERNAL, true);
+        await runInternalTranspiler(document, shouldRun);
+      } else if (choice === 'Installation Guide') {
+        vscode.env.openExternal(vscode.Uri.parse('https://qb64.com/'));
+      }
+      return;
     }
-    return;
   }
 
+  // Validate compiler path
   if (!(await fileExists(compilerPath))) {
     vscode.window.showErrorMessage(`❌ QB64 not found at: ${compilerPath}`);
     return;
@@ -96,9 +140,10 @@ function compileWithQB64(document, compilerPath, channel) {
     );
 
     // Build arguments
-    const extraArgs = splitCommandLineArgs(
-      getConfig(CONFIG.COMPILER_ARGS) || '',
-    );
+    const extraArgs = (getConfig(CONFIG.COMPILER_ARGS) || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
 
     const args = ['-x', '-c', sourcePath, '-o', outputPath, ...extraArgs];
 
@@ -175,18 +220,30 @@ function compileWithQB64(document, compilerPath, channel) {
  */
 function parseCompilerErrors(output, uri) {
   const diagnostics = [];
-  const filename = path.basename(uri.fsPath);
+  const filename = path.basename(uri.fsPath).toLowerCase();
 
-  for (const entry of parseQb64CompilerOutput(output, filename)) {
-    const diagnostic = new vscode.Diagnostic(
-      new vscode.Range(entry.line, 0, entry.line, Number.MAX_SAFE_INTEGER),
-      entry.message,
-      entry.severity === 'warning'
+  // Pattern: filename.bas:line: error message
+  const pattern =
+    /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi;
+
+  let match;
+  while ((match = pattern.exec(output)) !== null) {
+    const [, file, lineStr, message] = match;
+
+    if (file.toLowerCase() === filename) {
+      const line = Math.max(0, parseInt(lineStr, 10) - 1);
+      const severity = message.toLowerCase().includes('warning')
         ? vscode.DiagnosticSeverity.Warning
-        : vscode.DiagnosticSeverity.Error,
-    );
-    diagnostic.source = 'QB64';
-    diagnostics.push(diagnostic);
+        : vscode.DiagnosticSeverity.Error;
+
+      const diagnostic = new vscode.Diagnostic(
+        new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
+        message.trim(),
+        severity,
+      );
+      diagnostic.source = 'QB64';
+      diagnostics.push(diagnostic);
+    }
   }
 
   state.diagnosticCollection.set(uri, diagnostics);

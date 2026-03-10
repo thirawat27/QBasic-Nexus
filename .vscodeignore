@@ -1,10 +1,45 @@
+# Development files
 .vscode/**
 .vscode-test/**
+.vscode-test.mjs
 test/**
+.github/**
+
+# Config files
 .gitignore
+.npmrc
+.nvmrc
+.editorconfig
 .yarnrc
+jsconfig.json
+eslint.config.mjs
 vsc-extension-quickstart.md
-**/jsconfig.json
+
+# Documentation (keep only essential)
+CONTRIBUTING.md
+SECURITY.md
+
+# Source maps
 **/*.map
-**/eslint.config.mjs
-**/.vscode-test.*
+
+# Git
+.git/**
+.gitattributes
+
+# CI/CD
+**/.github/**
+
+# Logs and temp
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/**
+
+# Testing
+coverage/**
+.nyc_output/**

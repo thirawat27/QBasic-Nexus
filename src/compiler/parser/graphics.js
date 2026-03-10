@@ -111,27 +111,6 @@ _parseCircle() {
     );
   },
 
-_parsePaint() {
-    // PAINT (x, y), fillColor [, borderColor]
-    this._matchPunc('(');
-    const x = this._parseExpr();
-    this._matchPunc(',');
-    const y = this._parseExpr();
-    this._matchPunc(')');
-
-    let fillColor = 'undefined';
-    let borderColor = 'undefined';
-
-    if (this._matchPunc(',')) {
-      fillColor = this._parseExpr();
-      if (this._matchPunc(',')) {
-        borderColor = this._parseExpr();
-      }
-    }
-
-    this._emit(`await _PAINT(${x}, ${y}, ${fillColor}, ${borderColor});`);
-  },
-
 _parseGet() {
     // GET (x1,y1)-(x2,y2), arrayname
     this._matchPunc('(');

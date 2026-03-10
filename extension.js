@@ -41,6 +41,7 @@ const {
   showAsciiChart,
   insertChrFromAsciiChart,
 } = require('./src/extension/asciiChart');
+const { getWebviewManager } = require('./src/extension/lazyModules');
 const { getIncrementalLinter } = require('./src/managers/IncrementalLinter');
 
 // ── Language Providers ───────────────────────────────────────────────────────
@@ -172,7 +173,9 @@ async function activate(context) {
     ),
     vscode.commands.registerCommand(COMMANDS.RUN_CRT, runInCrt),
     vscode.commands.registerCommand(COMMANDS.START_TUTORIAL, () => {
+      // Lazy-wire on first use: load both modules and connect them
       const tm = getTutorialManager();
+      tm.setWebviewManager(getWebviewManager());
       return tm.startTutorial(state.extensionContext);
     }),
     vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
@@ -250,6 +253,9 @@ async function activate(context) {
         updateStatusBar();
       }
     }),
+    vscode.window.onDidCloseTerminal((t) => {
+      if (t === state.terminal) state.terminal = null;
+    }),
     // Memory leak fix: remove incremental linter state when doc is closed
     vscode.workspace.onDidCloseTextDocument((doc) => {
       getIncrementalLinter().removeDocument(doc.uri.toString());
@@ -284,12 +290,14 @@ function deactivate() {
   state.statsBarItem?.dispose();
   state.outputChannel?.dispose();
   state.diagnosticCollection?.dispose();
+  state.terminal?.dispose();
 
   // Clear references
   state.statusBarItem = null;
   state.statsBarItem = null;
   state.outputChannel = null;
   state.diagnosticCollection = null;
+  state.terminal = null;
   state.extensionContext = null;
 }
 

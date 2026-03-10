@@ -93,6 +93,19 @@ function getOutputChannel() {
 }
 
 /**
+ * Get or create a terminal instance
+ */
+function getTerminal() {
+  if (!state.terminal || state.terminal.exitStatus !== undefined) {
+    state.terminal = vscode.window.createTerminal({
+      name: CONFIG.TERMINAL_NAME,
+      iconPath: new vscode.ThemeIcon('terminal'),
+    });
+  }
+  return state.terminal;
+}
+
+/**
  * Check if a file exists
  */
 async function fileExists(filePath) {
@@ -122,6 +135,20 @@ function getConfig(key, fallback = undefined) {
 }
 
 /**
+ * Get ALL extension configuration values at once, merged with defaults.
+ * Useful when multiple settings are needed in one call.
+ * @returns {Record<string, any>}
+ */
+function getAllConfig() {
+  const section = vscode.workspace.getConfiguration(CONFIG.SECTION);
+  const raw = {};
+  for (const key of Object.keys(CONFIG_DEFAULTS)) {
+    raw[key] = section.get(key);
+  }
+  return defu(raw, CONFIG_DEFAULTS);
+}
+
+/**
  * Log message to output channel
  */
 function log(message, type = 'info') {
@@ -141,7 +168,9 @@ module.exports = {
   debounce,
   throttle,
   getOutputChannel,
+  getTerminal,
   fileExists,
   getConfig,
+  getAllConfig,
   log,
 };
