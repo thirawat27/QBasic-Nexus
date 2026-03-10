@@ -1055,7 +1055,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 | **QBasic Compile 🔨**                    | `Ctrl+Shift+B` | Compiles the current file without running it.                          |
 | **QBasic Compile & Run 🌀**              | `F5`           | Compiles and executes code using your chosen Compiler Mode.            |
 | **QBasic Run in Retro CRT 📺**           | -              | Forces the current file to run in the Webview Visualizer.              |
-| **QBasic Start Interactive Tutorial 🎮** | -              | Opens the 40-lesson interactive training terminal.                     |
+| **QBasic Start Interactive Tutorial 🎮** | -              | Opens the 120-lesson interactive training terminal.                    |
 | **QBasic Show Code Statistics 📊**       | `Ctrl+Shift+I` | Provides an instant breakdown of line counts, loops, and SUBs.         |
 | **QBasic Remove Line Numbers 🔢**        | `Ctrl+Alt+R`   | Removes all line numbers from the current file.                        |
 | **QBasic Renumber Lines 🔄**             | `Ctrl+Alt+N`   | Renumbers all lines with customizable start and step values.           |
@@ -1326,7 +1326,7 @@ LOOP UNTIL k$ = CHR$(27) ' ESC to exit
 
 ## 🎮 The Interactive Curriculum
 
-New to QBasic, or just need to knock off the rust? The **Interactive Tutorial Mode** provides a monumental **80-lesson** hands-on curriculum built straight into the editor.
+New to QBasic, or just need to knock off the rust? The **Interactive Tutorial Mode** provides a comprehensive **175+ lesson** hands-on curriculum built straight into the editor.
 
 **How It Works**
 
@@ -1334,8 +1334,8 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 
 **Tutorial System Features**
 
-- **80 Progressive Lessons** - From basics to advanced topics like Binary Files, Hardware Emulation, and Control Flow Jumps.
-- **21 Comprehensive Stages** - Organized by topic and difficulty.
+- **175+ Progressive Lessons** - Covering the full QBasic core language, advanced runtime topics, game programming, and real-world applications.
+- **35 Comprehensive Stages** - Organized by topic and difficulty, from absolute basics to advanced techniques.
 - **Side-by-Side Dual Panel** - Code editor on the **left**, rich lesson description on the **right** — no more switching windows!
 - **Live Markdown Lesson Panel** - Each lesson opens a beautiful description panel showing the Objective, Description, Hint, and a Code Template — all formatted and syntax-highlighted.
 - **Automatic Verification** - Your code is checked instantly against the lesson goal the moment you run it.
@@ -1346,141 +1346,234 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 
 1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
 2. Execute **"QBasic Start Interactive Tutorial 🎮"**
-3. A **Quick Pick** menu shows all 80 lessons — pick any stage to jump right in
+3. A **Quick Pick** menu shows all 175+ lessons — pick any stage to jump right in
 4. The editor splits into **two panels automatically**:
    - **Left (Column 1)** — A new QBasic file pre-loaded with the lesson's starter template code
    - **Right (Column 2)** — A **Markdown Preview** showing the full lesson brief: Objective, Description, Hint, and the Template code block
 5. Write or modify your solution in the **left panel**
-6. Press **`F5`** to compile and run — the CRT viewer opens in the background
-7. If your output matches the lesson goal ✅, a success message appears automatically
+6. Press **`F5`** to compile and run
+7. If your output matches the lesson goal, a success message appears automatically
 
 **Tutorial Stages**
 
-**Stage 1 - Getting Started (Lessons 1-4)**
+**Stage 1 - Basics & Variables (Lessons 1.1-1.5)**
 
 - First program (`PRINT`, `CLS`)
-- Text formatting & screen coordinates (`LOCATE`, `COLOR`)
+- User Input & Variables (`DIM`, `AS STRING`)
+- Screen placement and colors (`LOCATE`, `COLOR`)
 - Basic debugging and execution
 
-**Stage 2 - Variables & Data Types (Lessons 5-8)**
+**Stage 2 - Mathematics & Logic (Lessons 2.1-2.4)**
 
-- Creating variables (`DIM`, `AS INTEGER`, `AS STRING`)
-- Constants (`CONST`)
-- String vs Numeric handling mechanisms
+- Arithmetic Operators (`*`, `/`, `MOD`)
+- Logical Operators (`AND`, `OR`, `NOT`)
+- Numeric rounding behavior (`INT`, `FIX`)
 
-**Stage 3 - User Input & Interaction (Lessons 9-11)**
-
-- Prompting users (`INPUT`, `LINE INPUT`)
-- Reading keypresses (`INKEY$`)
-
-**Stage 4 - Math & Logic (Lessons 12-15)**
-
-- Arithmetic Operators (`+`, `-`, `*`, `/`, `MOD`)
-- Math Functions (`ABS`, `INT`, `FIX`, `SQR`)
-- Random Numbers (`RANDOMIZE`, `RND`)
-
-**Stage 5 - Control Flow: Decisions (Lessons 16-19)**
+**Stage 3 - Control Flow (Lessons 3.1-3.4)**
 
 - Conditional logic (`IF..THEN`, `ELSEIF`)
 - Multiple choice routing (`SELECT CASE`)
-- Logical Operators (`AND`, `OR`, `NOT`)
+- Inverting conditions with `NOT`
 
-**Stage 6 - Control Flow: Advanced Routing (Lessons 20-22)**
+**Stage 4 - Loops (Lessons 4.1-4.6)**
+
+- Counting loops (`FOR...NEXT`, `STEP`)
+- Conditional loops (`DO...LOOP UNTIL`, `WHILE...WEND`)
+- Breaking out early (`EXIT FOR`, `EXIT DO`)
+
+**Stage 5 - Strings Manipulation (Lessons 5.1-5.7)**
+
+- Slicing & Formatting (`LEFT$`, `RIGHT$`, `MID$`, `UCASE$`)
+- ASCII and Searching (`LEN`, `INSTR`, `CHR$`)
+- Trimming and conversion (`LTRIM$`, `RTRIM$`, `STR$`, `VAL`)
+
+**Stage 6 - Math Extras & Randomness (Lessons 6.1-6.3)**
+
+- Random Numbers (`RANDOMIZE`, `RND`)
+- Math Functions (`ABS`, `SQR`)
+- Trigonometry basics (`SIN`, `COS`)
+
+**Stage 7 - Arrays & Custom Types (Lessons 7.1-7.3)**
+
+- Fixed arrays (`DIM`)
+- 1D and 2D Grids
+- Inspecting array bounds in multiple dimensions
+
+**Stage 8 - Advanced Routing (Lessons 8.1-8.3)**
 
 - Line Labels and Jumping (`GOTO`)
 - Local Subroutines (`GOSUB`, `RETURN`)
-- Preventing Call-Stack Crashes
+- Avoiding runaway call stacks
 
-**Stage 7 - Definite & Indefinite Loops (Lessons 23-27)**
+**Stage 9 - Dynamic Arrays & Bounds (Lessons 9.1-9.4)**
 
-- Counting loops (`FOR...NEXT`, `STEP`)
-- Conditional loops (`DO...LOOP`, `WHILE...WEND`)
-- Breaking out early (`EXIT FOR`, `EXIT DO`)
-
-**Stage 8 - Master String Manipulation (Lessons 28-32)**
-
-- Slicing strings (`LEFT$`, `RIGHT$`, `MID$`)
-- Measuring and searching (`LEN`, `INSTR`)
-- Formatting and cases (`UCASE$`, `LTRIM$`, `RTRIM$`)
-
-**Stage 9 - Arrays and Memory Sets (Lessons 33-37)**
-
-- Fixed arrays (`DIM`)
 - Dynamic arrays (`REDIM`, `REDIM PRESERVE`)
 - Finding bounds (`LBOUND`, `UBOUND`)
 - Clearing memory (`ERASE`)
 
-**Stage 10 - Custom Procedures (Lessons 38-41)**
+**Stage 10 - Custom Procedures (Lessons 10.1-10.4)**
 
 - Creating Commands (`SUB`)
 - Creating Functions (`FUNCTION`)
-- Passing by reference vs value
+- Passing by reference and using multiple arguments
 
-**Stage 11 - Scope & Modularity (Lessons 42-45)**
+**Stage 11 - Scope & Modularity (Lessons 11.1-11.3)**
 
 - Global Variables (`SHARED`, `COMMON SHARED`)
 - Preserving Sub/Function states (`STATIC`)
 - Multi-file projects (`$INCLUDE`)
 
-**Stage 12 - Managing Static Data (Lessons 46-48)**
+**Stage 12 - Managing Static Data (Lessons 12.1-12.3)**
 
-- Storing inline data (`DATA`)
-- Extracting data (`READ`)
-- Resetting data pointers (`RESTORE`)
+- Storing & Extracting Data (`DATA`, `READ`)
+- Resetting pointers (`RESTORE`)
+- Mixing numeric and string data records
 
-**Stage 13 - Structured Data (Lessons 49-52)**
+**Stage 13 - Structured Data & Types (Lessons 13.1-13.4)**
 
 - Defining custom structures (`TYPE...END TYPE`)
-- Arrays of structures
 - Fixed-length Strings (`STRING * N`)
+- Arrays of structures and nested types
 
-**Stage 14 - Sequential File I/O (Lessons 53-56)**
+**Stage 14 - Sequential File I/O (Lessons 14.1-14.4)**
 
 - Opening and closing text files (`OPEN FOR OUTPUT/INPUT`)
-- Writing data (`PRINT #`, `WRITE #`)
-- Reading files safely (`INPUT #`, `EOF`)
+- Writing and Reading data (`PRINT #`, `INPUT #`)
+- Appending logs and looping with `EOF`
 
-**Stage 15 - Random & Binary File I/O (Lessons 57-60)**
+**Stage 15 - Random & Binary File I/O (Lessons 15.1-15.4)**
 
 - Writing structured files (`OPEN FOR RANDOM`)
-- Reading/Writing blocks (`GET #`, `PUT #`)
-- Legacy binary conversion (`MKI$`, `CVI`, `FIELD`)
+- Legacy binary conversion (`MKI$`, `CVI`)
+- File seeking and binary-mode reads (`SEEK`, `GET #`)
 
-**Stage 16 - Directory & File Management (Lessons 61-63)**
+**Stage 16 - Directory Management (Lessons 16.1-16.3)**
 
 - Managing Virtual folders (`MKDIR`, `CHDIR`, `RMDIR`)
-- Looking up and deleting files (`FILES`, `NAME`, `KILL`)
+- Looking up, renaming, and deleting files (`FILES`, `NAME`, `KILL`)
 
-**Stage 17 - Memory & Hardware Emulation (Lessons 64-67)**
+**Stage 17 - Memory & Hardware Emulation (Lessons 17.1-17.4)**
 
 - Checking addresses (`DEF SEG`)
 - Virtual RAM editing (`PEEK`, `POKE`)
-- Emulated hardware signals (`INP`, `OUT`, `WAIT`)
-- Fast memory copying (`_MEMCOPY`, `_MEMFILL`)
+- Emulated hardware signals and fast memory helpers (`INP`, `_MEMCOPY`, `_MEMFILL`)
 
-**Stage 18 - Visuals & Graphics (Lessons 68-72)**
+**Stage 18 - Visuals & Graphics (Lessons 18.1-18.5)**
 
-- Initializing screens (`SCREEN`, `WIDTH`)
-- Drawing primitives (`PSET`, `PRESET`, `LINE`, `CIRCLE`)
-- Automated drawing strings (`DRAW`)
-- Filling and palettes (`PAINT`, `PALETTE`)
+- Initializing screens (`SCREEN 13`)
+- Drawing primitives (`PSET`, `LINE`, `CIRCLE`)
+- Automated drawing and filling (`DRAW`, `PAINT`)
 
-**Stage 19 - Audio & Music (Lessons 73-75)**
+**Stage 19 - Audio & Music (Lessons 19.1-19.2)**
 
-- System beeps (`BEEP`)
-- Direct frequencies (`SOUND`)
+- Tone playback (`SOUND`)
 - Music macro language (`PLAY`)
 
-**Stage 20 - Error Handling & Modern Tools (Lessons 76-79)**
+**Stage 20 - Error Handling & Limit (Lessons 20.1-20.3)**
 
-- Trapping and resolving errors (`ON ERROR GOTO`, `RESUME`, `ERR`)
+- Trapping and resolving errors (`ON ERROR GOTO`, `RESUME`)
 - Frame pacing (`_LIMIT`)
-- Modern input processing (`_MOUSEINPUT`, `_KEYHIT`)
+- Modern mouse polling (`_MOUSEINPUT`, `_MOUSEX`)
 
-**Stage 21 - Final Capstone Project (Lesson 80)**
+**Stage 21 - Capstone Projects (Lessons 21.1-21.2)**
 
-- Combine massive project skills (Hardware, Files, Memory, Subroutines)
-- Build a game or full application using safe Virtual Environment
+- Save & Load a High Score (File I/O integration)
+- Build an interactive guessing game that combines loops, random numbers, input, and error handling
+
+**Stage 22 - Console & Keyboard (Lessons 22.1-22.5)**
+
+- Cursor position and print-column tracking (`CSRLIN`, `POS`)
+- Formatted spacing (`TAB`, `SPC`)
+- Alerts, key polling, and full-line reads (`BEEP`, `INKEY$`, `LINE INPUT`)
+
+**Stage 23 - Declarations & Numeric Types (Lessons 23.1-23.5)**
+
+- Constants and explicit assignment (`CONST`, `LET`)
+- Value swapping and array bases (`SWAP`, `OPTION BASE`)
+- Numeric storage and conversion (`LONG`, `SINGLE`, `DOUBLE`, `CINT`, `CLNG`, `CSNG`, `CDBL`)
+
+**Stage 24 - Program Flow & Legacy Logic (Lessons 24.1-24.5)**
+
+- Bitwise and logical operators (`XOR`, `EQV`, `IMP`)
+- Computed branching (`ON GOTO`, `ON GOSUB`)
+- Classic one-line functions (`DEF FN`)
+
+**Stage 25 - Text & Time Utilities (Lessons 25.1-25.5)**
+
+- Lowercase and padding helpers (`LCASE$`, `SPACE$`, `STRING$`)
+- Numeric formatting (`HEX$`, `OCT$`)
+- Clock access (`TIMER`, `DATE$`, `TIME$`)
+
+**Stage 26 - Procedures & Shared State (Lessons 26.1-26.5)**
+
+- Explicit calls and forward declarations (`CALL`, `DECLARE`)
+- Parameter passing rules (`BYVAL`, `BYREF`)
+- Cross-module shared variables (`COMMON SHARED`)
+
+**Stage 27 - File Utilities (Lessons 27.1-27.5)**
+
+- Structured output and automatic handles (`WRITE #`, `FREEFILE`)
+- File size and exact reads (`LOF`, `LOC`, `INPUT$`)
+- Directory cleanup (`RMDIR`)
+
+**Stage 28 - Graphics Toolkit (Lessons 28.1-28.5)**
+
+- Resetting and sampling pixels (`PRESET`, `POINT`)
+- Viewports and coordinate mapping (`VIEW`, `WINDOW`)
+- Palette changes and page copying (`PALETTE`, `PCOPY`)
+
+**Stage 29 - Runtime & Diagnostics (Lessons 29.1-29.5)**
+
+- Environment and argument access (`ENVIRON$`, `COMMAND$`)
+- Program pacing and exits (`SLEEP`, `STOP`, `SYSTEM`)
+- Manual error creation and inspection (`ERROR`, `ERR`, `ERL`)
+
+**Stage 30 - Advanced Graphics (Lessons 30.1-30.5)**
+
+- Sprite capture and rendering (`GET`, `PUT`)
+- PUT drawing modes (XOR, AND, OR for sprite effects)
+- Multiple screen modes and resolutions
+- Text width control and binary graphics (`WIDTH`, `BSAVE`, `BLOAD`)
+
+**Stage 31 - Advanced String Operations (Lessons 31.1-31.5)**
+
+- String comparison and matching
+- Reversing strings with loops
+- String replacement techniques
+- Splitting strings by delimiters
+- Complete whitespace trimming
+
+**Stage 32 - Advanced Math (Lessons 32.1-32.5)**
+
+- Exponential and logarithm functions (`EXP`, `LOG`)
+- Tangent and arctangent (`TAN`, `ATN`)
+- Sign function (`SGN`)
+- Seeded random numbers for reproducibility
+- Calculating Pi using trigonometry
+
+**Stage 33 - Advanced Arrays (Lessons 33.1-33.5)**
+
+- Bubble sort implementation
+- Linear search algorithms
+- Array sum and average calculations
+- Finding maximum and minimum values
+- Matrix operations (addition, multiplication)
+
+**Stage 34 - Advanced File Operations (Lessons 34.1-34.5)**
+
+- Checking file existence with error handling
+- Copying files programmatically
+- Parsing CSV files
+- Creating timestamped log files
+- Configuration file management
+
+**Stage 35 - Game Programming Basics (Lessons 35.1-35.5)**
+
+- Basic game loop structure
+- Player movement systems
+- Collision detection algorithms
+- Score tracking and display
+- Health and lives management
 
 **Verification System**
 
