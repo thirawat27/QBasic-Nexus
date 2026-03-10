@@ -394,6 +394,25 @@ function getAsciiEntry(code) {
   return ASCII_ENTRIES[code] || null;
 }
 
+function buildAsciiCopyPayload(entry, copyType) {
+  if (!entry) return null;
+
+  switch (copyType) {
+    case 'copy-character':
+      return {
+        text: entry.character,
+        statusMessage: `Copied ${entry.display}`,
+      };
+    case 'copy-chr':
+      return {
+        text: entry.chrSyntax,
+        statusMessage: `Copied ${entry.chrSyntax}`,
+      };
+    default:
+      return null;
+  }
+}
+
 function createChrQuickPickItem(entry) {
   return {
     code: entry.code,
@@ -560,17 +579,18 @@ async function showAsciiChart(extensionUri) {
     const entry = getAsciiEntry(Number(message.code));
     if (!entry) return;
 
-    switch (message.type) {
-      case 'copy-character':
-        await vscode.env.clipboard.writeText(entry.character);
-        setStatusMessage(`Copied ${entry.display}`);
-        break;
-      case 'copy-chr':
-        await vscode.env.clipboard.writeText(entry.chrSyntax);
-        setStatusMessage(`Copied ${entry.chrSyntax}`);
-        break;
-      default:
-        break;
+    const payload = buildAsciiCopyPayload(entry, message.type);
+    if (!payload) return;
+
+    try {
+      await vscode.env.clipboard.writeText(payload.text);
+      setStatusMessage(payload.statusMessage);
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Unknown clipboard error';
+      vscode.window.showErrorMessage(
+        `Failed to copy ${entry.chrSyntax}: ${reason}`,
+      );
     }
   });
 
@@ -584,6 +604,7 @@ async function showAsciiChart(extensionUri) {
 module.exports = {
   getAsciiEntries,
   getAsciiEntry,
+  buildAsciiCopyPayload,
   buildChrQuickPickItems,
   insertChrFromAsciiChart,
   showAsciiChart,

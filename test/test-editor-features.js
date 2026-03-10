@@ -6,6 +6,7 @@ const {
 } = require('../src/commands/lineNumbers');
 const {
   buildChrQuickPickItems,
+  buildAsciiCopyPayload,
   getAsciiEntry,
 } = require('../src/extension/asciiChart');
 const { findActiveCall } = require('../src/shared/callContext');
@@ -93,6 +94,20 @@ test('CHR quick pick items expose CP437 symbols with CHR syntax', () => {
   const item = buildChrQuickPickItems([getAsciiEntry(218)])[0];
   assertEqual(item.label, '┌  CHR$(218)', 'Quick pick label should include glyph and CHR syntax');
   assertEqual(item.description, 'Dec 218 • Hex 0xDA', 'Quick pick description should expose code metadata');
+});
+
+test('ASCII copy payload describes copied glyphs for clipboard feedback', () => {
+  const payload = buildAsciiCopyPayload(getAsciiEntry(218), 'copy-character');
+
+  assertEqual(payload.text, '┌', 'Glyph copy should place the selected character on the clipboard');
+  assertEqual(payload.statusMessage, 'Copied ┌', 'Glyph copy status should stay compact');
+});
+
+test('ASCII copy payload describes copied CHR syntax separately', () => {
+  const payload = buildAsciiCopyPayload(getAsciiEntry(218), 'copy-chr');
+
+  assertEqual(payload.text, 'CHR$(218)', 'CHR copy should place QBasic syntax on the clipboard');
+  assertEqual(payload.statusMessage, 'Copied CHR$(218)', 'CHR copy status should name the copied syntax');
 });
 
 test('call context resolves suffix function names', () => {

@@ -285,6 +285,13 @@ body::before {
   transform: translateY(-1px);
 }
 
+.ascii-button:focus-visible,
+.ascii-filter:focus-visible,
+.ascii-card:focus-visible {
+  outline: 2px solid rgba(128, 241, 79, 0.82);
+  outline-offset: 2px;
+}
+
 .ascii-toolbar {
   display: grid;
   gap: 12px;

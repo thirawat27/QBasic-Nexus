@@ -26,6 +26,15 @@ const search = document.getElementById('search');
 const previewChar = document.getElementById('previewChar');
 const meta = document.getElementById('meta');
 
+function isEditingTarget(target) {
+  return Boolean(target && typeof target.closest === 'function' && target.closest('input, textarea, [contenteditable="true"]'));
+}
+
+function hasSelectedText() {
+  const selection = window.getSelection();
+  return Boolean(selection && !selection.isCollapsed && selection.toString());
+}
+
 function matchesFilter(entry) {
   if (activeFilter === 'all') return true;
   if (activeFilter === entry.group) return true;
@@ -116,6 +125,10 @@ function send(type) {
   vscode.postMessage({ type, code: selectedCode });
 }
 
+function copySelectedCharacter() {
+  send('copy-character');
+}
+
 filtersRoot.addEventListener('click', (event) => {
   const button = event.target.closest('[data-filter]');
   if (!button) return;
@@ -142,10 +155,24 @@ grid.addEventListener('click', (event) => {
 
 document
   .getElementById('copyChar')
-  .addEventListener('click', () => send('copy-character'));
+  .addEventListener('click', () => copySelectedCharacter());
 document
   .getElementById('copyChr')
   .addEventListener('click', () => send('copy-chr'));
+
+document.addEventListener('keydown', (event) => {
+  const isCopyShortcut =
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === 'c';
+
+  if (!isCopyShortcut) return;
+  if (isEditingTarget(event.target) || hasSelectedText()) return;
+
+  event.preventDefault();
+  copySelectedCharacter();
+});
 
 renderFilters();
 renderGrid();
