@@ -31,7 +31,6 @@ const autoDetectPromptState = {
 const autoDetectDiscoveryState = {
   inFlight: null,
   cachedPath: null,
-  exhausted: false,
 };
 
 function setAutoDetectedCompilerPath(compilerPath) {
@@ -125,13 +124,12 @@ async function resolveCompilerPath(rawCompilerPath) {
 
 async function detectQB64ForSession() {
   if (autoDetectDiscoveryState.cachedPath) {
-    setAutoDetectedCompilerPath(autoDetectDiscoveryState.cachedPath);
-    return autoDetectDiscoveryState.cachedPath;
-  }
-
-  if (autoDetectDiscoveryState.exhausted) {
-    setAutoDetectedCompilerPath(null);
-    return null;
+    if (!(await verifyQB64(autoDetectDiscoveryState.cachedPath))) {
+      autoDetectDiscoveryState.cachedPath = null;
+    } else {
+      setAutoDetectedCompilerPath(autoDetectDiscoveryState.cachedPath);
+      return autoDetectDiscoveryState.cachedPath;
+    }
   }
 
   if (autoDetectDiscoveryState.inFlight) {
@@ -140,14 +138,8 @@ async function detectQB64ForSession() {
 
   autoDetectDiscoveryState.inFlight = findQB64()
     .then((detectedPath) => {
-      if (detectedPath) {
-        autoDetectDiscoveryState.cachedPath = detectedPath;
-        setAutoDetectedCompilerPath(detectedPath);
-      } else {
-        autoDetectDiscoveryState.exhausted = true;
-        setAutoDetectedCompilerPath(null);
-      }
-
+      autoDetectDiscoveryState.cachedPath = detectedPath || null;
+      setAutoDetectedCompilerPath(detectedPath);
       return detectedPath;
     })
     .finally(() => {
@@ -240,6 +232,7 @@ async function runQB64Compiler(document, shouldRun) {
       true,
     );
   } else if (autoDetected) {
+    setAutoDetectedCompilerPath(autoDetectDiscoveryState.cachedPath);
     await promptToSaveDetectedPath(
       compilerPath,
       `Found QB64 at ${compilerPath}. Save this path for future builds?`,
@@ -367,15 +360,15 @@ function parseCompilerErrors(output, uri) {
 
   // Pattern: filename.bas:line: error message
   const pattern =
-    /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:error|warning)?:?\s*(.+)/gi;
+    /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:(error|warning))?:?\s*(.+)/gi;
 
   let match;
   while ((match = pattern.exec(output)) !== null) {
-    const [, file, lineStr, message] = match;
+    const [, file, lineStr, level, message] = match;
 
     if (file.toLowerCase() === filename) {
       const line = Math.max(0, parseInt(lineStr, 10) - 1);
-      const severity = message.toLowerCase().includes('warning')
+      const severity = String(level || '').toLowerCase() === 'warning'
         ? vscode.DiagnosticSeverity.Warning
         : vscode.DiagnosticSeverity.Error;
 

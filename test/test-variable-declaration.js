@@ -22,6 +22,42 @@ function makeProgramRunnable(code) {
     );
 }
 
+async function runWebProgram(sourceCode, options = {}) {
+    const transpiler = new InternalTranspiler();
+    const code = transpiler.transpile(sourceCode, 'web');
+    const runnableCode = makeProgramRunnable(code);
+    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+    const output = [];
+
+    globalThis.runtime = {
+        print(text) {
+            output.push(String(text));
+            return text;
+        },
+        input() {
+            return Promise.resolve(options.userInput ?? '0');
+        },
+        cls() {},
+        error(message) {
+            throw new Error(message);
+        },
+        printFile() {
+            return Promise.resolve();
+        },
+        inputFile() {
+            return Promise.resolve(options.fileInput ?? '0');
+        },
+    };
+
+    try {
+        await new AsyncFunction(runnableCode)();
+    } finally {
+        delete globalThis.runtime;
+    }
+
+    return { code, output };
+}
+
 // Test cases that previously caused "x is not defined" errors
 const testCases = [
     {
@@ -127,6 +163,66 @@ const testCases = [
             PRINT x
         `,
         shouldWork: true
+    },
+    {
+        name: 'User-defined FUNCTION call resolves awaited value in web runtime',
+        code: `
+            FUNCTION Add(a, b)
+                Add = a + b
+            END FUNCTION
+            PRINT Add(1, 2)
+        `,
+        shouldWork: true,
+        expectedOutput: ['3']
+    },
+    {
+        name: 'Recursive FUNCTION calls still work inside function bodies',
+        code: `
+            FUNCTION Fact(n)
+                IF n <= 1 THEN
+                    Fact = 1
+                ELSE
+                    Fact = n * Fact(n - 1)
+                END IF
+            END FUNCTION
+            PRINT Fact(5)
+        `,
+        shouldWork: true,
+        expectedOutput: ['120']
+    },
+    {
+        name: 'GOSUB shares variable updates with caller scope',
+        code: `
+            x = 1
+            GOSUB test
+            PRINT x
+            END
+            test:
+            x = 2
+            RETURN
+        `,
+        shouldWork: true,
+        expectedOutput: ['2']
+    },
+    {
+        name: 'Multi-dimensional array assignment writes the addressed element',
+        code: `
+            DIM matrix(1, 1)
+            matrix(0, 1) = 2
+            PRINT matrix(0, 1)
+        `,
+        shouldWork: true,
+        expectedOutput: ['2']
+    },
+    {
+        name: 'INPUT # preserves read value for undeclared variables',
+        code: `
+            INPUT #1, x
+            PRINT x
+        `,
+        shouldWork: true,
+        expectedOutput: ['42'],
+        fileInput: '42'
     }
 ];
 
@@ -139,26 +235,22 @@ async function testVariableDeclaration() {
     
     for (const test of testCases) {
         try {
-            const transpiler = new InternalTranspiler();
-            const code = transpiler.transpile(test.code, 'web');
-            
             // Execute generated web code to catch CRT-style runtime scope errors
+            let generatedCode = '';
             try {
-                const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-                const runnableCode = makeProgramRunnable(code);
+                const { code, output } = await runWebProgram(test.code, {
+                    fileInput: test.fileInput,
+                    userInput: test.userInput,
+                });
+                generatedCode = code;
 
-                const mockRuntime = `
-                    globalThis.runtime = {
-                        print(text) { return text; },
-                        input() { return Promise.resolve("0"); },
-                        cls() {},
-                        error(message) { throw new Error(message); },
-                        printFile() { return Promise.resolve(); },
-                        inputFile() { return Promise.resolve("0"); },
-                    };
-                `;
-
-                await new AsyncFunction(mockRuntime + '\n' + runnableCode)();
+                if (test.expectedOutput) {
+                    const actual = JSON.stringify(output);
+                    const expected = JSON.stringify(test.expectedOutput);
+                    if (actual !== expected) {
+                        throw new Error(`Expected output ${expected}, got ${actual}`);
+                    }
+                }
 
                 console.log(`✅ ${test.name}`);
                 passed++;
@@ -167,7 +259,9 @@ async function testVariableDeclaration() {
                 if (evalError.message.includes('is not defined')) {
                     console.log(`❌ ${test.name}`);
                     console.log(`   Error: ${evalError.message}`);
-                    console.log(`   Generated code:\n${code.split('\n').slice(0, 20).join('\n')}`);
+                    console.log(
+                        `   Generated code:\n${generatedCode.split('\n').slice(0, 20).join('\n')}`,
+                    );
                     failed++;
                 } else {
                     throw evalError;

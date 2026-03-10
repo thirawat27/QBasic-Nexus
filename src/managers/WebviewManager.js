@@ -61,6 +61,46 @@ class WebviewManager {
   /** @type {string | null} Cached raw HTML template */
   static _htmlCache = null;
 
+  /** @type {Promise<void> | null} */
+  static _readyPromise = null;
+
+  /** @type {(() => void) | null} */
+  static _resolveReady = null;
+
+  /** @type {boolean} */
+  static _isReady = false;
+
+  static _resetReadyState() {
+    WebviewManager._isReady = false;
+    WebviewManager._readyPromise = new Promise((resolve) => {
+      WebviewManager._resolveReady = resolve;
+    });
+  }
+
+  static _markReady() {
+    if (WebviewManager._isReady) return;
+    WebviewManager._isReady = true;
+    WebviewManager._resolveReady?.();
+    WebviewManager._resolveReady = null;
+  }
+
+  static async _waitUntilReady(timeoutMs = 5000) {
+    if (WebviewManager._isReady) return;
+    if (!WebviewManager._readyPromise) {
+      WebviewManager._resetReadyState();
+    }
+
+    await Promise.race([
+      WebviewManager._readyPromise,
+      new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error('CRT runtime initialization timed out')),
+          timeoutMs,
+        );
+      }),
+    ]);
+  }
+
   /**
    * Creates or reveals the CRT Webview panel.
    * @param {vscode.Uri} extensionUri
@@ -85,6 +125,30 @@ class WebviewManager {
     );
 
     WebviewManager.currentPanel = panel;
+    WebviewManager._resetReadyState();
+
+    // Message handler (lazy-load TutorialManager to break circular deps)
+    WebviewManager._disposables.push(
+      panel.webview.onDidReceiveMessage((message) => {
+        try {
+          if (message.type === 'ready') {
+            WebviewManager._markReady();
+          } else if (message.type === 'check_output') {
+            const TutorialManager = require('./TutorialManager');
+            const completed = TutorialManager.checkResult(message.content);
+            if (completed && panel.webview) {
+              panel.webview.postMessage({ type: 'quest_complete' });
+              emitter.emit('questComplete', message.content);
+            }
+          } else if (message.type === 'error') {
+            console.error('[QBasic CRT] Runtime error:', message.content);
+            emitter.emit('runtimeError', message.content);
+          }
+        } catch (err) {
+          console.error('[QBasic CRT] Message handler error:', err);
+        }
+      }),
+    );
 
     try {
       const html = await WebviewManager._getHtmlForWebview(
@@ -103,30 +167,12 @@ class WebviewManager {
       return;
     }
 
-    // Message handler (lazy-load TutorialManager to break circular deps)
-    WebviewManager._disposables.push(
-      panel.webview.onDidReceiveMessage((message) => {
-        try {
-          if (message.type === 'check_output') {
-            const TutorialManager = require('./TutorialManager');
-            const completed = TutorialManager.checkResult(message.content);
-            if (completed && panel.webview) {
-              panel.webview.postMessage({ type: 'quest_complete' });
-              emitter.emit('questComplete', message.content);
-            }
-          } else if (message.type === 'error') {
-            console.error('[QBasic CRT] Runtime error:', message.content);
-            emitter.emit('runtimeError', message.content);
-          }
-        } catch (err) {
-          console.error('[QBasic CRT] Message handler error:', err);
-        }
-      }),
-    );
-
     // Cleanup on close
     panel.onDidDispose(() => {
       WebviewManager.currentPanel = undefined;
+      WebviewManager._isReady = false;
+      WebviewManager._readyPromise = null;
+      WebviewManager._resolveReady = null;
       WebviewManager._disposables.forEach((d) => d.dispose());
       WebviewManager._disposables = [];
       emitter.emit('panelClosed', undefined);
@@ -160,6 +206,7 @@ class WebviewManager {
     }
 
     WebviewManager.currentPanel.reveal();
+    await WebviewManager._waitUntilReady();
 
     // ── Chunked transfer for large payloads ──────────────────────────────
     if (code.length > CHUNK_SIZE) {

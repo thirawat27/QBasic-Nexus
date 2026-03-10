@@ -23,12 +23,13 @@ module.exports = {
 
     /** @type {Set<string>} Global SHARED variables */
     this.scopes = [new Set()];
+    this.scopeKinds = ['global'];
     this.sharedVars = new Set();
 
     /** @type {string[]} DATA statement values */
     this.dataValues = [];
 
-    /** @type {string|null} Name of function currently being parsed */
+    /** @type {{ name: string, resultVar: string } | null} Current FUNCTION context */
     this.currentFunction = null;
 
     /** @type {Set<string>} Collected labels for GOTO/GOSUB support */
@@ -70,27 +71,53 @@ module.exports = {
     return this.scopes[this.scopes.length - 1];
   },
 
+  get currentScopeKind() {
+    return this.scopeKinds[this.scopeKinds.length - 1];
+  },
+
   _addVar(name) {
     this.currentVars.add(name);
   },
 
+  _isCurrentFunctionName(name) {
+    return this.currentFunction?.name === name;
+  },
+
+  _resolveStorageName(name) {
+    return this._isCurrentFunctionName(name)
+      ? this.currentFunction.resultVar
+      : name;
+  },
+
   _hasVar(name) {
+    if (this._isCurrentFunctionName(name)) return true;
+
     // Check current scope first
     if (this.currentVars.has(name)) return true;
 
     // If in global scope (depth 1), no upper scopes to check
     if (this.scopes.length === 1) return false;
 
+    // Labels share the surrounding BASIC scope, so they can see outer vars.
+    if (this.currentScopeKind === 'label') {
+      for (let i = this.scopes.length - 2; i >= 0; i--) {
+        if (this.scopes[i].has(name)) return true;
+      }
+      return false;
+    }
+
     // If in SUB/FUNCTION, only access global variables if they are SHARED
     return this.sharedVars.has(name);
   },
 
-  _enterScope() {
+  _enterScope(kind = 'local') {
     this.scopes.push(new Set());
+    this.scopeKinds.push(kind);
   },
 
   _exitScope() {
     this.scopes.pop();
+    this.scopeKinds.pop();
   },
 
   _collectDataValues() {
@@ -475,6 +502,27 @@ function _width(cols, rows) {
   _screenWidth = cols;
   _screenHeight = rows || 25;
 }
+
+// Graphics compatibility layer for packaged console executables.
+// The internal compiler currently targets a Node.js console runtime, so
+// graphics commands are treated as no-ops instead of crashing the program.
+async function _pset() {}
+async function _preset() {}
+async function _line() {}
+async function _circle() {}
+async function _get() {}
+async function _put() {}
+async function _draw() {}
+function _paint() {}
+function _view() {}
+function _viewPrint() {}
+function _window() {}
+function _palette() {}
+function _paletteUsing() {}
+function _pcopy() {}
+function _dest() {}
+function _source() {}
+function _font() {}
 `);
     }
 

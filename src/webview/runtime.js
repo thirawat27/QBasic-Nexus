@@ -52,15 +52,17 @@
   // Virtual File System (VFS) - localStorage based
   const VFS_KEY = 'qbasic_nexus_vfs';
   const VFS_MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
+  const VFS_DIR_PREFIX = '__dir__';
   let vfs = {};
-  let openFiles = {};
+  const fileHandles = {};
 
   // Load VFS from localStorage
   function _loadVFS() {
     try {
       const stored = localStorage.getItem(VFS_KEY);
       if (stored) {
-        vfs = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        vfs = parsed && typeof parsed === 'object' ? parsed : {};
       }
     } catch (_e) {
       vfs = {};
@@ -81,12 +83,61 @@
     }
   }
 
+  function normalizeVfsPath(filename) {
+    return String(filename ?? '').trim();
+  }
+
+  function splitVfsLines(content) {
+    const normalized = String(content ?? '').replace(/\r\n?/g, '\n');
+    return normalized.length > 0 ? normalized.split('\n') : [];
+  }
+
+  function getVfsFile(filename) {
+    const normalized = normalizeVfsPath(filename);
+    if (!normalized) return '';
+    const entry = vfs[normalized];
+    return typeof entry === 'string' ? entry : '';
+  }
+
+  function hasVfsFile(filename) {
+    const normalized = normalizeVfsPath(filename);
+    return Boolean(
+      normalized &&
+        Object.prototype.hasOwnProperty.call(vfs, normalized) &&
+        typeof vfs[normalized] === 'string',
+    );
+  }
+
+  function setVfsFile(filename, content) {
+    const normalized = normalizeVfsPath(filename);
+    if (!normalized) return false;
+
+    vfs[normalized] = String(content ?? '');
+    _saveVFS();
+    return true;
+  }
+
+  function removeVfsFile(filename) {
+    const normalized = normalizeVfsPath(filename);
+    if (!normalized || !(normalized in vfs)) return false;
+
+    delete vfs[normalized];
+    _saveVFS();
+    return true;
+  }
+
+  function listVfsFiles() {
+    return Object.keys(vfs)
+      .filter((name) => !name.startsWith(VFS_DIR_PREFIX))
+      .sort((left, right) => left.localeCompare(right));
+  }
+
   // Initialize VFS
   _loadVFS();
 
   // QBasic 16-color palette - Enhanced Neon for visibility on dark backgrounds
   // Brighter than original CGA/EGA for modern displays
-  const COLORS = Object.freeze([
+  const DEFAULT_COLORS = Object.freeze([
     '#0a0a0a',
     '#3388FF',
     '#00DD44',
@@ -104,6 +155,7 @@
     '#FFFF66',
     '#FFFFFF',
   ]);
+  const COLORS = [...DEFAULT_COLORS];
 
   // =========================================================================
   // OBJECT POOLING - Reduce GC pressure with memory limits
@@ -660,30 +712,16 @@
   // VIRTUAL FILE SYSTEM (VFS)
   // =========================================================================
 
-  const fileHandles = {};
-  const STORAGE_KEY = 'QBASIC_VFS_';
-
-  function _vfsSave(filename, content) {
-    try {
-      localStorage.setItem(STORAGE_KEY + filename.toUpperCase(), content);
-    } catch (e) {
-      console.error('VFS Save Error:', e);
-    }
-  }
-
-  function _vfsLoad(filename) {
-    return localStorage.getItem(STORAGE_KEY + filename.toUpperCase());
-  }
-
   async function vfsOpen(filename, mode, filenum) {
-    mode = mode.toUpperCase();
-    let content = _vfsLoad(filename) || '';
+    const normalizedName = normalizeVfsPath(filename);
+    mode = String(mode || 'INPUT').toUpperCase();
+    const content = getVfsFile(normalizedName);
 
     fileHandles[filenum] = {
-      filename: filename,
+      filename: normalizedName,
       mode: mode,
       content: content,
-      lines: mode === 'INPUT' ? content.split('\n') : null,
+      lines: mode === 'INPUT' ? splitVfsLines(content) : null,
       position: 0,
       buffer: '', // For output buffering
     };
@@ -706,7 +744,7 @@
         if (fh.mode === 'OUTPUT') finalContent = fh.buffer;
         else if (fh.mode === 'APPEND') finalContent += fh.buffer;
 
-        _vfsSave(fh.filename, finalContent);
+        setVfsFile(fh.filename, finalContent);
       }
       delete fileHandles[filenum];
     }
@@ -718,12 +756,13 @@
   async function vfsPrint(filenum, text) {
     const fh = fileHandles[filenum];
     if (fh) {
+      const content = String(text ?? '');
       // Check buffer size limit
-      if (fh.buffer.length + text.length > _MAX_VFS_BUFFER_SIZE) {
+      if (fh.buffer.length + content.length > _MAX_VFS_BUFFER_SIZE) {
         console.warn('[QBasic Runtime] VFS buffer limit reached');
         return;
       }
-      fh.buffer += text;
+      fh.buffer += content;
     }
   }
 
@@ -734,7 +773,7 @@
     if (!fh) return '';
 
     // Use cached lines array to avoid O(N) split on every line read
-    if (!fh.lines && fh.content) fh.lines = fh.content.split('\n');
+    if (!fh.lines && fh.content) fh.lines = splitVfsLines(fh.content);
     else if (!fh.lines) fh.lines = [];
 
     let res = '';
@@ -1023,6 +1062,15 @@
     span.textContent = '\n❌ Runtime Error: ' + msg + '\n';
     span.style.color = '#FF5555';
     screen.appendChild(span);
+  }
+
+  function reportRuntimeError(msg, error = null) {
+    const message = String(error?.message || msg || 'Unknown runtime error');
+    showError(message);
+    if (error) {
+      console.error('[QBasic Runtime]', error);
+    }
+    vscode.postMessage({ type: 'error', content: message });
   }
 
   // =========================================================================
@@ -1714,28 +1762,11 @@
       COLORS[attr & 15] = '#' + (color & 0xffffff).toString(16).padStart(6, '0');
     } else {
       // Reset palette to default
-      const defaultColors = [
-        '#000000',
-        '#0000AA',
-        '#00AA00',
-        '#00AAAA',
-        '#AA0000',
-        '#AA00AA',
-        '#AA5500',
-        '#AAAAAA',
-        '#555555',
-        '#5555FF',
-        '#55FF55',
-        '#55FFFF',
-        '#FF5555',
-        '#FF55FF',
-        '#FFFF55',
-        '#FFFFFF',
-      ];
       for (let i = 0; i < 16; i++) {
-        COLORS[i] = defaultColors[i];
+        COLORS[i] = DEFAULT_COLORS[i];
       }
     }
+    _glowCache.clear();
   }
 
   function _paletteUsing(arr) {
@@ -1744,6 +1775,7 @@
       for (let i = 0; i < Math.min(arr.length, 16); i++) {
         COLORS[i] = '#' + (arr[i] & 0xffffff).toString(16).padStart(6, '0');
       }
+      _glowCache.clear();
     }
   }
 
@@ -1754,23 +1786,25 @@
 
   // File system stubs (VFS-based)
   async function _rename(oldName, newName) {
-    const old = vfs[oldName];
-    if (old !== undefined) {
-      vfs[newName] = old;
-      delete vfs[oldName];
+    const currentName = normalizeVfsPath(oldName);
+    const nextName = normalizeVfsPath(newName);
+
+    if (currentName && nextName && hasVfsFile(currentName)) {
+      vfs[nextName] = getVfsFile(currentName);
+      delete vfs[currentName];
       _saveVFS();
     }
   }
 
   async function _kill(filename) {
-    delete vfs[filename];
-    _saveVFS();
+    removeVfsFile(filename);
   }
 
   async function _mkdir(dirname) {
     try {
-      if (!dirname || typeof dirname !== 'string') return;
-      vfs['__dir__' + dirname] = true;
+      const directoryName = normalizeVfsPath(dirname);
+      if (!directoryName) return;
+      vfs[VFS_DIR_PREFIX + directoryName] = true;
       _saveVFS();
     } catch (_e) {
       console.error('[VFS] MKDIR error:', _e);
@@ -1779,8 +1813,9 @@
 
   async function _rmdir(dirname) {
     try {
-      if (!dirname) return;
-      delete vfs['__dir__' + dirname];
+      const directoryName = normalizeVfsPath(dirname);
+      if (!directoryName) return;
+      delete vfs[VFS_DIR_PREFIX + directoryName];
       _saveVFS();
     } catch (_e) {
       console.error('[VFS] RMDIR error:', _e);
@@ -1796,7 +1831,7 @@
     try {
       // List files in VFS
       const _pattern = spec || '*';
-      const files = Object.keys(vfs).filter((f) => !f.startsWith('__'));
+      const files = listVfsFiles();
       print('Files in VFS:', true);
       if (files.length === 0) {
         print('  (no files)', true);
@@ -1810,8 +1845,8 @@
 
   function _seek(fileNum, pos) {
     try {
-      if (openFiles[fileNum]) {
-        openFiles[fileNum].pos = Math.max(0, (pos || 1) - 1); // 1-based, clamp to 0
+      if (fileHandles[fileNum]) {
+        fileHandles[fileNum].position = Math.max(0, (pos || 1) - 1); // 1-based, clamp to 0
       }
     } catch (_e) {
       console.error('[VFS] SEEK error:', _e);
@@ -1828,7 +1863,9 @@
 
   async function _resetFiles() {
     try {
-      Object.keys(openFiles).forEach((f) => delete openFiles[f]);
+      for (const fileNum of Object.keys(fileHandles)) {
+        await vfsClose(fileNum);
+      }
     } catch (_e) {
       console.error('[VFS] RESET error:', _e);
     }
@@ -1913,7 +1950,7 @@
     color,
     screen: screenMode,
     width: setWidth,
-    error: showError,
+    error: reportRuntimeError,
 
     // Graphics
     pset: _pset,
@@ -2636,6 +2673,137 @@
     }
   }
 
+  const chunkTransfer = {
+    buffer: undefined,
+    filename: '',
+    nextChunkIdx: 0,
+    totalChunks: 0,
+  };
+
+  function resetChunkTransfer() {
+    chunkTransfer.buffer = undefined;
+    chunkTransfer.filename = '';
+    chunkTransfer.nextChunkIdx = 0;
+    chunkTransfer.totalChunks = 0;
+  }
+
+  async function resetRuntimeState() {
+    await _resetFiles();
+
+    // Stop all sounds and reset audio system
+    soundSystem.reset();
+
+    // Clear all images from memory - release canvas resources
+    for (const [_id, img] of images) {
+      try {
+        if (img.canvas) {
+          img.canvas.width = 0;
+          img.canvas.height = 0;
+        }
+        if (img.ctx) {
+          img.ctx = null;
+        }
+      } catch (_e) {
+        /* ignore */
+      }
+    }
+    images.clear();
+
+    // Clear image buffers (GET/PUT) - ImageData doesn't need explicit cleanup
+    imageBuffers.clear();
+    _nextBufferId = 1;
+
+    // Close all audio handles - properly release audio resources
+    for (const [_id, audio] of sounds) {
+      try {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load(); // Reset audio element
+      } catch (_e) {
+        /* ignore */
+      }
+    }
+    sounds.clear();
+    nextSoundId = 1;
+
+    // Clear any remaining VFS file handles
+    for (const key of Object.keys(fileHandles)) {
+      delete fileHandles[key];
+    }
+
+    // Clear keyboard/mouse state
+    keysDown.clear();
+    keyHitBuffer.length = 0; // Faster than reassigning
+    _mouseScroll = 0;
+    mouseButtons = 0;
+    _lastMouseEvent = null;
+    _mouseMoveQueued = false;
+
+    // Cancel any pending print batch
+    if (printBatchTimer) {
+      cancelAnimationFrame(printBatchTimer);
+      printBatchTimer = null;
+    }
+    printBatch = null;
+
+    // Clear and reset SpanPool
+    SpanPool.clear();
+
+    // Clear caches to free memory (they will repopulate on use)
+    _glowCache.clear();
+    _colorRGBCache.clear();
+    resetChunkTransfer();
+
+    // Clear screen - use textContent for faster DOM clear
+    screen.textContent = '';
+
+    // Reset state
+    cursorRow = 1;
+    cursorCol = 1;
+    fgColor = 7;
+    bgColor = 0;
+    keyBuffer = '';
+    lastFrameTime = 0;
+    lastX = 0;
+    lastY = 0;
+    nextImageId = -1000;
+
+    for (let i = 0; i < DEFAULT_COLORS.length; i++) {
+      COLORS[i] = DEFAULT_COLORS[i];
+    }
+
+    // Clear graphics canvas
+    if (ctx && canvas) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Clear temp canvas to free memory
+    if (_tempCanvas) {
+      _tempCanvas.width = 0;
+      _tempCanvas.height = 0;
+    }
+  }
+
+  function executeProgram(code, filename) {
+    print('▶ RUNNING: ' + (filename || 'Program'), true);
+    print('', true);
+
+    try {
+      const execution = (0, eval)(code);
+      if (execution && typeof execution.catch === 'function') {
+        execution.catch((err) => reportRuntimeError(err, err));
+      }
+    } catch (err) {
+      reportRuntimeError(err, err);
+    }
+  }
+
+  function failChunkTransfer(message) {
+    resetChunkTransfer();
+    reportRuntimeError(message);
+  }
+
   // =========================================================================
   // MESSAGE HANDLER
   // =========================================================================
@@ -2645,112 +2813,8 @@
 
     switch (message.type) {
       case 'execute':
-        // =========================================================
-        // RESOURCE CLEANUP - Essential for stability
-        // =========================================================
-
-        // Stop all sounds and reset audio system
-        soundSystem.reset();
-
-        // Clear all images from memory - release canvas resources
-        for (const [_id, img] of images) {
-          try {
-            if (img.canvas) {
-              img.canvas.width = 0;
-              img.canvas.height = 0;
-            }
-            if (img.ctx) {
-              img.ctx = null;
-            }
-          } catch (_e) {
-            /* ignore */
-          }
-        }
-        images.clear();
-
-        // Clear image buffers (GET/PUT) - ImageData doesn't need explicit cleanup
-        imageBuffers.clear();
-        _nextBufferId = 1;
-
-        // Close all audio handles - properly release audio resources
-        for (const [_id, audio] of sounds) {
-          try {
-            audio.pause();
-            audio.removeAttribute('src');
-            audio.load(); // Reset audio element
-          } catch (_e) {
-            /* ignore */
-          }
-        }
-        sounds.clear();
-        nextSoundId = 1;
-
-        // Clear VFS file handles
-        for (const key of Object.keys(fileHandles)) {
-          delete fileHandles[key];
-        }
-
-        // Clear keyboard/mouse state
-        keysDown.clear();
-        keyHitBuffer.length = 0; // Faster than reassigning
-        _mouseScroll = 0;
-        mouseButtons = 0;
-        _lastMouseEvent = null;
-        _mouseMoveQueued = false;
-
-        // Cancel any pending print batch
-        if (printBatchTimer) {
-          cancelAnimationFrame(printBatchTimer);
-          printBatchTimer = null;
-        }
-        printBatch = null;
-
-        // Clear and reset SpanPool
-        SpanPool.clear();
-
-        // Clear caches to free memory (they will repopulate on use)
-        _glowCache.clear();
-        _colorRGBCache.clear();
-
-        // Clear screen - use textContent for faster DOM clear
-        screen.textContent = '';
-
-        // Reset state
-        cursorRow = 1;
-        cursorCol = 1;
-        fgColor = 7;
-        bgColor = 0;
-        keyBuffer = '';
-        lastFrameTime = 0;
-        lastX = 0;
-        lastY = 0;
-        nextImageId = -1000;
-
-        // Clear graphics canvas
-        if (ctx && canvas) {
-          ctx.fillStyle = '#000000';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-
-        // Clear temp canvas to free memory
-        if (_tempCanvas) {
-          _tempCanvas.width = 0;
-          _tempCanvas.height = 0;
-        }
-
-        // Show running indicator
-        print('▶ RUNNING: ' + message.filename, true);
-        print('', true);
-
-        try {
-          // Execute the transpiled code using indirect eval
-          // This allows the async IIFE to run properly
-          ;(0, eval)(message.code);
-        } catch (err) {
-          showError(err.message);
-          console.error('[QBasic Runtime]', err);
-          vscode.postMessage({ type: 'error', content: err.message });
-        }
+        await resetRuntimeState();
+        executeProgram(message.code, message.filename);
         break;
 
       case 'clear':
@@ -2760,37 +2824,52 @@
       // ── Chunked transfer support (Phase 3.1) ─────────────────────
       case 'execute_start':
         // Begin receiving a large program in chunks
-        window._chunkBuffer = message.chunk;
-        window._chunkFilename = message.filename;
+        chunkTransfer.buffer = String(message.chunk || '');
+        chunkTransfer.filename = message.filename || '';
+        chunkTransfer.nextChunkIdx = 1;
+        chunkTransfer.totalChunks = Number(message.totalChunks) || 0;
         break;
 
       case 'execute_chunk':
         // Accumulate subsequent chunks
-        if (window._chunkBuffer !== undefined) {
-          window._chunkBuffer += message.chunk;
+        if (chunkTransfer.buffer === undefined) {
+          failChunkTransfer('CRT chunk stream was not initialized.');
+          break;
         }
+        if (message.chunkIdx !== chunkTransfer.nextChunkIdx) {
+          failChunkTransfer('CRT chunk stream arrived out of order.');
+          break;
+        }
+        chunkTransfer.buffer += String(message.chunk || '');
+        chunkTransfer.nextChunkIdx++;
         break;
 
-      case 'execute_end':
+      case 'execute_end': {
         // Final chunk – assemble and execute
-        if (window._chunkBuffer !== undefined) {
-          const assembledCode = window._chunkBuffer + message.chunk;
-          const assembledFilename = window._chunkFilename || '';
-          window._chunkBuffer = undefined;
-          window._chunkFilename = undefined;
-
-          // Reuse the same cleanup + execution path as 'execute'
-          window.dispatchEvent(
-            new MessageEvent('message', {
-              data: {
-                type: 'execute',
-                code: assembledCode,
-                filename: assembledFilename,
-              },
-            }),
-          );
+        if (chunkTransfer.buffer === undefined) {
+          failChunkTransfer('CRT chunk stream ended before it started.');
+          break;
         }
+        if (message.chunkIdx !== chunkTransfer.nextChunkIdx) {
+          failChunkTransfer('CRT chunk stream finished out of order.');
+          break;
+        }
+        if (
+          chunkTransfer.totalChunks &&
+          message.chunkIdx !== chunkTransfer.totalChunks - 1
+        ) {
+          failChunkTransfer('CRT chunk stream ended with an unexpected chunk count.');
+          break;
+        }
+
+        const assembledCode = chunkTransfer.buffer + String(message.chunk || '');
+        const assembledFilename = chunkTransfer.filename;
+        resetChunkTransfer();
+
+        await resetRuntimeState();
+        executeProgram(assembledCode, assembledFilename);
         break;
+      }
 
       case 'start_quest':
         updateQuestHud(true, message.quest);
@@ -2811,7 +2890,7 @@
   // INITIALIZATION
   // =========================================================================
 
-  console.log('[QBasic Nexus] Runtime v1.1.0 loaded (Extended Edition)');
+  console.log('[QBasic Nexus] Runtime v1.1.1 loaded (Extended Edition)');
   vscode.postMessage({ type: 'ready' });
 
   // UX Hint for Audio Context

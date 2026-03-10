@@ -207,7 +207,7 @@ _parseLabel() {
       this._emit(`// Label: ${label.value}`);
       this._emit(`async function ${label.value}() {`);
       this.indent++;
-      this._enterScope();
+      this._enterScope('label');
 
       // Collect statements until next label, SUB, FUNCTION, or RETURN
       while (!this._isEnd()) {
@@ -290,7 +290,7 @@ _parseEnd() {
       this._emit('} // END SUB');
     } else if (this._matchKw('FUNCTION')) {
       if (this.currentFunction) {
-        this._emit(`return ${this.currentFunction};`);
+        this._emit(`return ${this.currentFunction.resultVar};`);
         this.currentFunction = null;
       }
       this._exitScope();
@@ -383,10 +383,14 @@ _parseAssignment() {
     if (!id) return;
 
     const name = id.value;
+    const storageName = this._resolveStorageName(name);
 
     // Array element assignment or Member Access
     if (this._matchPunc('(')) {
-      const idx = this._parseExpr();
+      const indices = [];
+      do {
+        indices.push(this._parseExpr());
+      } while (this._matchPunc(','));
       this._matchPunc(')');
 
       // Check for additional dots (e.g., arr(1).x = 10)
@@ -400,12 +404,28 @@ _parseAssignment() {
       const val = this._parseExpr();
 
       // Ensure array is declared
-      if (!this._hasVar(name)) {
+      if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
         this._addVar(name);
         this._emit(`var ${name} = [];`);
       }
 
-      this._emit(`${name}[${idx}]${suffix} = ${val};`);
+      const arrayPath = `${storageName}${indices.map((index) => `[${index}]`).join('')}`;
+
+      for (let i = 0; i < indices.length - 1; i++) {
+        const parentPath = `${storageName}${indices
+          .slice(0, i + 1)
+          .map((index) => `[${index}]`)
+          .join('')}`;
+        this._emit(`if (!Array.isArray(${parentPath})) ${parentPath} = [];`);
+      }
+
+      if (suffix) {
+        this._emit(`if (${arrayPath} == null) ${arrayPath} = {};`);
+      }
+
+      this._emit(
+        `${arrayPath}${suffix} = ${val};`,
+      );
       return;
     }
 
@@ -417,12 +437,12 @@ _parseAssignment() {
         const val = this._parseExpr();
 
         // Ensure struct is declared
-        if (!this._hasVar(name)) {
+        if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
           this._addVar(name);
           this._emit(`var ${name} = {};`);
         }
 
-        this._emit(`${name}.${member.value} = ${val};`);
+        this._emit(`${storageName}.${member.value} = ${val};`);
       }
       return;
     }
@@ -430,11 +450,11 @@ _parseAssignment() {
     // Simple variable assignment
     if (this._matchOp('=')) {
       const val = this._parseExpr();
-      if (!this._hasVar(name)) {
+      if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
         this._addVar(name);
         this._emit(`var ${name} = ${val};`);
       } else {
-        this._emit(`${name} = ${val};`);
+        this._emit(`${storageName} = ${val};`);
       }
     }
   },
@@ -575,9 +595,9 @@ _parseFunction() {
     this._enterScope();
     args.forEach((a) => this._addVar(a));
 
-    this._addVar(name);
-    this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
-    this.currentFunction = name;
+    const resultVar = `_result_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
+    this._emit(`let ${resultVar} = ${name.endsWith('$') ? '""' : '0'};`);
+    this.currentFunction = { name, resultVar };
   },
 
 _parseGoto() {
@@ -688,7 +708,7 @@ _parseDefFn() {
     this._consumeOp('=');
     const expr = this._parseExpr();
 
-    this._emit(`const ${name} = (${args.join(', ')}) => ${expr};`);
+    this._emit(`const ${name} = async (${args.join(', ')}) => ${expr};`);
   },
 
 _parseLprint() {

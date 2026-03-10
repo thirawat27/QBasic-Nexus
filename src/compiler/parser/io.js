@@ -52,14 +52,27 @@ _parsePrint() {
 
 _parseInput() {
     // INPUT #1, var
-    if (this._matchPunc('#')) {
+  if (this._matchPunc('#')) {
       const filenum = this._parseExpr();
       this._matchPunc(',');
       const id = this._consume(TokenType.IDENTIFIER);
       if (!id) throw new Error('Expected variable after INPUT #');
+      const name = id.value;
+      const storageName = this._resolveStorageName(name);
+
+      if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
+        this._addVar(name);
+        this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
+      }
 
       // Generate code to read line and assign
-      this._emit(`${id.value} = await _inputFileFunc(${filenum});`);
+      this._emit(`${storageName} = await _inputFileFunc(${filenum});`);
+
+      if (!name.endsWith('$')) {
+        this._emit(
+          `if (isNaN(Number(${storageName}))) ${storageName} = 0; else ${storageName} = Number(${storageName});`,
+        );
+      }
       return;
     }
 
@@ -78,16 +91,18 @@ _parseInput() {
       if (!id) break;
 
       const name = id.value;
-      if (!this._hasVar(name)) {
+      const storageName = this._resolveStorageName(name);
+
+      if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
         this._addVar(name);
         this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
       }
 
-      this._emit(`${name} = await _input("${escaped}");`);
+      this._emit(`${storageName} = await _input("${escaped}");`);
 
       if (!name.endsWith('$')) {
         this._emit(
-          `if (isNaN(Number(${name}))) ${name} = 0; else ${name} = Number(${name});`,
+          `if (isNaN(Number(${storageName}))) ${storageName} = 0; else ${storageName} = Number(${storageName});`,
         );
       }
     } while (this._matchPunc(','));
@@ -110,6 +125,7 @@ _parseRead() {
       const id = this._consume(TokenType.IDENTIFIER);
       if (!id) break;
       const name = id.value;
+      const storageName = this._resolveStorageName(name);
 
       if (this._check(TokenType.PUNCTUATION) && this._peek().value === '(') {
         // Array element read
@@ -120,22 +136,24 @@ _parseRead() {
         } while (this._matchPunc(','));
         this._matchPunc(')');
 
-        this._emit(`${name}[${indices.join('][')}] = _read();`);
+        this._emit(`${storageName}[${indices.join('][')}] = _read();`);
         if (!name.endsWith('$')) {
           this._emit(
-            `if (!isNaN(${name}[${indices.join('][')}])) ${name}[${indices.join('][')}] = Number(${name}[${indices.join('][')}]);`,
+            `if (!isNaN(${storageName}[${indices.join('][')}])) ${storageName}[${indices.join('][')}] = Number(${storageName}[${indices.join('][')}]);`,
           );
         }
       } else {
         // Simple variable read
-        if (!this._hasVar(name)) {
+        if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
           this._addVar(name);
           this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
         }
 
-        this._emit(`${name} = _read();`);
+        this._emit(`${storageName} = _read();`);
         if (!name.endsWith('$')) {
-          this._emit(`if (!isNaN(${name})) ${name} = Number(${name});`);
+          this._emit(
+            `if (!isNaN(${storageName})) ${storageName} = Number(${storageName});`,
+          );
         }
       }
     } while (this._matchPunc(','));
@@ -161,14 +179,15 @@ _parseLineInput() {
     if (!id) return;
 
     const name = id.value;
+    const storageName = this._resolveStorageName(name);
     const escaped = prompt.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
-    if (!this._hasVar(name)) {
+    if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
       this._addVar(name);
       this._emit(`var ${name} = "";`);
     }
 
-    this._emit(`${name} = await _input("${escaped}");`);
+    this._emit(`${storageName} = await _input("${escaped}");`);
   },
 
 _parseLine() {

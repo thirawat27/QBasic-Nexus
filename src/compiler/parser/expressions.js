@@ -128,8 +128,14 @@ _parsePrimary() {
     const upper = name.toUpperCase();
     const builtin = BUILTIN_FUNCS[upper];
     const fnName = builtin ? `(${builtin})` : name;
+    const storageName = this._resolveStorageName(name);
+    const isCurrentFunctionName = this._isCurrentFunctionName(name);
 
-    if (this._hasVar(name) && this._peek()?.value === '(') {
+    if (
+      this._hasVar(name) &&
+      this._peek()?.value === '(' &&
+      !isCurrentFunctionName
+    ) {
       this._matchPunc('(');
       const indices = [];
       do {
@@ -156,7 +162,7 @@ _parsePrimary() {
     if (this._matchPunc('(')) {
       const args = this._parseArgs();
       this._matchPunc(')');
-      return `${fnName}(${args})`;
+      return builtin ? `${fnName}(${args})` : `(await ${name}(${args}))`;
     }
 
     // Check for member access: p1.Name
@@ -188,13 +194,13 @@ _parsePrimary() {
 
     // Auto-declare undefined variables with default values
     // This handles cases where variables are used before explicit declaration
-    if (!builtin && !this._hasVar(name)) {
+    if (!builtin && !this._hasVar(name) && !isCurrentFunctionName) {
       this._addVar(name);
       const defaultValue = name.endsWith('$') ? '""' : '0';
       this._emit(`var ${name} = ${defaultValue}; // Auto-declared`);
     }
 
-    return builtin ? fnName : name;
+    return builtin ? fnName : storageName;
   }
   this._advance();
   return '0';
