@@ -83,31 +83,20 @@ class IncrementalLinter {
   /**
    * Cancel and remove state for a closed document.
    * Called from extension.js onDidCloseTextDocument to prevent memory leaks.
-   * @param {string} uriKey - Document URI string
+   * @param {string} uriKey
    */
   removeDocument(uriKey) {
     const timer = this._pendingTimers.get(uriKey);
-    if (timer) {
-      clearTimeout(timer);
-      this._pendingTimers.delete(uriKey);
-    }
+    if (timer) clearTimeout(timer);
+    this._pendingTimers.delete(uriKey);
     this._docStates.delete(uriKey);
   }
 
-  /**
-   * Cancel all pending timers and clear all state.
-   * Called on extension deactivation to prevent memory leaks.
-   */
+  /** Cancel all pending timers (call on deactivate). */
   dispose() {
-    // Cancel all pending timers
-    for (const timer of this._pendingTimers.values()) {
-      clearTimeout(timer);
-    }
+    for (const t of this._pendingTimers.values()) clearTimeout(t);
     this._pendingTimers.clear();
     this._docStates.clear();
-    
-    // Clear transpiler reference
-    this._transpiler = null;
   }
 
   // ── Private ──────────────────────────────────────────────────────────────

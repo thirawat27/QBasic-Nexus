@@ -28,7 +28,7 @@ _parseDim() {
 
         // Create multi-dimensional array
         const dimStr = dims.join(', ');
-        this._emit(`let ${name} = _makeArray(${init}, ${dimStr});`);
+        this._emit(`var ${name} = _makeArray(${init}, ${dimStr});`);
       } else {
         if (this._matchKw('AS')) {
           if (this._check(TokenType.IDENTIFIER)) {
@@ -39,14 +39,14 @@ _parseDim() {
               typeName !== 'DOUBLE'
             ) {
               // User defined type
-              this._emit(`let ${name} = ${typeName}();`);
+              this._emit(`var ${name} = ${typeName}();`);
               continue;
             }
           } else {
             while (!this._isStmtEnd() && !this._matchPunc(',')) this._advance();
           }
         }
-        this._emit(`let ${name} = ${init};`);
+        this._emit(`var ${name} = ${init};`);
       }
     } while (this._matchPunc(','));
   },
@@ -96,7 +96,7 @@ _parseRedim() {
           } else {
             this._addVar(name);
             this._emit(
-              `let ${name} = new Array(${sizes[0]} + 1).fill(${init});`,
+              `var ${name} = new Array(${sizes[0]} + 1).fill(${init});`,
             );
           }
         } else {
@@ -108,7 +108,7 @@ _parseRedim() {
           } else {
             this._addVar(name);
             this._emit(
-              `let ${name} = Array.from({length: ${sizes[0]} + 1}, () => new Array(${sizes[1]} + 1).fill(${init}));`,
+              `var ${name} = Array.from({length: ${sizes[0]} + 1}, () => new Array(${sizes[1]} + 1).fill(${init}));`,
             );
           }
         }
@@ -121,7 +121,7 @@ _parseRedim() {
           this._emit(`${name} = ${init};`);
         } else {
           this._addVar(name);
-          this._emit(`let ${name} = ${init};`);
+          this._emit(`var ${name} = ${init};`);
         }
       }
     } while (this._matchPunc(','));

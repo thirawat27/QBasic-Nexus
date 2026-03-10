@@ -7,6 +7,21 @@
 
 const InternalTranspiler = require('../src/compiler/transpiler');
 
+function makeProgramRunnable(code) {
+    const marker = '\n(async () => {';
+    const markerIndex = code.lastIndexOf(marker);
+
+    if (markerIndex === -1) {
+        throw new Error('Could not locate generated program entrypoint');
+    }
+
+    return (
+        code.slice(0, markerIndex + 1) +
+        'return ' +
+        code.slice(markerIndex + 1)
+    );
+}
+
 // Test cases that previously caused "x is not defined" errors
 const testCases = [
     {
@@ -93,10 +108,29 @@ const testCases = [
             PRINT matrix(0, 0)
         `,
         shouldWork: true
+    },
+    {
+        name: 'FOR loop variable remains accessible after NEXT',
+        code: `
+            FOR x = 1 TO 3
+            NEXT x
+            PRINT x
+        `,
+        shouldWork: true
+    },
+    {
+        name: 'Variable assigned inside IF remains accessible after block',
+        code: `
+            IF 1 THEN
+                x = 10
+            END IF
+            PRINT x
+        `,
+        shouldWork: true
     }
 ];
 
-function testVariableDeclaration() {
+async function testVariableDeclaration() {
     console.log('🧪 Testing Variable Declaration\n');
     console.log('='.repeat(70));
     
@@ -106,48 +140,27 @@ function testVariableDeclaration() {
     for (const test of testCases) {
         try {
             const transpiler = new InternalTranspiler();
-            const code = transpiler.transpile(test.code, 'node');
+            const code = transpiler.transpile(test.code, 'web');
             
-            // Check if code contains proper variable declarations
-            const hasLetDeclarations = code.includes('let ');
-            
-            // Try to evaluate the code to see if it throws "not defined" error
+            // Execute generated web code to catch CRT-style runtime scope errors
             try {
-                // Create a safe eval context
                 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-                
-                // Mock runtime functions
+                const runnableCode = makeProgramRunnable(code);
+
                 const mockRuntime = `
-                    function _print(text, newline) { /* mock */ }
-                    async function _input(prompt) { return "0"; }
-                    function _cls() { /* mock */ }
-                    function _sleep(ms) { return Promise.resolve(); }
-                    function _makeArray(init, ...dims) {
-                        if (dims.length === 0) return init;
-                        const size = dims[0];
-                        const rest = dims.slice(1);
-                        return Array.from({length: size + 1}, () => _makeArray(init, ...rest));
-                    }
-                    let _cursorRow = 1, _cursorCol = 1;
-                    const _DATA = [];
-                    let _DATA_PTR = 0;
-                    function _read() { return 0; }
-                    function _restore() { _DATA_PTR = 0; }
-                    let _rndSeed = Date.now();
-                    function _randomize(seed) { _rndSeed = seed !== undefined ? seed : Date.now(); }
-                    function _rnd() {
-                        _rndSeed = (_rndSeed * 9301 + 49297) % 233280;
-                        return _rndSeed / 233280;
-                    }
+                    globalThis.runtime = {
+                        print(text) { return text; },
+                        input() { return Promise.resolve("0"); },
+                        cls() {},
+                        error(message) { throw new Error(message); },
+                        printFile() { return Promise.resolve(); },
+                        inputFile() { return Promise.resolve("0"); },
+                    };
                 `;
-                
-                new AsyncFunction(mockRuntime + '\n' + code);
-                
-                // This will throw if there are undefined variables
-                // We don't actually run it, just check if it compiles
-                
+
+                await new AsyncFunction(mockRuntime + '\n' + runnableCode)();
+
                 console.log(`✅ ${test.name}`);
-                console.log(`   Generated code has proper declarations: ${hasLetDeclarations}`);
                 passed++;
                 
             } catch (evalError) {
@@ -157,9 +170,7 @@ function testVariableDeclaration() {
                     console.log(`   Generated code:\n${code.split('\n').slice(0, 20).join('\n')}`);
                     failed++;
                 } else {
-                    // Other errors are OK (like missing runtime functions)
-                    console.log(`✅ ${test.name} (compilation OK)`);
-                    passed++;
+                    throw evalError;
                 }
             }
             
@@ -186,8 +197,14 @@ function testVariableDeclaration() {
 
 // Run tests
 if (require.main === module) {
-    const success = testVariableDeclaration();
-    process.exit(success ? 0 : 1);
+    testVariableDeclaration()
+        .then((success) => {
+            process.exit(success ? 0 : 1);
+        })
+        .catch((error) => {
+            console.error(`❌ Test runner crashed: ${error.message}`);
+            process.exit(1);
+        });
 }
 
 module.exports = { testVariableDeclaration };

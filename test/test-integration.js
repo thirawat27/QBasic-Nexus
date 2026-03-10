@@ -138,6 +138,26 @@ test('Lint returns array', () => {
   if (!Array.isArray(errors)) throw new Error('Lint did not return array');
 });
 
+test('Transpile throws when parser reports syntax errors', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('FOR = 1 TO 10', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Expected variable after FOR')) {
+      throw new Error(`Unexpected transpile error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Transpile should fail when syntax errors exist');
+  }
+});
+
 test('Identifier regex matches QBasic suffix variables', () => {
   const pattern = makeIdentifierRegex('player$', 'gi');
   const matches = [];

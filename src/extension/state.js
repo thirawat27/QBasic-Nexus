@@ -12,6 +12,8 @@ const state = {
   statsBarItem: null,
   outputChannel: null,
   terminal: null,
+  terminalCwd: null,
+  autoDetectedCompilerPath: null,
   diagnosticCollection: null,
   isCompiling: false,
   extensionContext: null,

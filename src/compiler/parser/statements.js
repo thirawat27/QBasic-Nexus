@@ -321,7 +321,7 @@ _parseFor() {
 
     // Robust loop condition for dynamic step sign
     this._emit(
-      `for (let ${name} = ${start}; (${step} >= 0) ? ${name} <= ${end} : ${name} >= ${end}; ${name} += ${step}) {`,
+      `for (var ${name} = ${start}; (${step} >= 0) ? ${name} <= ${end} : ${name} >= ${end}; ${name} += ${step}) {`,
     );
     this.indent++;
   },
@@ -402,7 +402,7 @@ _parseAssignment() {
       // Ensure array is declared
       if (!this._hasVar(name)) {
         this._addVar(name);
-        this._emit(`let ${name} = [];`);
+        this._emit(`var ${name} = [];`);
       }
 
       this._emit(`${name}[${idx}]${suffix} = ${val};`);
@@ -419,7 +419,7 @@ _parseAssignment() {
         // Ensure struct is declared
         if (!this._hasVar(name)) {
           this._addVar(name);
-          this._emit(`let ${name} = {};`);
+          this._emit(`var ${name} = {};`);
         }
 
         this._emit(`${name}.${member.value} = ${val};`);
@@ -432,7 +432,7 @@ _parseAssignment() {
       const val = this._parseExpr();
       if (!this._hasVar(name)) {
         this._addVar(name);
-        this._emit(`let ${name} = ${val};`);
+        this._emit(`var ${name} = ${val};`);
       } else {
         this._emit(`${name} = ${val};`);
       }
@@ -576,7 +576,7 @@ _parseFunction() {
     args.forEach((a) => this._addVar(a));
 
     this._addVar(name);
-    this._emit(`let ${name} = ${name.endsWith('$') ? '""' : '0'};`);
+    this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
     this.currentFunction = name;
   },
 

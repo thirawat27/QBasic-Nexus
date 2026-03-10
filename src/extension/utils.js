@@ -7,6 +7,8 @@
 
 const vscode = require('vscode');
 const fs = require('fs').promises;
+const os = require('os');
+const path = require('path');
 const { defu } = require('defu');
 const { CONFIG } = require('./constants');
 const { state } = require('./state');
@@ -95,12 +97,20 @@ function getOutputChannel() {
 /**
  * Get or create a terminal instance
  */
-function getTerminal() {
-  if (!state.terminal || state.terminal.exitStatus !== undefined) {
+function getTerminal(options = {}) {
+  const cwd = options.cwd || null;
+  const needsNewTerminal =
+    !state.terminal ||
+    state.terminal.exitStatus !== undefined ||
+    state.terminalCwd !== cwd;
+
+  if (needsNewTerminal) {
     state.terminal = vscode.window.createTerminal({
       name: CONFIG.TERMINAL_NAME,
       iconPath: new vscode.ThemeIcon('terminal'),
+      cwd: cwd || undefined,
     });
+    state.terminalCwd = cwd;
   }
   return state.terminal;
 }
@@ -115,6 +125,82 @@ async function fileExists(filePath) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Expand a user-provided path such as ~/qb64/qb64 into an absolute path.
+ * @param {string|null|undefined} filePath
+ * @returns {string|null}
+ */
+function expandHomePath(filePath) {
+  if (filePath === null || filePath === undefined) return null;
+
+  const value = String(filePath).trim();
+  if (!value) return null;
+
+  if (value === '~') return os.homedir();
+  if (value.startsWith('~/') || value.startsWith('~\\')) {
+    return path.join(os.homedir(), value.slice(2));
+  }
+
+  return value;
+}
+
+/**
+ * Split a shell-like argument string while preserving quoted segments.
+ * Handles the common QB64 settings cases without shell evaluation.
+ * @param {string|null|undefined} value
+ * @returns {string[]}
+ */
+function splitCommandLineArgs(value) {
+  if (!value || typeof value !== 'string') return [];
+
+  const args = [];
+  let current = '';
+  let quote = null;
+  let escapeNext = false;
+
+  for (const char of value.trim()) {
+    if (escapeNext) {
+      current += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && quote === '"') {
+      escapeNext = true;
+      continue;
+    }
+
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      } else {
+        current += char;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+
+    if (/\s/.test(char)) {
+      if (current) {
+        args.push(current);
+        current = '';
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (escapeNext) current += '\\';
+  if (current) args.push(current);
+
+  return args;
 }
 
 /**
@@ -170,6 +256,8 @@ module.exports = {
   getOutputChannel,
   getTerminal,
   fileExists,
+  expandHomePath,
+  splitCommandLineArgs,
   getConfig,
   getAllConfig,
   log,

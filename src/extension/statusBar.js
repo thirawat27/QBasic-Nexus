@@ -13,6 +13,8 @@ const { getConfig } = require('./utils');
 
 function updateStatusBar() {
   const editor = vscode.window.activeTextEditor;
+  const internalBuildLabel =
+    process.platform === 'win32' ? 'native .exe' : 'native binary';
 
   if (!state.statusBarItem) return; // Guard: disposed during deactivation
 
@@ -23,18 +25,27 @@ function updateStatusBar() {
 
   const mode = getConfig(CONFIG.COMPILER_MODE);
   const compilerPath = getConfig(CONFIG.COMPILER_PATH);
+  const autoDetectedCompilerPath = state.autoDetectedCompilerPath;
 
   if (state.isCompiling) {
     state.statusBarItem.text = '$(sync~spin) Compiling...';
     state.statusBarItem.tooltip = 'Compilation in progress';
+    state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
   } else if (mode === CONFIG.MODE_INTERNAL) {
-    state.statusBarItem.text = '$(package) Build .exe ⚡';
-    state.statusBarItem.tooltip = 'Compile with Qbasic Nexus (pkg → .exe)';
+    state.statusBarItem.text = `$(package) Build ${internalBuildLabel} ⚡`;
+    state.statusBarItem.tooltip = `Compile with QBasic Nexus (@yao-pkg/pkg -> ${internalBuildLabel})`;
+    state.statusBarItem.command = COMMANDS.COMPILE_RUN;
+    state.statusBarItem.backgroundColor = undefined;
+  } else if (!compilerPath && autoDetectedCompilerPath) {
+    state.statusBarItem.text = '$(check) QB64 Ready (Auto)';
+    state.statusBarItem.tooltip = `Auto-detected QB64 at ${autoDetectedCompilerPath}\nClick to compile now. You can save this path from the next build prompt.`;
+    state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
   } else if (!compilerPath) {
-    state.statusBarItem.text = '$(warning) Configure QB64';
-    state.statusBarItem.tooltip = 'Click to set QB64 path';
+    state.statusBarItem.text = '$(search) QB64 Auto-Detect';
+    state.statusBarItem.tooltip =
+      'Click to set QB64 path manually. Compile also falls back to runtime auto-detection.';
     state.statusBarItem.command = {
       command: 'workbench.action.openSettings',
       arguments: [`${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`],

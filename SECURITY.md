@@ -117,7 +117,7 @@ All production dependencies are actively maintained and regularly updated:
 - magic-string: Code manipulation (no known vulnerabilities)
 - mitt: Event emitter (no known vulnerabilities)
 - defu: Config merging (no known vulnerabilities)
-- pkg: Executable packaging (moderate severity - local privilege escalation)
+- @yao-pkg/pkg: Cross-platform executable packaging for the internal compiler
 
 ### Dev Dependencies
 Development dependencies are isolated and not included in production builds.

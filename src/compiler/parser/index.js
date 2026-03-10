@@ -16,6 +16,17 @@ class Parser {
   }
 }
 
+function formatParserErrors(errors) {
+  return errors
+    .slice(0, 3)
+    .map((error) => {
+      const line = Number.isInteger(error.line) ? error.line + 1 : '?';
+      const column = Number.isInteger(error.column) ? error.column : 0;
+      return `line ${line}:${column} ${error.message}`;
+    })
+    .join('; ');
+}
+
 function mixin(target, ...sources) {
   for (const source of sources) {
     Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
@@ -70,11 +81,14 @@ class InternalTranspiler {
 
       const parser = new Parser(tokens, target);
       const result = parser.parse();
+      if (Array.isArray(parser.errors) && parser.errors.length > 0) {
+        throw new Error(formatParserErrors(parser.errors));
+      }
 
       return result;
     } catch (e) {
       console.error('[Transpiler] Compilation error:', e.message);
-      return `// Compilation error: ${e.message}\nconsole.error("Compilation failed: ${e.message.replace(/"/g, '\\"')}");`;
+      throw e;
     } finally {
       if (tokens && typeof TokenPool?.releaseAll === 'function') {
         TokenPool.releaseAll(tokens);

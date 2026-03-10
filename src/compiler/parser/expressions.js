@@ -191,7 +191,7 @@ _parsePrimary() {
     if (!builtin && !this._hasVar(name)) {
       this._addVar(name);
       const defaultValue = name.endsWith('$') ? '""' : '0';
-      this._emit(`let ${name} = ${defaultValue}; // Auto-declared`);
+      this._emit(`var ${name} = ${defaultValue}; // Auto-declared`);
     }
 
     return builtin ? fnName : name;

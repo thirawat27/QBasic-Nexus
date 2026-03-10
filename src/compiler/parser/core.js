@@ -398,57 +398,6 @@ function _sound(freq, duration) {
         clearTimeout(timeout);
         resolve();
       });
-    } else {
-      // Linux: Try multiple fallbacks for maximum compatibility
-      let attempted = false;
-      
-      // Try 1: beep command (most common on Linux)
-      const beep = spawn('beep', ['-f', freq.toString(), '-l', ms.toString()], {
-        stdio: 'ignore',
-        detached: true
-      });
-      beep.unref();
-      
-      beep.on('error', () => {
-        if (attempted) return;
-        attempted = true;
-        
-        // Try 2: speaker-test (ALSA - pre-installed on most distros)
-        const speaker = spawn('speaker-test', ['-t', 'sine', '-f', freq.toString(), '-l', '1'], {
-          stdio: 'ignore',
-          detached: true
-        });
-        speaker.unref();
-        
-        // Kill speaker-test after duration
-        setTimeout(() => {
-          try {
-            speaker.kill('SIGTERM');
-          } catch (e) {
-            // Ignore
-          }
-        }, ms);
-        
-        speaker.on('error', () => {
-          // Try 3: paplay with sine wave (PulseAudio)
-          const paplay = spawn('paplay', ['/usr/share/sounds/freedesktop/stereo/bell.oga'], {
-            stdio: 'ignore',
-            detached: true
-          });
-          paplay.unref();
-          
-          paplay.on('error', () => {
-            // Final fallback: console bell
-            process.stdout.write('\\x07');
-          });
-        });
-      });
-      
-      setTimeout(() => {
-        clearTimeout(timeout);
-        resolve();
-      }, ms);
-    }
       
     } else {
       // Linux: Try multiple methods in order of preference
@@ -602,12 +551,20 @@ try {
   } else if (typeof e === 'string' && e.startsWith('GOTO_')) {
     // GOTO jumped out of main body — normal for top-level GOTOs
   } else if (e && e.message) {
-    process.stderr.write('\\nRuntime Error: ' + e.message + '\\n');
+    if (typeof process !== 'undefined' && process.stderr?.write) {
+      process.stderr.write('\\nRuntime Error: ' + e.message + '\\n');
+    } else {
+      console.error('Runtime Error:', e.message);
+    }
     if (typeof _runtime !== 'undefined' && typeof _runtime.error === 'function') {
       _runtime.error(e.message);
     }
   } else if (e !== undefined && e !== null) {
-    process.stderr.write('\\nError: ' + String(e) + '\\n');
+    if (typeof process !== 'undefined' && process.stderr?.write) {
+      process.stderr.write('\\nError: ' + String(e) + '\\n');
+    } else {
+      console.error('Error:', String(e));
+    }
   }
 } finally {
   ${

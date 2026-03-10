@@ -116,140 +116,101 @@ class Compiler {
   /**
    * Compile QBasic source code
    */
-  /**
-     * Compile QBasic source code
-     * @param {string} source - QBasic source code
-     * @returns {CompilationResult}
-     */
-    compile(source) {
-      // Input validation
-      if (source === null || source === undefined) {
-        const diagnostics = new DiagnosticCollector();
-        diagnostics.error(
-          ErrorCategory.RUNTIME,
-          'Source code is null or undefined',
-          1,
-          0
-        );
-        return new CompilationResult('', diagnostics, {
-          cached: false,
-          error: 'Invalid input: source is null or undefined'
-        });
-      }
+  compile(source) {
+    const startTime = process.hrtime.bigint();
+    let tokens = null;
 
-      if (typeof source !== 'string') {
-        const diagnostics = new DiagnosticCollector();
-        diagnostics.warning(
-          ErrorCategory.RUNTIME,
-          `Source code is not a string (type: ${typeof source}), converting to string`,
-          1,
-          0
-        );
-        source = String(source);
-      }
-
-      if (source.trim().length === 0) {
-        const diagnostics = new DiagnosticCollector();
-        return new CompilationResult('// Empty source', diagnostics, {
-          cached: false,
-          empty: true
-        });
-      }
-
-      const startTime = process.hrtime.bigint();
-      let tokens = null;
-
-      // Check cache first (no tokenization needed)
-      if (this.cache) {
-        const cached = this.cache.getCode(source, this.options.target);
-        if (cached) {
-          this.stats.cacheHits++;
-          this.stats.compilations++;
-
-          const diagnostics = new DiagnosticCollector();
-          for (const err of cached.errors || []) {
-            diagnostics.add(err);
-          }
-
-          return new CompilationResult(cached.code, diagnostics, {
-            cached: true,
-            cacheAge: Date.now() - cached.timestamp,
-          });
-        }
-        this.stats.cacheMisses++;
-      }
-
-      const diagnostics = new DiagnosticCollector();
-
-      try {
-        // ── Tokenize ONCE ──────────────────────────────────────────────
-        const lexerStart = process.hrtime.bigint();
-        const lexer = new Lexer(source);
-        tokens = lexer.tokenize();
-        const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1_000_000;
-
-        // ── Parse + codegen (reuse token array — no re-tokenize) ───────
-        const parserStart = process.hrtime.bigint();
-        const transpiler = new InternalTranspiler();
-        const { code, errors } = transpiler.transpileTokens(
-          tokens,
-          this.options.target,
-        );
-        const parserTime =
-          Number(process.hrtime.bigint() - parserStart) / 1_000_000;
-
-        // Collect errors directly from the parse result (no extra lint pass)
-        for (const err of errors) {
-          diagnostics.error(
-            ErrorCategory.SYNTAX,
-            err.message,
-            err.line,
-            err.column,
-          );
-        }
-
-        // Cache the result if clean
-        if (this.cache && !diagnostics.hasErrors()) {
-          this.cache.setCode(
-            source,
-            this.options.target,
-            code,
-            diagnostics.getAll(),
-          );
-        }
-
-        const totalTime = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+    // Check cache first (no tokenization needed)
+    if (this.cache) {
+      const cached = this.cache.getCode(source, this.options.target);
+      if (cached) {
+        this.stats.cacheHits++;
         this.stats.compilations++;
-        this.stats.totalTime += totalTime;
-        this.stats.avgTime = this.stats.totalTime / this.stats.compilations;
 
-        return new CompilationResult(code, diagnostics, {
-          cached: false,
-          lexerTime,
-          parserTime,
-          totalTime,
-          tokenCount: tokens.length,
-          lineCount: countLines(source),
-          sourceSize: source.length,
-        });
-      } catch (error) {
-        diagnostics.error(
-          ErrorCategory.RUNTIME,
-          `Internal compiler error: ${error.message}`,
-          1,
-          0,
-        );
-
-        return new CompilationResult('', diagnostics, {
-          cached: false,
-          error: error.message,
-        });
-      } finally {
-        if (tokens && typeof TokenPool?.releaseAll === 'function') {
-          TokenPool.releaseAll(tokens);
+        const diagnostics = new DiagnosticCollector();
+        for (const err of cached.errors || []) {
+          diagnostics.add(err);
         }
+
+        return new CompilationResult(cached.code, diagnostics, {
+          cached: true,
+          cacheAge: Date.now() - cached.timestamp,
+        });
+      }
+      this.stats.cacheMisses++;
+    }
+
+    const diagnostics = new DiagnosticCollector();
+
+    try {
+      // ── Tokenize ONCE ──────────────────────────────────────────────
+      const lexerStart = process.hrtime.bigint();
+      const lexer = new Lexer(source);
+      tokens = lexer.tokenize();
+      const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1_000_000;
+
+      // ── Parse + codegen (reuse token array — no re-tokenize) ───────
+      const parserStart = process.hrtime.bigint();
+      const transpiler = new InternalTranspiler();
+      const { code, errors } = transpiler.transpileTokens(
+        tokens,
+        this.options.target,
+      );
+      const parserTime =
+        Number(process.hrtime.bigint() - parserStart) / 1_000_000;
+
+      // Collect errors directly from the parse result (no extra lint pass)
+      for (const err of errors) {
+        diagnostics.error(
+          ErrorCategory.SYNTAX,
+          err.message,
+          err.line,
+          err.column,
+        );
+      }
+
+      // Cache the result if clean
+      if (this.cache && !diagnostics.hasErrors()) {
+        this.cache.setCode(
+          source,
+          this.options.target,
+          code,
+          diagnostics.getAll(),
+        );
+      }
+
+      const totalTime = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+      this.stats.compilations++;
+      this.stats.totalTime += totalTime;
+      this.stats.avgTime = this.stats.totalTime / this.stats.compilations;
+
+      return new CompilationResult(code, diagnostics, {
+        cached: false,
+        lexerTime,
+        parserTime,
+        totalTime,
+        tokenCount: tokens.length,
+        lineCount: countLines(source),
+        sourceSize: source.length,
+      });
+    } catch (error) {
+      diagnostics.error(
+        ErrorCategory.RUNTIME,
+        `Internal compiler error: ${error.message}`,
+        1,
+        0,
+      );
+
+      return new CompilationResult('', diagnostics, {
+        cached: false,
+        error: error.message,
+      });
+    } finally {
+      if (tokens && typeof TokenPool?.releaseAll === 'function') {
+        TokenPool.releaseAll(tokens);
       }
     }
+  }
 
   /**
    * Compile and run (for Node.js target)

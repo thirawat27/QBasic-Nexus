@@ -1,6 +1,6 @@
 /**
  * QBasic Nexus - Internal Transpiler Command
- * Build .exe using the bundled JS transpiler + pkg
+ * Build a native executable using the bundled JS transpiler + @yao-pkg/pkg
  */
 
 'use strict';
@@ -16,15 +16,85 @@ const { getOutputChannel, getTerminal, log } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
 const { getInternalTranspiler } = require('./lazyModules');
 
-// pkg-compatible Node.js header
+const PACKAGER_MODULE = '@yao-pkg/pkg';
+const PACKAGER_COMPRESSION = 'GZip';
+
+// Packager-compatible Node.js header
 // Shebang only needed on macOS/Linux; Windows ignores it but it causes no harm.
-// Having it lets the fallback CLI `pkg` mode work on all platforms.
-const PKG_HEADER = `#!/usr/bin/env node
+// Having it lets the fallback CLI mode work on all platforms.
+const PACKAGER_HEADER = `#!/usr/bin/env node
 // Built by QBasic Nexus — https://github.com/thirawat27/QBasic-Nexus
 `;
 
+function getOutputExtension() {
+  return process.platform === 'win32' ? '.exe' : '';
+}
+
+function getPackagerTarget() {
+  return 'host';
+}
+
+function quoteForShell(value) {
+  return "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
+}
+
+function getPackagerCliInvocation(args) {
+  const packageJsonPath = require.resolve(`${PACKAGER_MODULE}/package.json`);
+  const packageJson = require(packageJsonPath);
+  const cliRelativePath =
+    typeof packageJson.bin === 'string'
+      ? packageJson.bin
+      : packageJson.bin?.pkg;
+
+  if (!cliRelativePath) {
+    throw new Error(`Could not locate ${PACKAGER_MODULE} CLI entry point`);
+  }
+
+  return {
+    command: process.execPath,
+    args: [path.join(path.dirname(packageJsonPath), cliRelativePath), ...args],
+  };
+}
+
+async function runPackager(args, channel) {
+  let packagerApi = null;
+
+  try {
+    packagerApi = require(PACKAGER_MODULE);
+  } catch (_loadError) {
+    channel.appendLine(
+      `  ⚠ ${PACKAGER_MODULE} API unavailable, falling back to bundled CLI…`,
+    );
+  }
+
+  if (packagerApi?.exec) {
+    await packagerApi.exec(args);
+    return;
+  }
+
+  const { command, args: cliArgs } = getPackagerCliInvocation(args);
+
+  await new Promise((resolve, reject) => {
+    const proc = spawn(command, cliArgs, {
+      env: process.env,
+      shell: false,
+    });
+    proc.stdout.on('data', (data) => channel.append(data.toString()));
+    proc.stderr.on('data', (data) => channel.append(data.toString()));
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(new Error(`${PACKAGER_MODULE} CLI exited with code ${code}`));
+    });
+  });
+}
+
 /**
- * Run the Internal Transpiler → pkg pipeline to produce a .exe
+ * Run the Internal Transpiler → packager pipeline to produce a native executable
  * @param {vscode.TextDocument} document
  * @param {boolean} shouldRun - whether to execute after building
  */
@@ -70,9 +140,8 @@ async function runInternalTranspiler(document, shouldRun) {
   try {
     const InternalTranspiler = getInternalTranspiler();
     const transpiler = new InternalTranspiler();
-    // Platform-aware output extension: .exe on Windows, no extension elsewhere
-    const exeExt = process.platform === 'win32' ? '.exe' : '';
-    const outputExe = path.join(sourceDir, baseName + exeExt);
+    const outputExt = getOutputExtension();
+    const outputExe = path.join(sourceDir, baseName + outputExt);
     tempJs = path.join(os.tmpdir(), `${baseName}_${Date.now()}._qbnx_.js`);
 
     await vscode.window.withProgress(
@@ -102,60 +171,40 @@ async function runInternalTranspiler(document, shouldRun) {
         channel.appendLine('');
         report(45, 'Code generation…');
 
-        // Use MagicString to prepend the pkg-compatible header
+        // Use MagicString to prepend the packager-compatible header
         // This keeps the operation non-destructive and ready for future sourcemap support
         const ms = new MagicString(jsCode);
-        ms.prepend(PKG_HEADER);
+        ms.prepend(PACKAGER_HEADER);
         await fs.writeFile(tempJs, ms.toString(), 'utf8');
 
         const t0 = process.hrtime(startTime);
         const tMs = (t0[0] * 1000 + t0[1] / 1e6).toFixed(2);
         report(60, `Transpile complete (${tMs}ms) ✓`);
 
-        // ── 3: pkg packaging (60 → 100%) ───────────────────────────────
+        // ── 3: Native packaging (60 → 100%) ────────────────────────────
         channel.appendLine('');
-        report(65, 'Packaging to .exe…');
+        report(65, 'Packaging executable…');
 
-        // Cross-platform target detection
-        const platformTargets = {
-          win32: 'node18-win-x64',
-          darwin: 'node18-macos-x64',
-          linux: 'node18-linux-x64',
-          alpine: 'node18-alpine-x64',
-        };
-        const target = platformTargets[process.platform] || 'node18-win-x64';
+        const target = getPackagerTarget();
+        const packagerArgs = [
+          tempJs,
+          '--target',
+          target,
+          '--compress',
+          PACKAGER_COMPRESSION,
+          '--output',
+          outputExe,
+        ];
 
-        try {
-          // @yao-pkg/pkg programmatic API — modern fork with better cross-platform support
-          const pkgApi = require('@yao-pkg/pkg');
-          await pkgApi.exec([tempJs, '--target', target, '--output', outputExe, '--compress', 'GZip']);
-        } catch (error) {
-          // Log error details for debugging
-          channel.appendLine(`  ⚠ pkg API error: ${error.message}`);
-          if (error.stack) {
-            const stackLine = error.stack.split('\n')[1] || '';
-            channel.appendLine(`  Stack: ${stackLine.trim()}`);
-          }
-          channel.appendLine('  ℹ Falling back to CLI mode…');
+        await runPackager(packagerArgs, channel);
 
-          await new Promise((resolve, reject) => {
-            const proc = spawn(
-              'pkg',
-              [tempJs, '--target', target, '--output', outputExe, '--compress', 'GZip'],
-              { shell: true, env: process.env },
-            );
-            proc.stdout.on('data', (d) => channel.append(d.toString()));
-            proc.stderr.on('data', (d) => channel.append(d.toString()));
-            proc.on('error', reject);
-            proc.on('close', (code) =>
-              code === 0 ? resolve() : reject(new Error(`pkg exit ${code}`)),
-            );
-          });
+        if (process.platform !== 'win32') {
+          await fs.chmod(outputExe, 0o755).catch(() => {});
         }
 
-        // Clean up temp JS only AFTER pkg has fully finished
+        // Clean up temp JS only AFTER packaging has fully finished
         // (also cleaned in outer catch/finally via the variable kept in closure)
-        await fs.unlink(tempJs).catch(() => { });
+        await fs.unlink(tempJs).catch(() => {});
 
         report(100, 'Done ✓');
         channel.appendLine('');
@@ -174,7 +223,7 @@ async function runInternalTranspiler(document, shouldRun) {
 
     vscode.window
       .showInformationMessage(
-        `✅ Compiled: ${baseName}${exeExt}`,
+        `✅ Compiled: ${path.basename(outputExe)}`,
         'Open Folder',
       )
       .then((choice) => {
@@ -203,7 +252,7 @@ async function runInternalTranspiler(document, shouldRun) {
     vscode.window.showErrorMessage(`❌ Build Error: ${error.message}`);
   } finally {
     if (tempJs) {
-      await fs.unlink(tempJs).catch(() => { });
+      await fs.unlink(tempJs).catch(() => {});
     }
     state.isCompiling = false;
     updateStatusBar();
@@ -217,34 +266,34 @@ async function runInternalTranspiler(document, shouldRun) {
  */
 function runExecutable(exePath) {
   const channel = getOutputChannel();
+  const workingDirectory = path.dirname(exePath);
 
-  // Pick the platform-specific launcher:
-  //   Windows  → "cmd" with /c "start "" "<exe>""
-  //   macOS    → "open"
-  //   Linux    → "xdg-open"
+  if (process.platform !== 'win32') {
+    const term = getTerminal({ cwd: workingDirectory });
+    term.show(true);
+    term.sendText(quoteForShell(exePath), true);
+    channel.appendLine(
+      `  ➤ Running in integrated terminal: ${exePath} (cwd: ${workingDirectory})`,
+    );
+    return;
+  }
+
   let child;
-  if (process.platform === 'win32') {
+  try {
     // `start ""` opens a new console window for the exe.
     // We wrap inside cmd /c so Node doesn't need to find "start" itself.
     child = spawn('cmd', ['/c', 'start', '', exePath], {
-      cwd: path.dirname(exePath),
+      cwd: workingDirectory,
       detached: true, // let the child outlive the extension host
       stdio: 'ignore', // detach stdio so the process is truly independent
       shell: false,
     });
-  } else if (process.platform === 'darwin') {
-    child = spawn('open', [exePath], {
-      cwd: path.dirname(exePath),
-      detached: true,
-      stdio: 'ignore',
-    });
-  } else {
-    // Linux / other POSIX
-    child = spawn('xdg-open', [exePath], {
-      cwd: path.dirname(exePath),
-      detached: true,
-      stdio: 'ignore',
-    });
+  } catch (err) {
+    channel.appendLine(`  ⚠ Could not launch executable: ${err.message}`);
+    const term = getTerminal({ cwd: workingDirectory });
+    term.show(true);
+    term.sendText(`& "${exePath.replace(/"/g, '""')}"`, true);
+    return;
   }
 
   // Detach the child so it runs independently after the parent closes
@@ -252,25 +301,9 @@ function runExecutable(exePath) {
 
   child.on('error', (err) => {
     channel.appendLine(`  ⚠ Could not launch executable: ${err.message}`);
-    const term = getTerminal();
-    term.show();
-
-    // Platform-specific shell escaping
-    const shellEscape = (str) => {
-      if (process.platform === 'win32') {
-        return `"${str.replace(/"/g, '""')}"`;
-      } else {
-        // POSIX shell escaping (bash, sh, zsh)
-        return `'${str.replace(/'/g, "'\\''")}'`;
-      }
-    };
-
-    const safeExe = shellEscape(exePath);
-    if (process.platform === 'win32') {
-      term.sendText(`cmd /c ${safeExe}`);
-    } else {
-      term.sendText(safeExe);
-    }
+    const term = getTerminal({ cwd: workingDirectory });
+    term.show(true);
+    term.sendText(`& "${exePath.replace(/"/g, '""')}"`, true);
   });
 }
 

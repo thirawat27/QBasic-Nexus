@@ -33,6 +33,7 @@ const { lintDocument } = require('./src/extension/linting');
 const { showCodeStatsDetail } = require('./src/extension/codeStats');
 const { executeCompile } = require('./src/extension/compileCommand');
 const { runInCrt } = require('./src/extension/crtRunner');
+const { maybeAutoConfigureQB64 } = require('./src/extension/qb64Compiler');
 const {
   removeLineNumbers,
   renumberLines,
@@ -201,6 +202,7 @@ async function activate(context) {
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       debouncedStatusUpdate();
       if (editor) {
+        void maybeAutoConfigureQB64(editor);
         lintDocument(editor.document);
         throttledStatsUpdate(editor.document);
       } else {
@@ -254,7 +256,10 @@ async function activate(context) {
       }
     }),
     vscode.window.onDidCloseTerminal((t) => {
-      if (t === state.terminal) state.terminal = null;
+      if (t === state.terminal) {
+        state.terminal = null;
+        state.terminalCwd = null;
+      }
     }),
     // Memory leak fix: remove incremental linter state when doc is closed
     vscode.workspace.onDidCloseTextDocument((doc) => {
@@ -267,6 +272,7 @@ async function activate(context) {
   updateStatusBar();
   if (vscode.window.activeTextEditor) {
     const doc = vscode.window.activeTextEditor.document;
+    void maybeAutoConfigureQB64(vscode.window.activeTextEditor);
     lintDocument(doc);
     updateCodeStats(doc);
   }
@@ -298,6 +304,7 @@ function deactivate() {
   state.outputChannel = null;
   state.diagnosticCollection = null;
   state.terminal = null;
+  state.terminalCwd = null;
   state.extensionContext = null;
 }
 

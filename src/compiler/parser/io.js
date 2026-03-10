@@ -80,7 +80,7 @@ _parseInput() {
       const name = id.value;
       if (!this._hasVar(name)) {
         this._addVar(name);
-        this._emit(`let ${name} = ${name.endsWith('$') ? '""' : '0'};`);
+        this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
       }
 
       this._emit(`${name} = await _input("${escaped}");`);
@@ -130,7 +130,7 @@ _parseRead() {
         // Simple variable read
         if (!this._hasVar(name)) {
           this._addVar(name);
-          this._emit(`let ${name} = ${name.endsWith('$') ? '""' : '0'};`);
+          this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
         }
 
         this._emit(`${name} = _read();`);
@@ -165,7 +165,7 @@ _parseLineInput() {
 
     if (!this._hasVar(name)) {
       this._addVar(name);
-      this._emit(`let ${name} = "";`);
+      this._emit(`var ${name} = "";`);
     }
 
     this._emit(`${name} = await _input("${escaped}");`);
