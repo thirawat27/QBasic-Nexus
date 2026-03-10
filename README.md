@@ -1352,7 +1352,6 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
    - **Right (Column 2)** — A **Markdown Preview** showing the full lesson brief: Objective, Description, Hint, and the Template code block
 5. Write or modify your solution in the **left panel**
 6. Press **`F5`** to compile and run
-7. If your output matches the lesson goal, a success message appears automatically
 
 **Tutorial Stages**
 
