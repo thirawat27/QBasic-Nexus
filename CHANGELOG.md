@@ -4,20 +4,36 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 
 ## [1.5.1] - 2026-03-10
 
-### 🌍 Cross-Platform Internal Compiler
+### 🚀 Internal Compiler
 
-- **Packager Migration**: Switched the internal compiler from `pkg` to `@yao-pkg/pkg` for current-platform native executable packaging on Windows, macOS, and Linux.
-- **Runtime Consistency**: Internal compiler output now launches with the correct working directory across platforms, improving relative file access behavior.
+- **AST-First Control Flow**: The internal compiler now routes `GOTO`, `GOSUB`, `RETURN`, `ON ... GOTO/GOSUB`, `ON ERROR`, and `RESUME` through an AST + semantic analysis path with trampoline/state-machine execution instead of legacy throw/recursion behavior.
+- **Semantic Diagnostics**: Added semantic checks for missing labels, invalid `EXIT`/`CONTINUE`, `RESUME` misuse, mismatched `NEXT`, stray block terminators, and unreachable code, while preserving warnings as non-blocking diagnostics.
+- **Preprocessor Support**: Added `$INCLUDE`, `$STATIC`, and `$DYNAMIC` preprocessing with source-path-aware include resolution across compile, transpile, and lint flows.
+- **Scope Compatibility**: Improved QB/QB64-style behavior for `STATIC` procedure locals and `COMMON SHARED` globals inside internal compiler output.
+- **Type System Improvements**: Expanded fixed-length string handling, nested `TYPE` support, keyword-safe member access, and target-aware assignments for array elements and member chains.
+- **Text/Graphics Compatibility**: Added internal runtime support for `POINT` alongside the existing compatibility layer for text-mode and non-crashing graphics commands.
 
-### 🔎 QB64 Auto-Detect
+### 💾 File, Data, and Runtime Compatibility
 
-- **Smarter Discovery**: QB64 detection now checks environment hints, common install folders, and `PATH`, including QB64 Phoenix Edition layouts.
-- **Save-on-Detect Flow**: When QB64 is found automatically, the extension can now offer to save the detected path and recover from stale saved paths.
+- **File I/O Expansion**: Added internal runtime support for `FREEFILE`, `INPUT$`, `LOF`, `LOC`, `EOF`, `SEEK`, `FILES`, `NAME`, `KILL`, `MKDIR`, `RMDIR`, `CHDIR`, `RESET`, `LINE INPUT #`, token-based `INPUT #`, `WRITE #`, `LSET`, and `RSET`.
+- **Random/Binary Records**: Added `OPEN ... FOR RANDOM/BINARY ... LEN =`, `FIELD`, `GET #`, and `PUT #` with fixed-length record behavior and typed payload handling in the internal compiler runtime.
+- **Typed Binary Conversions**: Implemented `CVI`, `CVL`, `CVS`, `CVD`, `MKI$`, `MKL$`, `MKS$`, `MKD$`, and generic `_CV` / `_MK$` helpers for internal compiler output.
+- **Typed Record Support**: `GET #` / `PUT #` now support typed scalars, fixed-length strings, nested `TYPE` records, and assignable targets such as array elements and member chains.
+- **Locking and Sharing Rules**: Added internal enforcement for `SHARED`, `LOCK`, `UNLOCK`, and `OPEN ... LOCK ...` semantics, including overlapping lock detection across open handles.
+- **Program Restart Behavior**: `RUN` without an external target now restarts the current internal-compiler program cleanly; unsupported external `RUN` / `CHAIN` paths now fail with explicit runtime errors instead of ambiguous crashes.
+- **Memory Primitives**: Added working internal runtime support for `PEEK`, `POKE`, `OUT`, `WAIT`, `INP`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, and `_MEMFREE`.
+
+### 🔎 Editor and Tooling
+
+- **Better Lint Ranges**: Incremental linter diagnostics now use precise `column` / `length` ranges and preserve warning/info severity more accurately.
+- **QB64 Discovery**: QB64 auto-detect now checks environment hints, common install folders, and `PATH`, including QB64 Phoenix Edition layouts, and can recover from stale saved paths.
+- **Cross-Platform Packaging**: The internal compiler packaging path was updated from `pkg` to `@yao-pkg/pkg`, improving current-platform native executable generation and working-directory consistency.
+
+
 
 ### 📝 Documentation
 
-- **Version Bump**: Updated the extension version to `1.5.1`.
-- **Docs Alignment**: Removed outdated Windows-only/internal `pkg` wording from README, metadata, and security notes.
+- **Docs Alignment**: Updated release notes to reflect the current internal compiler/runtime feature set shipped in `1.5.1`.
 
 ---
 

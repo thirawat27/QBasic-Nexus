@@ -53,8 +53,14 @@
   const VFS_KEY = 'qbasic_nexus_vfs';
   const VFS_MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
   const VFS_DIR_PREFIX = '__dir__';
+  const VFS_ROOT = '/';
   let vfs = {};
   const fileHandles = {};
+  let currentVfsDir = VFS_ROOT;
+  const startVfsDir = VFS_ROOT;
+  let dirSearchPattern = null;
+  let dirSearchMatches = [];
+  let dirSearchIndex = 0;
 
   // Load VFS from localStorage
   function _loadVFS() {
@@ -84,12 +90,46 @@
   }
 
   function normalizeVfsPath(filename) {
-    return String(filename ?? '').trim();
+    const rawName = String(filename ?? '')
+      .trim()
+      .replace(/\\/g, '/');
+    if (!rawName) return '';
+
+    const combined = rawName.startsWith('/')
+      ? rawName
+      : (currentVfsDir.endsWith('/') ? currentVfsDir : currentVfsDir + '/') +
+        rawName;
+    const parts = combined.split('/');
+    const normalized = [];
+
+    for (const part of parts) {
+      if (!part || part === '.') continue;
+      if (part === '..') {
+        normalized.pop();
+      } else {
+        normalized.push(part);
+      }
+    }
+
+    return '/' + normalized.join('/');
   }
 
-  function splitVfsLines(content) {
-    const normalized = String(content ?? '').replace(/\r\n?/g, '\n');
-    return normalized.length > 0 ? normalized.split('\n') : [];
+  function hasVfsDirectory(dirname) {
+    const normalized = normalizeVfsPath(dirname);
+    return (
+      normalized === VFS_ROOT ||
+      Boolean(normalized && vfs[VFS_DIR_PREFIX + normalized])
+    );
+  }
+
+  function trackVfsDirectories(filename) {
+    const normalized = normalizeVfsPath(filename);
+    const parts = normalized.split('/').filter(Boolean);
+    let current = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+      current += '/' + parts[i];
+      vfs[VFS_DIR_PREFIX + current] = true;
+    }
   }
 
   function getVfsFile(filename) {
@@ -112,6 +152,7 @@
     const normalized = normalizeVfsPath(filename);
     if (!normalized) return false;
 
+    trackVfsDirectories(normalized);
     vfs[normalized] = String(content ?? '');
     _saveVFS();
     return true;
@@ -129,6 +170,27 @@
   function listVfsFiles() {
     return Object.keys(vfs)
       .filter((name) => !name.startsWith(VFS_DIR_PREFIX))
+      .sort((left, right) => left.localeCompare(right));
+  }
+
+  function listCurrentDirectoryVfsFiles(filespec) {
+    const pattern = String(filespec ?? '*').trim() || '*';
+    const regex = new RegExp(
+      '^' +
+        pattern
+          .replace(/[.+^$()|[\]{}\\]/g, '\\$&')
+          .replace(/\*/g, '.*')
+          .replace(/\?/g, '.') +
+        '$',
+      'i',
+    );
+    const prefix = currentVfsDir === VFS_ROOT ? VFS_ROOT : currentVfsDir + '/';
+
+    return listVfsFiles()
+      .filter((name) => name.startsWith(prefix))
+      .map((name) => name.slice(prefix.length))
+      .filter((name) => name.length > 0 && !name.includes('/'))
+      .filter((name) => regex.test(name))
       .sort((left, right) => left.localeCompare(right));
   }
 
@@ -712,7 +774,38 @@
   // VIRTUAL FILE SYSTEM (VFS)
   // =========================================================================
 
-  async function vfsOpen(filename, mode, filenum) {
+  function normalizeFileAccess(mode, access) {
+    const explicit =
+      access === undefined || access === null
+        ? ''
+        : String(access).toUpperCase().trim();
+    if (
+      explicit === 'READ' ||
+      explicit === 'WRITE' ||
+      explicit === 'READ WRITE'
+    ) {
+      return explicit;
+    }
+    if (mode === 'INPUT') return 'READ';
+    if (mode === 'OUTPUT' || mode === 'APPEND') return 'WRITE';
+    return 'READ WRITE';
+  }
+
+  function assertFileReadable(fh) {
+    if (!fh) throw new Error('File is not open.');
+    if (fh.access === 'WRITE') {
+      throw new Error('File is not open for reading.');
+    }
+  }
+
+  function assertFileWritable(fh) {
+    if (!fh) throw new Error('File is not open.');
+    if (fh.access === 'READ') {
+      throw new Error('File is not open for writing.');
+    }
+  }
+
+  async function vfsOpen(filename, mode, filenum, recordLength, options) {
     const normalizedName = normalizeVfsPath(filename);
     mode = String(mode || 'INPUT').toUpperCase();
     const content = getVfsFile(normalizedName);
@@ -721,30 +814,35 @@
       filename: normalizedName,
       mode: mode,
       content: content,
-      lines: mode === 'INPUT' ? splitVfsLines(content) : null,
       position: 0,
-      buffer: '', // For output buffering
+      recordLength: Math.max(0, Math.floor(Number(recordLength) || 0)),
+      fields: null,
+      access: normalizeFileAccess(mode, options?.access),
+      shared: Boolean(options?.shared),
+      lockMode:
+        options?.lockMode === undefined || options?.lockMode === null
+          ? null
+          : String(options.lockMode),
     };
 
     if (mode === 'OUTPUT') {
-      fileHandles[filenum].content = ''; // Overwrite
-      fileHandles[filenum].buffer = '';
+      fileHandles[filenum].content = '';
+      fileHandles[filenum].position = 0;
     } else if (mode === 'APPEND') {
-      // Keep content
-    } else if (mode === 'INPUT') {
-      // Read only
+      fileHandles[filenum].position = fileHandles[filenum].content.length;
     }
   }
 
   async function vfsClose(filenum) {
     const fh = fileHandles[filenum];
     if (fh) {
-      if (fh.mode === 'OUTPUT' || fh.mode === 'APPEND') {
-        let finalContent = fh.content;
-        if (fh.mode === 'OUTPUT') finalContent = fh.buffer;
-        else if (fh.mode === 'APPEND') finalContent += fh.buffer;
-
-        setVfsFile(fh.filename, finalContent);
+      if (
+        fh.mode === 'OUTPUT' ||
+        fh.mode === 'APPEND' ||
+        fh.mode === 'BINARY' ||
+        fh.mode === 'RANDOM'
+      ) {
+        setVfsFile(fh.filename, fh.content);
       }
       delete fileHandles[filenum];
     }
@@ -756,32 +854,267 @@
   async function vfsPrint(filenum, text) {
     const fh = fileHandles[filenum];
     if (fh) {
+      assertFileWritable(fh);
       const content = String(text ?? '');
-      // Check buffer size limit
-      if (fh.buffer.length + content.length > _MAX_VFS_BUFFER_SIZE) {
+      if (fh.content.length + content.length > _MAX_VFS_BUFFER_SIZE) {
         console.warn('[QBasic Runtime] VFS buffer limit reached');
         return;
       }
-      fh.buffer += content;
+      fh.content =
+        fh.content.slice(0, fh.position) +
+        content +
+        fh.content.slice(fh.position);
+      fh.position += content.length;
     }
   }
 
-  async function vfsInput(filenum) {
-    // Simplified line input from file
-    // TODO: Real token-based input
+  function vfsEof(filenum) {
+    const fh = fileHandles[filenum];
+    if (!fh) return true;
+    return fh.position >= fh.content.length;
+  }
+
+  function vfsLof(filenum) {
+    const fh = fileHandles[filenum];
+    if (!fh) return 0;
+    return fh.content.length;
+  }
+
+  function vfsLoc(filenum) {
+    const fh = fileHandles[filenum];
+    if (!fh) return 0;
+    return fh.position;
+  }
+
+  function vfsFreeFile() {
+    let candidate = 1;
+    while (fileHandles[candidate]) candidate++;
+    return candidate;
+  }
+
+  function resolveVfsOffset(fh, position) {
+    if (position === undefined || position === null) {
+      return Math.max(0, Math.floor(Number(fh.position) || 0));
+    }
+
+    const numeric = Math.max(1, Math.floor(Number(position) || 1));
+    if (fh.mode === 'RANDOM' && fh.recordLength > 0) {
+      return (numeric - 1) * fh.recordLength;
+    }
+    return numeric - 1;
+  }
+
+  function overwriteVfsData(fh, offset, data) {
+    const start = Math.max(0, Math.floor(Number(offset) || 0));
+    const payload = String(data ?? '');
+
+    if (start > fh.content.length) {
+      fh.content += ' '.repeat(start - fh.content.length) + payload;
+      return;
+    }
+
+    fh.content =
+      fh.content.slice(0, start) +
+      payload +
+      fh.content.slice(start + payload.length);
+  }
+
+  function fieldRecordLength(fh) {
+    if (!fh?.fields || fh.fields.length === 0) return 0;
+    return fh.fields.reduce(
+      (total, field) => total + Math.max(0, Math.floor(Number(field.length) || 0)),
+      0,
+    );
+  }
+
+  function buildFieldRecord(fh) {
+    if (!fh?.fields || fh.fields.length === 0) return '';
+    return fh.fields
+      .map((field) => String(field.get?.() ?? '').padEnd(field.length).slice(0, field.length))
+      .join('');
+  }
+
+  function applyFieldRecord(fh, data) {
+    if (!fh?.fields || fh.fields.length === 0) return;
+    let offset = 0;
+    const source = String(data ?? '');
+
+    for (const field of fh.fields) {
+      const width = Math.max(0, Math.floor(Number(field.length) || 0));
+      const chunk = source.slice(offset, offset + width).padEnd(width);
+      field.set?.(chunk);
+      offset += width;
+    }
+  }
+
+  function serializeVfsValue(fh, value) {
+    let serialized = String(value ?? '');
+    const recordLength = Math.max(
+      0,
+      Math.floor(Number(fh?.recordLength || fieldRecordLength(fh)) || 0),
+    );
+
+    if (fh?.mode === 'RANDOM' && recordLength > 0) {
+      serialized =
+        serialized.length >= recordLength
+          ? serialized.slice(0, recordLength)
+          : serialized.padEnd(recordLength, ' ');
+    }
+
+    return serialized;
+  }
+
+  function readVfsChunk(fh, offset, length) {
+    const start = Math.max(0, Math.floor(Number(offset) || 0));
+    const recordLength = Math.max(
+      0,
+      Math.floor(Number(fh?.recordLength || fieldRecordLength(fh)) || 0),
+    );
+    const effectiveLength =
+      length === undefined || length === null
+        ? recordLength > 0
+          ? recordLength
+          : Math.max(0, fh.content.length - start)
+        : Math.max(0, Math.floor(Number(length) || 0));
+    return fh.content.slice(start, start + effectiveLength);
+  }
+
+  function skipVfsInputSeparators(fh) {
+    while (fh.position < fh.content.length) {
+      const ch = fh.content[fh.position];
+      if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n' || ch === ',') {
+        fh.position++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  async function vfsInputToken(filenum) {
     const fh = fileHandles[filenum];
     if (!fh) return '';
+    assertFileReadable(fh);
 
-    // Use cached lines array to avoid O(N) split on every line read
-    if (!fh.lines && fh.content) fh.lines = splitVfsLines(fh.content);
-    else if (!fh.lines) fh.lines = [];
+    skipVfsInputSeparators(fh);
+    if (fh.position >= fh.content.length) {
+      return '';
+    }
 
-    let res = '';
-    if (fh.position < fh.lines.length) {
-      res = fh.lines[fh.position];
+    if (fh.content[fh.position] === '"') {
+      fh.position++;
+      let value = '';
+      while (fh.position < fh.content.length) {
+        const ch = fh.content[fh.position];
+        if (ch === '"') {
+          if (fh.content[fh.position + 1] === '"') {
+            value += '"';
+            fh.position += 2;
+            continue;
+          }
+          fh.position++;
+          skipVfsInputSeparators(fh);
+          return value;
+        }
+        value += ch;
+        fh.position++;
+      }
+      skipVfsInputSeparators(fh);
+      return value;
+    }
+
+    const start = fh.position;
+    while (fh.position < fh.content.length) {
+      const ch = fh.content[fh.position];
+      if (ch === ',' || ch === '\r' || ch === '\n') break;
       fh.position++;
     }
-    return res;
+
+    const value = fh.content.slice(start, fh.position).trim();
+    skipVfsInputSeparators(fh);
+    return value;
+  }
+
+  async function vfsInputLine(filenum) {
+    const fh = fileHandles[filenum];
+    if (!fh) return '';
+    assertFileReadable(fh);
+
+    const newlineIndex = fh.content.indexOf('\n', fh.position);
+    const end = newlineIndex === -1 ? fh.content.length : newlineIndex;
+    const line = fh.content.slice(fh.position, end).replace(/\r$/, '');
+    fh.position = newlineIndex === -1 ? fh.content.length : newlineIndex + 1;
+    return line;
+  }
+
+  function vfsInputChars(count, filenum) {
+    const fh = fileHandles[filenum];
+    if (!fh) return '';
+    assertFileReadable(fh);
+
+    const length = Math.max(0, Math.floor(Number(count) || 0));
+    const end = Math.min(fh.position + length, fh.content.length);
+    const chunk = fh.content.slice(fh.position, end);
+    fh.position = end;
+    return chunk;
+  }
+
+  async function vfsWrite(filenum, ...values) {
+    const encoded = values
+      .map((value) => {
+        if (typeof value === 'string') {
+          return '"' + String(value).replace(/"/g, '""') + '"';
+        }
+        return String(value);
+      })
+      .join(',') + '\n';
+    await vfsPrint(filenum, encoded);
+  }
+
+  function vfsField(filenum, definitions) {
+    const fh = fileHandles[filenum];
+    if (!fh) return;
+    fh.fields = Array.isArray(definitions) ? definitions : [];
+    const totalLength = fieldRecordLength(fh);
+    if (totalLength > 0 && (!fh.recordLength || fh.recordLength < totalLength)) {
+      fh.recordLength = totalLength;
+    }
+  }
+
+  async function vfsPutValue(filenum, position, value) {
+    const fh = fileHandles[filenum];
+    if (!fh) return;
+    assertFileWritable(fh);
+    const offset = resolveVfsOffset(fh, position);
+    const payload =
+      value === undefined
+        ? serializeVfsValue(fh, buildFieldRecord(fh))
+        : String(value ?? '');
+    overwriteVfsData(fh, offset, payload);
+    fh.position = offset + payload.length;
+  }
+
+  async function vfsGetValue(filenum, position, length) {
+    const fh = fileHandles[filenum];
+    if (!fh) return '';
+    assertFileReadable(fh);
+    const offset = resolveVfsOffset(fh, position);
+    const chunk = readVfsChunk(fh, offset, length);
+    fh.position = offset + chunk.length;
+    return chunk;
+  }
+
+  async function vfsGetFields(filenum, position) {
+    const fh = fileHandles[filenum];
+    if (!fh) return;
+    assertFileReadable(fh);
+    const offset = resolveVfsOffset(fh, position);
+    const chunk = readVfsChunk(
+      fh,
+      offset,
+      fh.recordLength || fieldRecordLength(fh),
+    );
+    applyFieldRecord(fh, chunk);
+    fh.position = offset + chunk.length;
   }
 
   // =========================================================================
@@ -943,6 +1276,58 @@
     ctx.fillRect(absX | 0, absY | 0, 1, 1);
     lastX = absX;
     lastY = absY;
+  }
+
+  function _parsePaletteHex(hex) {
+    const normalized = String(hex || '').replace('#', '');
+    if (normalized.length !== 6) {
+      return [0, 0, 0];
+    }
+
+    return [
+      parseInt(normalized.slice(0, 2), 16) || 0,
+      parseInt(normalized.slice(2, 4), 16) || 0,
+      parseInt(normalized.slice(4, 6), 16) || 0,
+    ];
+  }
+
+  function _point(x, y) {
+    if (y === undefined) {
+      const selector = Math.trunc(Number(x) || 0);
+      if (selector === 0) return Math.trunc(lastX);
+      if (selector === 1) return Math.trunc(lastY);
+      return 0;
+    }
+
+    if (!ctx || !canvas || canvas.style.display === 'none') {
+      return 0;
+    }
+
+    const px = Math.trunc(Number(x) || 0);
+    const py = Math.trunc(Number(y) || 0);
+
+    if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) {
+      return 0;
+    }
+
+    const pixel = ctx.getImageData(px, py, 1, 1).data;
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < COLORS.length; index++) {
+      const [r, g, b] = _parsePaletteHex(COLORS[index]);
+      const distance =
+        Math.abs(pixel[0] - r) +
+        Math.abs(pixel[1] - g) +
+        Math.abs(pixel[2] - b);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    }
+
+    return bestIndex;
   }
 
   function _line(x1, y1, x2, y2, c, box, fill, step1, step2) {
@@ -1784,7 +2169,7 @@
     console.log('PCOPY', src, 'TO', dst, '- single page in web mode');
   }
 
-  // File system stubs (VFS-based)
+  // File system helpers (VFS-based)
   async function _rename(oldName, newName) {
     const currentName = normalizeVfsPath(oldName);
     const nextName = normalizeVfsPath(newName);
@@ -1823,20 +2208,21 @@
   }
 
   async function _chdir(dirname) {
-    // VFS doesn't have real directory structure
-    console.log('CHDIR', dirname || '.');
+    const directoryName = normalizeVfsPath(dirname || '.');
+    if (!directoryName) return;
+    if (!hasVfsDirectory(directoryName)) {
+      throw new Error('Directory not found: ' + String(dirname));
+    }
+    currentVfsDir = directoryName;
   }
 
   async function _files(spec) {
     try {
-      // List files in VFS
-      const _pattern = spec || '*';
-      const files = listVfsFiles();
-      print('Files in VFS:', true);
+      const files = listCurrentDirectoryVfsFiles(spec || '*');
       if (files.length === 0) {
-        print('  (no files)', true);
+        print('(no files)', true);
       } else {
-        files.forEach((f) => print('  ' + f, true));
+        files.forEach((f) => print(f, true));
       }
     } catch (_e) {
       console.error('[VFS] FILES error:', _e);
@@ -1854,11 +2240,20 @@
   }
 
   function _lock(fileNum, start, end) {
-    console.log('LOCK', fileNum, start, end, '- not supported in web VFS');
+    const fh = fileHandles[fileNum];
+    if (fh) {
+      fh.lock = {
+        start: start ?? null,
+        end: end ?? null,
+      };
+    }
   }
 
-  function _unlock(fileNum, start, end) {
-    console.log('UNLOCK', fileNum, start, end, '- not supported in web VFS');
+  function _unlock(fileNum, _start, _end) {
+    const fh = fileHandles[fileNum];
+    if (fh) {
+      delete fh.lock;
+    }
   }
 
   async function _resetFiles() {
@@ -1869,6 +2264,46 @@
     } catch (_e) {
       console.error('[VFS] RESET error:', _e);
     }
+  }
+
+  function _fileExists(filename) {
+    return hasVfsFile(filename);
+  }
+
+  function _dirExists(dirname) {
+    return hasVfsDirectory(dirname);
+  }
+
+  function _cwd$() {
+    return currentVfsDir;
+  }
+
+  function _startdir$() {
+    return startVfsDir;
+  }
+
+  function _dir$(spec) {
+    if (spec !== undefined && String(spec).length > 0) {
+      dirSearchPattern = String(spec);
+      dirSearchMatches = listCurrentDirectoryVfsFiles(dirSearchPattern);
+      dirSearchIndex = 0;
+    } else if (dirSearchPattern == null) {
+      return '';
+    }
+
+    if (dirSearchIndex >= dirSearchMatches.length) {
+      return '';
+    }
+
+    return dirSearchMatches[dirSearchIndex++] || '';
+  }
+
+  function _command$() {
+    return '';
+  }
+
+  function _environ$(_key) {
+    return '';
   }
 
   // Memory stubs
@@ -1955,6 +2390,7 @@
     // Graphics
     pset: _pset,
     preset: _preset,
+    point: _point,
     line: _line,
     circle: _circle,
     get: _get,
@@ -1992,7 +2428,19 @@
     open: vfsOpen,
     close: vfsClose,
     printFile: vfsPrint,
-    inputFile: vfsInput,
+    writeFile: vfsWrite,
+    inputFile: vfsInputLine,
+    inputFileLine: vfsInputLine,
+    inputFileToken: vfsInputToken,
+    inputFileChars: vfsInputChars,
+    freefile: vfsFreeFile,
+    eof: vfsEof,
+    lof: vfsLof,
+    loc: vfsLoc,
+    field: vfsField,
+    putFileValue: vfsPutValue,
+    getFileValue: vfsGetValue,
+    getFileFields: vfsGetFields,
 
     // Input
     input,
@@ -2097,6 +2545,13 @@
     lock: _lock,
     unlock: _unlock,
     resetFiles: _resetFiles,
+    fileexists: _fileExists,
+    direxists: _dirExists,
+    'dir$': _dir$,
+    'cwd$': _cwd$,
+    'startdir$': _startdir$,
+    'command$': _command$,
+    'environ$': _environ$,
 
     // NEW: Memory
     poke: _poke,

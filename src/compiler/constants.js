@@ -230,19 +230,22 @@ const BUILTIN_FUNCS = Object.freeze({
     'UBOUND': '((arr, dim) => arr.length - 1)',
     
     // ========== System Functions ==========
-    'ENVIRON$': '(key => typeof process !== "undefined" && process.env ? process.env[key] || "" : "")',
-    'COMMAND$': '(() => typeof process !== "undefined" && process.argv ? process.argv.slice(2).join(" ") : "")',
+    'ENVIRON$': '_environ$',
+    'COMMAND$': '_command$',
     
     // ========== File Functions (stubs for web) ==========
-    'FREEFILE': '(() => _nextFileNum++)',
-    'EOF': '(n => _files[n]?.eof ?? true)',
-    'LOF': '(n => _files[n]?.data?.length ?? 0)',
-    'LOC': '(n => _files[n]?.pos ?? 0)',
+    'FREEFILE': '_freefile',
+    'EOF': '_eof',
+    'LOF': '_lof',
+    'LOC': '_loc',
     
     // ========== QB64 System ==========
-    '_FILEEXISTS': '(f => false)',
-    '_DIREXISTS': '(d => false)',
-    '_CWD$': '(() => typeof process !== "undefined" ? process.cwd() : "/")',
+    '_FILEEXISTS': '_fileexists',
+    '_DIREXISTS': '_direxists',
+    'DIR$': '_dir$',
+    '_DIR$': '_dir$',
+    '_CWD$': '_cwd$',
+    '_STARTDIR$': '_startdir$',
     '_OS$': '(() => typeof process !== "undefined" ? process.platform : "web")',
     '_CLIPBOARD$': '(() => "")',
     
@@ -282,12 +285,30 @@ const BUILTIN_FUNCS = Object.freeze({
     '_FONTWIDTH': '(() => 8)',
     
     // ========== Additional String Functions ==========
-    'INPUT$': '((n, filenum) => { throw new Error("INPUT$ requires file I/O - use QB64 mode"); })',
-    'LSET': '((str, len) => String(str).padEnd(len).slice(0, len))',
-    'RSET': '((str, len) => String(str).padStart(len).slice(-len))',
+    'INPUT$': '_input$',
+    'LSET': '_lset',
+    'RSET': '_rset',
+    'CVI': '_cvi',
+    'CVL': '_cvl',
+    'CVS': '_cvs',
+    'CVD': '_cvd',
+    'MKI$': '_mki$',
+    'MKL$': '_mkl$',
+    'MKS$': '_mks$',
+    'MKD$': '_mkd$',
+    '_CVI': '_cvi',
+    '_CVL': '_cvl',
+    '_CVS': '_cvs',
+    '_CVD': '_cvd',
+    '_MKI$': '_mki$',
+    '_MKL$': '_mkl$',
+    '_MKS$': '_mks$',
+    '_MKD$': '_mkd$',
     
     // ========== Memory Functions (stubs) ==========
-    'PEEK': '((addr) => 0)',
+    'PEEK': '_peek',
+    'INP': '_inp',
+    'POINT': '_point',
     'VARPTR': '((v) => 0)',
     'VARSEG': '((v) => 0)',
     'SADD': '((s) => 0)',
@@ -301,8 +322,8 @@ const BUILTIN_FUNCS = Object.freeze({
     '_SNDPLAYING': '((handle) => 0)',
     
     // ========== Conversion Functions ==========
-    '_CV': '((type, str) => 0)',
-    '_MK$': '((type, value) => "")'
+    '_CV': '_cv',
+    '_MK$': '_mk$'
 });
 
 module.exports = {

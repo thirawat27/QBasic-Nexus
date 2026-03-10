@@ -125,15 +125,29 @@ class IncrementalLinter {
       const lineCount = document.lineCount;
 
       // Reuse transpiler instance (avoids object creation overhead)
-      const errors = this._transpiler.lint(source);
+      const errors = this._transpiler.lint(source, {
+        sourcePath: document.uri.fsPath,
+      });
 
       const diagnostics = errors.map((err) => {
         const line = Math.max(0, Math.min(err.line, lineCount - 1));
-        const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
+        const lineText = document.lineAt(line).text;
+        const startColumn = Math.max(
+          0,
+          Math.min(Number(err.column) || 0, lineText.length),
+        );
+        const endColumn = Math.max(
+          startColumn + 1,
+          Math.min(
+            lineText.length,
+            startColumn + Math.max(1, Number(err.length) || 1),
+          ),
+        );
+        const range = new vscode.Range(line, startColumn, line, endColumn);
         const severity = _getSeverity(err.severity || 'error');
         const diag = new vscode.Diagnostic(range, err.message, severity);
         diag.source = 'QBasic Nexus';
-        diag.code = err.code || 'E001';
+        diag.code = err.code || err.category?.toUpperCase() || 'E001';
         return diag;
       });
 

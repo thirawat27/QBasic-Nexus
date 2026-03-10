@@ -64,8 +64,8 @@ const MOO_RULES = {
   // Floating / integer numbers with optional type suffixes
   NUMBER: { match: /\d+(?:\.\d*)?(?:[eE][+-]?\d+)?[#!&%]?|\.\d+[#!&%]?/ },
 
-  // String literals (allow escape-less unclosed strings gracefully)
-  STRING: { match: /"[^"\n]*"?/ },
+  // String literals (QBasic escapes embedded quotes as "")
+  STRING: { match: /"(?:[^"\n]|"")*"?/ },
 
   // Identifiers & keywords (case-insensitive via post-processing)
   IDENT: { match: /[A-Za-z_][A-Za-z0-9_]*[$%&!#]?/ },
@@ -197,7 +197,9 @@ class Lexer {
           // Strip surrounding quotes (moo includes them)
           type = TokenType.STRING;
           value = raw.startsWith('"')
-            ? raw.slice(1, raw.endsWith('"') ? -1 : undefined)
+            ? raw
+              .slice(1, raw.endsWith('"') ? -1 : undefined)
+              .replace(/""/g, '"')
             : raw;
           break;
 

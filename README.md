@@ -48,7 +48,7 @@
 - [📦 Available Commands](#-available-commands)
 - [🎬 Web Runtime Capabilities](#-web-runtime-capabilities)
 - [🧩 Snippets Reference](#-snippets-reference)
-- [🎮 Interactive Tutorial](#-the-ultimate-interactive-curriculum)
+- [🎮 Interactive Tutorial](#-the-interactive-curriculum)
 - [🔥 QBNex Compiler](#-introducing-qbnex-compiler)
 - [🆘 Troubleshooting](#-troubleshooting)
 - [🤝 Contributing](#-contributing)
@@ -85,11 +85,13 @@ The internal compiler transpiles your QBasic code to JavaScript, then packages i
 
 **Limitations Compared to QB64**
 
-- No direct hardware access (serial ports, parallel ports)
+- No direct physical hardware access (serial ports, parallel ports, USB)
+- Memory access (`PEEK`, `POKE`, `OUT`, `INP`) is sandboxed to the internal runtime memory space
 - No inline assembly (ASM blocks)
-- Limited to 10MB for virtual file system operations
-- Some advanced QB64-specific libraries may not be available
-- Graphics limited to SCREEN 13 (320x200, 256 colors) in CRT viewer
+- Virtual File System is limited to 10MB per workspace
+- Certain advanced QB64-specific libraries (like OpenGL or networking) may not be available
+- Graphics limited to SCREEN 13 (320x200, 256 colors) / limited Point tracking internally
+- External program execution via `RUN` / `CHAIN` without internal targets will fail explicitly
 
 **Best Use Cases**
 
@@ -460,19 +462,19 @@ Each compilation mode produces different results. Here's a detailed comparison t
 
 **Comparison Table**
 
-| Feature                 | QB64 Mode              | QBasic Nexus Mode    | Retro CRT Viewer   |
-| ----------------------- | ---------------------- | -------------------- | ------------------ |
-| **Output Type**         | Native executable      | Node.js-based native executable | In-browser runtime |
-| **File Size**           | 2-5 MB                 | 40-50 MB             | No file created    |
-| **Startup Speed**       | Instant                | ~1 second            | Instant            |
-| **Runtime Performance** | Fastest (native)       | Fast (V8 engine)     | Good (browser)     |
-| **System Access**       | Full (files, hardware) | Limited (virtual FS) | None (sandboxed)   |
-| **Graphics**            | All SCREEN modes       | SCREEN 13 only       | SCREEN 13 only     |
-| **Audio**               | Full QB64 audio        | PLAY & SOUND         | PLAY & SOUND       |
-| **Distribution**        | Single native executable | Single native executable | Requires VS Code   |
-| **Cross-Platform**      | Platform-specific      | Current host platform | Any platform       |
-| **Setup Required**      | QB64 installation      | None                 | None               |
-| **Best For**            | Production apps        | Quick testing        | Demos & learning   |
+| Feature                 | QB64 Mode                | QBasic Nexus Mode                 | Retro CRT Viewer       |
+| ----------------------- | ------------------------ | --------------------------------- | ---------------------- |
+| **Output Type**         | Native executable        | Node.js-based native executable   | In-browser runtime     |
+| **File Size**           | 2-5 MB                   | 40-50 MB                          | No file created        |
+| **Startup Speed**       | Instant                  | ~1 second                         | Instant                |
+| **Runtime Performance** | Fastest (native)         | Fast (V8 engine)                  | Good (browser)         |
+| **System Access**       | Full (files, hardware)   | Sandboxed (Virtual FS, Memory)    | Sandboxed (Virtual FS) |
+| **Graphics**            | All SCREEN modes         | Text & SCREEN 13                  | SCREEN 13 only         |
+| **Audio**               | Full QB64 audio          | PLAY & SOUND                      | PLAY & SOUND           |
+| **Distribution**        | Single native executable | Cross-platform standalone targets | Requires VS Code       |
+| **Cross-Platform**      | Platform-specific        | Windows/macOS/Linux/Alpine        | Any platform           |
+| **Setup Required**      | QB64 installation        | None                              | None                   |
+| **Best For**            | Production apps          | Quick testing & isolated apps     | Demos & learning       |
 
 **When using QB64 mode**
 
@@ -847,10 +849,12 @@ Structured sections   Start 1000, Step 1000
 
 QBasic Nexus doesn't just parse text—it deeply analyzes it using an enterprise-grade compiler pipeline that dramatically outpaces legacy tools.
 
-- **Zero-Setup Native Executables Across Platforms** - Instantly compile QBasic code directly to standalone executables on Windows, macOS, and Linux using the internal backend powered by `@yao-pkg/pkg`. No QB64 installation required for prototyping and distribution!
+- **Zero-Setup Native Executables Across Platforms** - Instantly compile QBasic code directly to standalone executables on Windows, macOS, Linux, and Alpine using the internal backend powered by `@yao-pkg/pkg`. No QB64 installation required for prototyping and distribution!
 - **High-Performance Lexer** - Powered by `moo`, achieving over **1,200 KB/s+ throughput** during compilation with zero-copy token passing to eliminate redundant processing.
+- **AST-First Control Flow & Semantics** - Deep semantic analysis and AST-based state-machine execution for `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`. This trampoline execution guarantees rock-solid stability (zero call-stack overflow crashes) and precise warnings for missing labels or unreachable code.
+- **Robust Legacy Memory & Data Scope** - Run legacy syntax seamlessly! Full internal support for `STATIC` procedure variables, `COMMON SHARED` globals across modules, Fixed-Length Strings (`STRING * N`), and legacy binary memory serialization (`MKI$`, `CVI`, `LSET`, `FIELD`).
 - **Tiered Cache Architecture** - Includes an L1 Hot Cache and an L2 LRU memory pool powered by lightning-fast FNV-1a hashing. Re-compiling unchanged or slightly modified code is virtually instantaneous (0.03ms cache hits).
-- **Dual Pipeline Integration** - Run your code natively via the local **QB64** compiler for heavy-duty system access, or use the **QBasic Nexus Internal** engine for instant logic tests and virtualized sandboxing.
+- **Dual Pipeline Integration** - Run your code natively via the local **QB64** compiler for heavy-duty system access, or use the **QBasic Nexus Internal** engine for instant logic tests, complete with preprocessor directives (`$INCLUDE`), typed binary/random files, and virtualized sandboxing.
 
 **Understanding the Cache System**
 
@@ -920,9 +924,9 @@ The cache system dramatically speeds up compilation by remembering previously co
 The internal web runtime is a fully featured emulation layer powered by HTML5 Canvas and the Web Audio API, designed to look and feel exactly like the 90s, but run perfectly today.
 
 - **Retro CRT Aesthetic** - Authentic scanlines, adjustable neon glow effects, and phosphor persistence.
-- **Rich Graphics** - Full support for `SCREEN 13`, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`, `PUT`, `DRAW` (Macro language), and seamless color manipulation.
+- **Rich Graphics** - Full support for `SCREEN 13`, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`, `PUT`, `DRAW` (Macro language), `POINT`, and seamless color manipulation.
 - **High-Fidelity Audio** - Complete `PLAY` command parsing (octaves, tempo, legato/staccato), along with precise `SOUND` frequency generation.
-- **Virtual File System** - Fully emulated local file I/O operations (`OPEN`, `WRITE`, `INPUT#`) allowing your QBasic scripts to read/write persistent data right inside the VS Code environment (up to 10MB).
+- **Virtual File System** - Fully emulated local file I/O operations (`OPEN`, `WRITE`, `INPUT#`, `MKDIR`, `CHDIR`, `FILES`) allowing your QBasic scripts to read/write persistent data and traverse directory trees right inside the VS Code environment (up to 10MB).
 - **Modern Interactions (QB64 Extensions)** - Native support for `_MOUSEINPUT`, `_KEYHIT`, and `INKEY$` for building responsive interactive applications.
 
 **Virtual File System Details**
@@ -936,6 +940,7 @@ The Virtual File System (VFS) allows your QBasic programs to read and write file
 - Data persists between sessions (until you clear browser data)
 - Maximum total storage - 10MB across all files
 - Supports text and binary file operations
+- Supports folder creation and file management (`MKDIR`, `RMDIR`, `CHDIR`, `NAME`, `KILL` , `FILES`) internally
 
 **Supported File Operations**
 
@@ -955,11 +960,24 @@ OPEN "log.txt" FOR APPEND AS #1
 PRINT #1, "New entry"
 CLOSE #1
 
-' Binary file operations
-OPEN "game.dat" FOR BINARY AS #1
-PUT #1, , playerScore
-GET #1, , playerScore
+' Binary file operations & Typed Records
+TYPE PlayerRecord
+    Score AS INTEGER
+    Name AS STRING * 10
+END TYPE
+DIM P1 AS PlayerRecord
+
+OPEN "game.dat" FOR RANDOM AS #1 LEN = LEN(P1)
+PUT #1, 1, P1
+GET #1, 1, P1
 CLOSE #1
+
+' Advanced File Sharing & Locking
+OPEN "shared.dat" FOR BINARY SHARED AS #2
+LOCK #2, 1 TO 100
+' ... write exclusive data ...
+UNLOCK #2, 1 TO 100
+CLOSE #2
 ```
 
 **Storage Location**
@@ -995,9 +1013,10 @@ KILL "data.txt"
 **Limitations**
 
 - 10MB total storage limit (shared across all files)
-- No directory/folder support (flat file system)
-- No file permissions or attributes
-- Files are not accessible outside the CRT viewer
+- Files exist in an isolated virtual disk (cannot directly interact with host OS files in Web Runtime)
+- No cross-origin networking capabilities
+- No file attributes (`GETATTR`, `SETATTR`)
+- Files are not accessible outside the CRT viewer natively without exporting
 - Clearing browser data will delete all virtual files
 
 ### 📊 Professional IDE Tools
@@ -1005,7 +1024,8 @@ KILL "data.txt"
 Write code faster, with fewer bugs, using tooling typically reserved for modern languages like TypeScript or C#.
 
 - **IntelliSense on Steroids** - Smart auto-completion for over **400+ keywords**, including built-in math functions, string manipulation, and QB64 extensions.
-- **Real-Time Diagnostics (Linting)** - Catch syntax errors _as you type_. The parser dynamically evaluates your document with configurable debouncing, highlighting errors without freezing your editor.
+- **Real-Time Semantic Diagnostics (Linting)** - Catch logic and syntax errors _as you type_. The parser dynamically evaluates your document without freezing your editor, providing distinct warnings and semantic checks (e.g., detecting missing labels, unreachable code, `RESUME` misuse, invalid `EXIT`, and type mismatches).
+- **Advanced Preprocessor Support** - Automatic tracking and intelligent resolution for `$INCLUDE`, `$STATIC`, and `$DYNAMIC` directives. Included files are verified and integrated instantly for seamless cross-file completion and diagnostics.
 - **Instant Code Navigation** - "Go to Definition" (F12) works flawlessly for your custom `SUB`s, `FUNCTION`s, and `TYPE` structures.
 - **Symbol Renaming (F2)** - Need to rename a variable used 50 times? Do it instantly across the entire file.
 - **At-a-glance Code Stats** - Live status bar counter showing your total Lines of Code, SUBs, and FUNCTIONs.
@@ -1050,18 +1070,19 @@ QBasic Nexus supports over 400 keywords natively for testing within the editor.
 
 **Compatibility Overview**
 
-| Feature Category | Compatibility | Supported Commands Examples                                                    |
-| ---------------- | ------------- | ------------------------------------------------------------------------------ |
-| **Core I/O**     | ✅ 100%       | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`                  |
-| **Control Flow** | ✅ 100%       | `IF`, `SELECT CASE`, `FOR...NEXT`, `DO...LOOP`, `WHILE...WEND`, `EXIT`, `GOTO` |
-| **Math & Logic** | ✅ 95%        | `ABS`, `INT`, `FIX`, `SIN`, `SQR`, `LOG`, `EXP`, `RND`, `MOD`, `_PI`, `_ROUND` |
-| **Strings**      | ✅ 100%       | `LEFT$`, `MID$`, `RIGHT$`, `LEN`, `UCASE$`, `LTRIM$`, `INSTR`, `CHR$`, `ASC`   |
-| **File I/O**     | ✅ 90%        | `OPEN`, `CLOSE`, `PRINT#`, `INPUT#`, `EOF`, `FREEFILE` (Virtual File System)   |
-| **Graphics**     | ✅ 85%        | `LINE`, `CIRCLE`, `PSET`, `DRAW`, `PAINT`, `_RGB32`, `_CLEARCOLOR`             |
-| **Input/System** | ✅ 90%        | `INKEY$`, `TIMER`, `SLEEP`, `_LIMIT`, `_MOUSEINPUT`, `_MOUSEX`, `_KEYHIT`      |
-| **Arrays**       | ✅ 100%       | `DIM`, `REDIM`, `ERASE`, `LBOUND`, `UBOUND`, multi-dimensional arrays          |
-| **SUB/FUNCTION** | ✅ 100%       | `SUB`, `FUNCTION`, `CALL`, `SHARED`, `STATIC`, parameter passing               |
-| **Data Types**   | ✅ 95%        | `INTEGER`, `LONG`, `SINGLE`, `DOUBLE`, `STRING`, `TYPE`, `_INTEGER64`          |
+| Feature Category | Compatibility | Supported Commands Examples                                                                         |
+| ---------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| **Core I/O**     | ✅ 100%       | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`                                       |
+| **Control Flow** | ✅ 100%       | `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT`, `GOTO`, `GOSUB`, `ON ERROR`                      |
+| **Math & Logic** | ✅ 95%        | `ABS`, `INT`, `FIX`, `SIN`, `SQR`, `LOG`, `EXP`, `RND`, `MOD`, `_PI`, `_ROUND`                      |
+| **Strings**      | ✅ 100%       | `LEFT$`, `MID$`, `RIGHT$`, `LEN`, `UCASE$`, `LTRIM$`, `INSTR`, `CHR$`, `STRING * N`                 |
+| **File I/O**     | ✅ 95%        | `OPEN`, `CLOSE`, `PRINT#`, `INPUT#`, `GET`, `PUT`, `FREEFILE`, `LOC`, `LOF`, `EOF`, `SEEK`, `MKDIR` |
+| **Mem / Bin**    | ✅ 90%        | `PEEK`, `POKE`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `MKI$`, `CVI`, `LSET`, `FIELD`                       |
+| **Graphics**     | ✅ 85%        | `LINE`, `CIRCLE`, `PSET`, `POINT`, `DRAW`, `PAINT`, `_RGB32`, `_CLEARCOLOR`                         |
+| **Input/Inter.** | ✅ 90%        | `INKEY$`, `TIMER`, `SLEEP`, `_LIMIT`, `_MOUSEINPUT`, `_MOUSEX`, `_KEYHIT`                           |
+| **Arrays**       | ✅ 100%       | `DIM`, `REDIM`, `ERASE`, `LBOUND`, `UBOUND`, multi-dimensional arrays                               |
+| **SUB/FUNCTION** | ✅ 100%       | `SUB`, `FUNCTION`, `CALL`, `SHARED`, `COMMON SHARED`, `STATIC`, param passing                       |
+| **Data Types**   | ✅ 95%        | `INTEGER`, `LONG`, `SINGLE`, `DOUBLE`, `STRING`, `TYPE`, nested `TYPE`s                             |
 
 **Known Limitations**
 
@@ -1074,10 +1095,10 @@ QBasic Nexus supports over 400 keywords natively for testing within the editor.
 
 **File I/O**
 
-- No real file system access (uses virtual file system)
-- No directory operations (`MKDIR`, `RMDIR`, `CHDIR`)
-- No file attributes (`GETATTR`, `SETATTR`)
-- 10MB total storage limit
+- Isolated from the host physical file system (uses Sandboxed Virtual File System)
+- `OPEN ... FOR RANDOM/BINARY` supports structured records but still runs over virtual storage
+- No hardware file flags or low-level file security properties
+- 10MB total storage limit in web runtime
 
 **Sound**
 
@@ -1086,12 +1107,12 @@ QBasic Nexus supports over 400 keywords natively for testing within the editor.
 - `_SNDOPEN`, `_SNDPLAY` (QB64 sound files) not supported
 - No MP3/WAV file playback
 
-**Hardware Access**
+**Hardware & Memory Access**
 
-- No serial/parallel port access
-- No direct memory access (`PEEK`, `POKE` limited)
-- No inline assembly
-- No USB device access
+- No physical serial/parallel port mapping to the local OS natively. `OUT` and `INP` connect to dummy endpoints.
+- **Emulated Memory Block**: Legacy hardware interactions (`PEEK`, `POKE`) and segment addresses (`DEF SEG`) read from and write to a safe, entirely emulated virtual RAM block. Use legacy memory copying (`_MEMCOPY`, `_MEMFILL`) safely without jeopardizing host security.
+- No inline assembly execution.
+- No raw USB device access.
 
 **Advanced QB64 Features**
 
@@ -1303,9 +1324,9 @@ LOOP UNTIL k$ = CHR$(27) ' ESC to exit
 
 ---
 
-## 🎮 The Ultimate Interactive Curriculum
+## 🎮 The Interactive Curriculum
 
-New to QBasic, or just need to knock off the rust? The **Interactive Tutorial Mode** provides a massive **40-lesson** hands-on curriculum built straight into the editor.
+New to QBasic, or just need to knock off the rust? The **Interactive Tutorial Mode** provides a monumental **80-lesson** hands-on curriculum built straight into the editor.
 
 **How It Works**
 
@@ -1313,131 +1334,169 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 
 **Tutorial System Features**
 
-- **40 Progressive Lessons** - From basics to advanced topics
-- **13 Comprehensive Stages** - Organized by topic and difficulty
-- **Automatic Verification** - Your code is checked automatically
-- **Instant Feedback** - See results immediately in the CRT viewer
-- **Progress Tracking** - Resume where you left off
-- **Hints and Tips** - Get help when you're stuck
+- **80 Progressive Lessons** - From basics to advanced topics like Binary Files, Hardware Emulation, and Control Flow Jumps.
+- **21 Comprehensive Stages** - Organized by topic and difficulty.
+- **Side-by-Side Dual Panel** - Code editor on the **left**, rich lesson description on the **right** — no more switching windows!
+- **Live Markdown Lesson Panel** - Each lesson opens a beautiful description panel showing the Objective, Description, Hint, and a Code Template — all formatted and syntax-highlighted.
+- **Automatic Verification** - Your code is checked instantly against the lesson goal the moment you run it.
+- **Instant Feedback** - See results immediately in the CRT viewer.
+- **Hints and Tips** - Stuck? A `💡 Hint` is always visible in the lesson panel.
 
 **How to Start**
 
 1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
 2. Execute **"QBasic Start Interactive Tutorial 🎮"**
-3. Select a stage from the menu
-4. Read the lesson objective
-5. Write your code in the editor
-6. Press `F5` to test your solution
-7. The system verifies your code automatically
+3. A **Quick Pick** menu shows all 80 lessons — pick any stage to jump right in
+4. The editor splits into **two panels automatically**:
+   - **Left (Column 1)** — A new QBasic file pre-loaded with the lesson's starter template code
+   - **Right (Column 2)** — A **Markdown Preview** showing the full lesson brief: Objective, Description, Hint, and the Template code block
+5. Write or modify your solution in the **left panel**
+6. Press **`F5`** to compile and run — the CRT viewer opens in the background
+7. If your output matches the lesson goal ✅, a success message appears automatically
 
 **Tutorial Stages**
 
-**Stage 1 - Basics (Lessons 1-3)**
+**Stage 1 - Getting Started (Lessons 1-4)**
 
-- Variables and data types
-- User input with INPUT
-- Basic math operators
-- PRINT statement formatting
+- First program (`PRINT`, `CLS`)
+- Text formatting & screen coordinates (`LOCATE`, `COLOR`)
+- Basic debugging and execution
 
-**Stage 2 - Control Flow (Lessons 4-7)**
+**Stage 2 - Variables & Data Types (Lessons 5-8)**
 
-- IF...THEN...ELSE statements
-- SELECT CASE for multiple conditions
-- Comparison operators
-- Logical operators (AND, OR, NOT)
+- Creating variables (`DIM`, `AS INTEGER`, `AS STRING`)
+- Constants (`CONST`)
+- String vs Numeric handling mechanisms
 
-**Stage 3 - Loops (Lessons 8-12)**
+**Stage 3 - User Input & Interaction (Lessons 9-11)**
 
-- FOR...NEXT loops
-- WHILE...WEND loops
-- DO...LOOP variations
-- Nested loops
-- EXIT and loop control
+- Prompting users (`INPUT`, `LINE INPUT`)
+- Reading keypresses (`INKEY$`)
 
-**Stage 4 - Strings (Lessons 13-16)**
+**Stage 4 - Math & Logic (Lessons 12-15)**
 
-- String manipulation functions
-- LEFT$, RIGHT$, MID$
-- String concatenation
-- INSTR and string searching
+- Arithmetic Operators (`+`, `-`, `*`, `/`, `MOD`)
+- Math Functions (`ABS`, `INT`, `FIX`, `SQR`)
+- Random Numbers (`RANDOMIZE`, `RND`)
 
-**Stage 5 - Arrays (Lessons 17-20)**
+**Stage 5 - Control Flow: Decisions (Lessons 16-19)**
 
-- One-dimensional arrays
-- Two-dimensional arrays
-- DIM and REDIM
-- Array operations
+- Conditional logic (`IF..THEN`, `ELSEIF`)
+- Multiple choice routing (`SELECT CASE`)
+- Logical Operators (`AND`, `OR`, `NOT`)
 
-**Stage 6 - Data Management (Lessons 21-24)**
+**Stage 6 - Control Flow: Advanced Routing (Lessons 20-22)**
 
-- DATA and READ statements
-- RESTORE command
-- Working with data sets
-- Data validation
+- Line Labels and Jumping (`GOTO`)
+- Local Subroutines (`GOSUB`, `RETURN`)
+- Preventing Call-Stack Crashes
 
-**Stage 7 - SUBs and FUNCTIONs (Lessons 25-28)**
+**Stage 7 - Definite & Indefinite Loops (Lessons 23-27)**
 
-- Creating SUB procedures
-- Creating FUNCTIONs
-- Parameter passing
-- SHARED and STATIC variables
+- Counting loops (`FOR...NEXT`, `STEP`)
+- Conditional loops (`DO...LOOP`, `WHILE...WEND`)
+- Breaking out early (`EXIT FOR`, `EXIT DO`)
 
-**Stage 8 - Advanced Structures (Lessons 29-32)**
+**Stage 8 - Master String Manipulation (Lessons 28-32)**
 
-- Custom TYPE definitions
-- Working with records
-- Arrays of TYPEs
-- Complex data structures
+- Slicing strings (`LEFT$`, `RIGHT$`, `MID$`)
+- Measuring and searching (`LEN`, `INSTR`)
+- Formatting and cases (`UCASE$`, `LTRIM$`, `RTRIM$`)
 
-**Stage 9 - Graphics Basics (Lessons 33-35)**
+**Stage 9 - Arrays and Memory Sets (Lessons 33-37)**
 
-- SCREEN modes
-- PSET and pixels
-- LINE drawing
-- COLOR and palettes
+- Fixed arrays (`DIM`)
+- Dynamic arrays (`REDIM`, `REDIM PRESERVE`)
+- Finding bounds (`LBOUND`, `UBOUND`)
+- Clearing memory (`ERASE`)
 
-**Stage 10 - Advanced Graphics (Lessons 36-37)**
+**Stage 10 - Custom Procedures (Lessons 38-41)**
 
-- CIRCLE and shapes
-- PAINT and filling
-- GET and PUT (sprite handling)
-- Animation basics
+- Creating Commands (`SUB`)
+- Creating Functions (`FUNCTION`)
+- Passing by reference vs value
 
-**Stage 11 - Audio (Lessons 38-39)**
+**Stage 11 - Scope & Modularity (Lessons 42-45)**
 
-- SOUND command
-- PLAY command and music strings
-- Creating melodies
-- Sound effects
+- Global Variables (`SHARED`, `COMMON SHARED`)
+- Preserving Sub/Function states (`STATIC`)
+- Multi-file projects (`$INCLUDE`)
 
-**Stage 12 - File I/O (Lesson 40)**
+**Stage 12 - Managing Static Data (Lessons 46-48)**
 
-- OPEN and CLOSE
-- Reading from files
-- Writing to files
-- File handling best practices
+- Storing inline data (`DATA`)
+- Extracting data (`READ`)
+- Resetting data pointers (`RESTORE`)
 
-**Stage 13 - Final Project**
+**Stage 13 - Structured Data (Lessons 49-52)**
 
-- Combine all learned concepts
-- Build a complete program
-- Apply best practices
+- Defining custom structures (`TYPE...END TYPE`)
+- Arrays of structures
+- Fixed-length Strings (`STRING * N`)
+
+**Stage 14 - Sequential File I/O (Lessons 53-56)**
+
+- Opening and closing text files (`OPEN FOR OUTPUT/INPUT`)
+- Writing data (`PRINT #`, `WRITE #`)
+- Reading files safely (`INPUT #`, `EOF`)
+
+**Stage 15 - Random & Binary File I/O (Lessons 57-60)**
+
+- Writing structured files (`OPEN FOR RANDOM`)
+- Reading/Writing blocks (`GET #`, `PUT #`)
+- Legacy binary conversion (`MKI$`, `CVI`, `FIELD`)
+
+**Stage 16 - Directory & File Management (Lessons 61-63)**
+
+- Managing Virtual folders (`MKDIR`, `CHDIR`, `RMDIR`)
+- Looking up and deleting files (`FILES`, `NAME`, `KILL`)
+
+**Stage 17 - Memory & Hardware Emulation (Lessons 64-67)**
+
+- Checking addresses (`DEF SEG`)
+- Virtual RAM editing (`PEEK`, `POKE`)
+- Emulated hardware signals (`INP`, `OUT`, `WAIT`)
+- Fast memory copying (`_MEMCOPY`, `_MEMFILL`)
+
+**Stage 18 - Visuals & Graphics (Lessons 68-72)**
+
+- Initializing screens (`SCREEN`, `WIDTH`)
+- Drawing primitives (`PSET`, `PRESET`, `LINE`, `CIRCLE`)
+- Automated drawing strings (`DRAW`)
+- Filling and palettes (`PAINT`, `PALETTE`)
+
+**Stage 19 - Audio & Music (Lessons 73-75)**
+
+- System beeps (`BEEP`)
+- Direct frequencies (`SOUND`)
+- Music macro language (`PLAY`)
+
+**Stage 20 - Error Handling & Modern Tools (Lessons 76-79)**
+
+- Trapping and resolving errors (`ON ERROR GOTO`, `RESUME`, `ERR`)
+- Frame pacing (`_LIMIT`)
+- Modern input processing (`_MOUSEINPUT`, `_KEYHIT`)
+
+**Stage 21 - Final Capstone Project (Lesson 80)**
+
+- Combine massive project skills (Hardware, Files, Memory, Subroutines)
+- Build a game or full application using safe Virtual Environment
 
 **Verification System**
 
 **How Your Code Is Checked**
 
-- Code is transpiled and executed in a sandboxed environment
-- Output is captured and compared to expected results
-- Variables and program state are inspected
-- Specific requirements are verified (e.g., "must use a FOR loop")
+- Code is transpiled and executed within the **Emulated Sandbox Environment**, meaning you can experiment safely with even memory commands (`PEEK`, `POKE`) without crashing VS Code.
+- A **Real-Time Semantic Diagnostic engine** continuously reviews your syntax, immediately pinpointing issues like unreachable code, type mismatches, or missing labels (e.g. `GOTO` misroutes) before you even hit run.
+- Internal AST output is captured and compared to expected algorithmic results.
+- Specific requirements are verified programmatically (e.g., "must use a FOR loop or implement `$INCLUDE`").
 
 **Verification Criteria**
 
-- **Correct Output** - Program produces expected results
-- **Required Constructs** - Uses specified commands/structures
-- **Logic Correctness** - Implements the algorithm properly
-- **No Errors** - Code runs without syntax or runtime errors
+- **Correct Output** - Program produces expected text/graphics outputs or memory writes.
+- **Required Constructs** - Uses specified commands/structures appropriately.
+- **Logic Correctness** - Implements algorithms correctly without infinite call-stack crashes (thanks to AST state-machine execution).
+- **No Errors** - Code runs cleanly through all Semantic, Syntax, and Runtime checks.
 
 **Getting Help**
 

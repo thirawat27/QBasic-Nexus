@@ -164,7 +164,9 @@ async function runInternalTranspiler(document, shouldRun) {
         // ── 1: Lexical & Syntax Analysis (0 → 30%) ─────────────────────
         channel.appendLine('');
         report(0, 'Lexical & Syntax Analysis…');
-        const jsCode = transpiler.transpile(sourceCode, 'node');
+        const jsCode = transpiler.transpile(sourceCode, 'node', {
+          sourcePath: document.uri.fsPath,
+        });
         report(30, 'Syntax analysis passed ✓');
 
         // ── 2: Code Generation / write JS (30 → 60%) ───────────────────

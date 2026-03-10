@@ -20,10 +20,8 @@ module.exports = [
   {
     id: '1.2-vars',
     title: '1.2: Variables',
-    objective:
-      'Create a variable named "score" and set it to 100, then print it.',
-    description:
-      "Variables store data. You can just type a name and use '=' to assign a value.",
+    objective: 'Create a variable named "score" and set it to 100, then print it.',
+    description: "Variables store data. You can just type a name and use '=' to assign a value.",
     template: 'CLS\nscore = 100\nPRINT score\n',
     matchRegex: /100/,
     hint: 'Type: score = 100 on one line, then PRINT score on the next.',
@@ -31,12 +29,10 @@ module.exports = [
   {
     id: '1.3-datatypes',
     title: '1.3: Data Types (DIM)',
-    objective:
-      'Declare a string variable using DIM, assign it "Nexus", and print it.',
+    objective: 'Declare a string variable using DIM, assign it "Nexus", and print it.',
     description:
       'Use the DIM keyword to explicitly declare variables and their types (e.g., AS STRING, AS INTEGER).',
-    template:
-      'CLS\nDIM playerName AS STRING\nplayerName = "Nexus"\nPRINT playerName\n',
+    template: 'CLS\nDIM playerName AS STRING\nplayerName = "Nexus"\nPRINT playerName\n',
     matchRegex: /Nexus/,
     hint: 'Type: DIM playerName AS STRING',
   },
@@ -54,10 +50,8 @@ module.exports = [
   {
     id: '2.1-math',
     title: '2.1: Math Operators',
-    objective:
-      'Calculate the area of a rectangle (width 5, height 10) and print it.',
-    description:
-      'QBasic supports +, -, *, / for arithmetic, and ^ for exponents.',
+    objective: 'Calculate the area of a rectangle (width 5, height 10) and print it.',
+    description: 'QBasic supports +, -, *, / for arithmetic, and ^ for exponents.',
     template: 'CLS\nw = 5\nh = 10\narea = w * h\nPRINT area\n',
     matchRegex: /50/,
     hint: 'Multiply dimensions using the * operator.',
@@ -77,8 +71,7 @@ module.exports = [
     title: '2.3: Logical Operators',
     objective: "Use AND to check if both conditions are true. Print 'True'.",
     description: 'Use AND, OR, and NOT to combine logical conditions.',
-    template:
-      'CLS\nHP = 100\nalive = 1\nIF HP > 0 AND alive = 1 THEN\n    PRINT "True"\nEND IF\n',
+    template: 'CLS\nHP = 100\nalive = 1\nIF HP > 0 AND alive = 1 THEN\n    PRINT "True"\nEND IF\n',
     matchRegex: /True/i,
     hint: 'The IF expression uses AND to require both sides to be true.',
   },
@@ -97,8 +90,7 @@ module.exports = [
     id: '3.2-elseif',
     title: '3.2: ELSEIF & ELSE',
     objective: "Print 'A' if score >= 90, otherwise print 'B'.",
-    description:
-      "ELSEIF adds another condition, ELSE catches anything that didn't match.",
+    description: "ELSEIF adds another condition, ELSE catches anything that didn't match.",
     template:
       'CLS\nscore = 85\nIF score >= 90 THEN\n    PRINT "A"\nELSEIF score >= 80 THEN\n    PRINT "B"\nELSE\n    PRINT "C"\nEND IF\n',
     matchRegex: /B/,
@@ -130,8 +122,7 @@ module.exports = [
     id: '4.2-for-step',
     title: '4.2: FOR Loop with STEP',
     objective: 'Count down from 10 to 2 by 2s.',
-    description:
-      'The STEP keyword changes how much the loop counter increments or decrements.',
+    description: 'The STEP keyword changes how much the loop counter increments or decrements.',
     template: 'CLS\nFOR i = 10 TO 2 STEP -2\n    PRINT i\nNEXT i\n',
     matchRegex: /10\s*8\s*6\s*4\s*2/,
     hint: 'Use STEP -2 to count backwards.',
@@ -162,8 +153,7 @@ module.exports = [
     id: '5.1-ucase',
     title: '5.1: String Case',
     objective: "Convert 'qbasic' to uppercase and print it.",
-    description:
-      'UCASE$ converts a string to upper case, LCASE$ to lower case.',
+    description: 'UCASE$ converts a string to upper case, LCASE$ to lower case.',
     template: 'CLS\nmsg$ = "qbasic"\nPRINT UCASE$(msg$)\n',
     matchRegex: /QBASIC/,
     hint: 'Use UCASE$(var$)',
@@ -171,8 +161,7 @@ module.exports = [
   {
     id: '5.2-slice',
     title: '5.2: Slicing Strings',
-    objective:
-      "Print the first 3 letters, then the middle 3, then the last 3 of 'RetroWave'.",
+    objective: "Print the first 3 letters, then the middle 3, then the last 3 of 'RetroWave'.",
     description:
       'LEFT$(s, n) gets the left part. RIGHT$(s, n) gets the right part. MID$(s, start, length) gets the middle.',
     template:
@@ -204,8 +193,7 @@ module.exports = [
     id: '5.5-chr',
     title: '5.5: ASCII Codes (CHR$ and ASC)',
     objective: 'Print the character for ASCII code 65.',
-    description:
-      'CHR$(number) turns an ASCII code into a character. ASC(char) does the reverse.',
+    description: 'CHR$(number) turns an ASCII code into a character. ASC(char) does the reverse.',
     template: 'CLS\nPRINT CHR$(65)\n',
     matchRegex: /A/,
     hint: "ASCII 65 is capital 'A'.",
@@ -226,8 +214,7 @@ module.exports = [
     id: '6.2-math-func',
     title: '6.2: Built-in Math',
     objective: 'Print the absolute value of -42, and the square root of 25.',
-    description:
-      'ABS() returns absolute (positive) value. SQR() returns the square root.',
+    description: 'ABS() returns absolute (positive) value. SQR() returns the square root.',
     template: 'CLS\nPRINT ABS(-42)\nPRINT SQR(25)\n',
     matchRegex: /42\s*5/,
     hint: 'Use ABS(-42) and SQR(25).',
@@ -237,12 +224,9 @@ module.exports = [
   {
     id: '7.1-arrays',
     title: '7.1: 1D Arrays',
-    objective:
-      'Create an array for 3 items, assign a value to index 1, and print it.',
-    description:
-      'An array holds multiple values under one name. Declare with DIM arrayName(size).',
-    template:
-      'CLS\nDIM inventory(3) AS STRING\ninventory(1) = "Sword"\nPRINT inventory(1)\n',
+    objective: 'Create an array for 3 items, assign a value to index 1, and print it.',
+    description: 'An array holds multiple values under one name. Declare with DIM arrayName(size).',
+    template: 'CLS\nDIM inventory(3) AS STRING\ninventory(1) = "Sword"\nPRINT inventory(1)\n',
     matchRegex: /Sword/i,
     hint: 'Use DIM inventory(3) AS STRING',
   },
@@ -250,145 +234,117 @@ module.exports = [
     id: '7.2-2darrays',
     title: '7.2: 2D Arrays (Grid)',
     objective: 'Create a 3x3 array (grid), set grid(2,2) to 9, and print it.',
-    description:
-      'Use commas to add dimensions to arrays, perfect for tile maps or game boards.',
-    template:
-      'CLS\nDIM grid(3, 3) AS INTEGER\ngrid(2, 2) = 9\nPRINT grid(2, 2)\n',
+    description: 'Use commas to add dimensions to arrays, perfect for tile maps or game boards.',
+    template: 'CLS\nDIM grid(3, 3) AS INTEGER\ngrid(2, 2) = 9\nPRINT grid(2, 2)\n',
     matchRegex: /9/,
     hint: 'DIM grid(3, 3) creates a 2D array.',
   },
+  // ─── STAGE 13: STRUCTURED DATA & TYPES ────────────────────────────────────
   {
-    id: '7.3-types',
-    title: '7.3: Custom Data Types (Structs)',
-    objective:
-      "Create a TYPE 'Player', assign its X property to 10, and print it.",
+    id: '13.1-types',
+    title: '13.1: Custom Data Types (TYPE)',
+    objective: "Create a TYPE 'Player', assign its X property to 10, and print it.",
     description:
-      'TYPE...END TYPE allows you to create custom structs holding multiple properties.',
+      'TYPE...END TYPE allows you to create custom structs holding multiple properties. Use the dot syntax (p1.X) to access properties.',
     template:
       'CLS\nTYPE Player\n    X AS INTEGER\n    Y AS INTEGER\nEND TYPE\n\nDIM p1 AS Player\np1.X = 10\nPRINT p1.X\n',
     matchRegex: /10/,
-    hint: 'Use the dot syntax (p1.X) to access properties inside a TYPE.',
+    hint: 'p1.X accesses the X property inside the Player type.',
+  },
+  {
+    id: '13.2-fixed-strings',
+    title: '13.2: Fixed-Length Strings',
+    objective: "Create a fixed-length string of 5 characters, assign 'Hello World', print it.",
+    description:
+      'A string defined as STRING * N will truncate or pad spaces so it is always exactly N characters long.',
+    template: 'CLS\nDIM fixedStr AS STRING * 5\nfixedStr = "Hello World"\nPRINT fixedStr\n',
+    matchRegex: /Hello/,
+    hint: 'The output will literally just be "Hello" because it gets truncated to 5 bytes.',
   },
 
-  // ─── STAGE 8: FUNCTIONS AND SUBROUTINES ───────────────────────────────────
+  // ─── STAGE 14: SEQUENTIAL FILE I/O ─────────────────────────────────────────
   {
-    id: '8.1-subs',
-    title: '8.1: Subroutines (SUB)',
-    objective:
-      'Create a SUB to print a greeting, and call it using the CALL keyword.',
-    description:
-      'SUBs help organize code into reusable blocks that do not return a value.',
-    template:
-      'CLS\nCALL Greet\n\nSUB Greet\n    PRINT "Welcome, Player!"\nEND SUB\n',
-    matchRegex: /Welcome/i,
-    hint: 'Use CALL to run the SUB block.',
-  },
-  {
-    id: '8.2-funcs',
-    title: '8.2: Functions (FUNCTION)',
-    objective: 'Create a function that adds two numbers, and print the result.',
-    description:
-      "Functions return a value. Assign the result to the function's own name before END FUNCTION.",
-    template:
-      'CLS\nPRINT AddNum(5, 7)\n\nFUNCTION AddNum(a, b)\n    AddNum = a + b\nEND FUNCTION\n',
-    matchRegex: /12/,
-    hint: 'Assign AddNum = a + b inside the function.',
-  },
-  {
-    id: '8.3-shared',
-    title: '8.3: Global Variables (SHARED)',
-    objective: 'Use DIM SHARED so a SUB can access a global variable.',
-    description:
-      'Normally variables inside SUBs are local. Use DIM SHARED to give them global scope.',
-    template:
-      'CLS\nDIM SHARED lives AS INTEGER\nlives = 3\nCALL TakeDamage\nPRINT lives\n\nSUB TakeDamage\n    lives = lives - 1\nEND SUB\n',
-    matchRegex: /2/,
-    hint: "DIM SHARED makes 'lives' visible everywhere.",
-  },
-
-  // ─── STAGE 9: DATA MANAGEMENT ─────────────────────────────────────────────
-  {
-    id: '9.1-data',
-    title: '9.1: DATA and READ',
-    objective: 'Read 3 numbers from a DATA block and print the first one.',
-    description:
-      'DATA stores static values inside the code, and READ loads them sequentially into variables.',
-    template: 'CLS\nREAD a, b, c\nPRINT a\n\nDATA 10, 20, 30\n',
-    matchRegex: /10/,
-    hint: 'Use READ matching the DATA items.',
-  },
-  {
-    id: '9.2-restore',
-    title: '9.2: RESTORE',
-    objective: 'Use RESTORE to reset the DATA reading pointer.',
-    description:
-      'RESTORE moves the READ pointer back to the very first DATA statement.',
-    template: 'CLS\nREAD x\nRESTORE\nREAD y\nPRINT x + y\n\nDATA 50, 60\n',
-    matchRegex: /100/,
-    hint: 'Because of RESTORE, y will read 50 again instead of 60.',
-  },
-
-  // ─── STAGE 10: VIRTUAL FILE I/O ───────────────────────────────────────────
-  {
-    id: '10.1-open-out',
-    title: '10.1: Writing to Files',
+    id: '14.1-open-out',
+    title: '14.1: Writing Text to Files',
     objective: "Open a file for output and write 'Hello File' to it.",
-    description:
-      'QBasic Nexus uses a Virtual File System. OPEN a file FOR OUTPUT to write data using PRINT #.',
+    description: 'OPEN a file FOR OUTPUT to write data using PRINT #.',
     template:
       'CLS\nOPEN "test.txt" FOR OUTPUT AS #1\nPRINT #1, "Hello File"\nCLOSE #1\nPRINT "File Written"\n',
     matchRegex: /File Written/i,
     hint: 'Make sure you CLOSE #1 when done.',
   },
   {
-    id: '10.2-open-in',
-    title: '10.2: Reading from Files',
-    objective:
-      'Open a file FOR INPUT and read its contents back using INPUT #.',
-    description:
-      'OPEN ... FOR INPUT AS #1 reads from the file. Use INPUT #1, var$ to read.',
+    id: '14.2-open-in',
+    title: '14.2: Reading from Files',
+    objective: 'Open a file FOR INPUT and read its contents back using INPUT #.',
+    description: 'OPEN ... FOR INPUT AS #1 reads from the file. Use INPUT #1, var$ to read.',
     template:
       'CLS\nOPEN "test.txt" FOR OUTPUT AS #1\nPRINT #1, "SavedData"\nCLOSE #1\n\nOPEN "test.txt" FOR INPUT AS #1\nINPUT #1, myVar$\nCLOSE #1\n\nPRINT myVar$\n',
     matchRegex: /SavedData/i,
     hint: 'INPUT # reads comma-separated values, LINE INPUT # reads the whole line.',
   },
 
-  // ─── STAGE 11: TEXT UI & INTERACTION ──────────────────────────────────────
+  // ─── STAGE 15: RANDOM & BINARY FILE I/O ────────────────────────────────────
   {
-    id: '11.1-locate',
-    title: '11.1: LOCATE and COLOR',
-    objective:
-      'Move the cursor to row 10, col 20 and print text in green (Color 2).',
+    id: '15.1-random',
+    title: '15.1: Random Access Files',
+    objective: 'Write a TYPE struct to a Random file using PUT #, then read it back with GET #.',
     description:
-      'LOCATE row, col moves the text cursor. COLOR fg, bg changes text colors (0-15).',
-    template: 'CLS\nCOLOR 2\nLOCATE 10, 20\nPRINT "Centered Green Text"\n',
-    matchRegex: /Centered Green Text/i,
-    hint: 'Row 1-25, Col 1-80',
+      'OPEN ... FOR RANDOM allows you to read/write exact blocks using the LEN= argument and the PUT/GET commands.',
+    template:
+      'CLS\nTYPE ScoreRecord\n    Score AS INTEGER\nEND TYPE\nDIM P1 AS ScoreRecord\nP1.Score = 900\n\nOPEN "save.dat" FOR RANDOM AS #1 LEN = LEN(P1)\nPUT #1, 1, P1\n\nDIM P2 AS ScoreRecord\nGET #1, 1, P2\nCLOSE #1\n\nPRINT P2.Score\n',
+    matchRegex: /900/,
+    hint: 'We PUT into record 1, then GET from record 1 into a different variable to prove it worked.',
   },
   {
-    id: '11.2-sleep',
-    title: '11.2: SLEEP',
-    objective: 'Pause the program for 1 second.',
-    description: 'SLEEP n pauses the execution for n seconds.',
-    template: 'CLS\nPRINT "Wait for it..."\nSLEEP 1\nPRINT "Done!"\n',
-    matchRegex: /Wait for it\.\.\.\s*Done!/i,
-    hint: 'SLEEP uses seconds.',
+    id: '15.2-legacy-binary',
+    title: '15.2: Legacy Binary Conversion',
+    objective:
+      'Convert the integer 123 into a 2-byte string using MKI$, then convert it back using CVI.',
+    description:
+      'Legacy BASIC used MKI$, MKL$, MKS$, MKD$ to convert numbers to raw byte strings, and CVI/CVL/CVS/CVD to convert back.',
+    template: 'CLS\nbin$ = MKI$(123)\nnum = CVI(bin$)\nPRINT num\n',
+    matchRegex: /123/,
+    hint: 'MKI$ creates a 2-byte string representation of an integer.',
   },
 
-  // ─── STAGE 12: GRAPHICS & MULTIMEDIA ──────────────────────────────────────
+  // ─── STAGE 16: DIRECTORY MANAGEMENT ────────────────────────────────────────
   {
-    id: '12.1-screen13',
-    title: '12.1: Graphics Mode (SCREEN 13)',
-    objective: 'Change screen mode to 13 and draw a single dot using PSET.',
+    id: '16.1-mkdir',
+    title: '16.1: Creating Folders',
+    objective: 'Create a new folder called "data", enter it, and print success.',
     description:
-      'SCREEN 13 is the classic 320x200 pixel, 256-color VGA mode. PSET draws a pixel.',
+      'You can manage the virtual filesystem with MKDIR (Make Directory), CHDIR (Change Directory), and RMDIR (Remove Directory).',
+    template: 'CLS\nMKDIR "data"\nCHDIR "data"\nPRINT "Entered directory"\n',
+    matchRegex: /Entered directory/i,
+    hint: 'MKDIR creates a folder, CHDIR enters it.',
+  },
+
+  // ─── STAGE 17: MEMORY & HARDWARE EMULATION ──────────────────────────────────
+  {
+    id: '17.1-peek-poke',
+    title: '17.1: Virtual RAM (PEEK & POKE)',
+    objective: 'Set the memory segment, POKE a value into virtual RAM, and PEEK it back out.',
+    description:
+      'In QBasic Nexus, DEF SEG sets the base memory segment block, POKE writes a byte, and PEEK reads a byte. This is completely safe and emulated!',
+    template: 'CLS\nDEF SEG = 0\nPOKE 1040, 255\nval = PEEK(1040)\nPRINT val\n',
+    matchRegex: /255/,
+    hint: 'The virtual sandbox isolates PEEK/POKE from your real PC memory.',
+  },
+
+  // ─── STAGE 18: VISUALS & GRAPHICS ─────────────────────────────────────────
+  {
+    id: '18.1-screen13',
+    title: '18.1: Graphics Mode (SCREEN 13)',
+    objective: 'Change screen mode to 13 and draw a single dot using PSET.',
+    description: 'SCREEN 13 is the classic 320x200 pixel, 256-color VGA mode. PSET draws a pixel.',
     template: 'SCREEN 13\nCOLOR 14\nPSET (160, 100), 10\nPRINT "Graphics ON"\n',
     matchRegex: /Graphics ON/i,
     hint: 'Use SCREEN 13 to enter graphics mode.',
   },
   {
-    id: '12.2-line',
-    title: '12.2: Drawing Lines & Boxes',
+    id: '18.2-line',
+    title: '18.2: Drawing Lines & Boxes',
     objective: 'Draw a straight line and a filled box.',
     description:
       'LINE (x1,y1)-(x2,y2), c draws a line. Add ,B for a box, or ,BF for a solid filled box.',
@@ -398,8 +354,8 @@ module.exports = [
     hint: 'BF stands for Box Filled.',
   },
   {
-    id: '12.3-circle',
-    title: '12.3: Drawing Circles',
+    id: '18.3-circle',
+    title: '18.3: Drawing Circles',
     objective: 'Draw a circle in the middle of the screen.',
     description: 'CIRCLE (x, y), radius, color draws a circle.',
     template: 'SCREEN 13\nCIRCLE (160, 100), 50, 11\nPRINT "Ring"\n',
@@ -407,32 +363,29 @@ module.exports = [
     hint: 'Screen center is roughly (160, 100).',
   },
   {
-    id: '12.4-paint',
-    title: '12.4: PAINT (Flood Fill)',
+    id: '18.4-paint',
+    title: '18.4: PAINT (Flood Fill)',
     objective: 'Draw a circle and fill the inside with a different color.',
-    description:
-      'PAINT (x, y), fill_color, border_color flood-fills a bounded area.',
-    template:
-      'SCREEN 13\nCIRCLE (100, 100), 30, 15\nPAINT (100, 100), 10, 15\nPRINT "Filled"\n',
+    description: 'PAINT (x, y), fill_color, border_color flood-fills a bounded area.',
+    template: 'SCREEN 13\nCIRCLE (100, 100), 30, 15\nPAINT (100, 100), 10, 15\nPRINT "Filled"\n',
     matchRegex: /Filled/i,
     hint: 'PAINT needs a point inside the border, the fill color, and the border color to stop at.',
   },
   {
-    id: '12.5-draw',
-    title: '12.5: The DRAW Macro',
+    id: '18.5-draw',
+    title: '18.5: The DRAW Macro',
     objective: 'Use the DRAW command to draw a quick shape.',
     description:
       "DRAW accepts a mini language string. U=Up, D=Down, L=Left, R=Right. (e.g., 'U10 R10 D10 L10')",
-    template:
-      'SCREEN 13\nPSET (100, 100)\nDRAW "U20 R20 D20 L20"\nPRINT "Square drawn"\n',
+    template: 'SCREEN 13\nPSET (100, 100)\nDRAW "U20 R20 D20 L20"\nPRINT "Square drawn"\n',
     matchRegex: /Square drawn/i,
     hint: 'DRAW starts from the last graphics position.',
   },
 
-  // ─── STAGE 13: AUDIO & MUSIC ──────────────────────────────────────────────
+  // ─── STAGE 19: AUDIO & MUSIC ──────────────────────────────────────────────
   {
-    id: '13.1-sound',
-    title: '13.1: Beeps (SOUND)',
+    id: '19.1-sound',
+    title: '19.1: Beeps (SOUND)',
     objective: 'Play a frequency of 440Hz for a short duration.',
     description:
       'SOUND frequency, duration plays a bare tone. (Note: In Webview, SOUND requires the user to interact with the screen first to bypass browser audio block).',
@@ -441,13 +394,99 @@ module.exports = [
     hint: '440Hz is the A4 note.',
   },
   {
-    id: '13.2-play',
-    title: '13.2: Music Macros (PLAY)',
+    id: '19.2-play',
+    title: '19.2: Music Macros (PLAY)',
     objective: 'Play some simple musical notes using PLAY.',
     description:
       'The PLAY command uses a special macro language to play notes sequence (A-G, Octaves, tempo).',
     template: 'CLS\nPRINT "Playing music!"\nPLAY "CDE CDE EDC"\n',
     matchRegex: /Playing music!/i,
     hint: 'PLAY accepts a string like "C D E" to play notes.',
+  },
+
+  // ─── STAGE 20: ERROR HANDLING & LIMIT ──────────────────────────────────────
+  {
+    id: '20.1-on-error',
+    title: '20.1: Trapping Errors',
+    objective: 'Use ON ERROR GOTO to trap a division by zero error without crashing.',
+    description:
+      'ON ERROR GOTO allows you to reroute the AST Execution state-machine to an error handler block when a crash occurs. RESUME NEXT returns execution.',
+    template:
+      'CLS\nON ERROR GOTO ErrorHandler\nx = 10 / 0\nPRINT "Recovered"\nEND\n\nErrorHandler:\n  PRINT "Error Trapped!"\n  RESUME NEXT\n',
+    matchRegex: /Error Trapped!\s*Recovered/i,
+    hint: 'Because of RESUME NEXT, the code leaps right back to printing "Recovered".',
+  },
+  {
+    id: '20.2-limit',
+    title: '20.2: Frame Pacing (_LIMIT)',
+    objective: 'Use _LIMIT to prevent a DO loop from consuming 100% CPU.',
+    description:
+      'Modern QB64 extension _LIMIT 60 tells the engine to run the loop exactly 60 times a second.',
+    template: 'CLS\nx = 0\nDO\n  x = x + 1\n  _LIMIT 60\nLOOP UNTIL x = 3\nPRINT "Throttled"\n',
+    matchRegex: /Throttled/i,
+    hint: '_LIMIT 60 acts like a smart SLEEP command for games.',
+  },
+
+  // ─── STAGE 21: FINAL CAPSTONE PROJECT ──────────────────────────────────────
+  {
+    id: '21.1-capstone-file',
+    title: '21.1: Capstone – Save & Load a High Score',
+    objective: 'Write a high score of 9999 to a file, read it back, and print it.',
+    description:
+      'Combine File I/O, Variables, and Loops into one cohesive program. ' +
+      'This exercise mirrors a real save-game system: open a binary-friendly ' +
+      'text file, persist data, close it, re-open, read back, and display.',
+    template:
+      'CLS\n' +
+      'DIM score AS INTEGER\n' +
+      'score = 9999\n' +
+      '\n' +
+      "'--- Save ---\n" +
+      'OPEN "hiscore.dat" FOR OUTPUT AS #1\n' +
+      'PRINT #1, score\n' +
+      'CLOSE #1\n' +
+      '\n' +
+      "'--- Load ---\n" +
+      'DIM loaded AS INTEGER\n' +
+      'OPEN "hiscore.dat" FOR INPUT AS #1\n' +
+      'INPUT #1, loaded\n' +
+      'CLOSE #1\n' +
+      '\n' +
+      'PRINT "High Score:"; loaded\n',
+    matchRegex: /High Score:\s*9999/i,
+    hint: 'OPEN for OUTPUT writes, OPEN for INPUT reads. Make sure you CLOSE between the two.',
+  },
+  {
+    id: '21.2-capstone-game',
+    title: '21.2: Capstone – Putting It All Together',
+    objective: 'Build a mini number-guessing game using SUB, RANDOMIZE, RND, and ON ERROR GOTO.',
+    description:
+      'The ultimate capstone! Your program should: generate a secret number 1–10, ' +
+      'let the player guess via INPUT, give Higher/Lower hints in a loop, ' +
+      'and print "You Win in N tries!" when they get it. ' +
+      'Bonus: Trap any unexpected error with ON ERROR GOTO.',
+    template:
+      'CLS\n' +
+      'RANDOMIZE TIMER\n' +
+      'ON ERROR GOTO ErrHandler\n' +
+      '\n' +
+      'secret = INT(RND * 10) + 1\n' +
+      'tries = 0\n' +
+      '\n' +
+      'DO\n' +
+      '    INPUT "Guess (1-10): ", g\n' +
+      '    tries = tries + 1\n' +
+      '    IF g < secret THEN PRINT "Higher!"\n' +
+      '    IF g > secret THEN PRINT "Lower!"\n' +
+      'LOOP UNTIL g = secret\n' +
+      '\n' +
+      'PRINT "You Win in"; tries; "tries!"\n' +
+      'END\n' +
+      '\n' +
+      'ErrHandler:\n' +
+      '    PRINT "Error caught!"\n' +
+      '    RESUME NEXT\n',
+    matchRegex: /You Win in \d+ tries!/i,
+    hint: 'The DO...LOOP UNTIL exits only when g equals secret. RESUME NEXT keeps the game alive after any error.',
   },
 ];

@@ -23,14 +23,18 @@ module.exports = {
 
     /** @type {Set<string>} Global SHARED variables */
     this.scopes = [new Set()];
+    this.scopeMetadata = [new Map()];
+    this.scopeStorageOverrides = [new Map()];
     this.scopeKinds = ['global'];
     this.sharedVars = new Set();
+    this.typeDefinitions = new Map();
 
     /** @type {string[]} DATA statement values */
     this.dataValues = [];
 
     /** @type {{ name: string, resultVar: string } | null} Current FUNCTION context */
     this.currentFunction = null;
+    this.currentProcedure = null;
 
     /** @type {Set<string>} Collected labels for GOTO/GOSUB support */
     this.labels = new Set();
@@ -41,9 +45,20 @@ module.exports = {
     // Performance optimization: Cache frequently accessed token properties
     this._cachedPeek = null;
     this._cachedPeekPos = -1;
+    this._insideRawCapture = false;
+    this._rawCaptureContainsJump = false;
+    this._pendingLoopClosures = [];
   },
 
   parse() {
+    if (typeof this._parseWithAst === 'function') {
+      return this._parseWithAst();
+    }
+
+    return this._parseLegacy();
+  },
+
+  _parseLegacy() {
     // Pre-pass: Collect all DATA values first
     // This is necessary because DATA statements can appear anywhere in QBasic
     // but must be available for READ statements from the start
@@ -58,7 +73,7 @@ module.exports = {
       try {
         this._parseStatement();
       } catch (e) {
-        this._recordError(e.message);
+        this._recordError(e);
         this._sync();
       }
     }
@@ -75,8 +90,26 @@ module.exports = {
     return this.scopeKinds[this.scopeKinds.length - 1];
   },
 
+  get currentMetadata() {
+    return this.scopeMetadata[this.scopeMetadata.length - 1];
+  },
+
+  get currentStorageOverrides() {
+    return this.scopeStorageOverrides[this.scopeStorageOverrides.length - 1];
+  },
+
   _addVar(name) {
     this.currentVars.add(name);
+  },
+
+  _setVarMetadata(name, metadata) {
+    if (!metadata) return;
+    this.currentMetadata.set(name, metadata);
+  },
+
+  _setStorageOverride(name, storageName) {
+    if (!storageName) return;
+    this.currentStorageOverrides.set(name, storageName);
   },
 
   _isCurrentFunctionName(name) {
@@ -84,6 +117,9 @@ module.exports = {
   },
 
   _resolveStorageName(name) {
+    const storageOverride = this._getStorageOverride(name);
+    if (storageOverride) return storageOverride;
+
     return this._isCurrentFunctionName(name)
       ? this.currentFunction.resultVar
       : name;
@@ -110,13 +146,302 @@ module.exports = {
     return this.sharedVars.has(name);
   },
 
+  _getVarMetadata(name) {
+    if (this.currentMetadata.has(name)) return this.currentMetadata.get(name);
+
+    if (this.scopeMetadata.length === 1) {
+      return null;
+    }
+
+    if (this.currentScopeKind === 'label') {
+      for (let i = this.scopeMetadata.length - 2; i >= 0; i--) {
+        const metadata = this.scopeMetadata[i].get(name);
+        if (metadata) return metadata;
+      }
+      return null;
+    }
+
+    if (this.sharedVars.has(name)) {
+      return this.scopeMetadata[0].get(name) || null;
+    }
+
+    return null;
+  },
+
+  _getStorageOverride(name) {
+    if (this.currentStorageOverrides.has(name)) {
+      return this.currentStorageOverrides.get(name);
+    }
+
+    if (this.scopeStorageOverrides.length === 1) {
+      return null;
+    }
+
+    if (this.currentScopeKind === 'label') {
+      for (let i = this.scopeStorageOverrides.length - 2; i >= 0; i--) {
+        const storageName = this.scopeStorageOverrides[i].get(name);
+        if (storageName) return storageName;
+      }
+      return null;
+    }
+
+    if (this.sharedVars.has(name)) {
+      return this.scopeStorageOverrides[0].get(name) || null;
+    }
+
+    return null;
+  },
+
+  _getTypeDefinition(typeName) {
+    if (!typeName) return null;
+    return this.typeDefinitions.get(String(typeName).toUpperCase()) || null;
+  },
+
+  _initializerForMetadata(metadata, fallback = '0') {
+    if (!metadata) return fallback;
+
+    if (metadata.kind === 'fixedString') {
+      return `_fixedString("", ${metadata.length})`;
+    }
+
+    if (metadata.kind === 'string') {
+      return '""';
+    }
+
+    if (metadata.kind === 'type') {
+      return `${metadata.typeName}()`;
+    }
+
+    if (metadata.kind === 'array') {
+      return '[]';
+    }
+
+    return fallback;
+  },
+
+  _metadataToRuntimeLiteral(metadata) {
+    if (!metadata) {
+      return 'undefined';
+    }
+
+    if (metadata.kind === 'fixedString') {
+      return `{ kind: "fixedString", length: ${metadata.length} }`;
+    }
+
+    if (metadata.kind === 'string') {
+      return '{ kind: "string" }';
+    }
+
+    if (metadata.kind === 'scalar') {
+      return `{ kind: "scalar", typeName: "${String(metadata.typeName || 'SINGLE').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}" }`;
+    }
+
+    if (metadata.kind === 'type') {
+      return `{ kind: "type", typeName: "${String(metadata.typeName || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}" }`;
+    }
+
+    if (metadata.kind === 'array') {
+      return `{ kind: "array", element: ${this._metadataToRuntimeLiteral(metadata.element)} }`;
+    }
+
+    return 'undefined';
+  },
+
+  _getTargetMetadata(name, options = {}) {
+    let metadata = this._getVarMetadata(name);
+    if (!metadata) {
+      return null;
+    }
+
+    if (options.arrayElement) {
+      metadata = metadata.kind === 'array' ? metadata.element : metadata?.element;
+    }
+
+    const members = Array.isArray(options.members) ? options.members : [];
+    for (const member of members) {
+      if (!metadata || metadata.kind !== 'type') {
+        return null;
+      }
+
+      const typeDefinition = this._getTypeDefinition(metadata.typeName);
+      const fieldSpec = typeDefinition?.[String(member).toUpperCase()];
+      if (!fieldSpec) {
+        return null;
+      }
+
+      metadata = this._getTypeMetadata(fieldSpec);
+    }
+
+    return metadata || null;
+  },
+
+  _parseAssignableTarget(options = {}) {
+    const contextLabel = options.contextLabel || 'assignment';
+    const id = this._consume(TokenType.IDENTIFIER);
+    if (!id) {
+      this._raiseSyntaxError(`Expected variable after ${contextLabel}`);
+    }
+
+    const name = id.value;
+    const storageName = this._resolveStorageName(name);
+    const indices = [];
+    const members = [];
+    const baseMetadata = this._getVarMetadata(name);
+
+    if (this._matchPunc('(')) {
+      do {
+        indices.push(this._parseExpr());
+      } while (this._matchPunc(','));
+      this._matchPunc(')');
+    }
+
+    while (this._matchPunc('.')) {
+      const member = this._consumeNameToken();
+      if (!member) {
+        this._raiseSyntaxError(`Expected member name after "." in ${contextLabel}`);
+      }
+      members.push(member.value);
+    }
+
+    const isArrayElement = indices.length > 0;
+    const wrapOptions = {};
+    if (isArrayElement) wrapOptions.arrayElement = true;
+    if (members.length > 0) wrapOptions.members = members.slice();
+
+    if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
+      this._addVar(name);
+      const initializer = isArrayElement
+        ? '[]'
+        : this._initializerForMetadata(
+          baseMetadata,
+          members.length > 0 ? '{}' : (name.endsWith('$') ? '""' : '0'),
+        );
+      this._emit(`var ${name} = ${initializer};`);
+    }
+
+    let targetExpr = storageName;
+    if (isArrayElement) {
+      for (let i = 0; i < indices.length - 1; i++) {
+        const parentPath = `${storageName}${indices
+          .slice(0, i + 1)
+          .map((index) => `[${index}]`)
+          .join('')}`;
+        this._emit(`if (!Array.isArray(${parentPath})) ${parentPath} = [];`);
+      }
+
+      targetExpr = `${storageName}${indices.map((index) => `[${index}]`).join('')}`;
+    }
+
+    if (members.length > 0) {
+      const baseTargetMetadata = this._getTargetMetadata(name, {
+        arrayElement: isArrayElement,
+      });
+      const baseObjectInitializer = this._initializerForMetadata(baseTargetMetadata, '{}');
+      this._emit(
+        `if (${targetExpr} == null || typeof ${targetExpr} !== "object") ${targetExpr} = ${baseObjectInitializer};`,
+      );
+
+      let ownerPath = targetExpr;
+      for (let i = 0; i < members.length - 1; i++) {
+        ownerPath = `${ownerPath}.${members[i]}`;
+        const memberMetadata = this._getTargetMetadata(name, {
+          arrayElement: isArrayElement,
+          members: members.slice(0, i + 1),
+        });
+        const memberInitializer = this._initializerForMetadata(memberMetadata, '{}');
+        this._emit(
+          `if (${ownerPath} == null || typeof ${ownerPath} !== "object") ${ownerPath} = ${memberInitializer};`,
+        );
+      }
+
+      targetExpr = `${ownerPath}.${members[members.length - 1]}`;
+    }
+
+    return {
+      name,
+      targetExpr,
+      metadata: this._getTargetMetadata(name, wrapOptions),
+      isStringLike: this._isStringLike(name, wrapOptions),
+      wrapOptions,
+    };
+  },
+
+  _parseValueReference(options = {}) {
+    const contextLabel = options.contextLabel || 'value';
+    const id = this._consume(TokenType.IDENTIFIER);
+    if (!id) {
+      this._raiseSyntaxError(`Expected variable after ${contextLabel}`);
+    }
+
+    const name = id.value;
+    const storageName = this._resolveStorageName(name);
+    const indices = [];
+    const members = [];
+
+    if (this._matchPunc('(')) {
+      do {
+        indices.push(this._parseExpr());
+      } while (this._matchPunc(','));
+      this._matchPunc(')');
+    }
+
+    while (this._matchPunc('.')) {
+      const member = this._consumeNameToken();
+      if (!member) {
+        this._raiseSyntaxError(`Expected member name after "." in ${contextLabel}`);
+      }
+      members.push(member.value);
+    }
+
+    const wrapOptions = {};
+    if (indices.length > 0) wrapOptions.arrayElement = true;
+    if (members.length > 0) wrapOptions.members = members.slice();
+
+    return {
+      name,
+      expr: `${storageName}${indices.map((index) => `[${index}]`).join('')}${members.map((member) => `.${member}`).join('')}`,
+      metadata: this._getTargetMetadata(name, wrapOptions),
+      wrapOptions,
+    };
+  },
+
+  _wrapAssignmentValue(name, valueExpression, options = {}) {
+    const targetMetadata = this._getTargetMetadata(name, options);
+    if (!targetMetadata) return valueExpression;
+
+    if (targetMetadata.kind === 'fixedString') {
+      return `_fixedString(${valueExpression}, ${targetMetadata.length})`;
+    }
+
+    if (targetMetadata.kind === 'string') {
+      return `String(${valueExpression})`;
+    }
+
+    return valueExpression;
+  },
+
+  _isStringLike(name, options = {}) {
+    if (name.endsWith('$')) return true;
+
+    const targetMetadata = this._getTargetMetadata(name, options);
+
+    return (
+      targetMetadata?.kind === 'string' ||
+      targetMetadata?.kind === 'fixedString'
+    );
+  },
+
   _enterScope(kind = 'local') {
     this.scopes.push(new Set());
+    this.scopeMetadata.push(new Map());
+    this.scopeStorageOverrides.push(new Map());
     this.scopeKinds.push(kind);
   },
 
   _exitScope() {
     this.scopes.pop();
+    this.scopeMetadata.pop();
+    this.scopeStorageOverrides.pop();
     this.scopeKinds.pop();
   },
 
@@ -152,13 +477,34 @@ module.exports = {
     this.pos = savedPos;
   },
 
-  _recordError(msg) {
+  _recordError(errorOrMessage) {
     const tok = this._peek();
+    const message =
+      typeof errorOrMessage === 'string'
+        ? errorOrMessage
+        : errorOrMessage?.message || 'Unknown parser error';
     this.errors.push({
-      line: (tok?.line || 1) - 1,
-      message: msg,
-      column: tok?.col || 0,
+      line:
+        typeof errorOrMessage?.line === 'number'
+          ? errorOrMessage.line
+          : (tok?.line || 1) - 1,
+      message,
+      column:
+        typeof errorOrMessage?.column === 'number'
+          ? errorOrMessage.column
+          : tok?.col || 0,
+      severity: errorOrMessage?.severity || 'error',
+      category: errorOrMessage?.category || 'syntax',
     });
+  },
+
+  _raiseSyntaxError(message, token = this._peek(), category = 'syntax') {
+    const error = new Error(message);
+    error.line = (token?.line || 1) - 1;
+    error.column = token?.col || 0;
+    error.severity = 'error';
+    error.category = category;
+    throw error;
   },
 
   _sync() {
@@ -184,6 +530,8 @@ module.exports = {
       this.output.push(`
 const readline = require('readline');
 const { spawn } = require('child_process');
+const _nodeFs = require('fs');
+const _nodePath = require('path');
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
@@ -226,8 +574,38 @@ const _sound = _runtime.sound || (() => {});
 const _play = _runtime.play || (() => {});
 const _screen = _runtime.screen || (() => {});
 const _width = _runtime.width || (() => {});
-const _pset = _runtime.pset || (() => {});
-const _preset = _runtime.preset || (() => {});
+const _graphicsPixels = new Map();
+let _graphicsCursorX = 0;
+let _graphicsCursorY = 0;
+function _graphicsPixelKey(x, y) {
+  return Math.trunc(Number(x) || 0) + ',' + Math.trunc(Number(y) || 0);
+}
+async function _defaultPset(x, y, c, isStep) {
+  const absX = Math.trunc((isStep ? _graphicsCursorX : 0) + (Number(x) || 0));
+  const absY = Math.trunc((isStep ? _graphicsCursorY : 0) + (Number(y) || 0));
+  _graphicsPixels.set(_graphicsPixelKey(absX, absY), c === undefined ? 7 : Math.trunc(Number(c) || 0));
+  _graphicsCursorX = absX;
+  _graphicsCursorY = absY;
+}
+async function _defaultPreset(x, y, c, isStep) {
+  const absX = Math.trunc((isStep ? _graphicsCursorX : 0) + (Number(x) || 0));
+  const absY = Math.trunc((isStep ? _graphicsCursorY : 0) + (Number(y) || 0));
+  _graphicsPixels.set(_graphicsPixelKey(absX, absY), c === undefined ? 0 : Math.trunc(Number(c) || 0));
+  _graphicsCursorX = absX;
+  _graphicsCursorY = absY;
+}
+function _defaultPoint(x, y) {
+  if (y === undefined) {
+    const selector = Math.trunc(Number(x) || 0);
+    if (selector === 0) return _graphicsCursorX;
+    if (selector === 1) return _graphicsCursorY;
+    return 0;
+  }
+  return _graphicsPixels.get(_graphicsPixelKey(x, y)) ?? 0;
+}
+const _pset = _runtime.pset || _defaultPset;
+const _preset = _runtime.preset || _defaultPreset;
+const _point = _runtime.point || _defaultPoint;
 const _line = _runtime.line || (() => {});
 const _circle = _runtime.circle || (() => {});
 const _get = _runtime.get || (() => {});
@@ -320,9 +698,536 @@ function _sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const _MAIN_MEMORY_SIZE = 1024 * 1024;
+const _mainMemory = new Uint8Array(_MAIN_MEMORY_SIZE);
+const _ioPorts = new Uint8Array(65536);
+let _defSegBase = 0;
+
+function _normalizeByte(value) {
+  return Math.trunc(Number(value) || 0) & 0xFF;
+}
+
+function _normalizeWord(value) {
+  return Math.trunc(Number(value) || 0) & 0xFFFF;
+}
+
+function _resolveMemoryAddress(addr) {
+  const numeric = Math.trunc(Number(addr) || 0);
+  const absolute = _defSegBase + numeric;
+  if (absolute < 0) return 0;
+  if (absolute >= _mainMemory.length) return _mainMemory.length - 1;
+  return absolute;
+}
+
+function _coerceMemoryView(target) {
+  if (target === undefined || target === null || target === 0) {
+    return _mainMemory;
+  }
+  if (target instanceof Uint8Array) return target;
+  if (ArrayBuffer.isView(target)) {
+    return new Uint8Array(
+      target.buffer,
+      target.byteOffset,
+      target.byteLength,
+    );
+  }
+  if (target instanceof ArrayBuffer) return new Uint8Array(target);
+  if (target && target.buffer instanceof ArrayBuffer) {
+    const byteOffset = Number(target.byteOffset) || 0;
+    const byteLength = Number(target.byteLength) || target.buffer.byteLength;
+    return new Uint8Array(target.buffer, byteOffset, byteLength);
+  }
+  return _mainMemory;
+}
+
+function _peek(addr) {
+  return _mainMemory[_resolveMemoryAddress(addr)];
+}
+
+function _poke(addr, value) {
+  _mainMemory[_resolveMemoryAddress(addr)] = _normalizeByte(value);
+}
+
+function _inp(port) {
+  return _ioPorts[_normalizeWord(port)];
+}
+
+function _out(port, value) {
+  _ioPorts[_normalizeWord(port)] = _normalizeByte(value);
+  return _ioPorts[_normalizeWord(port)];
+}
+
+async function _wait(port, andMask, xorMask) {
+  const normalizedPort = _normalizeWord(port);
+  const andValue = _normalizeByte(andMask);
+  const xorValue = _normalizeByte(xorMask);
+
+  while (((_ioPorts[normalizedPort] ^ xorValue) & andValue) === 0) {
+    await _sleep(1);
+  }
+}
+
+function _defSeg(segment) {
+  if (segment === undefined || segment === null || segment === '') {
+    _defSegBase = 0;
+    return;
+  }
+  _defSegBase = Math.max(0, Math.trunc(Number(segment) || 0) << 4);
+}
+
+function _memfree(mem) {
+  if (mem && typeof mem === 'object') {
+    mem.freed = true;
+  }
+}
+
+function _memcopy(src, srcOff, bytes, dst, dstOff) {
+  const sourceView = _coerceMemoryView(src);
+  const destinationView = _coerceMemoryView(dst);
+  const sourceOffset = Math.max(0, Math.trunc(Number(srcOff) || 0));
+  const destinationOffset = Math.max(0, Math.trunc(Number(dstOff) || 0));
+  const byteCount = Math.max(0, Math.trunc(Number(bytes) || 0));
+  const safeCount = Math.min(
+    byteCount,
+    Math.max(0, sourceView.length - sourceOffset),
+    Math.max(0, destinationView.length - destinationOffset),
+  );
+
+  if (safeCount <= 0) return;
+
+  destinationView.set(
+    sourceView.slice(sourceOffset, sourceOffset + safeCount),
+    destinationOffset,
+  );
+}
+
+function _memfill(mem, off, bytes, val) {
+  const view = _coerceMemoryView(mem);
+  const offset = Math.max(0, Math.trunc(Number(off) || 0));
+  const byteCount = Math.max(0, Math.trunc(Number(bytes) || 0));
+  const fillValue = _normalizeByte(val);
+
+  if (offset >= view.length || byteCount <= 0) return;
+
+  view.fill(fillValue, offset, Math.min(view.length, offset + byteCount));
+}
+
+const _TYPE_REGISTRY = Object.create(null);
+
+function _fixedString(value, length) {
+  const maxLength = Math.max(0, Math.trunc(Number(length) || 0));
+  const text = String(value ?? '');
+  if (text.length >= maxLength) {
+    return text.slice(0, maxLength);
+  }
+  return text.padEnd(maxLength, ' ');
+}
+
+function _defaultTypeFieldValue(spec) {
+  if (!spec || typeof spec !== 'object') return 0;
+
+  if (spec.kind === 'fixedString') {
+    return _fixedString('', spec.length);
+  }
+
+  if (spec.kind === 'string') {
+    return '';
+  }
+
+  if (spec.kind === 'type') {
+    return _createTypeInstance(spec.typeName);
+  }
+
+  return 0;
+}
+
+function _normalizeTypeFieldValue(spec, value) {
+  if (!spec || typeof spec !== 'object') return value;
+
+  if (spec.kind === 'fixedString') {
+    return _fixedString(value, spec.length);
+  }
+
+  if (spec.kind === 'string') {
+    return String(value ?? '');
+  }
+
+  if (spec.kind === 'type') {
+    if (value && typeof value === 'object') {
+      return _createTypeInstance(spec.typeName, value);
+    }
+    return _createTypeInstance(spec.typeName);
+  }
+
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  return value;
+}
+
+function _createTypeInstance(typeName, initialValues) {
+  const spec = _TYPE_REGISTRY[String(typeName || '').toUpperCase()];
+
+  if (!spec) {
+    return initialValues && typeof initialValues === 'object'
+      ? { ...initialValues }
+      : {};
+  }
+
+  const instance = {};
+  const values = initialValues && typeof initialValues === 'object'
+    ? initialValues
+    : {};
+
+  for (const fieldName of Object.keys(spec)) {
+    const fieldSpec = spec[fieldName];
+    let currentValue = _defaultTypeFieldValue(fieldSpec);
+
+    Object.defineProperty(instance, fieldName, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return currentValue;
+      },
+      set(value) {
+        currentValue = _normalizeTypeFieldValue(fieldSpec, value);
+      },
+    });
+
+    if (Object.prototype.hasOwnProperty.call(values, fieldName)) {
+      currentValue = _normalizeTypeFieldValue(fieldSpec, values[fieldName]);
+    }
+  }
+
+  return instance;
+}
+
+function _defineType(typeName, spec) {
+  _TYPE_REGISTRY[String(typeName || '').toUpperCase()] = spec;
+  return function(initialValues) {
+    return _createTypeInstance(typeName, initialValues);
+  };
+}
+
+function _bytesToBinaryString(bytes) {
+  return Array.from(bytes || [], (value) => String.fromCharCode(value & 0xFF)).join('');
+}
+
+function _binaryStringToBytes(data, length) {
+  const source = String(data ?? '');
+  const size = Math.max(length || 0, source.length);
+  const bytes = new Uint8Array(size);
+  for (let i = 0; i < source.length && i < size; i++) {
+    bytes[i] = source.charCodeAt(i) & 0xFF;
+  }
+  return bytes;
+}
+
+function _scalarTypeName(typeName) {
+  return String(typeName || 'SINGLE').toUpperCase().trim();
+}
+
+function _normalizeConversionType(typeName) {
+  const normalized = _scalarTypeName(typeName).replace(/^_/, '');
+
+  switch (normalized) {
+    case 'I':
+    case 'INTEGER':
+      return 'INTEGER';
+    case 'L':
+    case 'LONG':
+      return 'LONG';
+    case 'S':
+    case 'SINGLE':
+      return 'SINGLE';
+    case 'D':
+    case 'DOUBLE':
+      return 'DOUBLE';
+    default:
+      return normalized || 'SINGLE';
+  }
+}
+
+function _typedValueByteLength(spec) {
+  if (!spec || typeof spec !== 'object') return null;
+
+  if (spec.kind === 'fixedString') {
+    return Math.max(0, Math.floor(Number(spec.length) || 0));
+  }
+
+  if (spec.kind === 'string') {
+    return null;
+  }
+
+  if (spec.kind === 'scalar') {
+    switch (_normalizeConversionType(spec.typeName)) {
+      case 'BIT':
+      case 'BYTE':
+      case '_BIT':
+      case '_BYTE':
+        return 1;
+      case 'INTEGER':
+        return 2;
+      case 'LONG':
+      case 'SINGLE':
+        return 4;
+      case 'DOUBLE':
+      case 'FLOAT':
+      case '_FLOAT':
+      case '_INTEGER64':
+      case 'INTEGER64':
+      case 'OFFSET':
+      case '_OFFSET':
+      case 'MEM':
+      case '_MEM':
+      case 'UNSIGNED':
+      case '_UNSIGNED':
+      case 'ANY':
+      default:
+        return 8;
+    }
+  }
+
+  if (spec.kind === 'type') {
+    const typeSpec = _TYPE_REGISTRY[String(spec.typeName || '').toUpperCase()];
+    if (!typeSpec) return null;
+    let total = 0;
+    for (const fieldName of Object.keys(typeSpec)) {
+      const fieldLength = _typedValueByteLength(typeSpec[fieldName]);
+      if (fieldLength == null) return null;
+      total += fieldLength;
+    }
+    return total;
+  }
+
+  return null;
+}
+
+function _serializeScalarValue(typeName, value) {
+  const normalizedType = _normalizeConversionType(typeName);
+  const width = _typedValueByteLength({ kind: 'scalar', typeName: normalizedType }) || 8;
+  const buffer = new ArrayBuffer(width);
+  const view = new DataView(buffer);
+  const numericValue = Number(value) || 0;
+
+  switch (normalizedType) {
+    case 'BIT':
+    case 'BYTE':
+    case '_BIT':
+    case '_BYTE':
+      view.setInt8(0, Math.trunc(numericValue));
+      break;
+    case 'INTEGER':
+      view.setInt16(0, Math.trunc(numericValue), true);
+      break;
+    case 'LONG':
+      view.setInt32(0, Math.trunc(numericValue), true);
+      break;
+    case 'SINGLE':
+      view.setFloat32(0, numericValue, true);
+      break;
+    case 'INTEGER64':
+    case '_INTEGER64':
+      if (typeof view.setBigInt64 === 'function') {
+        view.setBigInt64(0, BigInt(Math.trunc(numericValue)), true);
+        break;
+      }
+      view.setFloat64(0, numericValue, true);
+      break;
+    case 'DOUBLE':
+    case 'FLOAT':
+    case '_FLOAT':
+    case 'OFFSET':
+    case '_OFFSET':
+    case 'MEM':
+    case '_MEM':
+    case 'UNSIGNED':
+    case '_UNSIGNED':
+    case 'ANY':
+    default:
+      view.setFloat64(0, numericValue, true);
+      break;
+  }
+
+  return _bytesToBinaryString(new Uint8Array(buffer));
+}
+
+function _deserializeScalarValue(typeName, data) {
+  const normalizedType = _normalizeConversionType(typeName);
+  const width = _typedValueByteLength({ kind: 'scalar', typeName: normalizedType }) || 8;
+  const bytes = _binaryStringToBytes(data, width);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  switch (normalizedType) {
+    case 'BIT':
+    case 'BYTE':
+    case '_BIT':
+    case '_BYTE':
+      return view.getInt8(0);
+    case 'INTEGER':
+      return view.getInt16(0, true);
+    case 'LONG':
+      return view.getInt32(0, true);
+    case 'SINGLE':
+      return view.getFloat32(0, true);
+    case 'INTEGER64':
+    case '_INTEGER64':
+      if (typeof view.getBigInt64 === 'function') {
+        return Number(view.getBigInt64(0, true));
+      }
+      return view.getFloat64(0, true);
+    case 'DOUBLE':
+    case 'FLOAT':
+    case '_FLOAT':
+    case 'OFFSET':
+    case '_OFFSET':
+    case 'MEM':
+    case '_MEM':
+    case 'UNSIGNED':
+    case '_UNSIGNED':
+    case 'ANY':
+    default:
+      return view.getFloat64(0, true);
+  }
+}
+
+function _serializeTypedValue(value, spec) {
+  if (!spec || typeof spec !== 'object') {
+    return String(value ?? '');
+  }
+
+  if (spec.kind === 'fixedString') {
+    return _fixedString(value, spec.length);
+  }
+
+  if (spec.kind === 'string') {
+    return String(value ?? '');
+  }
+
+  if (spec.kind === 'scalar') {
+    return _serializeScalarValue(spec.typeName, value);
+  }
+
+  if (spec.kind === 'type') {
+    const typeSpec = _TYPE_REGISTRY[String(spec.typeName || '').toUpperCase()];
+    if (!typeSpec) {
+      return '';
+    }
+
+    const source = value && typeof value === 'object' ? value : {};
+    return Object.keys(typeSpec)
+      .map((fieldName) => _serializeTypedValue(source[fieldName], typeSpec[fieldName]))
+      .join('');
+  }
+
+  return String(value ?? '');
+}
+
+function _deserializeTypedValue(data, spec) {
+  if (!spec || typeof spec !== 'object') {
+    return String(data ?? '');
+  }
+
+  if (spec.kind === 'fixedString') {
+    return _fixedString(data, spec.length);
+  }
+
+  if (spec.kind === 'string') {
+    return String(data ?? '');
+  }
+
+  if (spec.kind === 'scalar') {
+    return _deserializeScalarValue(spec.typeName, data);
+  }
+
+  if (spec.kind === 'type') {
+    const typeSpec = _TYPE_REGISTRY[String(spec.typeName || '').toUpperCase()];
+    if (!typeSpec) {
+      return _createTypeInstance(spec.typeName);
+    }
+
+    let offset = 0;
+    const source = String(data ?? '');
+    const values = {};
+    for (const fieldName of Object.keys(typeSpec)) {
+      const fieldSpec = typeSpec[fieldName];
+      const fieldLength = _typedValueByteLength(fieldSpec);
+      const chunk = fieldLength == null
+        ? source.slice(offset)
+        : source.slice(offset, offset + fieldLength);
+      values[fieldName] = _deserializeTypedValue(chunk, fieldSpec);
+      offset += fieldLength == null ? chunk.length : fieldLength;
+    }
+    return _createTypeInstance(spec.typeName, values);
+  }
+
+  return String(data ?? '');
+}
+
+function _mki$(value) {
+  return _serializeScalarValue('INTEGER', value);
+}
+
+function _mkl$(value) {
+  return _serializeScalarValue('LONG', value);
+}
+
+function _mks$(value) {
+  return _serializeScalarValue('SINGLE', value);
+}
+
+function _mkd$(value) {
+  return _serializeScalarValue('DOUBLE', value);
+}
+
+function _cvi(data) {
+  return _deserializeScalarValue('INTEGER', data);
+}
+
+function _cvl(data) {
+  return _deserializeScalarValue('LONG', data);
+}
+
+function _cvs(data) {
+  return _deserializeScalarValue('SINGLE', data);
+}
+
+function _cvd(data) {
+  return _deserializeScalarValue('DOUBLE', data);
+}
+
+function _mk$(typeName, value) {
+  switch (_normalizeConversionType(typeName)) {
+    case 'INTEGER':
+      return _mki$(value);
+    case 'LONG':
+      return _mkl$(value);
+    case 'DOUBLE':
+      return _mkd$(value);
+    case 'SINGLE':
+    default:
+      return _mks$(value);
+  }
+}
+
+function _cv(typeName, data) {
+  switch (_normalizeConversionType(typeName)) {
+    case 'INTEGER':
+      return _cvi(data);
+    case 'LONG':
+      return _cvl(data);
+    case 'DOUBLE':
+      return _cvd(data);
+    case 'SINGLE':
+    default:
+      return _cvs(data);
+  }
+}
+
 // Helper for multi-dimensional arrays
 function _makeArray(init, ...dims) {
-   if (dims.length === 0) return init;
+   if (dims.length === 0) return typeof init === 'function' ? init() : init;
    const size = dims[0];
    const rest = dims.slice(1);
    return Array.from({length: size + 1}, () => _makeArray(init, ...rest));
@@ -506,8 +1411,34 @@ function _width(cols, rows) {
 // Graphics compatibility layer for packaged console executables.
 // The internal compiler currently targets a Node.js console runtime, so
 // graphics commands are treated as no-ops instead of crashing the program.
-async function _pset() {}
-async function _preset() {}
+const _graphicsPixels = new Map();
+let _graphicsCursorX = 0, _graphicsCursorY = 0;
+function _graphicsPixelKey(x, y) {
+  return Math.trunc(Number(x) || 0) + ',' + Math.trunc(Number(y) || 0);
+}
+async function _pset(x, y, c, isStep) {
+  const absX = Math.trunc((isStep ? _graphicsCursorX : 0) + (Number(x) || 0));
+  const absY = Math.trunc((isStep ? _graphicsCursorY : 0) + (Number(y) || 0));
+  _graphicsPixels.set(_graphicsPixelKey(absX, absY), c === undefined ? 7 : Math.trunc(Number(c) || 0));
+  _graphicsCursorX = absX;
+  _graphicsCursorY = absY;
+}
+async function _preset(x, y, c, isStep) {
+  const absX = Math.trunc((isStep ? _graphicsCursorX : 0) + (Number(x) || 0));
+  const absY = Math.trunc((isStep ? _graphicsCursorY : 0) + (Number(y) || 0));
+  _graphicsPixels.set(_graphicsPixelKey(absX, absY), c === undefined ? 0 : Math.trunc(Number(c) || 0));
+  _graphicsCursorX = absX;
+  _graphicsCursorY = absY;
+}
+function _point(x, y) {
+  if (y === undefined) {
+    const selector = Math.trunc(Number(x) || 0);
+    if (selector === 0) return _graphicsCursorX;
+    if (selector === 1) return _graphicsCursorY;
+    return 0;
+  }
+  return _graphicsPixels.get(_graphicsPixelKey(x, y)) ?? 0;
+}
 async function _line() {}
 async function _circle() {}
 async function _get() {}
@@ -540,35 +1471,1138 @@ function INKEY() {
   return key;
 }
 
-// File I/O (stubs for web compatibility)
-const _files = {};
+// File and system helpers
+const _fileHandles = Object.create(null);
+const _virtualFiles = Object.create(null);
+const _virtualDirectories = new Set([
+  ${this.target === 'node' ? 'process.cwd()' : '"/"'},
+]);
+const _lockState = new Map();
 let _nextFileNum = 1;
+let _currentDir = ${this.target === 'node' ? 'process.cwd()' : '"/"'};
+const _startDir = _currentDir;
+let _dirSearchPattern = null;
+let _dirSearchMatches = [];
+let _dirSearchIndex = 0;
 
-// Mapped to runtime if available
-const _openFunc = _runtime.open || (() => {});
-const _closeFunc = _runtime.close || (() => {});
-const _printFileFunc = _runtime.printFile || (() => {});
-const _inputFileFunc = _runtime.inputFile || (() => {});
+const _openFunc = typeof _runtime.open === 'function' ? _runtime.open.bind(_runtime) : null;
+const _closeFunc = typeof _runtime.close === 'function' ? _runtime.close.bind(_runtime) : null;
+const _printFileFunc = typeof _runtime.printFile === 'function' ? _runtime.printFile.bind(_runtime) : null;
+const _inputFileLineFunc = typeof _runtime.inputFileLine === 'function'
+  ? _runtime.inputFileLine.bind(_runtime)
+  : (typeof _runtime.inputFile === 'function' ? _runtime.inputFile.bind(_runtime) : null);
+const _inputFileTokenFunc = typeof _runtime.inputFileToken === 'function'
+  ? _runtime.inputFileToken.bind(_runtime)
+  : null;
+const _inputFileCharsFunc = typeof _runtime.inputFileChars === 'function'
+  ? _runtime.inputFileChars.bind(_runtime)
+  : null;
+const _writeFileFunc = typeof _runtime.writeFile === 'function' ? _runtime.writeFile.bind(_runtime) : null;
+const _seekFunc = typeof _runtime.seek === 'function' ? _runtime.seek.bind(_runtime) : null;
+const _renameFunc = typeof _runtime.rename === 'function' ? _runtime.rename.bind(_runtime) : null;
+const _killFunc = typeof _runtime.kill === 'function' ? _runtime.kill.bind(_runtime) : null;
+const _mkdirFunc = typeof _runtime.mkdir === 'function' ? _runtime.mkdir.bind(_runtime) : null;
+const _rmdirFunc = typeof _runtime.rmdir === 'function' ? _runtime.rmdir.bind(_runtime) : null;
+const _chdirFunc = typeof _runtime.chdir === 'function' ? _runtime.chdir.bind(_runtime) : null;
+const _filesFunc = typeof _runtime.files === 'function' ? _runtime.files.bind(_runtime) : null;
+const _lockFunc = typeof _runtime.lock === 'function' ? _runtime.lock.bind(_runtime) : null;
+const _unlockFunc = typeof _runtime.unlock === 'function' ? _runtime.unlock.bind(_runtime) : null;
+const _resetFilesFunc = typeof _runtime.resetFiles === 'function' ? _runtime.resetFiles.bind(_runtime) : null;
+const _fileExistsFunc = typeof _runtime.fileexists === 'function' ? _runtime.fileexists.bind(_runtime) : null;
+const _dirExistsFunc = typeof _runtime.direxists === 'function' ? _runtime.direxists.bind(_runtime) : null;
+const _dirFunc = typeof _runtime['dir$'] === 'function' ? _runtime['dir$'].bind(_runtime) : null;
+const _cwdFunc = typeof _runtime['cwd$'] === 'function' ? _runtime['cwd$'].bind(_runtime) : null;
+const _startDirFunc = typeof _runtime['startdir$'] === 'function' ? _runtime['startdir$'].bind(_runtime) : null;
+const _commandFunc = typeof _runtime['command$'] === 'function' ? _runtime['command$'].bind(_runtime) : null;
+const _environFunc = typeof _runtime['environ$'] === 'function' ? _runtime['environ$'].bind(_runtime) : null;
+const _lofFunc = typeof _runtime.lof === 'function' ? _runtime.lof.bind(_runtime) : null;
+const _locFunc = typeof _runtime.loc === 'function' ? _runtime.loc.bind(_runtime) : null;
+const _eofFunc = typeof _runtime.eof === 'function' ? _runtime.eof.bind(_runtime) : null;
+const _shellFunc = typeof _runtime.shell === 'function' ? _runtime.shell.bind(_runtime) : null;
+const _fieldFunc = typeof _runtime.field === 'function' ? _runtime.field.bind(_runtime) : null;
+const _putFileValueFunc = typeof _runtime.putFileValue === 'function' ? _runtime.putFileValue.bind(_runtime) : null;
+const _getFileValueFunc = typeof _runtime.getFileValue === 'function' ? _runtime.getFileValue.bind(_runtime) : null;
+const _getFileFieldsFunc = typeof _runtime.getFileFields === 'function' ? _runtime.getFileFields.bind(_runtime) : null;
 
-async function _open(filename, mode, filenum) {
-  if (_runtime.open) {
-      await _openFunc(filename, mode, filenum);
-      return;
+function _lset(value, length) {
+  const width = Math.max(0, Math.floor(Number(length) || 0));
+  return String(value ?? '').padEnd(width).slice(0, width);
+}
+
+function _rset(value, length) {
+  const width = Math.max(0, Math.floor(Number(length) || 0));
+  if (width === 0) return '';
+  return String(value ?? '').padStart(width).slice(-width);
+}
+
+function _coerceFileNumber(filenum) {
+  return Math.max(1, Math.floor(Number(filenum) || 0));
+}
+
+function _normalizeBasicPath(filename) {
+  const rawName = String(filename ?? '').trim();
+  if (!rawName) return '';
+  ${this.target === 'node'
+    ? 'return _nodePath.resolve(_currentDir, rawName);'
+    : `const baseDir = String(_currentDir || '/').replace(/\\\\/g, '/');
+  const combined = rawName.startsWith('/')
+    ? rawName
+    : (baseDir.endsWith('/') ? baseDir : baseDir + '/') + rawName;
+  const parts = combined.replace(/\\\\/g, '/').split('/');
+  const normalized = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      normalized.pop();
+    } else {
+      normalized.push(part);
+    }
   }
-  _files[filenum] = { filename, mode, data: '', pos: 0, eof: false };
+  return '/' + normalized.join('/');`}
+}
+
+function _wildcardToRegex(spec) {
+  const pattern = String(spec ?? '*');
+  const escaped = pattern.replace(/[.+^$()|[\\]{}\\\\]/g, '\\\\$&');
+  return new RegExp(
+    '^' +
+      escaped
+        .replace(/\\*/g, '.*')
+        .replace(/\\?/g, '.') +
+      '$',
+    'i',
+  );
+}
+
+function _trackVirtualDirectories(filename) {
+  if (${this.target === 'node' ? 'true' : 'false'}) {
+    return;
+  }
+  const normalized = _normalizeBasicPath(filename);
+  const parts = normalized.split('/').filter(Boolean);
+  let current = '';
+  _virtualDirectories.add('/');
+  for (let i = 0; i < parts.length - 1; i++) {
+    current += '/' + parts[i];
+    _virtualDirectories.add(current);
+  }
+}
+
+function _readFallbackFile(filename) {
+  const normalized = _normalizeBasicPath(filename);
+  ${this.target === 'node'
+    ? `if (!_nodeFs.existsSync(normalized)) return '';
+  return _nodeFs.readFileSync(normalized, 'utf8');`
+    : 'return _virtualFiles[normalized] ?? \'\';'}
+}
+
+function _writeFallbackFile(filename, content) {
+  const normalized = _normalizeBasicPath(filename);
+  ${this.target === 'node'
+    ? `_nodeFs.mkdirSync(_nodePath.dirname(normalized), { recursive: true });
+  _nodeFs.writeFileSync(normalized, String(content ?? ''), 'utf8');`
+    : `_trackVirtualDirectories(normalized);
+  _virtualFiles[normalized] = String(content ?? '');`}
+}
+
+function _deleteFallbackFile(filename) {
+  const normalized = _normalizeBasicPath(filename);
+  ${this.target === 'node'
+    ? `if (_nodeFs.existsSync(normalized)) {
+    _nodeFs.unlinkSync(normalized);
+  }`
+    : 'delete _virtualFiles[normalized];'}
+}
+
+function _renameFallbackFile(oldName, newName) {
+  const currentName = _normalizeBasicPath(oldName);
+  const nextName = _normalizeBasicPath(newName);
+  if (!currentName || !nextName) return;
+  ${this.target === 'node'
+    ? `if (!_nodeFs.existsSync(currentName)) return;
+  _nodeFs.mkdirSync(_nodePath.dirname(nextName), { recursive: true });
+  _nodeFs.renameSync(currentName, nextName);`
+    : `if (!Object.prototype.hasOwnProperty.call(_virtualFiles, currentName)) return;
+  _trackVirtualDirectories(nextName);
+  _virtualFiles[nextName] = _virtualFiles[currentName];
+  delete _virtualFiles[currentName];`}
+}
+
+function _fallbackFileExists(filename) {
+  const normalized = _normalizeBasicPath(filename);
+  ${this.target === 'node'
+    ? 'return _nodeFs.existsSync(normalized) && _nodeFs.statSync(normalized).isFile();'
+    : 'return Object.prototype.hasOwnProperty.call(_virtualFiles, normalized);'}
+}
+
+function _fallbackDirExists(dirname) {
+  const normalized = _normalizeBasicPath(dirname);
+  ${this.target === 'node'
+    ? 'return _nodeFs.existsSync(normalized) && _nodeFs.statSync(normalized).isDirectory();'
+    : 'return _virtualDirectories.has(normalized);'}
+}
+
+function _fallbackMkdir(dirname) {
+  const normalized = _normalizeBasicPath(dirname);
+  if (!normalized) return;
+  ${this.target === 'node'
+    ? '_nodeFs.mkdirSync(normalized, { recursive: true });'
+    : '_virtualDirectories.add(normalized);'}
+}
+
+function _fallbackRmdir(dirname) {
+  const normalized = _normalizeBasicPath(dirname);
+  if (!normalized) return;
+  ${this.target === 'node'
+    ? `if (_nodeFs.existsSync(normalized)) {
+    _nodeFs.rmdirSync(normalized);
+  }`
+    : '_virtualDirectories.delete(normalized);'}
+}
+
+function _listFallbackFiles(spec) {
+  const regex = _wildcardToRegex(spec && String(spec).trim().length > 0 ? spec : '*');
+  ${this.target === 'node'
+    ? `let names = [];
+  if (_nodeFs.existsSync(_currentDir)) {
+    names = _nodeFs.readdirSync(_currentDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name);
+  }
+  return names.filter((name) => regex.test(name)).sort((left, right) => left.localeCompare(right));`
+    : `const prefix = _currentDir === '/' ? '/' : _currentDir + '/';
+  return Object.keys(_virtualFiles)
+    .filter((name) => name.startsWith(prefix))
+    .map((name) => name.slice(prefix.length))
+    .filter((name) => name.length > 0 && !name.includes('/'))
+    .filter((name) => regex.test(name))
+    .sort((left, right) => left.localeCompare(right));`}
+}
+
+function _getFileHandle(filenum) {
+  return _fileHandles[_coerceFileNumber(filenum)] || null;
+}
+
+function _syncFileHandle(handle) {
+  if (!handle) return;
+  const length = String(handle.data ?? '').length;
+  handle.pos = Math.max(0, Math.min(Math.floor(Number(handle.pos) || 0), length));
+  handle.eof = handle.pos >= length;
+}
+
+function _skipInputSeparators(handle) {
+  const data = String(handle.data ?? '');
+  while (handle.pos < data.length) {
+    const ch = data[handle.pos];
+    if (ch === ' ' || ch === '\\t' || ch === '\\r' || ch === '\\n' || ch === ',') {
+      handle.pos++;
+    } else {
+      break;
+    }
+  }
+}
+
+function _freefile() {
+  let candidate = 1;
+  while (_fileHandles[candidate]) {
+    candidate++;
+  }
+  _nextFileNum = Math.max(_nextFileNum, candidate + 1);
+  return candidate;
+}
+
+function _eof(filenum) {
+  if (_eofFunc) return _eofFunc(filenum) ? -1 : 0;
+  const handle = _getFileHandle(filenum);
+  return !handle || handle.eof ? -1 : 0;
+}
+
+function _lof(filenum) {
+  if (_lofFunc) return Number(_lofFunc(filenum)) || 0;
+  const handle = _getFileHandle(filenum);
+  return handle ? String(handle.data ?? '').length : 0;
+}
+
+function _loc(filenum) {
+  if (_locFunc) return Number(_locFunc(filenum)) || 0;
+  const handle = _getFileHandle(filenum);
+  return handle ? handle.pos : 0;
+}
+
+function _fileexists(filename) {
+  return (_fileExistsFunc ? _fileExistsFunc(filename) : _fallbackFileExists(filename)) ? -1 : 0;
+}
+
+function _direxists(dirname) {
+  return (_dirExistsFunc ? _dirExistsFunc(dirname) : _fallbackDirExists(dirname)) ? -1 : 0;
+}
+
+function _cwd$() {
+  return _cwdFunc ? String(_cwdFunc()) : String(_currentDir);
+}
+
+function _startdir$() {
+  return _startDirFunc ? String(_startDirFunc()) : String(_startDir);
+}
+
+function _command$() {
+  if (_commandFunc) return String(_commandFunc());
+  ${this.target === 'node'
+    ? 'return process.argv ? process.argv.slice(2).join(" ") : "";'
+    : 'return "";'}
+}
+
+function _environ$(key) {
+  if (_environFunc) return String(_environFunc(key));
+  ${this.target === 'node'
+    ? 'return process.env ? process.env[String(key)] || "" : "";'
+    : 'return "";'}
+}
+
+function _dir$(spec) {
+  if (_dirFunc) {
+    if (spec === undefined) return String(_dirFunc());
+    return String(_dirFunc(spec));
+  }
+
+  if (spec !== undefined && String(spec).length > 0) {
+    _dirSearchPattern = String(spec);
+    _dirSearchMatches = _listFallbackFiles(_dirSearchPattern);
+    _dirSearchIndex = 0;
+  } else if (_dirSearchPattern == null) {
+    return '';
+  }
+
+  if (_dirSearchIndex >= _dirSearchMatches.length) {
+    return '';
+  }
+
+  const next = _dirSearchMatches[_dirSearchIndex];
+  _dirSearchIndex++;
+  return next || '';
+}
+
+function _normalizeFileAccess(mode, access) {
+  const explicit = access === undefined || access === null
+    ? ''
+    : String(access).toUpperCase().trim();
+
+  if (explicit === 'READ' || explicit === 'WRITE' || explicit === 'READ WRITE') {
+    return explicit;
+  }
+
+  if (mode === 'INPUT') return 'READ';
+  if (mode === 'OUTPUT' || mode === 'APPEND') return 'WRITE';
+  return 'READ WRITE';
+}
+
+function _assertFileReadable(handle) {
+  if (!handle) {
+    throw new Error('File is not open.');
+  }
+
+  if (handle.access === 'WRITE') {
+    throw new Error('File is not open for reading.');
+  }
+}
+
+function _assertFileWritable(handle) {
+  if (!handle) {
+    throw new Error('File is not open.');
+  }
+
+  if (handle.access === 'READ') {
+    throw new Error('File is not open for writing.');
+  }
+}
+
+function _normalizeLockMode(mode) {
+  const normalized = mode === undefined || mode === null
+    ? 'READ WRITE'
+    : String(mode).toUpperCase().trim();
+
+  if (normalized === 'READ' || normalized === 'WRITE' || normalized === 'READ WRITE') {
+    return normalized;
+  }
+
+  return 'READ WRITE';
+}
+
+function _lockBlocksOperation(lockMode, operation) {
+  const normalized = _normalizeLockMode(lockMode);
+  return normalized === 'READ WRITE' || (operation === 'read' ? normalized === 'READ' : normalized === 'WRITE');
+}
+
+function _getFileLockEntries(filename) {
+  const key = String(filename ?? '');
+  if (!_lockState.has(key)) {
+    _lockState.set(key, []);
+  }
+  return _lockState.get(key);
+}
+
+function _rangesOverlap(leftStart, leftEnd, rightStart, rightEnd) {
+  const normalizedLeftEnd = leftEnd === undefined || leftEnd === null
+    ? Number.POSITIVE_INFINITY
+    : leftEnd;
+  const normalizedRightEnd = rightEnd === undefined || rightEnd === null
+    ? Number.POSITIVE_INFINITY
+    : rightEnd;
+  return leftStart < normalizedRightEnd && rightStart < normalizedLeftEnd;
+}
+
+function _normalizeLockRange(handle, start, end) {
+  if (!handle || start === undefined || start === null) {
+    return {
+      start: 0,
+      end: Number.POSITIVE_INFINITY,
+    };
+  }
+
+  if (handle.mode === 'RANDOM' && handle.recordLength > 0) {
+    const startRecord = Math.max(1, Math.floor(Number(start) || 1));
+    const endRecord = end === undefined || end === null
+      ? startRecord
+      : Math.max(startRecord, Math.floor(Number(end) || startRecord));
+    return {
+      start: (startRecord - 1) * handle.recordLength,
+      end: endRecord * handle.recordLength,
+    };
+  }
+
+  const startPosition = Math.max(1, Math.floor(Number(start) || 1));
+  const endPosition = end === undefined || end === null
+    ? startPosition
+    : Math.max(startPosition, Math.floor(Number(end) || startPosition));
+  return {
+    start: startPosition - 1,
+    end: endPosition,
+  };
+}
+
+function _assertSharedOpenAllowed(handle) {
+  if (!handle) return;
+
+  if (_fileHandles[handle.fileNum]) {
+    throw new Error('File number is already open.');
+  }
+
+  for (const currentHandle of Object.values(_fileHandles)) {
+    if (!currentHandle || currentHandle.filename !== handle.filename) {
+      continue;
+    }
+
+    if (!currentHandle.shared || !handle.shared) {
+      throw new Error('File is already open without SHARED access.');
+    }
+  }
+}
+
+function _assertFileLockAllowed(handle, operation, start, length) {
+  if (!handle) return;
+
+  const locks = _lockState.get(String(handle.filename ?? ''));
+  if (!locks || locks.length === 0) {
+    return;
+  }
+
+  const normalizedStart = Math.max(0, Math.floor(Number(start) || 0));
+  const normalizedEnd =
+    length === undefined || length === null || length === Number.POSITIVE_INFINITY
+      ? Number.POSITIVE_INFINITY
+      : normalizedStart + Math.max(1, Math.floor(Number(length) || 0));
+
+  for (const lock of locks) {
+    if (!lock || lock.owner === handle.fileNum) {
+      continue;
+    }
+
+    if (!_rangesOverlap(normalizedStart, normalizedEnd, lock.start, lock.end)) {
+      continue;
+    }
+
+    if (_lockBlocksOperation(lock.mode, operation)) {
+      throw new Error(
+        operation === 'read'
+          ? 'File is locked for reading by another handle.'
+          : 'File is locked for writing by another handle.',
+      );
+    }
+  }
+}
+
+function _assertOpenLockAllowed(handle) {
+  if (!handle) return;
+
+  if (handle.access !== 'WRITE') {
+    _assertFileLockAllowed(handle, 'read', 0, Number.POSITIVE_INFINITY);
+  }
+
+  if (handle.access !== 'READ') {
+    _assertFileLockAllowed(handle, 'write', 0, Number.POSITIVE_INFINITY);
+  }
+}
+
+function _registerFileLock(handle, start, end, mode, options) {
+  if (!handle) return;
+
+  const lockMode = _normalizeLockMode(mode);
+  const range = _normalizeLockRange(handle, start, end);
+  const locks = _getFileLockEntries(handle.filename);
+
+  for (const lock of locks) {
+    if (!lock || lock.owner === handle.fileNum) {
+      continue;
+    }
+
+    if (!_rangesOverlap(range.start, range.end, lock.start, lock.end)) {
+      continue;
+    }
+
+    const readConflict =
+      _lockBlocksOperation(lock.mode, 'read') && _lockBlocksOperation(lockMode, 'read');
+    const writeConflict =
+      _lockBlocksOperation(lock.mode, 'write') && _lockBlocksOperation(lockMode, 'write');
+
+    if (readConflict || writeConflict) {
+      throw new Error('Requested file lock conflicts with another open handle.');
+    }
+  }
+
+  locks.push({
+    owner: handle.fileNum,
+    start: range.start,
+    end: range.end,
+    mode: lockMode,
+    implicit: Boolean(options?.implicit),
+  });
+}
+
+function _unregisterFileLock(handle, start, end) {
+  if (!handle) return;
+
+  const key = String(handle.filename ?? '');
+  const locks = _lockState.get(key);
+  if (!locks || locks.length === 0) {
+    return;
+  }
+
+  let remaining = locks;
+  if (start === undefined || start === null) {
+    remaining = locks.filter((lock) => lock.owner !== handle.fileNum || lock.implicit);
+  } else {
+    const range = _normalizeLockRange(handle, start, end);
+    remaining = locks.filter((lock) => {
+      if (lock.owner !== handle.fileNum || lock.implicit) {
+        return true;
+      }
+
+      return lock.start !== range.start || lock.end !== range.end;
+    });
+  }
+
+  if (remaining.length === 0) {
+    _lockState.delete(key);
+    return;
+  }
+
+  _lockState.set(key, remaining);
+}
+
+function _releaseFileLocks(filenum) {
+  const fileNum = _coerceFileNumber(filenum);
+
+  for (const [filename, locks] of _lockState.entries()) {
+    const remaining = locks.filter((lock) => lock.owner !== fileNum);
+    if (remaining.length === 0) {
+      _lockState.delete(filename);
+    } else {
+      _lockState.set(filename, remaining);
+    }
+  }
+}
+
+function _resolveFileOffset(handle, position) {
+  if (position === undefined || position === null) {
+    return Math.max(0, Math.floor(Number(handle.pos) || 0));
+  }
+
+  const numeric = Math.max(1, Math.floor(Number(position) || 1));
+  if (handle.mode === 'RANDOM' && handle.recordLength > 0) {
+    return (numeric - 1) * handle.recordLength;
+  }
+  return numeric - 1;
+}
+
+function _overwriteFileData(handle, offset, data) {
+  const source = String(handle.data ?? '');
+  const start = Math.max(0, Math.floor(Number(offset) || 0));
+  const payload = String(data ?? '');
+
+  if (start > source.length) {
+    handle.data = source + ' '.repeat(start - source.length) + payload;
+    return;
+  }
+
+  handle.data =
+    source.slice(0, start) +
+    payload +
+    source.slice(start + payload.length);
+}
+
+function _fieldRecordLength(handle) {
+  if (!handle?.fields || handle.fields.length === 0) return 0;
+  return handle.fields.reduce(
+    (total, field) => total + Math.max(0, Math.floor(Number(field.length) || 0)),
+    0,
+  );
+}
+
+function _serializeFileValue(handle, value, metadata) {
+  let serialized = metadata ? _serializeTypedValue(value, metadata) : String(value ?? '');
+  const recordLength = Math.max(
+    0,
+    Math.floor(Number(handle?.recordLength || _fieldRecordLength(handle)) || 0),
+  );
+
+  if (handle?.mode === 'RANDOM' && recordLength > 0) {
+    serialized = serialized.length >= recordLength
+      ? serialized.slice(0, recordLength)
+      : serialized.padEnd(recordLength, ' ');
+  }
+
+  return serialized;
+}
+
+function _readFileChunk(handle, offset, length) {
+  const start = Math.max(0, Math.floor(Number(offset) || 0));
+  const recordLength = Math.max(
+    0,
+    Math.floor(Number(handle?.recordLength || _fieldRecordLength(handle)) || 0),
+  );
+  const source = String(handle?.data ?? '');
+  const effectiveLength = length === undefined || length === null
+    ? (recordLength > 0 ? recordLength : Math.max(0, source.length - start))
+    : Math.max(0, Math.floor(Number(length) || 0));
+  return source.slice(start, start + effectiveLength);
+}
+
+function _buildFieldRecord(handle) {
+  if (!handle?.fields || handle.fields.length === 0) {
+    return '';
+  }
+
+  return handle.fields
+    .map((field) => _fixedString(field.get?.() ?? '', field.length))
+    .join('');
+}
+
+function _applyFieldRecord(handle, data) {
+  if (!handle?.fields || handle.fields.length === 0) {
+    return;
+  }
+
+  let offset = 0;
+  const source = String(data ?? '');
+  for (const field of handle.fields) {
+    const width = Math.max(0, Math.floor(Number(field.length) || 0));
+    const chunk = source.slice(offset, offset + width);
+    field.set?.(_fixedString(chunk, width));
+    offset += width;
+  }
+}
+
+function _field(filenum, definitions) {
+  const fileNum = _coerceFileNumber(filenum);
+  const handle = _getFileHandle(fileNum);
+  if (!handle) return;
+
+  handle.fields = Array.isArray(definitions) ? definitions : [];
+  const fieldLength = _fieldRecordLength(handle);
+  if (fieldLength > 0 && (!handle.recordLength || handle.recordLength < fieldLength)) {
+    handle.recordLength = fieldLength;
+  }
+
+  if (_fieldFunc) {
+    _fieldFunc(fileNum, definitions);
+  }
+}
+
+async function _open(filename, mode, filenum, recordLength, options) {
+  const fileNum = filenum === undefined ? _freefile() : _coerceFileNumber(filenum);
+  const openMode = String(mode || 'INPUT').toUpperCase();
+  const normalized = _normalizeBasicPath(filename);
+  const handle = {
+    fileNum,
+    filename: normalized,
+    mode: openMode,
+    data: '',
+    pos: 0,
+    eof: true,
+    recordLength: Math.max(0, Math.floor(Number(recordLength) || 0)),
+    fields: null,
+    access: _normalizeFileAccess(openMode, options?.access),
+    shared: Boolean(options?.shared),
+    lockMode: options?.lockMode === undefined || options?.lockMode === null
+      ? null
+      : String(options.lockMode),
+  };
+
+  _assertSharedOpenAllowed(handle);
+  _assertOpenLockAllowed(handle);
+
+  if (_openFunc) {
+    await _openFunc(filename, openMode, fileNum, handle.recordLength, {
+      access: handle.access,
+      shared: handle.shared,
+      lockMode: handle.lockMode,
+    });
+  } else {
+    if (openMode === 'OUTPUT') {
+      handle.data = '';
+    } else {
+      handle.data = _readFallbackFile(normalized);
+    }
+    handle.pos = openMode === 'APPEND' ? String(handle.data ?? '').length : 0;
+  }
+
+  _fileHandles[fileNum] = handle;
+  if (handle.lockMode) {
+    _registerFileLock(handle, undefined, undefined, handle.lockMode, {
+      implicit: true,
+    });
+  }
+  _syncFileHandle(handle);
 }
 
 async function _close(filenum) {
-  if (_runtime.close) {
-      await _closeFunc(filenum);
-      return;
+  const handle = _getFileHandle(filenum);
+  if (_closeFunc) {
+    await _closeFunc(_coerceFileNumber(filenum));
+  } else if (handle) {
+    const writeMode =
+      handle.mode === 'OUTPUT' ||
+      handle.mode === 'APPEND' ||
+      handle.mode === 'BINARY' ||
+      handle.mode === 'RANDOM';
+    if (writeMode) {
+      _writeFallbackFile(handle.filename, handle.data);
+    }
   }
-  delete _files[filenum];
+  _releaseFileLocks(_coerceFileNumber(filenum));
+  delete _fileHandles[_coerceFileNumber(filenum)];
 }
 
 async function _closeAll() {
-  // If runtime supports closeAll
-  for (const f in _files) delete _files[f];
+  const openFileNumbers = Object.keys(_fileHandles);
+  for (const filenum of openFileNumbers) {
+    await _close(Number(filenum));
+  }
+}
+
+async function _printFile(filenum, text) {
+  const handle = _getFileHandle(filenum);
+  if (!handle) return;
+  _assertFileWritable(handle);
+
+  const content = String(text ?? '');
+  _assertFileLockAllowed(handle, 'write', handle.pos, Math.max(1, content.length));
+  if (_printFileFunc) {
+    await _printFileFunc(_coerceFileNumber(filenum), content);
+  }
+  handle.data =
+    String(handle.data ?? '').slice(0, handle.pos) +
+    content +
+    String(handle.data ?? '').slice(handle.pos);
+  handle.pos += content.length;
+  _syncFileHandle(handle);
+}
+
+async function _writeFile(filenum, ...values) {
+  const handle = _getFileHandle(filenum);
+  if (!handle) return;
+  _assertFileWritable(handle);
+
+  const encoded = values
+    .map((value) => {
+      if (typeof value === 'string') {
+        return '"' + String(value).replace(/"/g, '""') + '"';
+      }
+      return String(value);
+    })
+    .join(',') + '\\n';
+  _assertFileLockAllowed(handle, 'write', handle.pos, Math.max(1, encoded.length));
+
+  if (_writeFileFunc) {
+    await _writeFileFunc(_coerceFileNumber(filenum), ...values);
+    if (handle) {
+      handle.data =
+        String(handle.data ?? '').slice(0, handle.pos) +
+        encoded +
+        String(handle.data ?? '').slice(handle.pos);
+      handle.pos += encoded.length;
+      _syncFileHandle(handle);
+    }
+    return;
+  }
+
+  await _printFile(filenum, encoded);
+}
+
+async function _putFileValue(filenum, position, value, metadata) {
+  const fileNum = _coerceFileNumber(filenum);
+  const handle = _getFileHandle(fileNum);
+  if (!handle) return;
+  _assertFileWritable(handle);
+
+  const offset = _resolveFileOffset(handle, position);
+  const payload = value === undefined
+    ? _serializeFileValue(handle, _buildFieldRecord(handle))
+    : _serializeFileValue(handle, value, metadata);
+  _assertFileLockAllowed(handle, 'write', offset, Math.max(1, payload.length));
+
+  if (_putFileValueFunc) {
+    await _putFileValueFunc(fileNum, position, payload, metadata);
+  }
+
+  _overwriteFileData(handle, offset, payload);
+  handle.pos = offset + payload.length;
+  _syncFileHandle(handle);
+}
+
+async function _inputFileLine(filenum) {
+  if (_inputFileLineFunc) {
+    const delegatedHandle = _getFileHandle(filenum);
+    if (delegatedHandle) {
+      _assertFileReadable(delegatedHandle);
+      _assertFileLockAllowed(delegatedHandle, 'read', delegatedHandle.pos, Number.POSITIVE_INFINITY);
+    }
+    return String(await _inputFileLineFunc(_coerceFileNumber(filenum)));
+  }
+
+  const handle = _getFileHandle(filenum);
+  if (!handle) return '';
+  _assertFileReadable(handle);
+  _assertFileLockAllowed(handle, 'read', handle.pos, Number.POSITIVE_INFINITY);
+
+  const data = String(handle.data ?? '');
+  const newlineIndex = data.indexOf('\\n', handle.pos);
+  const end = newlineIndex === -1 ? data.length : newlineIndex;
+  const line = data.slice(handle.pos, end).replace(/\\r$/, '');
+  handle.pos = newlineIndex === -1 ? data.length : newlineIndex + 1;
+  _syncFileHandle(handle);
+  return line;
+}
+
+async function _inputFileToken(filenum) {
+  if (_inputFileTokenFunc) {
+    const delegatedHandle = _getFileHandle(filenum);
+    if (delegatedHandle) {
+      _assertFileReadable(delegatedHandle);
+      _assertFileLockAllowed(delegatedHandle, 'read', delegatedHandle.pos, Number.POSITIVE_INFINITY);
+    }
+    return String(await _inputFileTokenFunc(_coerceFileNumber(filenum)));
+  }
+
+  const handle = _getFileHandle(filenum);
+  if (!handle) return '';
+  _assertFileReadable(handle);
+  _assertFileLockAllowed(handle, 'read', handle.pos, Number.POSITIVE_INFINITY);
+
+  const data = String(handle.data ?? '');
+  _skipInputSeparators(handle);
+  if (handle.pos >= data.length) {
+    _syncFileHandle(handle);
+    return '';
+  }
+
+  let value = '';
+  if (data[handle.pos] === '"') {
+    handle.pos++;
+    while (handle.pos < data.length) {
+      const ch = data[handle.pos];
+      if (ch === '"') {
+        if (data[handle.pos + 1] === '"') {
+          value += '"';
+          handle.pos += 2;
+          continue;
+        }
+        handle.pos++;
+        break;
+      }
+      value += ch;
+      handle.pos++;
+    }
+  } else {
+    const start = handle.pos;
+    while (handle.pos < data.length) {
+      const ch = data[handle.pos];
+      if (ch === ',' || ch === '\\r' || ch === '\\n') {
+        break;
+      }
+      handle.pos++;
+    }
+    value = data.slice(start, handle.pos).trim();
+  }
+
+  while (handle.pos < data.length && (data[handle.pos] === ',' || data[handle.pos] === '\\r' || data[handle.pos] === '\\n')) {
+    handle.pos++;
+  }
+
+  _syncFileHandle(handle);
+  return value;
+}
+
+function _input$(count, filenum) {
+  const length = Math.max(0, Math.floor(Number(count) || 0));
+  if (length === 0) return '';
+
+  if (_inputFileCharsFunc) {
+    const delegatedHandle = _getFileHandle(filenum);
+    if (delegatedHandle) {
+      _assertFileReadable(delegatedHandle);
+      _assertFileLockAllowed(delegatedHandle, 'read', delegatedHandle.pos, Math.max(1, length));
+    }
+    return String(_inputFileCharsFunc(length, _coerceFileNumber(filenum)));
+  }
+
+  const handle = _getFileHandle(filenum);
+  if (!handle) return '';
+  _assertFileReadable(handle);
+  _assertFileLockAllowed(handle, 'read', handle.pos, Math.max(1, length));
+
+  const data = String(handle.data ?? '');
+  const end = Math.min(handle.pos + length, data.length);
+  const chunk = data.slice(handle.pos, end);
+  handle.pos = end;
+  _syncFileHandle(handle);
+  return chunk;
+}
+
+async function _getFileValue(filenum, position, length, metadata) {
+  const fileNum = _coerceFileNumber(filenum);
+  const delegatedHandle = _getFileHandle(fileNum);
+  const delegatedOffset = delegatedHandle ? _resolveFileOffset(delegatedHandle, position) : 0;
+  const delegatedLength =
+    length === undefined || length === null
+      ? (_typedValueByteLength(metadata) || (delegatedHandle?.recordLength > 0 ? delegatedHandle.recordLength : Number.POSITIVE_INFINITY))
+      : Math.max(1, Math.floor(Number(length) || 0));
+  if (_getFileValueFunc) {
+    if (delegatedHandle) {
+      _assertFileReadable(delegatedHandle);
+      _assertFileLockAllowed(delegatedHandle, 'read', delegatedOffset, delegatedLength);
+    }
+    const runtimeChunk = String(
+      await _getFileValueFunc(fileNum, position, delegatedLength, metadata),
+    );
+    const handle = _getFileHandle(fileNum);
+    if (!handle) {
+      return metadata ? _deserializeTypedValue(runtimeChunk, metadata) : runtimeChunk;
+    }
+    const runtimeLength =
+      length === undefined || length === null
+        ? Math.max(
+          0,
+          Math.floor(Number(_typedValueByteLength(metadata) || handle.recordLength || runtimeChunk.length) || 0),
+        )
+        : Math.max(0, Math.floor(Number(length) || 0));
+    handle.pos = _resolveFileOffset(handle, position) + runtimeLength;
+    _syncFileHandle(handle);
+    return metadata ? _deserializeTypedValue(runtimeChunk, metadata) : runtimeChunk;
+  }
+
+  const handle = _getFileHandle(fileNum);
+  if (!handle) return '';
+  _assertFileReadable(handle);
+
+  const offset = _resolveFileOffset(handle, position);
+  _assertFileLockAllowed(handle, 'read', offset, delegatedLength);
+  const chunk = _readFileChunk(handle, offset, length);
+  handle.pos = offset + chunk.length;
+  _syncFileHandle(handle);
+  return metadata ? _deserializeTypedValue(chunk, metadata) : chunk;
+}
+
+async function _getFileFields(filenum, position) {
+  const fileNum = _coerceFileNumber(filenum);
+  const delegatedHandle = _getFileHandle(fileNum);
+  const delegatedOffset = delegatedHandle ? _resolveFileOffset(delegatedHandle, position) : 0;
+  const delegatedLength = Math.max(
+    1,
+    Math.floor(
+      Number(delegatedHandle?.recordLength || _fieldRecordLength(delegatedHandle)) || 0,
+    ),
+  );
+  if (_getFileFieldsFunc) {
+    if (delegatedHandle) {
+      _assertFileReadable(delegatedHandle);
+      _assertFileLockAllowed(delegatedHandle, 'read', delegatedOffset, delegatedLength);
+    }
+    await _getFileFieldsFunc(fileNum, position);
+    const handle = _getFileHandle(fileNum);
+    if (!handle) return;
+    const recordLength = Math.max(
+      0,
+      Math.floor(Number(handle.recordLength || _fieldRecordLength(handle)) || 0),
+    );
+    handle.pos = _resolveFileOffset(handle, position) + recordLength;
+    _syncFileHandle(handle);
+    return;
+  }
+
+  const handle = _getFileHandle(fileNum);
+  if (!handle) return;
+  _assertFileReadable(handle);
+
+  const offset = _resolveFileOffset(handle, position);
+  _assertFileLockAllowed(handle, 'read', offset, Math.max(1, delegatedLength));
+  const data = _readFileChunk(handle, offset, handle.recordLength || _fieldRecordLength(handle));
+  _applyFieldRecord(handle, data);
+  handle.pos = offset + data.length;
+  _syncFileHandle(handle);
+}
+
+function _seek(filenum, pos) {
+  if (_seekFunc) {
+    _seekFunc(_coerceFileNumber(filenum), pos);
+  }
+  const handle = _getFileHandle(filenum);
+  if (!handle) return;
+  handle.pos = Math.max(0, (Math.floor(Number(pos) || 1)) - 1);
+  _syncFileHandle(handle);
+}
+
+async function _rename(oldName, newName) {
+  if (_renameFunc) {
+    await _renameFunc(oldName, newName);
+  } else {
+    _renameFallbackFile(oldName, newName);
+  }
+  _dirSearchPattern = null;
+}
+
+async function _kill(filename) {
+  if (_killFunc) {
+    await _killFunc(filename);
+  } else {
+    _deleteFallbackFile(filename);
+  }
+  _dirSearchPattern = null;
+}
+
+async function _mkdir(dirname) {
+  if (_mkdirFunc) {
+    await _mkdirFunc(dirname);
+  } else {
+    _fallbackMkdir(dirname);
+  }
+}
+
+async function _rmdir(dirname) {
+  if (_rmdirFunc) {
+    await _rmdirFunc(dirname);
+  } else {
+    _fallbackRmdir(dirname);
+  }
+}
+
+async function _chdir(dirname) {
+  if (_chdirFunc) {
+    await _chdirFunc(dirname);
+    const runtimeDir = _cwdFunc ? _cwdFunc() : dirname;
+    if (runtimeDir) {
+      _currentDir = _normalizeBasicPath(runtimeDir);
+    }
+    return;
+  }
+
+  const nextDir = _normalizeBasicPath(dirname);
+  if (!nextDir) return;
+  if (!_fallbackDirExists(nextDir)) {
+    throw new Error('Directory not found: ' + String(dirname));
+  }
+  _currentDir = nextDir;
+}
+
+async function _files(spec) {
+  if (_filesFunc) {
+    await _filesFunc(spec);
+    return;
+  }
+
+  const matches = _listFallbackFiles(spec);
+  if (matches.length === 0) {
+    _print('(no files)', true);
+    return;
+  }
+
+  for (const file of matches) {
+    _print(file, true);
+  }
+}
+
+function _lock(filenum, start, end) {
+  const fileNum = _coerceFileNumber(filenum);
+  const handle = _getFileHandle(fileNum);
+  if (!handle) return;
+
+  _registerFileLock(handle, start, end, 'READ WRITE');
+  if (_lockFunc) {
+    _lockFunc(fileNum, start, end);
+  }
+}
+
+function _unlock(filenum, start, end) {
+  const fileNum = _coerceFileNumber(filenum);
+  const handle = _getFileHandle(fileNum);
+  if (!handle) return;
+
+  _unregisterFileLock(handle, start, end);
+  if (_unlockFunc) {
+    _unlockFunc(fileNum, start, end);
+  }
+}
+
+async function _resetFiles() {
+  if (_resetFilesFunc) {
+    await _resetFilesFunc();
+  }
+  await _closeAll();
+}
+
+async function _shell(cmd) {
+  if (_shellFunc) {
+    await _shellFunc(cmd);
+    return;
+  }
+  ${this.target === 'node'
+    ? `await new Promise((resolve, reject) => {
+    if (cmd === undefined) {
+      const shellBinary =
+        process.platform === 'win32'
+          ? process.env.ComSpec || 'cmd.exe'
+          : process.env.SHELL || '/bin/sh';
+      const shellProcess = spawn(shellBinary, {
+        cwd: _currentDir,
+        stdio: 'inherit',
+      });
+      shellProcess.on('error', reject);
+      shellProcess.on('exit', () => resolve());
+      return;
+    }
+
+    const shellProcess = spawn(String(cmd), {
+      cwd: _currentDir,
+      stdio: 'inherit',
+      shell: true,
+    });
+    shellProcess.on('error', reject);
+    shellProcess.on('exit', () => resolve());
+  });`
+    : `console.log('SHELL', cmd || '(interactive)', '- not supported in web');
+  if (typeof _runtime.error === 'function') {
+    _runtime.error('SHELL command not available in web mode');
+  }`}
 }
 
 // INSTR function with proper 1-based index
@@ -588,11 +2622,29 @@ const FALSE = 0;
 
 (async () => {
 try {
+_qbRestart: while (true) {
+try {
 `);
   },
 
   _emitFooter() {
     this.output.push(`
+} catch (e) {
+  if (e && e.type === "RUN" && e.restart) {
+    _restore();
+    await _closeAll();
+    continue _qbRestart;
+  }
+  if (e && e.type === "RUN" && e.program !== undefined) {
+    throw new Error("RUN with an external program is not supported by the internal compiler runtime.");
+  }
+  if (e && e.type === "CHAIN") {
+    throw new Error("CHAIN is not supported by the internal compiler runtime.");
+  }
+  throw e;
+}
+break _qbRestart;
+}
 } catch (e) {
   if (e === "__END__" || e === "STOP") {
     // Normal program termination — do nothing, fall through to finally
@@ -643,6 +2695,13 @@ try {
 
   _consume(type) {
     if (this._check(type)) return this._advance();
+    return null;
+  },
+
+  _consumeNameToken() {
+    if (this._check(TokenType.IDENTIFIER) || this._check(TokenType.KEYWORD)) {
+      return this._advance();
+    }
     return null;
   },
 

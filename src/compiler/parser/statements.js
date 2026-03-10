@@ -16,8 +16,16 @@ _parseStatement() {
     if (this._matchKw('CIRCLE')) return this._parseCircle();
     if (this._matchKw('PSET')) return this._parsePset();
     if (this._matchKw('PRESET')) return this._parsePreset();
-    if (this._matchKw('GET')) return this._parseGet();
-    if (this._matchKw('PUT')) return this._parsePut();
+    if (this._matchKw('GET')) {
+      return this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === '#'
+        ? this._parseGetFile()
+        : this._parseGet();
+    }
+    if (this._matchKw('PUT')) {
+      return this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === '#'
+        ? this._parsePutFile()
+        : this._parsePut();
+    }
 
     // Control Flow
     if (this._matchKw('IF')) return this._parseIf();
@@ -35,15 +43,20 @@ _parseStatement() {
     if (this._matchKw('STOP')) return this._emit('throw "__END__"; // STOP');
 
     // Variables & Data
+    if (this._matchKw('COMMON')) return this._parseCommon();
     if (this._matchKw('DIM')) return this._parseDim();
     if (this._matchKw('REDIM')) return this._parseRedim();
+    if (this._matchKw('STATIC')) return this._parseStatic();
     if (this._matchKw('CONST')) return this._parseConst();
     if (this._matchKw('TYPE')) return this._parseType();
     if (this._matchKw('DATA')) return this._parseData();
     if (this._matchKw('READ')) return this._parseRead();
     if (this._matchKw('RESTORE')) return this._parseRestore();
+    if (this._matchKw('FIELD')) return this._parseField();
     if (this._matchKw('SWAP')) return this._parseSwap();
     if (this._matchKw('ERASE')) return this._parseErase();
+    if (this._matchKw('LSET')) return this._parseLsetStatement();
+    if (this._matchKw('RSET')) return this._parseRsetStatement();
     if (this._matchKw('LET')) return this._parseAssignment();
 
     // Screen & I/O
@@ -64,7 +77,12 @@ _parseStatement() {
     // Branching
     if (this._matchKw('GOTO')) return this._parseGoto();
     if (this._matchKw('GOSUB')) return this._parseGosub();
-    if (this._matchKw('RETURN')) return this._emit('return;');
+    if (this._matchKw('RETURN')) {
+      if (this._insideRawCapture) {
+        this._rawCaptureContainsJump = true;
+      }
+      return this._emit('return;');
+    }
     if (this._matchKw('ON')) return this._parseOnStatement();
     if (this._matchKw('RESUME')) return this._parseResume();
 
@@ -81,7 +99,10 @@ _parseStatement() {
 
     // Misc
     if (this._matchKw('RANDOMIZE')) return this._parseRandomize();
-    if (this._matchKw('DEF')) return this._parseDefFn();
+    if (this._matchKw('DEF')) {
+      if (this._matchKw('SEG')) return this._parseDefSeg();
+      return this._parseDefFn();
+    }
     if (this._matchKw('OPEN')) return this._parseOpen();
     if (this._matchKw('CLOSE')) return this._parseClose();
 
@@ -199,6 +220,9 @@ _parseStatement() {
   },
 
 _parseLabel() {
+    if (this._insideRawCapture) {
+      this._rawCaptureContainsJump = true;
+    }
     const label = this._consume(TokenType.IDENTIFIER);
     this._matchPunc(':');
     if (label) {
@@ -285,6 +309,7 @@ _parseEnd() {
       this._decIndent();
       this._emit('} // END IF/SELECT');
     } else if (this._matchKw('SUB')) {
+      this.currentProcedure = null;
       this._exitScope();
       this._decIndent();
       this._emit('} // END SUB');
@@ -293,6 +318,7 @@ _parseEnd() {
         this._emit(`return ${this.currentFunction.resultVar};`);
         this.currentFunction = null;
       }
+      this.currentProcedure = null;
       this._exitScope();
       this._decIndent();
       this._emit('} // END FUNCTION');
@@ -303,7 +329,7 @@ _parseEnd() {
 
 _parseFor() {
     const id = this._consume(TokenType.IDENTIFIER);
-    if (!id) throw new Error('Expected variable after FOR');
+    if (!id) this._raiseSyntaxError('Expected variable after FOR');
 
     const name = id.value;
     this._addVar(name);
@@ -378,97 +404,41 @@ _parseExit() {
     }
   },
 
-_parseAssignment() {
-    const id = this._consume(TokenType.IDENTIFIER);
-    if (!id) return;
+  _parseAssignment() {
+    const target = this._parseAssignableTarget({
+      contextLabel: 'assignment',
+    });
+    if (!target) return;
 
-    const name = id.value;
-    const storageName = this._resolveStorageName(name);
-
-    // Array element assignment or Member Access
-    if (this._matchPunc('(')) {
-      const indices = [];
-      do {
-        indices.push(this._parseExpr());
-      } while (this._matchPunc(','));
-      this._matchPunc(')');
-
-      // Check for additional dots (e.g., arr(1).x = 10)
-      let suffix = '';
-      while (this._matchPunc('.')) {
-        const member = this._consume(TokenType.IDENTIFIER);
-        if (member) suffix += `.${member.value}`;
-      }
-
-      this._consumeOp('=');
-      const val = this._parseExpr();
-
-      // Ensure array is declared
-      if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
-        this._addVar(name);
-        this._emit(`var ${name} = [];`);
-      }
-
-      const arrayPath = `${storageName}${indices.map((index) => `[${index}]`).join('')}`;
-
-      for (let i = 0; i < indices.length - 1; i++) {
-        const parentPath = `${storageName}${indices
-          .slice(0, i + 1)
-          .map((index) => `[${index}]`)
-          .join('')}`;
-        this._emit(`if (!Array.isArray(${parentPath})) ${parentPath} = [];`);
-      }
-
-      if (suffix) {
-        this._emit(`if (${arrayPath} == null) ${arrayPath} = {};`);
-      }
-
-      this._emit(
-        `${arrayPath}${suffix} = ${val};`,
-      );
-      return;
-    }
-
-    // Struct/Member assignment (e.g. p1.Name = "Hero")
-    if (this._matchPunc('.')) {
-      const member = this._consume(TokenType.IDENTIFIER);
-      if (member) {
-        this._consumeOp('=');
-        const val = this._parseExpr();
-
-        // Ensure struct is declared
-        if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
-          this._addVar(name);
-          this._emit(`var ${name} = {};`);
-        }
-
-        this._emit(`${storageName}.${member.value} = ${val};`);
-      }
-      return;
-    }
-
-    // Simple variable assignment
-    if (this._matchOp('=')) {
-      const val = this._parseExpr();
-      if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
-        this._addVar(name);
-        this._emit(`var ${name} = ${val};`);
-      } else {
-        this._emit(`${storageName} = ${val};`);
-      }
-    }
+    this._consumeOp('=');
+    const val = this._wrapAssignmentValue(
+      target.name,
+      this._parseExpr(),
+      target.wrapOptions,
+    );
+    this._emit(`${target.targetExpr} = ${val};`);
   },
 
 _parseSwap() {
-    const id1 = this._consume(TokenType.IDENTIFIER);
-    if (!id1) throw new Error('Expected variable for SWAP');
+    const left = this._parseAssignableTarget({
+      contextLabel: 'SWAP',
+    });
     this._matchPunc(',');
-    const id2 = this._consume(TokenType.IDENTIFIER);
-    if (!id2) throw new Error('Expected second variable for SWAP');
-
-    const v1 = id1.value;
-    const v2 = id2.value;
-    this._emit(`[${v1}, ${v2}] = [${v2}, ${v1}];`);
+    const right = this._parseAssignableTarget({
+      contextLabel: 'SWAP',
+    });
+    const tempVar = `_swap_${this.pos}`;
+    const leftAssigned = this._wrapAssignmentValue(
+      left.name,
+      right.targetExpr,
+      left.wrapOptions,
+    );
+    const rightAssigned = this._wrapAssignmentValue(
+      right.name,
+      tempVar,
+      right.wrapOptions,
+    );
+    this._emit(`{ const ${tempVar} = ${left.targetExpr}; ${left.targetExpr} = ${leftAssigned}; ${right.targetExpr} = ${rightAssigned}; }`);
   },
 
 _parseSelect() {
@@ -568,9 +538,12 @@ _parseSub() {
       }
     }
 
+    const staticStore = `_static_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
+    this._emit(`const ${staticStore} = Object.create(null);`);
     this._emit(`async function ${name}(${args.join(', ')}) {`);
     this.indent++;
     this._enterScope();
+    this.currentProcedure = { name, staticStore, kind: 'SUB' };
     args.forEach((a) => this._addVar(a));
   },
 
@@ -590,9 +563,12 @@ _parseFunction() {
       }
     }
 
+    const staticStore = `_static_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
+    this._emit(`const ${staticStore} = Object.create(null);`);
     this._emit(`async function ${name}(${args.join(', ')}) {`);
     this.indent++;
     this._enterScope();
+    this.currentProcedure = { name, staticStore, kind: 'FUNCTION' };
     args.forEach((a) => this._addVar(a));
 
     const resultVar = `_result_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
@@ -601,6 +577,9 @@ _parseFunction() {
   },
 
 _parseGoto() {
+    if (this._insideRawCapture) {
+      this._rawCaptureContainsJump = true;
+    }
     const label = this._consume(TokenType.IDENTIFIER);
     if (label) {
       // Check if label exists in collected labels
@@ -618,6 +597,9 @@ _parseGoto() {
   },
 
 _parseGosub() {
+    if (this._insideRawCapture) {
+      this._rawCaptureContainsJump = true;
+    }
     const label = this._consume(TokenType.IDENTIFIER);
     if (label) {
       // Check if label exists
@@ -711,6 +693,63 @@ _parseDefFn() {
     this._emit(`const ${name} = async (${args.join(', ')}) => ${expr};`);
   },
 
+_parseDefSeg() {
+    if (this._matchOp('=')) {
+      const segment = this._parseExpr();
+      this._emit(`_defSeg(${segment});`);
+      return;
+    }
+
+    this._emit('_defSeg();');
+  },
+
+_parseCommon() {
+    if (!this._matchKw('SHARED')) {
+      this._recordError('COMMON without SHARED is not supported yet.');
+      return this._skipToEndOfLine();
+    }
+
+    if (this.currentScopeKind !== 'global') {
+      this._recordError(
+        'COMMON SHARED inside SUB/FUNCTION is not supported yet.',
+      );
+      return this._skipToEndOfLine();
+    }
+
+    return this._parseDim({ forceShared: true });
+  },
+
+_parseStatic() {
+    if (!this.currentProcedure) {
+      this._recordError('STATIC is only supported inside SUB/FUNCTION.');
+      return this._skipToEndOfLine();
+    }
+
+    do {
+      const id = this._consume(TokenType.IDENTIFIER);
+      if (!id) break;
+
+      const name = id.value;
+      const dimensions = this._parseOptionalDimensions();
+      const typeSpec = this._parseDeclaredTypeSpec(name);
+      const metadata = this._getTypeMetadata(typeSpec, dimensions.length > 0);
+      const storageName = `${this.currentProcedure.staticStore}.${name}`;
+
+      this._addVar(name);
+      this._setStorageOverride(name, storageName);
+      if (metadata) this._setVarMetadata(name, metadata);
+
+      const initializer =
+        dimensions.length > 0
+          ? `_makeArray(${this._getTypeInitializer(typeSpec, true)}, ${dimensions.join(', ')})`
+          : this._getTypeInitializer(typeSpec, false);
+
+      this._emit(
+        `if (!Object.prototype.hasOwnProperty.call(${this.currentProcedure.staticStore}, "${name}")) ${storageName} = ${initializer};`,
+      );
+    } while (this._matchPunc(','));
+  },
+
 _parseLprint() {
     // LPRINT - same as PRINT but to printer (emit to console in web)
     const parts = [];
@@ -749,16 +788,43 @@ _parseWrite() {
     }
   },
 
+_parseLsetStatement() {
+    return this._parseAlignedStringAssignment('_lset');
+  },
+
+_parseRsetStatement() {
+    return this._parseAlignedStringAssignment('_rset');
+  },
+
+_parseAlignedStringAssignment(helperName) {
+    const target = this._parseAssignableTarget({
+      contextLabel: 'string alignment statement',
+    });
+
+    this._consumeOp('=');
+    const value = this._parseExpr();
+    const lengthExpr =
+      target.metadata?.kind === 'fixedString'
+        ? target.metadata.length
+        : `String(${target.targetExpr} ?? "").length`;
+
+    this._emit(
+      `${target.targetExpr} = ${this._wrapAssignmentValue(
+        target.name,
+        `${helperName}(${value}, ${lengthExpr})`,
+        target.wrapOptions,
+      )};`,
+    );
+  },
+
 _parseOut() {
-    // OUT port, value - hardware I/O (stub)
     const port = this._parseExpr();
     this._matchPunc(',');
     const value = this._parseExpr();
-    this._emit(`/* OUT ${port}, ${value} - hardware I/O not supported */`);
+    this._emit(`_out(${port}, ${value});`);
   },
 
 _parseWait() {
-    // WAIT port, and_val [, xor_val] - hardware wait (stub)
     const port = this._parseExpr();
     this._matchPunc(',');
     const andVal = this._parseExpr();
@@ -766,9 +832,7 @@ _parseWait() {
     if (this._matchPunc(',')) {
       xorVal = this._parseExpr();
     }
-    this._emit(
-      `/* WAIT ${port}, ${andVal}, ${xorVal} - hardware wait not supported */`,
-    );
+    this._emit(`await _wait(${port}, ${andVal}, ${xorVal});`);
   },
 
 _parsePoke() {
@@ -991,6 +1055,9 @@ _parseError() {
   },
 
 _parseOnStatement() {
+    if (this._insideRawCapture) {
+      this._rawCaptureContainsJump = true;
+    }
     // ON expr GOTO/GOSUB label1, label2, ...
     const expr = this._parseExpr();
 

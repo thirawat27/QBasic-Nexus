@@ -32,7 +32,9 @@ async function runInCrt() {
     // Transpile with 'web' target
     const InternalTranspiler = getInternalTranspiler();
     const transpiler = new InternalTranspiler();
-    const jsCode = transpiler.transpile(sourceCode, 'web');
+    const jsCode = transpiler.transpile(sourceCode, 'web', {
+      sourcePath: document.uri.fsPath,
+    });
 
     // Launch Webview
     await getWebviewManager().runCode(

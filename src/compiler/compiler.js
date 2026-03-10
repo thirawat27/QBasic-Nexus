@@ -9,6 +9,7 @@ const Lexer = require('./lexer');
 const { TokenPool } = require('./lexer');
 const InternalTranspiler = require('./parser');
 const { getGlobalCache } = require('./cache');
+const { preprocessSource } = require('./preprocessor');
 const {
   DiagnosticCollector,
   ErrorCategory,
@@ -24,6 +25,8 @@ const DEFAULT_OPTIONS = {
   optimizationLevel: 2, // 0=none, 1=basic, 2=aggressive
   sourceMap: false, // Generate source maps
   maxErrors: 100, // Maximum errors before stopping
+  sourcePath: null,
+  cwd: process.cwd(),
 };
 
 function countLines(source) {
@@ -116,13 +119,19 @@ class Compiler {
   /**
    * Compile QBasic source code
    */
-  compile(source) {
+  compile(source, compileOptions = {}) {
     const startTime = process.hrtime.bigint();
     let tokens = null;
+    const options = { ...this.options, ...compileOptions };
+    const preprocessResult = preprocessSource(source, {
+      sourcePath: options.sourcePath,
+      cwd: options.cwd,
+    });
+    const preprocessedSource = preprocessResult.source;
 
     // Check cache first (no tokenization needed)
-    if (this.cache) {
-      const cached = this.cache.getCode(source, this.options.target);
+    if (this.cache && !preprocessResult.diagnostics.hasErrors()) {
+      const cached = this.cache.getCode(preprocessedSource, options.target);
       if (cached) {
         this.stats.cacheHits++;
         this.stats.compilations++;
@@ -141,11 +150,24 @@ class Compiler {
     }
 
     const diagnostics = new DiagnosticCollector();
+    for (const diag of preprocessResult.diagnostics.getAll()) {
+      diagnostics.add(diag);
+    }
 
     try {
+      if (diagnostics.hasErrors()) {
+        return new CompilationResult('', diagnostics, {
+          cached: false,
+          lineCount: countLines(source),
+          sourceSize: source.length,
+          includedFiles: preprocessResult.metadata.includedFiles,
+          directives: preprocessResult.metadata.directives,
+        });
+      }
+
       // ── Tokenize ONCE ──────────────────────────────────────────────
       const lexerStart = process.hrtime.bigint();
-      const lexer = new Lexer(source);
+      const lexer = new Lexer(preprocessedSource);
       tokens = lexer.tokenize();
       const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1_000_000;
 
@@ -154,26 +176,36 @@ class Compiler {
       const transpiler = new InternalTranspiler();
       const { code, errors } = transpiler.transpileTokens(
         tokens,
-        this.options.target,
+        options.target,
       );
       const parserTime =
         Number(process.hrtime.bigint() - parserStart) / 1_000_000;
 
       // Collect errors directly from the parse result (no extra lint pass)
       for (const err of errors) {
-        diagnostics.error(
-          ErrorCategory.SYNTAX,
-          err.message,
-          err.line,
-          err.column,
-        );
+        const category = err.category || ErrorCategory.SYNTAX;
+        const line = err.line;
+        const column = err.column;
+        const length = err.length || 1;
+
+        switch (err.severity) {
+          case 'warning':
+            diagnostics.warning(category, err.message, line, column, length);
+            break;
+          case 'info':
+            diagnostics.info(category, err.message, line, column, length);
+            break;
+          default:
+            diagnostics.error(category, err.message, line, column, length);
+            break;
+        }
       }
 
       // Cache the result if clean
       if (this.cache && !diagnostics.hasErrors()) {
         this.cache.setCode(
-          source,
-          this.options.target,
+          preprocessedSource,
+          options.target,
           code,
           diagnostics.getAll(),
         );
@@ -192,6 +224,8 @@ class Compiler {
         tokenCount: tokens.length,
         lineCount: countLines(source),
         sourceSize: source.length,
+        includedFiles: preprocessResult.metadata.includedFiles,
+        directives: preprocessResult.metadata.directives,
       });
     } catch (error) {
       diagnostics.error(

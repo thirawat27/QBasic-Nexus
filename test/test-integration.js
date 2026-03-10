@@ -2,6 +2,10 @@
 /**
  * Final integration test - all Phase 1-3 components
  */
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
 let passed = 0,
   failed = 0;
 
@@ -180,6 +184,418 @@ test('Identifier regex matches QBasic suffix variables', () => {
   }
 });
 
+test('Lint reports unresolved $INCLUDE directives with syntax diagnostics', () => {
+  const t = new InternalTranspiler();
+  const errors = t.lint('$INCLUDE: "missing.bi"', {
+    sourcePath: path.join(os.tmpdir(), 'missing-main.bas'),
+  });
+
+  if (errors.length === 0) {
+    throw new Error('Expected lint to report a missing include');
+  }
+
+  if (!String(errors[0].message).includes('Could not resolve $INCLUDE')) {
+    throw new Error(`Unexpected include error: ${errors[0].message}`);
+  }
+
+  if (errors[0].severity !== 'error') {
+    throw new Error(`Expected error severity, got ${errors[0].severity}`);
+  }
+});
+
+test('Transpile expands $INCLUDE relative to sourcePath', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbnx-preprocess-'));
+
+  try {
+    fs.writeFileSync(path.join(dir, 'shared.bi'), 'PRINT "From include"', 'utf8');
+
+    const t = new InternalTranspiler();
+    const code = t.transpile('$INCLUDE: "shared.bi"', 'node', {
+      sourcePath: path.join(dir, 'main.bas'),
+    });
+
+    if (!code.includes('From include')) {
+      throw new Error('Included source was not expanded into output');
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('AST semantic analysis rejects undefined GOTO labels', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('GOTO MissingLabel', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Label not defined')) {
+      throw new Error(`Unexpected missing-label error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on undefined GOTO label');
+  }
+});
+
+test('AST semantic analysis rejects undefined ON GOTO labels', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('x = 1\nON x GOTO MissingLabel', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Label not defined')) {
+      throw new Error(`Unexpected missing-label error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on undefined ON GOTO label');
+  }
+});
+
+test('AST semantic analysis rejects undefined nested GOTO labels', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('IF 1 THEN\n  GOTO MissingLabel\nEND IF', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Label not defined')) {
+      throw new Error(`Unexpected nested missing-label error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on undefined nested GOTO label');
+  }
+});
+
+test('AST semantic analysis rejects EXIT FOR outside loops', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('EXIT FOR', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('EXIT FOR used outside a FOR loop')) {
+      throw new Error(`Unexpected EXIT FOR error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on EXIT FOR outside a loop');
+  }
+});
+
+test('AST semantic analysis rejects CONTINUE outside loops', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('CONTINUE', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('CONTINUE used outside any active loop')) {
+      throw new Error(`Unexpected CONTINUE error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on CONTINUE outside a loop');
+  }
+});
+
+test('AST semantic analysis rejects mismatched NEXT variables', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('FOR i = 1 TO 2\nNEXT j', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('NEXT j does not match FOR i')) {
+      throw new Error(`Unexpected NEXT mismatch error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on mismatched NEXT variable');
+  }
+});
+
+test('AST semantic analysis rejects stray NEXT terminators', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('NEXT i', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Unexpected NEXT without a matching FOR block')) {
+      throw new Error(`Unexpected stray NEXT error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on stray NEXT');
+  }
+});
+
+test('AST path keeps ON ERROR and RESUME as non-blocking compatibility nodes', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    'ON ERROR RESUME NEXT\nPRINT "ok"\nRESUME NEXT',
+    'node',
+  );
+
+  if (!code.includes('ON ERROR RESUME NEXT') || !code.includes('RESUME NEXT')) {
+    throw new Error('Expected compatibility comments for ON ERROR/RESUME');
+  }
+});
+
+test('AST semantic analysis rejects undefined ON ERROR GOTO labels', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('ON ERROR GOTO MissingHandler', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('ON ERROR GOTO MissingHandler: Label not defined')) {
+      throw new Error(`Unexpected ON ERROR label error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on undefined ON ERROR GOTO label');
+  }
+});
+
+test('AST semantic analysis rejects undefined RESUME labels', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('RESUME MissingHandler', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('RESUME MissingHandler: Label not defined')) {
+      throw new Error(`Unexpected RESUME label error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on undefined RESUME label');
+  }
+});
+
+test('AST semantic analysis rejects RESUME without ON ERROR in the same body', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('RESUME NEXT', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('RESUME used without a corresponding ON ERROR')) {
+      throw new Error(`Unexpected RESUME-without-ON-ERROR error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on RESUME without ON ERROR');
+  }
+});
+
+test('AST semantic analysis rejects missing END IF terminators', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('IF 1 THEN\n  PRINT "x"', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Expected END IF to close IF block')) {
+      throw new Error(`Unexpected missing END IF error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on missing END IF');
+  }
+});
+
+test('AST semantic analysis rejects missing END SELECT terminators', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('SELECT CASE 1\nCASE 1\n  PRINT "x"', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Expected END SELECT to close SELECT CASE block')) {
+      throw new Error(`Unexpected missing END SELECT error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on missing END SELECT');
+  }
+});
+
+test('AST semantic analysis rejects missing WEND terminators', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('WHILE 1\n  PRINT "x"', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Expected WEND to close WHILE block')) {
+      throw new Error(`Unexpected missing WEND error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on missing WEND');
+  }
+});
+
+test('AST semantic analysis rejects missing LOOP terminators', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('DO\n  PRINT "x"', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Expected LOOP to close DO block')) {
+      throw new Error(`Unexpected missing LOOP error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on missing LOOP');
+  }
+});
+
+test('AST semantic analysis rejects missing NEXT terminators', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('FOR i = 1 TO 2\n  PRINT i', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Expected NEXT to close FOR i')) {
+      throw new Error(`Unexpected missing NEXT error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on missing NEXT');
+  }
+});
+
+test('AST semantic analysis rejects missing END SUB terminators', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('SUB Demo\n  PRINT "x"', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Expected END SUB to close SUB Demo')) {
+      throw new Error(`Unexpected missing END SUB error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on missing END SUB');
+  }
+});
+
+test('AST semantic analysis rejects missing END FUNCTION terminators', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('FUNCTION Demo\n  Demo = 1', 'node');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('Expected END FUNCTION to close FUNCTION Demo')) {
+      throw new Error(`Unexpected missing END FUNCTION error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected transpile to fail on missing END FUNCTION');
+  }
+});
+
+test('Lint reports unreachable code as a warning without blocking transpile', () => {
+  const t = new InternalTranspiler();
+  const source = 'GOTO Done\nPRINT "dead"\nDone:\nPRINT "live"';
+  const diagnostics = t.lint(source);
+  const warning = diagnostics.find((diag) =>
+    String(diag.message).includes('Statement is unreachable'),
+  );
+
+  if (!warning) {
+    throw new Error('Expected lint to report unreachable code');
+  }
+
+  if (warning.severity !== 'warning') {
+    throw new Error(`Expected warning severity, got ${warning.severity}`);
+  }
+
+  const code = t.transpile(source, 'node');
+  if (!code.includes('live')) {
+    throw new Error('Transpile should still succeed when only warnings exist');
+  }
+});
+
 // ─── Phase 1.2: Compiler wrapper ─────────────────────────────────────────────
 console.log('\n📦 Phase 1.2: Compiler Wrapper Tests');
 const { Compiler } = require('../src/compiler/compiler');
@@ -206,6 +622,19 @@ test('Compiler tracks stats', () => {
     throw new Error(`Expected 2 compilations, got ${stats.compilations}`);
   if (stats.cacheHits !== 1)
     throw new Error(`Expected 1 cache hit, got ${stats.cacheHits}`);
+});
+
+test('Compiler surfaces warnings without failing compilation', () => {
+  const c = new Compiler({ target: 'web', cache: false });
+  const result = c.compile('GOTO Done\nPRINT "dead"\nDone:\nPRINT "live"');
+
+  if (!result.isSuccess()) {
+    throw new Error('Warnings should not make compilation fail');
+  }
+
+  if (result.getWarnings().length === 0) {
+    throw new Error('Expected compilation result to include warnings');
+  }
 });
 
 // ─── Summary ──────────────────────────────────────────────────────────────────

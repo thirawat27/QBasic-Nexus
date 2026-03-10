@@ -24,7 +24,7 @@ _parsePrint() {
       }
       // Append newline by default unless silenced?
       // Simplified: always append newline for now
-      this._emit(`await _printFileFunc(${filenum}, \`${line}\\n\`);`);
+      this._emit(`await _printFile(${filenum}, \`${line}\\n\`);`);
       return;
     }
 
@@ -55,24 +55,26 @@ _parseInput() {
   if (this._matchPunc('#')) {
       const filenum = this._parseExpr();
       this._matchPunc(',');
-      const id = this._consume(TokenType.IDENTIFIER);
-      if (!id) throw new Error('Expected variable after INPUT #');
-      const name = id.value;
-      const storageName = this._resolveStorageName(name);
 
-      if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
-        this._addVar(name);
-        this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
-      }
+      do {
+        const target = this._parseAssignableTarget({
+          contextLabel: 'INPUT #',
+        });
 
-      // Generate code to read line and assign
-      this._emit(`${storageName} = await _inputFileFunc(${filenum});`);
-
-      if (!name.endsWith('$')) {
         this._emit(
-          `if (isNaN(Number(${storageName}))) ${storageName} = 0; else ${storageName} = Number(${storageName});`,
+          `${target.targetExpr} = ${this._wrapAssignmentValue(
+            target.name,
+            `await _inputFileToken(${filenum})`,
+            target.wrapOptions,
+          )};`,
         );
-      }
+
+        if (!target.isStringLike && target.metadata?.kind !== 'type') {
+          this._emit(
+            `if (isNaN(Number(${target.targetExpr}))) ${target.targetExpr} = 0; else ${target.targetExpr} = Number(${target.targetExpr});`,
+          );
+        }
+      } while (this._matchPunc(','));
       return;
     }
 
@@ -87,22 +89,21 @@ _parseInput() {
     const escaped = prompt.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
     do {
-      const id = this._consume(TokenType.IDENTIFIER);
-      if (!id) break;
+      const target = this._parseAssignableTarget({
+        contextLabel: 'INPUT',
+      });
 
-      const name = id.value;
-      const storageName = this._resolveStorageName(name);
+      this._emit(
+        `${target.targetExpr} = ${this._wrapAssignmentValue(
+          target.name,
+          `await _input("${escaped}")`,
+          target.wrapOptions,
+        )};`,
+      );
 
-      if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
-        this._addVar(name);
-        this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
-      }
-
-      this._emit(`${storageName} = await _input("${escaped}");`);
-
-      if (!name.endsWith('$')) {
+      if (!target.isStringLike && target.metadata?.kind !== 'type') {
         this._emit(
-          `if (isNaN(Number(${storageName}))) ${storageName} = 0; else ${storageName} = Number(${storageName});`,
+          `if (isNaN(Number(${target.targetExpr}))) ${target.targetExpr} = 0; else ${target.targetExpr} = Number(${target.targetExpr});`,
         );
       }
     } while (this._matchPunc(','));
@@ -122,39 +123,20 @@ _parseData() {
 
 _parseRead() {
     do {
-      const id = this._consume(TokenType.IDENTIFIER);
-      if (!id) break;
-      const name = id.value;
-      const storageName = this._resolveStorageName(name);
-
-      if (this._check(TokenType.PUNCTUATION) && this._peek().value === '(') {
-        // Array element read
-        this._matchPunc('(');
-        const indices = [];
-        do {
-          indices.push(this._parseExpr());
-        } while (this._matchPunc(','));
-        this._matchPunc(')');
-
-        this._emit(`${storageName}[${indices.join('][')}] = _read();`);
-        if (!name.endsWith('$')) {
-          this._emit(
-            `if (!isNaN(${storageName}[${indices.join('][')}])) ${storageName}[${indices.join('][')}] = Number(${storageName}[${indices.join('][')}]);`,
-          );
-        }
-      } else {
-        // Simple variable read
-        if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
-          this._addVar(name);
-          this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'};`);
-        }
-
-        this._emit(`${storageName} = _read();`);
-        if (!name.endsWith('$')) {
-          this._emit(
-            `if (!isNaN(${storageName})) ${storageName} = Number(${storageName});`,
-          );
-        }
+      const target = this._parseAssignableTarget({
+        contextLabel: 'READ',
+      });
+      this._emit(
+        `${target.targetExpr} = ${this._wrapAssignmentValue(
+          target.name,
+          '_read()',
+          target.wrapOptions,
+        )};`,
+      );
+      if (!target.isStringLike && target.metadata?.kind !== 'type') {
+        this._emit(
+          `if (!isNaN(${target.targetExpr})) ${target.targetExpr} = Number(${target.targetExpr});`,
+        );
       }
     } while (this._matchPunc(','));
   },
@@ -167,6 +149,24 @@ _parseRestore() {
   },
 
 _parseLineInput() {
+    if (this._matchPunc('#')) {
+      const filenum = this._parseExpr();
+      this._matchPunc(',');
+
+      const target = this._parseAssignableTarget({
+        contextLabel: 'LINE INPUT #',
+      });
+
+      this._emit(
+        `${target.targetExpr} = ${this._wrapAssignmentValue(
+          target.name,
+          `await _inputFileLine(${filenum})`,
+          target.wrapOptions,
+        )};`,
+      );
+      return;
+    }
+
     let prompt = '';
 
     if (this._check(TokenType.STRING)) {
@@ -175,19 +175,18 @@ _parseLineInput() {
       this._matchPunc(';');
     }
 
-    const id = this._consume(TokenType.IDENTIFIER);
-    if (!id) return;
-
-    const name = id.value;
-    const storageName = this._resolveStorageName(name);
+    const target = this._parseAssignableTarget({
+      contextLabel: 'LINE INPUT',
+    });
     const escaped = prompt.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
-    if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
-      this._addVar(name);
-      this._emit(`var ${name} = "";`);
-    }
-
-    this._emit(`${storageName} = await _input("${escaped}");`);
+    this._emit(
+      `${target.targetExpr} = ${this._wrapAssignmentValue(
+        target.name,
+        `await _input("${escaped}")`,
+        target.wrapOptions,
+      )};`,
+    );
   },
 
 _parseLine() {
@@ -281,11 +280,55 @@ _parseOpen() {
       else if (this._matchKw('RANDOM')) mode = 'RANDOM';
     }
 
+    let access = 'undefined';
+    let shared = 'false';
+    let lockMode = 'undefined';
+
+    while (!this._isStmtEnd() && !this._checkKw('AS')) {
+      if (this._matchKw('ACCESS')) {
+        if (this._matchKw('READ')) {
+          access = this._matchKw('WRITE') ? '"READ WRITE"' : '"READ"';
+        } else if (this._matchKw('WRITE')) {
+          access = '"WRITE"';
+        }
+        continue;
+      }
+
+      if (this._matchKw('LOCK')) {
+        if (this._matchKw('READ')) {
+          lockMode = this._matchKw('WRITE') ? '"READ WRITE"' : '"READ"';
+        } else if (this._matchKw('WRITE')) {
+          lockMode = '"WRITE"';
+        }
+        continue;
+      }
+
+      if (this._matchKw('SHARED')) {
+        shared = 'true';
+        continue;
+      }
+
+      break;
+    }
+
     this._matchKw('AS');
     this._matchPunc('#');
     const fileNum = this._parseExpr();
+    let recordLength = 'undefined';
 
-    this._emit(`_open(${filename}, "${mode}", ${fileNum});`);
+    if (this._matchPunc(',')) {
+      if (this._matchKw('LEN')) {
+        this._matchOp('=');
+        recordLength = this._parseExpr();
+      }
+    } else if (this._matchKw('LEN')) {
+      this._matchOp('=');
+      recordLength = this._parseExpr();
+    }
+
+    this._emit(
+      `await _open(${filename}, "${mode}", ${fileNum}, ${recordLength}, { access: ${access}, shared: ${shared}, lockMode: ${lockMode} });`,
+    );
   },
 
 _parseClose() {
@@ -297,7 +340,7 @@ _parseClose() {
     do {
       this._matchPunc('#');
       const fileNum = this._parseExpr();
-      this._emit(`_close(${fileNum});`);
+      this._emit(`await _close(${fileNum});`);
     } while (this._matchPunc(','));
   },
 
@@ -308,5 +351,133 @@ _parseFiles() {
       spec = this._parseExpr();
     }
     this._emit(`await _files(${spec});`);
-  }
+  },
+
+_parseField() {
+    this._matchPunc('#');
+    const fileNum = this._parseExpr();
+    const fields = [];
+
+    if (this._matchPunc(',')) {
+      do {
+        const length = this._parseExpr();
+        this._matchKw('AS');
+        const id = this._consume(TokenType.IDENTIFIER);
+        if (!id) {
+          this._raiseSyntaxError('Expected string variable after FIELD length');
+        }
+
+        const name = id.value;
+        const storageName = this._resolveStorageName(name);
+        this._addVar(name);
+        this._setVarMetadata(name, {
+          kind: 'fixedString',
+          length,
+        });
+
+        if (!this._isCurrentFunctionName(name)) {
+          this._emit(`if (typeof ${storageName} === "undefined") var ${name} = _fixedString("", ${length});`);
+        }
+        this._emit(`${storageName} = _fixedString(${storageName}, ${length});`);
+        fields.push(
+          `{ name: ${JSON.stringify(name)}, length: ${length}, get: () => ${storageName}, set: (value) => { ${storageName} = _fixedString(value, ${length}); } }`,
+        );
+      } while (this._matchPunc(','));
+    }
+
+    this._emit(`_field(${fileNum}, [${fields.join(', ')}]);`);
+  },
+
+_parseGetFile() {
+    this._matchPunc('#');
+    const fileNum = this._parseExpr();
+    let position = 'undefined';
+    let target = null;
+
+    if (this._matchPunc(',')) {
+      if (!this._isStmtEnd() && !(this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === ',')) {
+        position = this._parseExpr();
+      }
+
+      if (this._matchPunc(',')) {
+        target = this._parseFileVariableTarget();
+      }
+    }
+
+    if (!target) {
+      this._emit(`await _getFileFields(${fileNum}, ${position});`);
+      return;
+    }
+
+    const metadataLiteral = this._metadataToRuntimeLiteral(target.metadata);
+    const readLength =
+      target.metadata?.kind === 'fixedString'
+        ? target.metadata.length
+        : (target.metadata?.kind === 'scalar' || target.metadata?.kind === 'type')
+          ? `_typedValueByteLength(${metadataLiteral})`
+          : target.isStringLike
+            ? `String(${target.targetExpr} ?? "").length`
+            : 'undefined';
+    const rawValue = `await _getFileValue(${fileNum}, ${position}, ${readLength}, ${metadataLiteral})`;
+    const assignmentValue = this._wrapAssignmentValue(
+      target.name,
+      rawValue,
+      target.wrapOptions,
+    );
+
+    this._emit(
+      `${target.targetExpr} = ${assignmentValue};`,
+    );
+
+    if (!target.isStringLike && target.metadata?.kind !== 'type') {
+      this._emit(
+        `if (isNaN(Number(${target.targetExpr}))) ${target.targetExpr} = 0; else ${target.targetExpr} = Number(${target.targetExpr});`,
+      );
+    }
+  },
+
+_parsePutFile() {
+    this._matchPunc('#');
+    const fileNum = this._parseExpr();
+    let position = 'undefined';
+    let value = 'undefined';
+    let metadataLiteral = 'undefined';
+
+    if (this._matchPunc(',')) {
+      if (!this._isStmtEnd() && !(this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === ',')) {
+        position = this._parseExpr();
+      }
+
+      if (this._matchPunc(',')) {
+        const savedPos = this.pos;
+        if (this._check(TokenType.IDENTIFIER)) {
+          try {
+            const reference = this._parseValueReference({
+              contextLabel: 'PUT #',
+            });
+            if (this._isStmtEnd()) {
+              value = reference.expr;
+              metadataLiteral = this._metadataToRuntimeLiteral(reference.metadata);
+            } else {
+              this.pos = savedPos;
+              value = this._parseExpr();
+            }
+          } catch (_error) {
+            this.pos = savedPos;
+            value = this._parseExpr();
+          }
+        } else {
+          value = this._parseExpr();
+        }
+      }
+    }
+
+    this._emit(`await _putFileValue(${fileNum}, ${position}, ${value}, ${metadataLiteral});`);
+  },
+
+_parseFileVariableTarget() {
+    return this._parseAssignableTarget({
+      contextLabel: 'GET #',
+    });
+  },
 };

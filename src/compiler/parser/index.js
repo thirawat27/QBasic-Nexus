@@ -6,6 +6,10 @@
 
 const Lexer = require('../lexer');
 const { TokenPool } = require('../lexer');
+const {
+  formatPreprocessorErrors,
+  preprocessSource,
+} = require('../preprocessor');
 
 class Parser {
   constructor(tokens, target = 'node') {
@@ -27,6 +31,12 @@ function formatParserErrors(errors) {
     .join('; ');
 }
 
+function getBlockingParserErrors(errors) {
+  return (errors || []).filter(
+    (error) => (error?.severity || 'error') === 'error',
+  );
+}
+
 function mixin(target, ...sources) {
   for (const source of sources) {
     Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
@@ -36,6 +46,7 @@ function mixin(target, ...sources) {
 mixin(
   Parser.prototype,
   require('./core'),
+  require('./ast'),
   require('./expressions'),
   require('./io'),
   require('./graphics'),
@@ -51,7 +62,7 @@ class InternalTranspiler {
    * @param {string} target - 'node' or 'web'.
    * @returns {string} Generated JavaScript code.
    */
-  transpile(source, target = 'node') {
+  transpile(source, target = 'node', options = {}) {
     // Input validation
     if (source === null || source === undefined) {
       return '// Empty source';
@@ -71,7 +82,14 @@ class InternalTranspiler {
     let tokens = null;
 
     try {
-      const lexer = new Lexer(source);
+      const preprocessResult = preprocessSource(source, options);
+      if (preprocessResult.diagnostics.hasErrors()) {
+        throw new Error(
+          formatPreprocessorErrors(preprocessResult.diagnostics),
+        );
+      }
+
+      const lexer = new Lexer(preprocessResult.source);
       tokens = lexer.tokenize();
 
       // Safety check for token array
@@ -81,8 +99,9 @@ class InternalTranspiler {
 
       const parser = new Parser(tokens, target);
       const result = parser.parse();
-      if (Array.isArray(parser.errors) && parser.errors.length > 0) {
-        throw new Error(formatParserErrors(parser.errors));
+      const blockingErrors = getBlockingParserErrors(parser.errors);
+      if (blockingErrors.length > 0) {
+        throw new Error(formatParserErrors(blockingErrors));
       }
 
       return result;
@@ -142,7 +161,7 @@ class InternalTranspiler {
    * @param {string} source - QBasic source code.
    * @returns {Array<{line: number, message: string, column: number}>} Array of errors.
    */
-  lint(source) {
+  lint(source, options = {}) {
     // Input validation
     if (!source || typeof source !== 'string' || source.trim().length === 0) {
       return [];
@@ -150,7 +169,20 @@ class InternalTranspiler {
     let tokens = null;
 
     try {
-      const lexer = new Lexer(source);
+      const preprocessResult = preprocessSource(source, options);
+      const preprocessErrors = preprocessResult.diagnostics.getAll();
+
+      if (preprocessResult.diagnostics.hasErrors()) {
+        return preprocessErrors.map((diag) => ({
+          line: diag.line,
+          message: diag.message,
+          column: diag.column,
+          severity: diag.severity,
+          category: diag.category,
+        }));
+      }
+
+      const lexer = new Lexer(preprocessResult.source);
       tokens = lexer.tokenize();
       // Delegate to lintTokens to avoid code duplication
       return this.lintTokens(tokens);
