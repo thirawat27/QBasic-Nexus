@@ -25,19 +25,12 @@ const flru = require('flru');
  */
 function fnv1a(str) {
   let hash = 2166136261; // FNV offset basis
-  for (let i = 0; i < str.length; i++) {
+  for (let i = 0, len = str.length; i < len; i++) {
     hash ^= str.charCodeAt(i);
-    // FNV prime: 16777619  (multiply via bit shifts to stay 32-bit)
-    hash =
-      (hash +
-        (hash << 1) +
-        (hash << 4) +
-        (hash << 7) +
-        (hash << 8) +
-        (hash << 24)) >>>
-      0;
+    // V8 highly optimizes Math.imul for 32-bit integer multiplication
+    hash = Math.imul(hash, 16777619);
   }
-  return hash.toString(16);
+  return (hash >>> 0).toString(16);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,9 +39,11 @@ function fnv1a(str) {
 // ─────────────────────────────────────────────────────────────────────────────
 class L1Cache {
   /**
-   * @param {number} maxSize – number of entries to keep (default 10)
+   * @param {number} maxSize – number of entries to keep (default 16)
+   *   Increased from 10: covers typical "edit-run-edit-run" usage pattern
+   *   where ~12-16 recent source variants are hot.
    */
-  constructor(maxSize = 10) {
+  constructor(maxSize = 16) {
     this._max = maxSize;
     this._map = new Map();
   }
@@ -84,10 +79,12 @@ class L1Cache {
 // ─────────────────────────────────────────────────────────────────────────────
 class TieredCache {
   /**
-   * @param {number} l2Size – L2 LRU max size (default 100)
+   * @param {number} l2Size – L2 LRU max size (default 200)
+   *   Doubled from 100: reduces cold-miss rate on projects with many files.
    */
-  constructor(l2Size = 100) {
-    this.l1 = new L1Cache(10);
+  constructor(l2Size = 200) {
+    this._l2Size = l2Size; // keep for clear() re-creation
+    this.l1 = new L1Cache(16);
     this.l2 = flru(l2Size);
     this._hits = { l1: 0, l2: 0 };
     this._misses = 0;
@@ -125,9 +122,10 @@ class TieredCache {
 
   clear() {
     this.l1.clear();
-    // flru has no bulk-clear; create a new instance
-    const max = this.l2._max || 100;
-    this.l2 = flru(max);
+    // flru has no bulk-clear API; recreate the instance.
+    // Use the stored _l2Size (this.l2._max is an internal flru detail
+    // that may not be reliable across versions).
+    this.l2 = flru(this._l2Size);
     this._hits = { l1: 0, l2: 0 };
     this._misses = 0;
   }
@@ -151,7 +149,8 @@ class TieredCache {
 class CompilationCache {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
-    const l2Size = options.maxSize || 100;
+    // Default raised to 200 to match new TieredCache default
+    const l2Size = options.maxSize || 200;
     this.tokenCache = new TieredCache(l2Size);
     this.codeCache = new TieredCache(l2Size);
 

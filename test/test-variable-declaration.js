@@ -247,7 +247,7 @@ function createTestRuntime(options, output) {
         return line;
     }
 
-    return {
+    const runtime = {
         print(text) {
             output.push(String(text));
             return text;
@@ -505,6 +505,8 @@ function createTestRuntime(options, output) {
             return '';
         },
     };
+
+    return Object.assign(runtime, options.runtimeOverrides || {});
 }
 
 async function runWebProgram(sourceCode, options = {}) {
@@ -524,7 +526,7 @@ async function runWebProgram(sourceCode, options = {}) {
         delete globalThis.runtime;
     }
 
-    return { code, output };
+    return { code, output, runtime: globalThis.runtime };
 }
 
 // Test cases that previously caused "x is not defined" errors
@@ -935,6 +937,137 @@ recovery:
         `,
         shouldWork: true,
         expectedOutput: ['4', '10', '12']
+    },
+    {
+        name: 'CRT graphics helpers stay callable through the web runtime bindings',
+        code: `
+            SCREEN 13
+            PAINT (10, 10), 4, 1
+            DRAW "R10"
+            VIEW (1, 1)-(10, 10), 2, 3
+            VIEW
+            VIEW PRINT 2 TO 20
+            WINDOW (0, 0)-(100, 100)
+            PALETTE 1, 10
+            PCOPY 0, 1
+            PRINT "graphics-ok"
+        `,
+        shouldWork: true,
+        expectedOutput: ['graphics-ok'],
+        setup() {
+            const calls = [];
+            const record = (name, isAsync = false) =>
+                isAsync
+                    ? async (...args) => {
+                        calls.push([name, ...args.map((arg) => arg === undefined ? null : arg)]);
+                    }
+                    : (...args) => {
+                        calls.push([name, ...args.map((arg) => arg === undefined ? null : arg)]);
+                    };
+
+            return {
+                calls,
+                runtimeOverrides: {
+                    paint: record('paint'),
+                    draw: record('draw', true),
+                    view: record('view'),
+                    viewPrint: record('viewPrint'),
+                    window: record('window'),
+                    palette: record('palette'),
+                    pcopy: record('pcopy'),
+                },
+            };
+        },
+        verify(_result, setupResult) {
+            const actual = JSON.stringify(setupResult.calls);
+            const expected = JSON.stringify([
+                ['paint', 10, 10, 4, 1],
+                ['draw', 'R10'],
+                ['view', 1, 1, 10, 10, 2, 3],
+                ['view'],
+                ['viewPrint', 2, 20],
+                ['window', 0, 0, 100, 100, false],
+                ['palette', 1, 10],
+                ['pcopy', 0, 1],
+            ]);
+            if (actual !== expected) {
+                throw new Error(`Expected runtime calls ${expected}, got ${actual}`);
+            }
+        },
+    },
+    {
+        name: 'QB64 screen helper bindings execute without missing runtime references',
+        code: `
+            _FULLSCREEN
+            _DEST 1
+            _SOURCE 2
+            _FONT 3
+            _SETALPHA 128, 1
+            _CLEARCOLOR 4
+            PRINT "helpers-ok"
+        `,
+        shouldWork: true,
+        expectedOutput: ['helpers-ok'],
+        setup() {
+            const calls = [];
+            const record = (name) => (...args) => {
+                calls.push([name, ...args.map((arg) => arg === undefined ? null : arg)]);
+            };
+
+            return {
+                calls,
+                runtimeOverrides: {
+                    fullscreen: record('fullscreen'),
+                    dest: record('dest'),
+                    source: record('source'),
+                    font: record('font'),
+                    setAlpha: record('setAlpha'),
+                    clearColor: record('clearColor'),
+                },
+            };
+        },
+        verify(_result, setupResult) {
+            const actual = JSON.stringify(setupResult.calls);
+            const expected = JSON.stringify([
+                ['fullscreen', 0],
+                ['dest', 1],
+                ['source', 2],
+                ['font', 3, null],
+                ['setAlpha', 128, 1, null, null, null],
+                ['clearColor', 4, null],
+            ]);
+            if (actual !== expected) {
+                throw new Error(`Expected runtime calls ${expected}, got ${actual}`);
+            }
+        },
+    },
+    {
+        name: 'Clipboard write statement routes through the web runtime clipboard hook',
+        code: `
+            _CLIPBOARD = "Copied"
+            PRINT "clipboard-ok"
+        `,
+        shouldWork: true,
+        expectedOutput: ['clipboard-ok'],
+        setup() {
+            const calls = [];
+            return {
+                calls,
+                runtimeOverrides: {
+                    clipboard(text) {
+                        calls.push(['clipboard', text]);
+                        return Promise.resolve();
+                    },
+                },
+            };
+        },
+        verify(_result, setupResult) {
+            const actual = JSON.stringify(setupResult.calls);
+            const expected = JSON.stringify([['clipboard', 'Copied']]);
+            if (actual !== expected) {
+                throw new Error(`Expected runtime calls ${expected}, got ${actual}`);
+            }
+        },
     },
     {
         name: 'LINE INPUT # and token-based INPUT # read from opened files',
@@ -1466,11 +1599,13 @@ async function testVariableDeclaration() {
             // Execute generated web code to catch CRT-style runtime scope errors
             let generatedCode = '';
             try {
-                const { code, output } = await runWebProgram(test.code, {
+                const result = await runWebProgram(test.code, {
                     fileInput: test.fileInput,
                     userInput: test.userInput,
                     sourcePath: setupResult?.sourcePath,
+                    runtimeOverrides: setupResult?.runtimeOverrides,
                 });
+                const { code, output } = result;
                 generatedCode = code;
 
                 if (test.expectedOutput) {
@@ -1479,6 +1614,10 @@ async function testVariableDeclaration() {
                     if (actual !== expected) {
                         throw new Error(`Expected output ${expected}, got ${actual}`);
                     }
+                }
+
+                if (typeof test.verify === 'function') {
+                    await test.verify(result, setupResult);
                 }
 
                 console.log(`✅ ${test.name}`);

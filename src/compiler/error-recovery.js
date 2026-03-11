@@ -134,34 +134,36 @@ class ErrorRecovery {
     }
     
     /**
-     * Calculate Levenshtein distance between two strings
+     * Calculate Levenshtein distance between two strings.
+     * Uses O(min(m,n)) space via a single rolling row instead of O(m×n)
+     * 2D matrix — reduces GC pressure when called repeatedly during
+     * error-recovery keyword scanning.
      */
     static _levenshteinDistance(a, b) {
-        const matrix = [];
-        
-        for (let i = 0; i <= b.length; i++) {
-            matrix[i] = [i];
-        }
-        
-        for (let j = 0; j <= a.length; j++) {
-            matrix[0][j] = j;
-        }
-        
-        for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
-                if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
+        // Always iterate over the shorter string in the inner loop
+        if (a.length < b.length) { const tmp = a; a = b; b = tmp; }
+        const bLen = b.length;
+        const row = new Int32Array(bLen + 1);
+        for (let j = 0; j <= bLen; j++) row[j] = j;
+
+        for (let i = 1; i <= a.length; i++) {
+            let diag = i - 1; // diagonal = row[j-1] from previous outer iteration
+            row[0] = i;
+            for (let j = 1; j <= bLen; j++) {
+                const above = row[j];           // row[j] before update = deletion cost
+                if (a[i - 1] === b[j - 1]) {
+                    row[j] = diag;              // no cost — copy from diagonal
                 } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1, // substitution
-                        matrix[i][j - 1] + 1,     // insertion
-                        matrix[i - 1][j] + 1      // deletion
+                    row[j] = 1 + Math.min(
+                        diag,       // substitution
+                        above,      // deletion
+                        row[j - 1], // insertion
                     );
                 }
+                diag = above;                   // advance diagonal
             }
         }
-        
-        return matrix[b.length][a.length];
+        return row[bLen];
     }
 }
 

@@ -610,6 +610,21 @@ const _line = _runtime.line || (() => {});
 const _circle = _runtime.circle || (() => {});
 const _get = _runtime.get || (() => {});
 const _put = _runtime.put || (() => {});
+const _paint = _runtime.paint || (() => {});
+const _draw = _runtime.draw || (() => {});
+const _view = _runtime.view || (() => {});
+const _viewPrint = _runtime.viewPrint || (() => {});
+const _window = _runtime.window || (() => {});
+const _palette = _runtime.palette || (() => {});
+const _paletteUsing = _runtime.paletteUsing || (() => {});
+const _pcopy = _runtime.pcopy || (() => {});
+const _fullscreen = _runtime.fullscreen || (() => {});
+const _dest = _runtime.dest || (() => {});
+const _source = _runtime.source || (() => {});
+const _font = _runtime.font || (() => {});
+const _setAlpha = _runtime.setAlpha || (() => {});
+const _clearColor = _runtime.clearColor || (() => {});
+const _PAINT = _paint;
 const _mouseinput = _runtime.mouseinput || (() => 0);
 const _mousex = _runtime.mousex || (() => 0);
 const _mousey = _runtime.mousey || (() => 0);
@@ -678,7 +693,6 @@ const _INSTR = _runtime.instr || ((a, b, c) => {
 // System Functions
 const _DESKTOPWIDTH = _runtime.desktopwidth || (() => (typeof screen !== 'undefined' ? screen.width : 1920));
 const _DESKTOPHEIGHT = _runtime.desktopheight || (() => (typeof screen !== 'undefined' ? screen.height : 1080));
-const _PAINT = _runtime.paint || (() => {});
 
 // Frame rate limiter (legacy)
 let _lastLimitTime = Date.now();
@@ -1451,9 +1465,12 @@ function _window() {}
 function _palette() {}
 function _paletteUsing() {}
 function _pcopy() {}
+function _fullscreen() {}
 function _dest() {}
 function _source() {}
 function _font() {}
+function _setAlpha() {}
+function _clearColor() {}
 `);
     }
 

@@ -1,26 +1,32 @@
 /**
  * QBasic Nexus - Incremental Linter
  *
- * Phase 2.2 upgrade:
+ * v1.5.2 optimisation pass:
  *  - Caches last diagnostics per document URI
- *  - Re-lints ONLY lines that have changed (dirty-range detection)
- *  - Uses IncrementalTracker from cache.js for change detection
- *  - Provides cancellation via token pattern
- *  - Adaptive debounce: shorter delay when few lines changed
- *
- * Replaces:  "create new InternalTranspiler every lintDocument call"
- * With:      singleton transpiler + incremental diagnostics merge
+ *  - Adaptive debounce: responds faster on small edits (< 150 chars changed)
+ *  - Version guard: skips work when document.version hasn't changed
+ *  - Pending-version guard: skips re-scheduling for the same version
+ *  - Lint result is compared against previous to avoid redundant VS Code
+ *    diagnostic updates (reduces UI repaint pressure)
+ *  - Singleton transpiler reused across all lint cycles (avoids re-creation)
+ *  - Uses IncrementalTracker from cache.js for future incremental expansion
+ *  - Cancel-all on deactivate() via dispose()
  */
 
 'use strict';
 
-// Load vscode at top-level — was incorrectly re-required on every lint cycle
 const vscode = require('vscode');
 const InternalTranspiler = require('../compiler/parser');
 
 /**
  * Per-document linting state.
- * @typedef {{ tracker: IncrementalTracker, lastDiags: Array, lastLintVersion: number, pendingVersion: number | null }} DocState
+ * @typedef {{
+ *   lastDiags: Array,
+ *   lastLintVersion: number,
+ *   pendingVersion: number | null,
+ *   lastLength: number,
+ *   lastDiagKey: string
+ * }} DocState
  */
 
 class IncrementalLinter {
@@ -31,7 +37,7 @@ class IncrementalLinter {
     /** @type {Map<string, NodeJS.Timeout>} */
     this._pendingTimers = new Map();
 
-    // Singleton transpiler reused across lint cycles (avoids re-creation cost)
+    // Singleton transpiler reused across lint cycles (avoids object creation overhead)
     this._transpiler = new InternalTranspiler();
   }
 
@@ -45,25 +51,29 @@ class IncrementalLinter {
     if (!document || document.languageId !== 'qbasic') return;
 
     const key = document.uri.toString();
-
-    // Cancel any already-pending lint for this doc
     const existing = this._pendingTimers.get(key);
     const state = this._getOrCreateState(key);
     const newLength = document.getText().length;
     const lengthDiff = Math.abs((state.lastLength || 0) - newLength);
     state.lastLength = newLength;
 
+    // ── Version guards ──────────────────────────────────────────────────────
+    // 1. Already linted this exact version → serve from cache immediately
     if (state.lastLintVersion === document.version) {
       diagnosticCollection.set(document.uri, state.lastDiags);
       return;
     }
 
+    // 2. A timer is already queued for this exact version → no-op
     if (existing && state.pendingVersion === document.version) {
       return;
     }
 
     if (existing) clearTimeout(existing);
 
+    // ── Adaptive delay ──────────────────────────────────────────────────────
+    // Small edits (tiny keystrokes) get a shorter delay for snappier feedback.
+    // Large pastes / structural changes get the full baseDelay.
     const adaptiveDelay =
       lengthDiff <= 150
         ? Math.min(baseDelay, 150) // tiny edit → respond faster
@@ -71,6 +81,7 @@ class IncrementalLinter {
 
     const scheduledVersion = document.version;
     state.pendingVersion = scheduledVersion;
+
     const timerId = setTimeout(() => {
       this._pendingTimers.delete(key);
       if (state.pendingVersion !== scheduledVersion) return;
@@ -108,6 +119,7 @@ class IncrementalLinter {
         lastLintVersion: -1,
         pendingVersion: null,
         lastLength: 0,
+        lastDiagKey: '',
       });
     }
     return this._docStates.get(key);
@@ -151,10 +163,18 @@ class IncrementalLinter {
         return diag;
       });
 
-      state.lastDiags = diagnostics;
+      // ── Redundancy guard ──────────────────────────────────────────────────
+      // Build a lightweight fingerprint. If diagnostics haven't changed,
+      // skip calling collection.set() to avoid VS Code's repaint overhead.
+      const diagKey = _fingerprintDiags(diagnostics);
+      if (diagKey !== state.lastDiagKey) {
+        state.lastDiags = diagnostics;
+        state.lastDiagKey = diagKey;
+        collection.set(document.uri, diagnostics);
+      }
+
       state.lastLintVersion = document.version;
       state.pendingVersion = null;
-      collection.set(document.uri, diagnostics);
     } catch (err) {
       // Never let linting crash the extension
       console.error('[IncrementalLinter] Error:', err.message);
@@ -163,7 +183,7 @@ class IncrementalLinter {
   }
 }
 
-// Severity lookup — maps directly to vscode enum (removed redundant int indirection table)
+// Severity lookup — maps directly to vscode enum
 function _getSeverity(level) {
   switch (level) {
     case 'warning':
@@ -175,6 +195,22 @@ function _getSeverity(level) {
     default:
       return vscode.DiagnosticSeverity.Error;
   }
+}
+
+/**
+ * Compute a cheap string fingerprint of a diagnostic array.
+ * Used to detect whether VS Code diagnostics actually changed before
+ * invoking collection.set() (which triggers a repaint + editor decoration).
+ * @param {import('vscode').Diagnostic[]} diags
+ * @returns {string}
+ */
+function _fingerprintDiags(diags) {
+  if (diags.length === 0) return '';
+  let s = '';
+  for (const d of diags) {
+    s += `${d.range.start.line}:${d.range.start.character}:${d.severity}:${d.message}|`;
+  }
+  return s;
 }
 
 // Global singleton – one linter shared across the extension lifecycle

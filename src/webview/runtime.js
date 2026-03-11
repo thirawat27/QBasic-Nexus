@@ -2703,6 +2703,22 @@
     { passive: true },
   );
 
+  // Global click handler to maintain focus on input fields
+  document.addEventListener('click', () => {
+    const activeInput = document.querySelector('input.cmd-input');
+    if (activeInput && document.activeElement !== activeInput) {
+      activeInput.focus();
+    }
+  });
+
+  // Re-focus input when the webview regains focus from VSCode
+  window.addEventListener('focus', () => {
+    const activeInput = document.querySelector('input.cmd-input');
+    if (activeInput) {
+      activeInput.focus();
+    }
+  });
+
   // =========================================================================
   // ADVANCED KEYBOARD HANDLER
   // =========================================================================

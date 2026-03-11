@@ -5,6 +5,7 @@ const path = require('path');
 const { DiagnosticCollector, ErrorCategory } = require('./error-recovery');
 
 const DIRECTIVE_RE = /^\s*\$(INCLUDE|DYNAMIC|STATIC)\b(.*)$/i;
+const HAS_DIRECTIVE_RE = /^\s*\$(INCLUDE|DYNAMIC|STATIC)\b/im;
 const MAX_INCLUDE_DEPTH = 32;
 
 function formatPreprocessorErrors(diagnostics) {
@@ -59,6 +60,12 @@ function expandSource(source, context) {
       0,
       0,
     );
+    return source;
+  }
+
+  // Fast-path: completely skip array allocation + split + join if there's
+  // no hint of a directive anywhere in the source block.
+  if (!HAS_DIRECTIVE_RE.test(source)) {
     return source;
   }
 

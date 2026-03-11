@@ -40,6 +40,7 @@
   - [Compiler Settings](#compiler-settings)
   - [Editor Settings](#editor-settings)
   - [Line Number Settings](#line-number-settings)
+- [📂 Supported File Types & Icons](#-supported-file-types--icons)
 - [✨ Features](#-unrivaled-features)
   - [Lightning-Fast Compilation](#-lightning-fast-compilation-engine)
   - [Advanced Web Runtime](#-advanced-web-runtime)
@@ -843,6 +844,19 @@ Structured sections   Start 1000, Step 1000
 
 ---
 
+## 📂 Supported File Types & Icons
+
+QBasic Nexus provides full language support, syntax highlighting, and dedicated icons for all standard QBasic/QB64 file types. Every extension is distinctively mapped to the unified QBasic Nexus icon for immediate visual recognition in both light and dark themes in the VS Code file explorer:
+
+| Extension | Description | Icon |
+|-----------|-------------|------|
+| **`.bas`** | Main Source File | <img src="./assets/qb64.svg" width="40" alt="QB64 Icon" /> |
+| **`.bi`**  | Include Header File | <img src="./assets/qb64.svg" width="40" alt="QB64 Icon" /> |
+| **`.bm`**  | Module File | <img src="./assets/qb64.svg" width="40" alt="QB64 Icon" /> |
+| **`.inc`** | Include / Library File | <img src="./assets/qb64.svg" width="40" alt="QB64 Icon" /> |
+
+---
+
 ## ✨ Unrivaled Features
 
 ### ⚡ Lightning-Fast Compilation Engine
@@ -852,7 +866,7 @@ QBasic Nexus doesn't just parse text—it deeply analyzes it using an enterprise
 - **Zero-Setup Native Executables Across Platforms** - Instantly compile QBasic code directly to standalone executables on Windows, macOS, Linux, and Alpine using the internal backend powered by `@yao-pkg/pkg`. No QB64 installation required for prototyping and distribution!
 - **High-Performance Lexer** - Powered by `moo`, achieving over **1,200 KB/s+ throughput** during compilation with zero-copy token passing to eliminate redundant processing.
 - **AST-First Control Flow & Semantics** - Deep semantic analysis and AST-based state-machine execution for `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`. This trampoline execution guarantees rock-solid stability (zero call-stack overflow crashes) and precise warnings for missing labels or unreachable code.
-- **Robust Legacy Memory & Data Scope** - Run legacy syntax seamlessly! Full internal support for `STATIC` procedure variables, `COMMON SHARED` globals across modules, Fixed-Length Strings (`STRING * N`), and legacy binary memory serialization (`MKI$`, `CVI`, `LSET`, `FIELD`).
+- **Robust Legacy Memory & Data Scope** - Run legacy syntax seamlessly! Full internal support for `STATIC` procedure variables, `COMMON SHARED` globals across modules, Fixed-Length Strings (`STRING * N`), structured/nested `TYPE` records, and legacy memory safety operations (`PEEK`, `POKE`, `OUT`, `_MEMCOPY`, `MKI$`, `CVI`, `LSET`).
 - **Tiered Cache Architecture** - Includes an L1 Hot Cache and an L2 LRU memory pool powered by lightning-fast FNV-1a hashing. Re-compiling unchanged or slightly modified code is virtually instantaneous (0.03ms cache hits).
 - **Dual Pipeline Integration** - Run your code natively via the local **QB64** compiler for heavy-duty system access, or use the **QBasic Nexus Internal** engine for instant logic tests, complete with preprocessor directives (`$INCLUDE`), typed binary/random files, and virtualized sandboxing.
 
@@ -1040,7 +1054,8 @@ Write code faster, with fewer bugs, using tooling typically reserved for modern 
 Powerful utilities to manage and enhance your QBasic code.
 
 - **Line Number Management** - Remove or renumber line numbers with customizable start and step values (perfect for legacy code migration).
-- **ASCII Chart Viewer** - Interactive ASCII table with decimal, hexadecimal, and character display. Insert `CHR$()` codes directly into your editor.
+- **ASCII & CP437 Character Chart Viewer** - Interactive full ASCII and CP437 reference table with decimal, hexadecimal, and character display. Built-in `CHR$()` insert workflow directly maps keys into your editor (Ctrl+Alt+A).
+- **Code Statistics Analyzer** - Get instant breakdown of codebase structure, modules, LOC, and loops using `QBasic Show Code Statistics 📊` (Ctrl+Shift+I).
 - **Auto-Format on Save** - Automatically capitalize keywords and standardize indentation (mimicking classic QBasic IDE behavior).
 - **Code Actions** - Quick fixes and refactoring suggestions directly in the editor.
 
@@ -1055,7 +1070,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 | **QBasic Compile 🔨**                    | `Ctrl+Shift+B` | Compiles the current file without running it.                          |
 | **QBasic Compile & Run 🌀**              | `F5`           | Compiles and executes code using your chosen Compiler Mode.            |
 | **QBasic Run in Retro CRT 📺**           | -              | Forces the current file to run in the Webview Visualizer.              |
-| **QBasic Start Interactive Tutorial 🎮** | -              | Opens the 120-lesson interactive training terminal.                    |
+| **QBasic Start Interactive Tutorial 🎮** | -              | Opens the 150-lesson interactive training terminal.                    |
 | **QBasic Show Code Statistics 📊**       | `Ctrl+Shift+I` | Provides an instant breakdown of line counts, loops, and SUBs.         |
 | **QBasic Remove Line Numbers 🔢**        | `Ctrl+Alt+R`   | Removes all line numbers from the current file.                        |
 | **QBasic Renumber Lines 🔄**             | `Ctrl+Alt+N`   | Renumbers all lines with customizable start and step values.           |
@@ -1073,11 +1088,11 @@ QBasic Nexus supports over 400 keywords natively for testing within the editor.
 | Feature Category | Compatibility | Supported Commands Examples                                                                         |
 | ---------------- | ------------- | --------------------------------------------------------------------------------------------------- |
 | **Core I/O**     | ✅ 100%       | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`                                       |
-| **Control Flow** | ✅ 100%       | `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT`, `GOTO`, `GOSUB`, `ON ERROR`                      |
+| **Control Flow** | ✅ 100%       | `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT`, `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`            |
 | **Math & Logic** | ✅ 95%        | `ABS`, `INT`, `FIX`, `SIN`, `SQR`, `LOG`, `EXP`, `RND`, `MOD`, `_PI`, `_ROUND`                      |
 | **Strings**      | ✅ 100%       | `LEFT$`, `MID$`, `RIGHT$`, `LEN`, `UCASE$`, `LTRIM$`, `INSTR`, `CHR$`, `STRING * N`                 |
-| **File I/O**     | ✅ 95%        | `OPEN`, `CLOSE`, `PRINT#`, `INPUT#`, `GET`, `PUT`, `FREEFILE`, `LOC`, `LOF`, `EOF`, `SEEK`, `MKDIR` |
-| **Mem / Bin**    | ✅ 90%        | `PEEK`, `POKE`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `MKI$`, `CVI`, `LSET`, `FIELD`                       |
+| **File I/O**     | ✅ 95%        | `OPEN`, `PRINT#`, `INPUT#`, `GET`, `PUT`, `FREEFILE`, `LOCK`, `UNLOCK`, `FILES`, `KILL`, `NAME`     |
+| **Mem / Bin**    | ✅ 90%        | `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `MKI$`, `CVI`  |
 | **Graphics**     | ✅ 85%        | `LINE`, `CIRCLE`, `PSET`, `POINT`, `DRAW`, `PAINT`, `_RGB32`, `_CLEARCOLOR`                         |
 | **Input/Inter.** | ✅ 90%        | `INKEY$`, `TIMER`, `SLEEP`, `_LIMIT`, `_MOUSEINPUT`, `_MOUSEX`, `_KEYHIT`                           |
 | **Arrays**       | ✅ 100%       | `DIM`, `REDIM`, `ERASE`, `LBOUND`, `UBOUND`, multi-dimensional arrays                               |
@@ -1326,7 +1341,7 @@ LOOP UNTIL k$ = CHR$(27) ' ESC to exit
 
 ## 🎮 The Interactive Curriculum
 
-New to QBasic, or just need to knock off the rust? The **Interactive Tutorial Mode** provides a comprehensive **175+ lesson** hands-on curriculum built straight into the editor.
+New to QBasic, or just need to knock off the rust? The **Interactive Tutorial Mode** provides a comprehensive **150-lesson** hands-on curriculum built straight into the editor.
 
 **How It Works**
 
@@ -1334,7 +1349,7 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 
 **Tutorial System Features**
 
-- **175+ Progressive Lessons** - Covering the full QBasic core language, advanced runtime topics, game programming, and real-world applications.
+- **150 Progressive Lessons** - Covering the full QBasic core language, advanced runtime topics, game programming, and real-world applications.
 - **35 Comprehensive Stages** - Organized by topic and difficulty, from absolute basics to advanced techniques.
 - **Side-by-Side Dual Panel** - Code editor on the **left**, rich lesson description on the **right** — no more switching windows!
 - **Live Markdown Lesson Panel** - Each lesson opens a beautiful description panel showing the Objective, Description, Hint, and a Code Template — all formatted and syntax-highlighted.
@@ -1346,7 +1361,7 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 
 1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
 2. Execute **"QBasic Start Interactive Tutorial 🎮"**
-3. A **Quick Pick** menu shows all 175+ lessons — pick any stage to jump right in
+3. A **Quick Pick** menu shows all 150 lessons — pick any stage to jump right in
 4. The editor splits into **two panels automatically**:
    - **Left (Column 1)** — A new QBasic file pre-loaded with the lesson's starter template code
    - **Right (Column 2)** — A **Markdown Preview** showing the full lesson brief: Objective, Description, Hint, and the Template code block

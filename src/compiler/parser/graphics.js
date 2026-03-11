@@ -213,6 +213,46 @@ _parsePutImage() {
     );
   },
 
+_parsePaint() {
+    // PAINT (x, y), fillColor, borderColor [, pattern$]
+    const isStep = this._matchKw('STEP');
+
+    this._matchPunc('(');
+    const x = this._parseExpr();
+    this._matchPunc(',');
+    const y = this._parseExpr();
+    this._matchPunc(')');
+
+    let fillColor = 'undefined';
+    let borderColor = 'undefined';
+    let pattern = 'undefined';
+
+    if (this._matchPunc(',')) {
+      if (!this._isStmtEnd() && this._peek()?.value !== ',') {
+        fillColor = this._parseExpr();
+      }
+
+      if (this._matchPunc(',')) {
+        if (!this._isStmtEnd() && this._peek()?.value !== ',') {
+          borderColor = this._parseExpr();
+        }
+
+        if (this._matchPunc(',')) {
+          pattern = this._parseExpr();
+        }
+      }
+    }
+
+    const paintX = isStep ? `(_point(0) + (${x}))` : x;
+    const paintY = isStep ? `(_point(1) + (${y}))` : y;
+
+    if (pattern !== 'undefined') {
+      this._emit(`// PAINT pattern ${pattern} is ignored in the web runtime`);
+    }
+
+    this._emit(`_paint(${paintX}, ${paintY}, ${fillColor}, ${borderColor});`);
+  },
+
 _parseDraw() {
     // DRAW "command string"
     const cmds = this._parseExpr();

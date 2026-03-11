@@ -1,6 +1,10 @@
 /**
  * QBasic Nexus - High-Performance Compiler Wrapper
  * Unified compiler interface with caching and error recovery
+ *
+ * v1.5.2 optimisations:
+ *  - Cache fast-path: skips DiagnosticCollector construction for clean hits
+ *  - Module-level compile() uses a shared singleton (avoids repeated ctor cost)
  */
 
 'use strict';
@@ -19,21 +23,21 @@ const {
  * Compiler options
  */
 const DEFAULT_OPTIONS = {
-  target: 'web', // 'web' or 'node'
-  cache: true, // Enable compilation cache
-  strictMode: false, // Strict error checking
-  optimizationLevel: 2, // 0=none, 1=basic, 2=aggressive
-  sourceMap: false, // Generate source maps
-  maxErrors: 100, // Maximum errors before stopping
+  target: 'web',          // 'web' or 'node'
+  cache: true,            // Enable compilation cache
+  strictMode: false,      // Strict error checking
+  optimizationLevel: 2,   // 0=none, 1=basic, 2=aggressive
+  sourceMap: false,       // Generate source maps
+  maxErrors: 100,         // Maximum errors before stopping
   sourcePath: null,
   cwd: process.cwd(),
 };
 
 function countLines(source) {
   if (!source) return 0;
-
   let count = 1;
-  for (let i = 0; i < source.length; i++) {
+  const len = source.length;
+  for (let i = 0; i < len; i++) {
     if (source.charCodeAt(i) === 10) count++;
   }
   return count;
@@ -50,51 +54,37 @@ class CompilationResult {
     this.success = !diagnostics.hasErrors();
   }
 
-  /**
-   * Check if compilation was successful
-   */
+  /** Check if compilation was successful */
   isSuccess() {
     return this.success;
   }
 
-  /**
-   * Get generated code
-   */
+  /** Get generated code */
   getCode() {
     return this.code;
   }
 
-  /**
-   * Get all diagnostics
-   */
+  /** Get all diagnostics */
   getDiagnostics() {
     return this.diagnostics.getAll();
   }
 
-  /**
-   * Get errors only
-   */
+  /** Get errors only */
   getErrors() {
     return this.diagnostics.getBySeverity('error');
   }
 
-  /**
-   * Get warnings only
-   */
+  /** Get warnings only */
   getWarnings() {
     return this.diagnostics.getBySeverity('warning');
   }
 
-  /**
-   * Format diagnostics for display
-   */
+  /** Format diagnostics for display */
   formatDiagnostics() {
     return this.diagnostics.format();
   }
 
-  /**
-   * Get compilation metadata
-   */
+  /** Get compilation metadata */
   getMetadata() {
     return this.metadata;
   }
@@ -129,18 +119,27 @@ class Compiler {
     });
     const preprocessedSource = preprocessResult.source;
 
-    // Check cache first (no tokenization needed)
+    // ── Check cache first (no tokenisation needed) ────────────────────────
     if (this.cache && !preprocessResult.diagnostics.hasErrors()) {
       const cached = this.cache.getCode(preprocessedSource, options.target);
       if (cached) {
         this.stats.cacheHits++;
         this.stats.compilations++;
 
-        const diagnostics = new DiagnosticCollector();
-        for (const err of cached.errors || []) {
-          diagnostics.add(err);
+        // Fast path: clean cache hit (no errors) — skip DiagnosticCollector
+        // construction entirely, which is the common success scenario.
+        if (!cached.errors || cached.errors.length === 0) {
+          return new CompilationResult(
+            cached.code,
+            new DiagnosticCollector(),
+            { cached: true, cacheAge: Date.now() - cached.timestamp },
+          );
         }
 
+        const diagnostics = new DiagnosticCollector();
+        for (const err of cached.errors) {
+          diagnostics.add(err);
+        }
         return new CompilationResult(cached.code, diagnostics, {
           cached: true,
           cacheAge: Date.now() - cached.timestamp,
@@ -165,21 +164,17 @@ class Compiler {
         });
       }
 
-      // ── Tokenize ONCE ──────────────────────────────────────────────
+      // ── Tokenize ONCE ──────────────────────────────────────────────────
       const lexerStart = process.hrtime.bigint();
       const lexer = new Lexer(preprocessedSource);
       tokens = lexer.tokenize();
       const lexerTime = Number(process.hrtime.bigint() - lexerStart) / 1_000_000;
 
-      // ── Parse + codegen (reuse token array — no re-tokenize) ───────
+      // ── Parse + codegen (reuse token array — no re-tokenize) ───────────
       const parserStart = process.hrtime.bigint();
       const transpiler = new InternalTranspiler();
-      const { code, errors } = transpiler.transpileTokens(
-        tokens,
-        options.target,
-      );
-      const parserTime =
-        Number(process.hrtime.bigint() - parserStart) / 1_000_000;
+      const { code, errors } = transpiler.transpileTokens(tokens, options.target);
+      const parserTime = Number(process.hrtime.bigint() - parserStart) / 1_000_000;
 
       // Collect errors directly from the parse result (no extra lint pass)
       for (const err of errors) {
@@ -273,11 +268,9 @@ class Compiler {
    */
   getStats() {
     const stats = { ...this.stats };
-
     if (this.cache) {
       stats.cache = this.cache.getStats();
     }
-
     return stats;
   }
 
@@ -325,21 +318,36 @@ ${
     ? `
 Cache Statistics:
   Hit Rate: ${stats.cache.hitRate}
-  Token Cache: ${stats.cache.tokenCache.utilization}
-  Code Cache: ${stats.cache.codeCache.utilization}
+  Token Cache: ${stats.cache.tokenCache.utilization || 'n/a'}
+  Code Cache: ${stats.cache.codeCache.utilization || 'n/a'}
 `
     : ''
 }
-        `.trim();
+    `.trim();
   }
 }
 
+// ── Module-level helpers ───────────────────────────────────────────────────────
+
 /**
- * Quick compile function for simple use cases
+ * Quick compile function for simple use cases.
+ *
+ * v1.5.2: Uses a lazily-created module-level Compiler singleton when no
+ * custom options are provided. This avoids paying the constructor + LRU-cache
+ * init cost on every call (relevant for scripts that call compile() in loops).
  */
+let _sharedCompiler = null;
+
 function compile(source, options = {}) {
-  const compiler = new Compiler(options);
-  return compiler.compile(source);
+  // If the caller supplies custom options, fall back to a fresh instance so
+  // the singleton's settings are never overridden.
+  if (Object.keys(options).length > 0) {
+    return new Compiler(options).compile(source);
+  }
+  if (!_sharedCompiler) {
+    _sharedCompiler = new Compiler({ ...DEFAULT_OPTIONS, cache: true });
+  }
+  return _sharedCompiler.compile(source);
 }
 
 /**

@@ -1,6 +1,6 @@
 /**
  * QBasic Nexus - The Ultimate Interactive Tutorial Curriculum
- * Comprehensive guide covering 120 lessons of QBasic syntax, features, and capabilities.
+ * Comprehensive guide covering 150 lessons of QBasic syntax, features, and capabilities.
  */
 
 'use strict';

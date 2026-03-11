@@ -203,6 +203,118 @@ test('Lint reports unresolved $INCLUDE directives with syntax diagnostics', () =
   }
 });
 
+test('Web transpile binds CRT graphics helpers used by the AST-first compiler path', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    [
+      'SCREEN 13',
+      'PSET (10, 10), 4',
+      'PAINT (10, 10), 4, 1',
+      'DRAW "R10"',
+      'VIEW (1, 1)-(10, 10), 2, 3',
+      'WINDOW (0, 0)-(100, 100)',
+      'PALETTE 1, 10',
+      'PCOPY 0, 1',
+    ].join('\n'),
+    'web',
+  );
+
+  const expectedBindings = [
+    'const _paint = _runtime.paint || (() => {});',
+    'const _draw = _runtime.draw || (() => {});',
+    'const _view = _runtime.view || (() => {});',
+    'const _viewPrint = _runtime.viewPrint || (() => {});',
+    'const _window = _runtime.window || (() => {});',
+    'const _palette = _runtime.palette || (() => {});',
+    'const _paletteUsing = _runtime.paletteUsing || (() => {});',
+    'const _pcopy = _runtime.pcopy || (() => {});',
+  ];
+
+  for (const binding of expectedBindings) {
+    if (!code.includes(binding)) {
+      throw new Error(`Missing web runtime binding: ${binding}`);
+    }
+  }
+
+  const expectedCalls = [
+    '_paint(10, 10, 4, 1);',
+    'await _draw("R10");',
+    '_view(1, 1, 10, 10, 2, 3);',
+    '_window(0, 0, 100, 100, false);',
+    '_palette(1, 10);',
+    '_pcopy(0, 1);',
+  ];
+
+  for (const call of expectedCalls) {
+    if (!code.includes(call)) {
+      throw new Error(`Missing generated graphics call: ${call}`);
+    }
+  }
+});
+
+test('Web transpile binds advanced CRT screen helpers emitted by QB64 graphics statements', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    [
+      '_FULLSCREEN',
+      '_DEST 1',
+      '_SOURCE 2',
+      '_FONT 3',
+      '_SETALPHA 128, 1',
+      '_CLEARCOLOR 4',
+    ].join('\n'),
+    'web',
+  );
+
+  const expectedBindings = [
+    'const _fullscreen = _runtime.fullscreen || (() => {});',
+    'const _dest = _runtime.dest || (() => {});',
+    'const _source = _runtime.source || (() => {});',
+    'const _font = _runtime.font || (() => {});',
+    'const _setAlpha = _runtime.setAlpha || (() => {});',
+    'const _clearColor = _runtime.clearColor || (() => {});',
+  ];
+
+  for (const binding of expectedBindings) {
+    if (!code.includes(binding)) {
+      throw new Error(`Missing advanced web binding: ${binding}`);
+    }
+  }
+
+  const expectedCalls = [
+    '_fullscreen(0);',
+    '_dest(1);',
+    '_source(2);',
+    '_font(3, undefined);',
+    '_setAlpha(128, 1, undefined, undefined, undefined);',
+    '_clearColor(4, undefined);',
+  ];
+
+  for (const call of expectedCalls) {
+    if (!code.includes(call)) {
+      throw new Error(`Missing generated advanced graphics call: ${call}`);
+    }
+  }
+});
+
+test('Node transpile guards browser-only title updates', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('_TITLE "Hello"', 'node');
+
+  if (!code.includes('if (typeof document !== "undefined") document.title = "Hello";')) {
+    throw new Error('Expected _TITLE to be guarded for non-browser runtimes');
+  }
+});
+
+test('Web transpile keeps clipboard-write syntax on the runtime path', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('_CLIPBOARD = "hi"', 'web');
+
+  if (!code.includes('await _runtime.clipboard?.("hi");')) {
+    throw new Error('Expected _CLIPBOARD assignment to target the runtime clipboard hook');
+  }
+});
+
 test('Transpile expands $INCLUDE relative to sourcePath', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbnx-preprocess-'));
 

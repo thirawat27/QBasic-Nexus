@@ -16,6 +16,7 @@ _parseStatement() {
     if (this._matchKw('CIRCLE')) return this._parseCircle();
     if (this._matchKw('PSET')) return this._parsePset();
     if (this._matchKw('PRESET')) return this._parsePreset();
+    if (this._matchKw('PAINT')) return this._parsePaint();
     if (this._matchKw('GET')) {
       return this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === '#'
         ? this._parseGetFile()
@@ -872,7 +873,9 @@ _parseShell() {
 _parseTitle() {
     // _TITLE text$
     const title = this._parseExpr();
-    this._emit(`document.title = ${title};`);
+    this._emit(
+      `if (typeof document !== "undefined") document.title = ${title};`,
+    );
   },
 
 _parseFullscreen() {
@@ -988,7 +991,7 @@ _parseClipboard() {
     // _CLIPBOARD = text$
     this._matchOp('=');
     const text = this._parseExpr();
-    this._emit(`await navigator.clipboard.writeText(${text});`);
+    this._emit(`await _runtime.clipboard?.(${text});`);
   },
 
 _parseSetAlpha() {

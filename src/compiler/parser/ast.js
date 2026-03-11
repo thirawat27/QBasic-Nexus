@@ -640,6 +640,52 @@ module.exports = {
       return { kind: 'Terminate', reason: 'SYSTEM', ...this._astLoc() };
     }
     if (this._matchKw('END')) return this._parseAstEnd(context);
+    if (this._matchKw('CLS')) return this._parseAstEmitLines(['_cls();']);
+    if (this._matchKw('LOCATE')) return this._parseAstEmitStatement('_parseLocate');
+    if (this._matchKw('COLOR')) return this._parseAstEmitStatement('_parseColor');
+    if (this._matchKw('SCREEN')) return this._parseAstEmitStatement('_parseScreen');
+    if (this._matchKw('WIDTH')) return this._parseAstEmitStatement('_parseWidth');
+    if (this._matchKw('CIRCLE')) return this._parseAstEmitStatement('_parseCircle');
+    if (this._matchKw('PSET')) return this._parseAstEmitStatement('_parsePset');
+    if (this._matchKw('PRESET')) return this._parseAstEmitStatement('_parsePreset');
+    if (this._matchKw('PAINT')) return this._parseAstEmitStatement('_parsePaint');
+    if (this._matchKw('DRAW')) return this._parseAstEmitStatement('_parseDraw');
+    if (this._matchKw('VIEW')) return this._parseAstEmitStatement('_parseView');
+    if (this._matchKw('WINDOW')) return this._parseAstEmitStatement('_parseWindow');
+    if (this._matchKw('PALETTE')) return this._parseAstEmitStatement('_parsePalette');
+    if (this._matchKw('PCOPY')) return this._parseAstEmitStatement('_parsePcopy');
+    if (this._matchKw('BEEP')) return this._parseAstEmitLines(['await _beep();']);
+    if (this._matchKw('SOUND')) return this._parseAstEmitStatement('_parseSound');
+    if (this._matchKw('PLAY')) return this._parseAstEmitStatement('_parsePlay');
+    if (this._matchKw('SLEEP')) return this._parseAstEmitStatement('_parseSleep');
+    if (this._matchKw('_DELAY')) return this._parseAstEmitStatement('_parseDelay');
+    if (this._matchKw('_LIMIT')) return this._parseAstEmitStatement('_parseLimit');
+    if (this._matchKw('_FULLSCREEN')) return this._parseAstEmitStatement('_parseFullscreen');
+    if (this._matchKw('_TITLE')) return this._parseAstEmitStatement('_parseTitle');
+    if (this._matchKw('_SCREENMOVE')) return this._parseAstEmitStatement('_parseScreenMove');
+    if (this._matchKw('_SCREENICON'))
+      return this._parseAstEmitLines(['// _SCREENICON - not supported in web']);
+    if (this._matchKw('_SCREENHIDE'))
+      return this._parseAstEmitLines(['// _SCREENHIDE - not supported in web']);
+    if (this._matchKw('_SCREENSHOW'))
+      return this._parseAstEmitLines(['// _SCREENSHOW - not supported in web']);
+    if (this._matchKw('_ICON')) return this._parseAstEmitStatement('_parseIcon');
+    if (this._matchKw('_DEST')) return this._parseAstEmitStatement('_parseDest');
+    if (this._matchKw('_SOURCE')) return this._parseAstEmitStatement('_parseSource');
+    if (this._matchKw('_FONT')) return this._parseAstEmitStatement('_parseFont');
+    if (this._matchKw('_PUTIMAGE')) return this._parseAstEmitStatement('_parsePutImage');
+    if (this._matchKw('_PRINTSTRING')) return this._parseAstEmitStatement('_parsePrintString');
+    if (this._matchKw('_FREEIMAGE')) return this._parseAstEmitStatement('_parseFreeImage');
+    if (this._matchKw('_SETALPHA')) return this._parseAstEmitStatement('_parseSetAlpha');
+    if (this._matchKw('_CLEARCOLOR')) return this._parseAstEmitStatement('_parseClearColor');
+    if (this._matchKw('_AUTODISPLAY'))
+      return this._parseAstEmitLines(['// _AUTODISPLAY - default in web']);
+    if (this._matchKw('_MOUSEHIDE'))
+      return this._parseAstEmitLines(['_runtime.mousehide?.();']);
+    if (this._matchKw('_MOUSESHOW')) return this._parseAstEmitStatement('_parseMouseShow');
+    if (this._matchKw('_MOUSEMOVE')) return this._parseAstEmitStatement('_parseMouseMove');
+    if (this._matchKw('_KEYCLEAR')) return this._parseAstEmitLines(['_runtime.keyclear?.();']);
+    if (this._matchKw('_DISPLAY')) return this._parseAstEmitLines(['_runtime.display?.();']);
     if (this._matchKw('PRINT')) return this._parseAstEmitStatement('_parsePrint');
     if (this._matchKw('INPUT')) return this._parseAstEmitStatement('_parseInput');
     if (this._matchKw('GET')) {

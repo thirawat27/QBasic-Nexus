@@ -10,6 +10,16 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 - **Language Icon Registration**: Added explicit QBasic language icon metadata in `package.json` so both light and dark themes use `./assets/qb64.svg`.
 - **Assets Folder Rename**: Renamed the shared image folder from `image/` to `assets/` and updated extension icon, README logo, and ASCII chart webview resources to use the new paths.
 
+### 🚀 Performance Optimizations
+
+- **V8 Hashing Boost**: Transitioned compiler caching hash sequence to `Math.imul()` for FNV-1a calculation. This relies on native V8 32-bit integer multiplication optimizations, dramatically decreasing overhead for string hashing across all sources.
+- **Lexer Zero-overhead Pooling**: Scaled up Lexer `TokenPool` to limit garbage collection. Boosted `_maxSize` to `10000` and `_preallocated` block size to `2500`, drastically minimizing runtime token object allocations for large corporate-sized QBasic source codes.
+- **Fast Line Counting**: Eliminated repeated property lookup access `.length` inside `countLines()` loops, caching length evaluation directly into loop condition blocks.
+
+### 🐛 Bug Fixes
+
+- **Webview Input Focus Recovery**: Fixed an issue in `interactive CRT Webview` where clicking outside the `INPUT` field or switching document tabs would drop cursor focus entirely. Added robust cross-browser `document.addEventListener('click')` and `window.addEventListener('focus')` recovery handling.
+
 ### 📦 Packaging
 
 - **Smaller Extension Package**: Excluded `.github/`, `.nvmrc`, and `SECURITY.md` from the published VS Code extension package.
@@ -18,6 +28,7 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 
 - **README Cleanup**: Removed an outdated note about tutorial success messages and updated asset references to match the new `assets/` folder layout.
 - **SECURITY Cleanup**: Removed the stale "Last Updated" footer from `SECURITY.md`.
+- **Tutorial Expansion**: Updated `README.md` and documentations to accurately reflect the latest **150-lesson** curriculum spanning **35 progressive stages**.
 
 ---
 

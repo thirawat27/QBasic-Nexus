@@ -14,7 +14,6 @@ const MagicString = require('magic-string');
 const { state } = require('./state');
 const { getOutputChannel, getTerminal, log } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
-const { getInternalTranspiler } = require('./lazyModules');
 
 const PACKAGER_MODULE = '@yao-pkg/pkg';
 const PACKAGER_COMPRESSION = 'GZip';
@@ -138,8 +137,7 @@ async function runInternalTranspiler(document, shouldRun) {
   }
 
   try {
-    const InternalTranspiler = getInternalTranspiler();
-    const transpiler = new InternalTranspiler();
+    const { compile } = require('../compiler/compiler');
     const outputExt = getOutputExtension();
     const outputExe = path.join(sourceDir, baseName + outputExt);
     tempJs = path.join(os.tmpdir(), `${baseName}_${Date.now()}._qbnx_.js`);
@@ -164,9 +162,21 @@ async function runInternalTranspiler(document, shouldRun) {
         // ── 1: Lexical & Syntax Analysis (0 → 30%) ─────────────────────
         channel.appendLine('');
         report(0, 'Lexical & Syntax Analysis…');
-        const jsCode = transpiler.transpile(sourceCode, 'node', {
+        const result = compile(sourceCode, {
+          target: 'node',
           sourcePath: document.uri.fsPath,
         });
+
+        if (!result.isSuccess()) {
+          const msg = result.getErrors().map((e) => e.message).join('; ');
+          throw new Error(`Syntax Error: ${msg || 'Compilation failed'}`);
+        }
+
+        const jsCode = result.getCode();
+        const meta = result.getMetadata();
+        if (meta.cached) {
+          channel.appendLine(`  [L1/L2] Cache hit (age ${meta.cacheAge}ms) — parsing skipped`);
+        }
         report(30, 'Syntax analysis passed ✓');
 
         // ── 2: Code Generation / write JS (30 → 60%) ───────────────────

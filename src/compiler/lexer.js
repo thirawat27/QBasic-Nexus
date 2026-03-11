@@ -96,20 +96,20 @@ class Token {
 
 const TokenPool = {
   _pool: [],
-  _maxSize: 2000,
+  _maxSize: 10000,
 
   // Pre-allocate a batch to warm the pool
   _preallocated: false,
   _preallocate() {
     if (this._preallocated) return;
     this._preallocated = true;
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 2500; i++) {
       this._pool.push(new Token('', '', 0, 0));
     }
   },
 
   acquire(type, value, line, col) {
-    this._preallocate();
+    if (!this._preallocated) this._preallocate();
     if (this._pool.length > 0) {
       const t = this._pool.pop();
       t.type = type;
