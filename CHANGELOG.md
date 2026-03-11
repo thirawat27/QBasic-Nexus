@@ -2,6 +2,25 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.2] - 2026-03-11
+
+### ✨ Features
+
+- **ASCII + CP437 Character Chart**: Expanded the built-in character reference and `CHR$()` insert workflow to cover the full ASCII / CP437 character set for quicker lookup and insertion.
+- **Language Icon Registration**: Added explicit QBasic language icon metadata in `package.json` so both light and dark themes use `./assets/qb64.svg`.
+- **Assets Folder Rename**: Renamed the shared image folder from `image/` to `assets/` and updated extension icon, README logo, and ASCII chart webview resources to use the new paths.
+
+### 📦 Packaging
+
+- **Smaller Extension Package**: Excluded `.github/`, `.nvmrc`, and `SECURITY.md` from the published VS Code extension package.
+
+### 📝 Documentation
+
+- **README Cleanup**: Removed an outdated note about tutorial success messages and updated asset references to match the new `assets/` folder layout.
+- **SECURITY Cleanup**: Removed the stale "Last Updated" footer from `SECURITY.md`.
+
+---
+
 ## [1.5.1] - 2026-03-10
 
 ### 🚀 Internal Compiler
