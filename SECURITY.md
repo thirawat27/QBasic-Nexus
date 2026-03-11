@@ -148,6 +148,3 @@ For security concerns, contact:
 - GitHub: https://github.com/thirawat27/QBasic-Nexus/security
 - Issues: https://github.com/thirawat27/QBasic-Nexus/issues
 
----
-
-**Last Updated**: March 10, 2026
