@@ -850,10 +850,10 @@ QBasic Nexus provides full language support, syntax highlighting, and dedicated 
 
 | Extension | Description | Icon |
 |-----------|-------------|------|
-| **`.bas`** | Main Source File | <img src="./assets/qb64.svg" width="40" alt="QB64 Icon" /> |
-| **`.bi`**  | Include Header File | <img src="./assets/qb64.svg" width="40" alt="QB64 Icon" /> |
-| **`.bm`**  | Module File | <img src="./assets/qb64.svg" width="40" alt="QB64 Icon" /> |
-| **`.inc`** | Include / Library File | <img src="./assets/qb64.svg" width="40" alt="QB64 Icon" /> |
+| **`.bas`** | Main Source File | <img src="./assets/qb64.png" width="40" alt="QB64 Icon" /> |
+| **`.bi`**  | Include Header File | <img src="./assets/qb64.png" width="40" alt="QB64 Icon" /> |
+| **`.bm`**  | Module File | <img src="./assets/qb64.png" width="40" alt="QB64 Icon" /> |
+| **`.inc`** | Include / Library File | <img src="./assets/qb64.png" width="40" alt="QB64 Icon" /> |
 
 ---
 
