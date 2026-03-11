@@ -533,7 +533,7 @@ async function getAsciiChartHtml(panel, extensionUri) {
     ),
   );
   const logoUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'image', 'QBasicNexus.png'),
+    vscode.Uri.joinPath(extensionUri, 'assets', 'QBasicNexus.png'),
   );
 
   return asciiChartTemplateCache
@@ -568,7 +568,7 @@ async function showAsciiChart(extensionUri) {
       retainContextWhenHidden: true,
       localResourceRoots: [
         vscode.Uri.joinPath(extensionUri, 'src', 'webview'),
-        vscode.Uri.joinPath(extensionUri, 'image'),
+        vscode.Uri.joinPath(extensionUri, 'assets'),
       ],
     },
   );

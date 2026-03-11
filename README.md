@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./image/QBasicNexus.png" alt="QBasicNexus Icon" width="220" height="220" />
+  <img src="./assets/QBasicNexus.png" alt="QBasicNexus Icon" width="220" height="220" />
 </div>
 <div align="center">
   <h1>QBasic Nexus ⚙️</h1>
