@@ -60,6 +60,9 @@ const {
   QBasicCodeActionProvider,
   QBasicReferenceProvider,
   QBasicOnTypeFormattingEditProvider,
+  QBasicColorProvider,
+  activateDecorators,
+  QBasicTodoProvider,
 } = require('./src/providers/index');
 
 // ── Lazy-loaded modules ──────────────────────────────────────────────────────
@@ -162,7 +165,20 @@ async function activate(context) {
       new QBasicOnTypeFormattingEditProvider(),
       '\n',
     ),
+    vscode.languages.registerColorProvider(
+      selector,
+      new QBasicColorProvider(),
+    ),
+
   );
+
+  // ── Activate custom internal decorators ──────────────────────────────────
+  activateDecorators(context);
+
+  // ── Register Todo Tree View ──────────────────────────────────────────────
+  const todoProvider = new QBasicTodoProvider();
+  vscode.window.registerTreeDataProvider('qbasic-todo', todoProvider);
+  context.subscriptions.push(vscode.commands.registerCommand('qbasic-nexus.refreshTodo', () => todoProvider.refresh()));
 
   // ── Register commands ────────────────────────────────────────────────────
   context.subscriptions.push(

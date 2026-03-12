@@ -1,6 +1,6 @@
 /**
  * QBasic Nexus - Provider: Rename
- * Rename a symbol across the entire document
+ * Rename a symbol across the entire workspace (cross-file support)
  */
 
 'use strict';
@@ -8,10 +8,10 @@
 const vscode = require('vscode');
 const { KEYWORDS, FUNCTIONS } = require('../../languageData');
 const { PATTERNS } = require('./patterns');
-const { findDocumentIdentifierMatches } = require('../shared/documentAnalysis');
+const { workspaceAnalyzer } = require('../shared/workspaceAnalysis');
 
 class QBasicRenameProvider {
-  provideRenameEdits(document, position, newName) {
+  async provideRenameEdits(document, position, newName, _token) {
     const wordRange = document.getWordRangeAtPosition(
       position,
       PATTERNS.IDENTIFIER,
@@ -31,11 +31,16 @@ class QBasicRenameProvider {
     }
 
     const edits = new vscode.WorkspaceEdit();
-    const matches = findDocumentIdentifierMatches(document, oldName);
+    
+    // Search across workspace via workspaceAnalyzer
+    // Include declarations so they are renamed too
+    const options = { includeDeclaration: true };
+    const matches = await workspaceAnalyzer.findWorkspaceIdentifierMatches(document, oldName, options);
 
-    for (const { line, start, end } of matches) {
-      const range = new vscode.Range(line, start, line, end);
-      edits.replace(document.uri, range, newName);
+    for (const match of matches) {
+      const uri = vscode.Uri.file(match.file);
+      const range = new vscode.Range(match.line, match.start, match.line, match.end);
+      edits.replace(uri, range, newName);
     }
 
     return edits;

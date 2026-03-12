@@ -1037,11 +1037,12 @@ KILL "data.txt"
 
 Write code faster, with fewer bugs, using tooling typically reserved for modern languages like TypeScript or C#.
 
-- **IntelliSense on Steroids** - Smart auto-completion for over **400+ keywords**, including built-in math functions, string manipulation, and QB64 extensions.
+- **Workspace-Wide IntelliSense** - Smart auto-completion and "Go to Definition" (F12) works flawlessly for your custom `SUB`s, `FUNCTION`s, and `TYPE` structures—even those defined across `$INCLUDE` files.
+- **Cross-File Symbol Renaming (F2)** - Need to rename a variable used 50 times? Do it instantly across the entire workspace (including all included files) safely and accurately.
+- **Color Preview & Picker** - Native VS Code visual color picker for `_RGB32`, `_RGBA`, and `_RGB` allowing an immediate visual display of QBasic colors in your code.
+- **Project TODOs View** - Automatically scans your workspace for `TODO:`, `FIXME:`, `BUG:`, and `NOTE:` tags, highlighting them securely in the editor and aggregating them in an interactive sidebar Explorer tree for instant tracking.
 - **Real-Time Semantic Diagnostics (Linting)** - Catch logic and syntax errors _as you type_. The parser dynamically evaluates your document without freezing your editor, providing distinct warnings and semantic checks (e.g., detecting missing labels, unreachable code, `RESUME` misuse, invalid `EXIT`, and type mismatches).
 - **Advanced Preprocessor Support** - Automatic tracking and intelligent resolution for `$INCLUDE`, `$STATIC`, and `$DYNAMIC` directives. Included files are verified and integrated instantly for seamless cross-file completion and diagnostics.
-- **Instant Code Navigation** - "Go to Definition" (F12) works flawlessly for your custom `SUB`s, `FUNCTION`s, and `TYPE` structures.
-- **Symbol Renaming (F2)** - Need to rename a variable used 50 times? Do it instantly across the entire file.
 - **At-a-glance Code Stats** - Live status bar counter showing your total Lines of Code, SUBs, and FUNCTIONs.
 - **Signature Help** - Parameter hints for built-in functions and your custom SUBs/FUNCTIONs.
 - **Document Symbols** - Quick navigation through your code structure with the Outline view.

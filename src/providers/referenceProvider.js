@@ -7,10 +7,10 @@
 
 const vscode = require('vscode');
 const { PATTERNS } = require('./patterns');
-const { findDocumentIdentifierMatches } = require('../shared/documentAnalysis');
+const { workspaceAnalyzer } = require('../shared/workspaceAnalysis');
 
 class QBasicReferenceProvider {
-  provideReferences(document, position, context) {
+  async provideReferences(document, position, context) {
     const wordRange = document.getWordRangeAtPosition(
       position,
       PATTERNS.IDENTIFIER,
@@ -18,14 +18,14 @@ class QBasicReferenceProvider {
     if (!wordRange) return null;
 
     const word = document.getText(wordRange);
-    const matches = findDocumentIdentifierMatches(document, word, {
+    const matches = await workspaceAnalyzer.findWorkspaceIdentifierMatches(document, word, {
       includeDeclaration: context.includeDeclaration,
     });
 
     return matches.map(
-      ({ line, start, end }) =>
+      ({ file, line, start, end }) =>
         new vscode.Location(
-          document.uri,
+          vscode.Uri.file(file),
           new vscode.Range(line, start, line, end),
         ),
     );

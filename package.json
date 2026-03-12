@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.5.2",
+    "version": "1.5.3",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -138,6 +138,11 @@
                 "command": "qbasic-nexus.insertChrFromAsciiChart",
                 "title": "QBasic Insert CHR$() at Cursor ✍️",
                 "icon": "$(insert)"
+            },
+            {
+                "command": "qbasic-nexus.refreshTodo",
+                "title": "Refresh TODOs 🔄",
+                "icon": "$(refresh)"
             }
         ],
         "menus": {
@@ -192,6 +197,13 @@
                 {
                     "command": "qbasic-nexus.runInCrt",
                     "when": "resourceLangId == qbasic",
+                    "group": "navigation"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "qbasic-nexus.refreshTodo",
+                    "when": "view == qbasic-todo",
                     "group": "navigation"
                 }
             ]
@@ -308,6 +320,15 @@
                     "scope": "resource"
                 }
             }
+        },
+        "views": {
+            "explorer": [
+                {
+                    "id": "qbasic-todo",
+                    "name": "QBasic TODOs",
+                    "icon": "assets/QBasicNexus.png"
+                }
+            ]
         }
     }
 }

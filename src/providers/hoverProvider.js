@@ -11,8 +11,8 @@ const { PATTERNS } = require('./patterns');
 const {
   SYMBOL_KIND,
   findDefinitionInAnalysis,
-  getDocumentAnalysis,
 } = require('../shared/documentAnalysis');
+const { workspaceAnalyzer } = require('../shared/workspaceAnalysis');
 
 const USER_SYMBOL_LABELS = Object.freeze({
   [SYMBOL_KIND.FUNCTION]: 'function',
@@ -24,7 +24,7 @@ const USER_SYMBOL_LABELS = Object.freeze({
 });
 
 class QBasicHoverProvider {
-  provideHover(document, position) {
+  async provideHover(document, position) {
     const range = document.getWordRangeAtPosition(
       position,
       PATTERNS.IDENTIFIER,
@@ -52,16 +52,17 @@ class QBasicHoverProvider {
       );
     }
 
-    const analysis = getDocumentAnalysis(document);
+    const analysis = await workspaceAnalyzer.getWorkspaceAnalysis(document);
     const definition = findDefinitionInAnalysis(analysis, originalWord);
     if (!definition) {
       return null;
     }
 
     const symbolLabel = USER_SYMBOL_LABELS[definition.kind] || 'symbol';
+    const fileBase = definition.file ? require('path').basename(definition.file) : require('path').basename(document.uri.fsPath);
     return new vscode.Hover(
       new vscode.MarkdownString(
-        `**${originalWord}** *(${symbolLabel})*\n\nDefined at line ${definition.line + 1}`,
+        `**${originalWord}** *(${symbolLabel})*\n\nDefined at line ${definition.line + 1} (*File: ${fileBase}*)`,
       ),
     );
   }

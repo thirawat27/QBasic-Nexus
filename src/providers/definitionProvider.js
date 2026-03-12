@@ -9,11 +9,11 @@ const vscode = require('vscode');
 const { PATTERNS } = require('./patterns');
 const {
   findDefinitionInAnalysis,
-  getDocumentAnalysis,
 } = require('../shared/documentAnalysis');
+const { workspaceAnalyzer } = require('../shared/workspaceAnalysis');
 
 class QBasicDefinitionProvider {
-  provideDefinition(document, position) {
+  async provideDefinition(document, position) {
     const wordRange = document.getWordRangeAtPosition(
       position,
       PATTERNS.IDENTIFIER,
@@ -21,14 +21,17 @@ class QBasicDefinitionProvider {
     if (!wordRange) return null;
 
     const word = document.getText(wordRange);
-    const definition = findDefinitionInAnalysis(getDocumentAnalysis(document), word);
+    const analysis = await workspaceAnalyzer.getWorkspaceAnalysis(document);
+    const definition = findDefinitionInAnalysis(analysis, word);
 
     if (!definition) {
       return null;
     }
+    
+    const uri = definition.file ? vscode.Uri.file(definition.file) : document.uri;
 
     return new vscode.Location(
-      document.uri,
+      uri,
       new vscode.Range(
         definition.line,
         definition.start,

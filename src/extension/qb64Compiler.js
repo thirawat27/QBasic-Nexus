@@ -382,6 +382,77 @@ function parseCompilerErrors(output, uri) {
     }
   }
 
+  // qb64pe-vscode-main robust output parsing
+  const errorPrefixes = [
+    'Illegal ', 'DIM: ', 'Cannot ', 'Undefine ', 'Undefined ', 'Expected', 'File ', 'Syntax ', 
+    'RETURN ', 'Type ', 'Name ', 'Unexpected ', 'Invalid expression', 'Element not defined', 
+    'Unknown ', 'Missing ', '_DEFINE: ', 'Command ', '2nd sub argument', 'Invalid ', 'Variable ', 
+    'Array', 'THEN ', 'Incorrect ', '1st ', 'String ', 'END IF ', 'Statement ', 'Label \'', 
+    'User defined types', 'IF without END IF', 'SUB ', 'TYPE ', 'Only ', 'Number required for function', 
+    'CVL ', 'Expected IF expression THEN/GOTO'
+  ];
+  const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
+  const sourceCode = document ? document.getText().split(/\r?\n/) : [];
+  const lines = output.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const lintLine = lines[i];
+    if (!lintLine || lintLine.startsWith('[')) continue;
+    if (errorPrefixes.some(prefix => lintLine.toUpperCase().startsWith(prefix.toUpperCase()))) {
+      let errorLineNumber = -1;
+      let code = '';
+      for (let x = i; x < lines.length; x++) {
+        if (lines[x].startsWith('LINE ')) {
+          const parts = lines[x].split(':');
+          if (parts.length > 0) {
+             const lineToken = parts[0].split(' ').pop();
+             errorLineNumber = Math.max(0, Number(lineToken) - 1);
+             code = parts.slice(1).join(':').trim();
+             if (!code || code.length < 1) code = lintLine;
+          }
+          break;
+        }
+      }
+      if (errorLineNumber >= 0) {
+        let range = new vscode.Range(errorLineNumber, 0, errorLineNumber, Number.MAX_SAFE_INTEGER);
+        if (code && errorLineNumber < sourceCode.length) {
+          try {
+            const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp('(' + escapedCode + ')', 'i');
+            const codeMatch = sourceCode[errorLineNumber].match(regex);
+            if (codeMatch && codeMatch.index !== undefined) {
+               range = new vscode.Range(errorLineNumber, codeMatch.index, errorLineNumber, codeMatch.index + codeMatch[0].length);
+            }
+          } catch (_e) {
+            // ignore regex failure
+          }
+        }
+        const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : '';
+        const message = lintLine + (nextLine && !nextLine.startsWith('LINE ') ? '\n' + nextLine : '');
+        const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+        diagnostic.source = 'QB64';
+        if (!diagnostics.some(d => d.range.isEqual(diagnostic.range) && d.message === diagnostic.message)) {
+            diagnostics.push(diagnostic);
+        }
+      }
+    } else if (lintLine.toLowerCase().includes('warning')) {
+        const tokens = lintLine.split(':');
+        if (tokens.length >= 4 && tokens[0].trim().toLowerCase() === filename) {
+            const errorLineNumber = Math.max(0, Number(tokens[1]) - 1);
+            const lineLen = errorLineNumber < sourceCode.length ? sourceCode[errorLineNumber].length : Number.MAX_SAFE_INTEGER;
+            const message = tokens.slice(3).join(':').trim();
+            const diagnostic = new vscode.Diagnostic(
+                new vscode.Range(errorLineNumber, 0, errorLineNumber, lineLen), 
+                message, 
+                vscode.DiagnosticSeverity.Warning
+            );
+            diagnostic.source = 'QB64';
+            if (!diagnostics.some(d => d.range.isEqual(diagnostic.range) && d.message === diagnostic.message)) {
+                diagnostics.push(diagnostic);
+            }
+        }
+    }
+  }
+
   state.diagnosticCollection.set(uri, diagnostics);
 }
 

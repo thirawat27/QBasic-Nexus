@@ -12,8 +12,8 @@ const {
 } = require('./cache');
 const {
   SYMBOL_KIND,
-  getDocumentAnalysis,
 } = require('../shared/documentAnalysis');
+const { workspaceAnalyzer } = require('../shared/workspaceAnalysis');
 
 const SYMBOL_COMPLETION_KIND_MAP = Object.freeze({
   [SYMBOL_KIND.FUNCTION]: vscode.CompletionItemKind.Function,
@@ -54,9 +54,9 @@ function getDynamicCompletionItems(analysis) {
 }
 
 class QBasicCompletionItemProvider {
-  provideCompletionItems(document, _position) {
+  async provideCompletionItems(document, _position) {
     // Use pre-cached static items for keywords and functions
-    const analysis = getDocumentAnalysis(document);
+    const analysis = await workspaceAnalyzer.getWorkspaceAnalysis(document);
     return [
       ...getKeywordCompletionItems(),
       ...getFunctionCompletionItems(),

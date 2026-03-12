@@ -2,6 +2,18 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.3] - 2026-03-12
+
+### ✨ Advanced IDE Features
+
+- **Cross-File Symbol Rename (F2)**: Powerful rename provider that finds and safely renames variables, subroutines, and custom types across all `.bas` and `.bi` files in the entire workspace via the new Workspace Analysis engine.
+- **Cross-File IntelliSense**: "Go to Definition", "Hover" documentation, and Autocomplete features now seamlessly understand and resolve symbols defined inside `$INCLUDE` files and other project paths.
+- **Workspace TODOs Panel**: Added a dedicated "QBasic TODOs" tree view in the Explorer panel that automatically scans your entire project for `TODO:`, `FIXME:`, `BUG:`, `NOTE:`, and `FIXIT:` comments, grouping them for instant 1-click navigation.
+- **Visual Color Picker**: Full VS Code native Color Provider integration. Colors defined via `_RGB32()`, `_RGBA()`, `_RGB()`, etc., now display inline color preview boxes, and clicking them opens a graphical color picker that automatically updates the code.
+- **Inline Comment Decorators**: Special code comments (like `TODO`, `FIXME`, `BUG`) are now automatically highlighted with distinct, vibrant background colors and bold text directly inside the editor for vastly improved readability.
+
+---
+
 ## [1.5.2] - 2026-03-11
 
 ### ✨ Features

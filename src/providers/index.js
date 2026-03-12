@@ -20,6 +20,11 @@ const { QBasicReferenceProvider } = require('./referenceProvider');
 const {
   QBasicOnTypeFormattingEditProvider,
 } = require('./onTypeFormattingProvider');
+const {
+  QBasicColorProvider,
+  activateDecorators,
+} = require('./decorators');
+const { QBasicTodoProvider } = require('./todoProvider');
 
 module.exports = {
   invalidateCache,
@@ -35,4 +40,7 @@ module.exports = {
   QBasicCodeActionProvider,
   QBasicReferenceProvider,
   QBasicOnTypeFormattingEditProvider,
+  QBasicColorProvider,
+  activateDecorators,
+  QBasicTodoProvider,
 };
