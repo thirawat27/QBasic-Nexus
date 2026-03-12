@@ -15,7 +15,7 @@
     <a href="#-troubleshooting">Troubleshooting</a>
   </p>
   <p>
-     <img src="https://badgen.net/open-vsx/v/thirawat27/qbasic-nexus" alt="Version" />
+     <img src="https://img.shields.io/open-vsx/v/thirawat27/qbasic-nexus" alt="Version" />
     <img src="https://img.shields.io/badge/VS%20Code-1.107.0+-green.svg" alt="VS Code" />
     <img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="License" />
     
