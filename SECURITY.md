@@ -5,7 +5,8 @@
 | Version | Supported          |
 | ------- | ------------------ |
 | 1.5.x   | :white_check_mark: |
-| < 1.5   | :x:                |
+| 1.4.x   | :white_check_mark: |
+| < 1.4   | :x:                |
 
 ## Security Features
 
@@ -94,9 +95,17 @@ If you discover a security vulnerability, please report it by:
 
 ## Security Audit Results
 
-### Last Audit: March 10, 2026
+### Last Audit: March 13, 2026
+- **Version Audited**: 1.5.3
 - **Vulnerabilities Found**: 0
+- **Critical Bugs Fixed**: 4
 - **Status**: ✅ PASS
+
+### Recent Security Fixes (v1.5.3)
+- ✅ Fixed regex escape bug that could cause incorrect symbol matching
+- ✅ Fixed stateful regex issue preventing proper Unicode normalization
+- ✅ Added race condition protection in compilation process
+- ✅ Fixed all ESLint warnings
 
 ### Checks Performed
 - ✅ No command injection
@@ -107,26 +116,36 @@ If you discover a security vulnerability, please report it by:
 - ✅ Input validation everywhere
 - ✅ Proper error handling
 - ✅ Safe file operations
+- ✅ No regex vulnerabilities
+- ✅ Thread-safe compilation
 
 ## Dependencies Security
 
 ### Production Dependencies
 All production dependencies are actively maintained and regularly updated:
-- moo: Lexer (no known vulnerabilities)
-- flru: Cache (no known vulnerabilities)
-- magic-string: Code manipulation (no known vulnerabilities)
-- mitt: Event emitter (no known vulnerabilities)
-- defu: Config merging (no known vulnerabilities)
-- @yao-pkg/pkg: Cross-platform executable packaging for the internal compiler
+- **@yao-pkg/pkg** (6.14.1): Cross-platform executable packaging
+- **moo** (0.5.3): High-performance lexer (no known vulnerabilities)
+- **flru** (1.0.2): Fast LRU cache (no known vulnerabilities)
+- **magic-string** (0.30.21): Source code manipulation (no known vulnerabilities)
+- **mitt** (3.0.1): Lightweight event emitter (no known vulnerabilities)
+- **defu** (6.1.4): Configuration merging (no known vulnerabilities)
 
 ### Dev Dependencies
-Development dependencies are isolated and not included in production builds.
+Development dependencies are isolated and not included in production builds:
+- **@eslint/js** (10.0.1): Linting rules
+- **eslint** (10.0.3): Code quality checker
+- **globals** (17.4.0): Global variables definitions
+- **@types/node** (25.x): TypeScript definitions
+- **@types/vscode** (1.107.0): VS Code API types
+- **@types/mocha** (10.0.10): Testing framework types
 
 ### Vulnerability Monitoring
-- Regular `npm audit` checks
-- Automated dependency updates
+- Regular `npm audit` checks (currently: 0 vulnerabilities)
+- Automated dependency updates via Dependabot
 - Security advisories monitoring
-- Prompt patching of issues
+- Prompt patching of issues (within 24-48 hours for critical)
+- GitHub Actions CI/CD with security scanning
+- Continuous integration testing on every commit
 
 ## Compliance
 

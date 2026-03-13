@@ -13,9 +13,11 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 
 ### Prerequisites
 - Node.js 18.x or higher
+- npm 9.x or higher
 - VS Code 1.107.0 or higher
-- Git
+- Git 2.x or higher
 - Basic knowledge of JavaScript and QBasic
+- ESLint 10.x (installed via npm)
 
 ### Setup Development Environment
 
@@ -32,8 +34,11 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 
 3. **Verify Setup**
    ```bash
-   npm run lint        # Should pass
-   npm run test:compiler  # Should pass all tests
+   npm run lint           # Should pass with 0 errors
+   npm run test:compiler  # Should pass 10/10 tests
+   npm run test:variables # Should pass 52/52 tests
+   npm run test:features  # Should pass 21/21 tests
+   npm test              # Should pass all 134 tests
    ```
 
 4. **Open in VS Code**
@@ -69,10 +74,14 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 
 3. **Test Your Changes**
    ```bash
-   npm run lint           # Check code style
-   npm run test:compiler  # Run transpiler tests
-   npm run test:features  # Run feature tests
-   npm test              # Run all tests
+   npm run lint              # Check code style (0 errors expected)
+   npm run test:compiler     # Run transpiler tests (10/10)
+   npm run test:variables    # Run variable tests (52/52)
+   npm run test:features     # Run feature tests (21/21)
+   npm run test:integration  # Run integration tests (47/47)
+   npm run test:autodetect   # Run autodetect tests (4/4)
+   npm test                  # Run all tests (134/134)
+   npm run benchmark         # Run performance benchmarks (optional)
    ```
 
 4. **Commit Your Changes**
@@ -153,10 +162,14 @@ function testTranspiler() {
 
 ### Running Tests
 ```bash
-npm test                 # All tests
-npm run test:compiler    # Transpiler only
-npm run test:features    # Features only
-npm run benchmark        # Performance tests
+npm test                    # All tests (134 total)
+npm run test:compiler       # Transpiler tests (10 tests)
+npm run test:variables      # Variable tests (52 tests)
+npm run test:features       # Feature tests (21 tests)
+npm run test:integration    # Integration tests (47 tests)
+npm run test:autodetect     # Autodetect tests (4 tests)
+npm run benchmark           # Performance benchmarks
+npm run test:all            # All tests + benchmarks
 ```
 
 ## Documentation
@@ -215,25 +228,30 @@ Brief description of changes
 ## Areas for Contribution
 
 ### High Priority
-- [ ] Increase test coverage
-- [ ] Add more interactive tutorials
-- [ ] Improve error messages
-- [ ] Performance optimizations
-- [ ] Documentation improvements
+- [ ] Increase test coverage (currently 134 tests)
+- [ ] Add more interactive tutorials (currently 150 lessons)
+- [ ] Improve error messages and diagnostics
+- [ ] Performance optimizations (cache, linting)
+- [ ] Documentation improvements and translations
+- [ ] Add more code snippets
+- [ ] Improve QB64 auto-detection
 
 ### Feature Requests
-- [ ] Additional QB64 compatibility
-- [ ] More graphics modes
-- [ ] Debugging support
-- [ ] Source maps
-- [ ] TypeScript migration
+- [ ] Additional QB64 compatibility features
+- [ ] More graphics modes support
+- [ ] Debugging support with breakpoints
+- [ ] Source maps for better error tracking
+- [ ] TypeScript migration (gradual)
+- [ ] Multi-file project support
+- [ ] Refactoring tools
 
 ### Bug Fixes
 - Check GitHub Issues for open bugs
-- Reproduce the issue
+- Reproduce the issue locally
 - Write a test that fails
 - Fix the bug
 - Verify test passes
+- Submit PR with fix
 
 ## Performance Guidelines
 
