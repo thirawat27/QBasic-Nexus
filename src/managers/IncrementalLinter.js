@@ -72,12 +72,15 @@ class IncrementalLinter {
     if (existing) clearTimeout(existing);
 
     // ── Adaptive delay ──────────────────────────────────────────────────────
+    // v1.5.3: Optimized thresholds for better responsiveness
     // Small edits (tiny keystrokes) get a shorter delay for snappier feedback.
     // Large pastes / structural changes get the full baseDelay.
     const adaptiveDelay =
-      lengthDiff <= 150
-        ? Math.min(baseDelay, 150) // tiny edit → respond faster
-        : baseDelay;
+      lengthDiff <= 100
+        ? Math.min(baseDelay, 100) // tiny edit → respond even faster
+        : lengthDiff <= 500
+        ? Math.min(baseDelay, 250) // medium edit → moderate delay
+        : baseDelay; // large edit → full delay
 
     const scheduledVersion = document.version;
     state.pendingVersion = scheduledVersion;

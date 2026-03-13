@@ -68,9 +68,6 @@
         "programming",
         "ide"
     ],
-    "activationEvents": [
-        "onLanguage:qbasic"
-    ],
     "contributes": {
         "languages": [
             {

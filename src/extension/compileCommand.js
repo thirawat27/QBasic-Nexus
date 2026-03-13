@@ -17,6 +17,7 @@ const { runQB64Compiler } = require('./qb64Compiler');
  * @param {boolean} shouldRun
  */
 async function executeCompile(shouldRun) {
+  // Prevent concurrent compilations (race condition fix)
   if (state.isCompiling) {
     vscode.window.showInformationMessage(
       '⏳ Compilation already in progress...',
@@ -43,13 +44,21 @@ async function executeCompile(shouldRun) {
     }
   }
 
-  // Get compiler mode
-  const mode = getConfig(CONFIG.COMPILER_MODE);
+  // Set compilation flag to prevent concurrent runs
+  state.isCompiling = true;
 
-  if (mode === CONFIG.MODE_INTERNAL) {
-    await runInternalTranspiler(document, shouldRun);
-  } else {
-    await runQB64Compiler(document, shouldRun);
+  try {
+    // Get compiler mode
+    const mode = getConfig(CONFIG.COMPILER_MODE);
+
+    if (mode === CONFIG.MODE_INTERNAL) {
+      await runInternalTranspiler(document, shouldRun);
+    } else {
+      await runQB64Compiler(document, shouldRun);
+    }
+  } finally {
+    // Always reset flag, even if compilation fails
+    state.isCompiling = false;
   }
 }
 

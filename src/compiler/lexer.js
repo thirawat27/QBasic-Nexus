@@ -24,6 +24,11 @@ const FULLWIDTH_RE = /[\uFF04\uFE69]/g;
 
 // Normalise Unicode curly quotes / fullwidth chars to ASCII once per compile
 function normalise(source) {
+  // Reset stateful regex BEFORE .test() call to prevent lastIndex corruption
+  SMART_QUOTE_RE.lastIndex = 0;
+  SMART_APOS_RE.lastIndex = 0;
+  FULLWIDTH_RE.lastIndex = 0;
+  
   // Fast path: test once with a combined regex (covers mid-string Unicode too)
   if (
     !SMART_QUOTE_RE.test(source) &&
@@ -32,7 +37,7 @@ function normalise(source) {
   ) {
     return source;
   }
-  // Reset stateful regex after .test() call
+  // Reset again after .test() calls
   SMART_QUOTE_RE.lastIndex = 0;
   SMART_APOS_RE.lastIndex = 0;
   FULLWIDTH_RE.lastIndex = 0;
@@ -96,14 +101,15 @@ class Token {
 
 const TokenPool = {
   _pool: [],
-  _maxSize: 10000,
+  _maxSize: 15000, // v1.5.3: Increased for larger files
 
   // Pre-allocate a batch to warm the pool
   _preallocated: false,
   _preallocate() {
     if (this._preallocated) return;
     this._preallocated = true;
-    for (let i = 0; i < 2500; i++) {
+    // v1.5.3: Reduced initial allocation to save memory
+    for (let i = 0; i < 1500; i++) {
       this._pool.push(new Token('', '', 0, 0));
     }
   },

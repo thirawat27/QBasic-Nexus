@@ -10,7 +10,7 @@ class QBasicColorProvider {
    * Provide colors for the current document.
    * This is called by VS Code to find colors in the document to display color boxes next to them.
    */
-  provideDocumentColors(document, token) {
+  provideDocumentColors(document, _token) {
     const colors = [];
     const text = document.getText();
     let match;
@@ -48,7 +48,7 @@ class QBasicColorProvider {
   /**
    * Provide the string representations of the color when the user picks a new color in the color picker.
    */
-  provideColorPresentations(color, context, token) {
+  provideColorPresentations(color, context, _token) {
     const r = Math.round(color.red * 255);
     const g = Math.round(color.green * 255);
     const b = Math.round(color.blue * 255);

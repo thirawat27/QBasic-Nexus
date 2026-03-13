@@ -34,6 +34,7 @@ const COMMANDS = Object.freeze({
   RENUMBER_LINES: 'qbasic-nexus.renumberLines',
   SHOW_ASCII_CHART: 'qbasic-nexus.showAsciiChart',
   INSERT_CHR_FROM_ASCII: 'qbasic-nexus.insertChrFromAsciiChart',
+  REFRESH_TODO: 'qbasic-nexus.refreshTodo',
 });
 
 module.exports = { CONFIG, COMMANDS };

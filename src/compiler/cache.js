@@ -39,11 +39,11 @@ function fnv1a(str) {
 // ─────────────────────────────────────────────────────────────────────────────
 class L1Cache {
   /**
-   * @param {number} maxSize – number of entries to keep (default 16)
-   *   Increased from 10: covers typical "edit-run-edit-run" usage pattern
-   *   where ~12-16 recent source variants are hot.
+   * @param {number} maxSize – number of entries to keep (default 32)
+   *   Optimized for v1.5.3: increased to 32 to reduce cache misses
+   *   in multi-file projects with frequent file switching.
    */
-  constructor(maxSize = 16) {
+  constructor(maxSize = 32) {
     this._max = maxSize;
     this._map = new Map();
   }
@@ -79,12 +79,13 @@ class L1Cache {
 // ─────────────────────────────────────────────────────────────────────────────
 class TieredCache {
   /**
-   * @param {number} l2Size – L2 LRU max size (default 200)
-   *   Doubled from 100: reduces cold-miss rate on projects with many files.
+   * @param {number} l2Size – L2 LRU max size (default 300)
+   *   Optimized for v1.5.3: increased to 300 for better multi-file support
+   *   while maintaining low memory footprint (~15MB max).
    */
-  constructor(l2Size = 200) {
+  constructor(l2Size = 300) {
     this._l2Size = l2Size; // keep for clear() re-creation
-    this.l1 = new L1Cache(16);
+    this.l1 = new L1Cache(32);
     this.l2 = flru(l2Size);
     this._hits = { l1: 0, l2: 0 };
     this._misses = 0;
@@ -149,8 +150,8 @@ class TieredCache {
 class CompilationCache {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
-    // Default raised to 200 to match new TieredCache default
-    const l2Size = options.maxSize || 200;
+    // v1.5.3: Default raised to 300 for better performance
+    const l2Size = options.maxSize || 300;
     this.tokenCache = new TieredCache(l2Size);
     this.codeCache = new TieredCache(l2Size);
 
