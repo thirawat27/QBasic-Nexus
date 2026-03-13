@@ -20,7 +20,18 @@ const tests = [
     { name: 'Graphics', code: 'SCREEN 12\nCIRCLE (100, 100), 50, 4' },
     { name: 'Sound', code: 'SOUND 440, 18\nPLAY "CDE"' },
     { name: 'Array', code: 'DIM arr(10) AS INTEGER\narr(1) = 5\nPRINT arr(1)' },
-    { name: 'String Functions', code: 'a$ = "Hello"\nPRINT LEFT$(a$, 2)' }
+    { name: 'String Functions', code: 'a$ = "Hello"\nPRINT LEFT$(a$, 2)' },
+    { name: 'Mouse Input', code: 'x = _MOUSEX\ny = _MOUSEY\nIF _MOUSEBUTTON(1) THEN PRINT "Left Click"' },
+    { name: 'Mouse Wheel', code: 'wheel = _MOUSEWHEEL\nPRINT "Wheel: "; wheel' },
+    { name: 'Mouse Show/Hide', code: '_MOUSEHIDE\n_MOUSESHOW' },
+    { name: 'Keyboard Input', code: 'k = _KEYHIT\nIF _KEYDOWN(32) THEN PRINT "Space pressed"' },
+    { name: 'Keyboard Type', code: 't = _KEYBOARDTYPE\nPRINT "Keyboard type: "; t' },
+    { name: 'System Functions', code: 'IF _FILEEXISTS("test.bas") THEN PRINT "File exists" ELSE PRINT "File not found"' },
+    { name: 'Window Functions', code: '_TITLE "Test Window"\n_FULLSCREEN 1\nx = _WIDTH\ny = _HEIGHT\nPRINT "Size: "; x; ","; y\n_SYSTEM' },
+    { name: 'Console Functions', code: '_CONSOLE OFF\n_CONSOLETITLE "Debug"\nINPUT "Enter name: ", name$\nPRINT "Hello "; name$' },
+    { name: 'QB4.5 CLEAR', code: 'CLEAR\nx = 5\nPRINT x' },
+    { name: 'QB4.5 OFF ERROR', code: 'ON ERROR GOTO Handler\nERROR 5\nHandler: RESUME NEXT\nOFF ERROR\nPRINT "After OFF"' },
+    { name: 'QB4.5 FRE', code: 'PRINT FRE(0)\nPRINT FRE("")' }
 ];
 
 let passed = 0;
