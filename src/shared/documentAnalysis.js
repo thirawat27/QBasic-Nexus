@@ -1,6 +1,6 @@
 'use strict';
 
-const { KEYWORDS } = require('../../languageData');
+const { isReservedWord } = require('./languageRegistry');
 const {
   PATTERNS,
   makeAssignRegex,
@@ -179,7 +179,7 @@ function analyzeQBasicText(text = '') {
     assignRe.lastIndex = 0;
     while ((match = assignRe.exec(line)) !== null) {
       const variableName = match[1];
-      if (!KEYWORDS[variableName.toUpperCase()]) {
+      if (!isReservedWord(variableName)) {
         variables.add(variableName);
       }
     }

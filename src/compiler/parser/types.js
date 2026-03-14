@@ -30,12 +30,18 @@ _parseDim(options = {}) {
       if (!id) break;
 
       const name = id.value;
-      this._addVar(name);
-      if (isShared) this.sharedVars.add(name);
-
       const dimensions = this._parseOptionalDimensions();
       const typeSpec = this._parseDeclaredTypeSpec(name);
+      const duplicateDeclaration = this._isDeclaredInCurrentScope(name);
       const metadata = this._getTypeMetadata(typeSpec, dimensions.length > 0);
+
+      if (duplicateDeclaration) {
+        this._reportDuplicateDeclaration(id, 'variable declaration');
+        continue;
+      }
+
+      this._addVar(name);
+      if (isShared) this.sharedVars.add(name);
 
       if (metadata) {
         if (isShared && this.scopeMetadata[0]) {
@@ -62,6 +68,11 @@ _parseConst() {
     if (!id) return;
     this._consumeOp('=');
     const val = this._parseExpr();
+    if (this._isDeclaredInCurrentScope(id.value)) {
+      this._reportDuplicateDeclaration(id, 'constant declaration');
+      return;
+    }
+    this._addConst(id.value);
     this._emit(`const ${id.value} = ${val};`);
   },
 
@@ -120,11 +131,25 @@ _parseRedim() {
   },
 
 _parseType() {
-    const id = this._consume(TokenType.IDENTIFIER);
-    if (!id) return;
+    const id = this._consumeDeclarationNameToken();
+    if (!id) {
+      this._raiseSyntaxError('Expected TYPE name after TYPE');
+    }
 
     const typeName = id.value;
     const fields = [];
+    const duplicateType = this.typeDefinitions.has(String(typeName).toUpperCase());
+    const fieldNames = new Set();
+
+    if (duplicateType) {
+      this._recordError({
+        message: `Duplicate TYPE "${typeName}"`,
+        line: (id.line || 1) - 1,
+        column: id.col || 0,
+        severity: 'error',
+        category: 'semantic',
+      });
+    }
 
     this._skipNewlines();
 
@@ -140,6 +165,19 @@ _parseType() {
       const fieldName = fieldToken?.value;
       if (!fieldName) continue;
 
+      const fieldKey = String(fieldName).toUpperCase();
+      if (fieldNames.has(fieldKey)) {
+        this._recordError({
+          message: `Duplicate TYPE field "${fieldName}" in ${typeName}.`,
+          line: (fieldToken.line || 1) - 1,
+          column: fieldToken.col || 0,
+          severity: 'error',
+          category: 'semantic',
+        });
+      } else {
+        fieldNames.add(fieldKey);
+      }
+
       if (this._matchPunc('(')) {
         while (!this._isEnd() && !this._matchPunc(')')) {
           this._advance();
@@ -147,10 +185,12 @@ _parseType() {
       }
 
       const typeSpec = this._parseDeclaredTypeSpec(fieldName);
-      fields.push({
-        name: fieldName,
-        spec: typeSpec,
-      });
+      if (!fieldNames.has(fieldKey) || !fields.some((field) => String(field.name).toUpperCase() === fieldKey)) {
+        fields.push({
+          name: fieldName,
+          spec: typeSpec,
+        });
+      }
 
       this._skipToEndOfLine();
       this._skipNewlines();
@@ -163,16 +203,50 @@ _parseType() {
       .map((field) => `${field.name}: ${this._typeSpecToRuntimeLiteral(field.spec)}`)
       .join(', ');
     const typeDefinition = Object.create(null);
+    const dependencyTypeNames = [...new Set(
+      fields
+        .map((field) => field?.spec?.kind === 'type' ? field.spec.typeName : null)
+        .filter(Boolean),
+    )];
+    const escapedTypeName = String(typeName)
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
+    const typeKey = String(typeName)
+      .toUpperCase()
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
 
     for (const field of fields) {
       typeDefinition[String(field.name).toUpperCase()] = field.spec;
     }
 
+    if (duplicateType) {
+      return;
+    }
+
     this.typeDefinitions.set(String(typeName).toUpperCase(), typeDefinition);
 
-    this._emit(
-      `const ${typeName} = _defineType("${typeName}", { ${fieldSpec} });`,
-    );
+    this._emit(`function ${typeName}(initialValues) {`);
+    this.indent++;
+    this._emit(`if (!_TYPE_REGISTRY["${typeKey}"]) {`);
+    this.indent++;
+    this._emit(`_TYPE_REGISTRY["${typeKey}"] = { ${fieldSpec} };`);
+    this.indent--;
+    this._emit('}');
+    for (const dependencyTypeName of dependencyTypeNames) {
+      const dependencyTypeKey = String(dependencyTypeName)
+        .toUpperCase()
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"');
+      this._emit(`if (!_TYPE_REGISTRY["${dependencyTypeKey}"] && typeof ${dependencyTypeName} === "function") {`);
+      this.indent++;
+      this._emit(`${dependencyTypeName}();`);
+      this.indent--;
+      this._emit('}');
+    }
+    this._emit(`return _createTypeInstance("${escapedTypeName}", initialValues);`);
+    this.indent--;
+    this._emit('}');
   },
 
 _parseErase() {
@@ -209,7 +283,7 @@ _parseOptionalDimensions() {
     return dimensions;
   },
 
-_parseDeclaredTypeSpec(name) {
+  _parseDeclaredTypeSpec(name) {
     if (!this._matchKw('AS')) {
       return this._defaultTypeSpec(name);
     }
@@ -244,6 +318,7 @@ _parseDeclaredTypeSpec(name) {
       };
     }
 
+    this._recordTypeReference(typeName, typeToken);
     return {
       kind: 'type',
       typeName,

@@ -23,7 +23,10 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect",
+        "test": "npm run test:compiler && npm run test:variables && npm run test:features && npm run test:integration && npm run test:builtins && npm run test:smoke && npm run test:autodetect",
+        "audit:builtins": "node test/audit-builtins.js",
+        "test:builtins": "node test/test-builtins.js",
+        "test:smoke": "node test/test-extension-smoke.js",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -33,7 +36,10 @@
         "test:integration": "node test/test-integration.js",
         "test:autodetect": "node test/test-qb64-autodetect.js",
         "test:all": "npm run test:compiler && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run benchmark",
-        "package": "vsce package",
+        "bundle:extension": "node scripts/package-vsix.js --stage-only",
+        "package:raw": "vsce package",
+        "package": "node scripts/package-vsix.js",
+        "verify:production": "npm test && npm run package",
         "publish": "vsce publish"
     },
     "devDependencies": {
@@ -41,6 +47,7 @@
         "@types/mocha": "^10.0.10",
         "@types/node": "25.x",
         "@types/vscode": "^1.107.0",
+        "esbuild": "^0.27.3",
         "eslint": "^10.0.3",
         "globals": "^17.4.0"
     },
@@ -314,6 +321,13 @@
                     "default": 1,
                     "minimum": 1,
                     "markdownDescription": "Increment used by **QBasic: Renumber Lines**.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.workspaceIndexMaxFiles": {
+                    "type": "number",
+                    "default": 5000,
+                    "minimum": 0,
+                    "markdownDescription": "Maximum number of workspace QBasic files (`.bas`, `.bi`, `.bm`, `.inc`) to index for cross-file IntelliSense, definition, hover, rename, and references. Set to `0` to remove the limit.",
                     "scope": "resource"
                 }
             }

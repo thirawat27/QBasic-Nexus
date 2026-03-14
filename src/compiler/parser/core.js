@@ -1,10 +1,75 @@
 // Auto-extracted Mixin
 'use strict';
-const { TokenType } = require('../constants');
+const { TokenType, BUILTIN_FUNCS } = require('../constants');
+
+function normalizeRuntimeMode(target, runtimeMode) {
+  switch (runtimeMode) {
+    case 'generic':
+    case 'qb64':
+    case 'internal-node':
+    case 'internal-web':
+      return runtimeMode;
+    default:
+      return target === 'web' ? 'internal-web' : 'internal-node';
+  }
+}
+
+const DECLARATION_NAME_KEYWORD_BLACKLIST = new Set([
+  'AS',
+  'END',
+  'IF',
+  'THEN',
+  'ELSE',
+  'ELSEIF',
+  'FOR',
+  'NEXT',
+  'DO',
+  'LOOP',
+  'WHILE',
+  'WEND',
+  'SELECT',
+  'CASE',
+  'TO',
+  'STEP',
+  'SUB',
+  'FUNCTION',
+  'TYPE',
+  'DECLARE',
+  'DIM',
+  'REDIM',
+  'STATIC',
+  'CONST',
+  'COMMON',
+  'SHARED',
+  'GOTO',
+  'GOSUB',
+  'RETURN',
+  'EXIT',
+  'CONTINUE',
+  'CALL',
+  'ON',
+  'ERROR',
+  'RESUME',
+  'STRING',
+  'INTEGER',
+  'LONG',
+  'SINGLE',
+  'DOUBLE',
+  'ANY',
+  '_BIT',
+  '_BYTE',
+  '_INTEGER64',
+  '_FLOAT',
+  '_UNSIGNED',
+  '_OFFSET',
+  '_MEM',
+]);
+
 module.exports = {
-  _init(tokens, target = 'node') {
+  _init(tokens, target = 'node', options = {}) {
     this.tokens = tokens;
     this.target = target;
+    this.runtimeMode = normalizeRuntimeMode(target, options.runtimeMode);
 
     this.pos = 0;
     this.indent = 0;
@@ -23,11 +88,15 @@ module.exports = {
 
     /** @type {Set<string>} Global SHARED variables */
     this.scopes = [new Set()];
+    this.constScopes = [new Set()];
     this.scopeMetadata = [new Map()];
     this.scopeStorageOverrides = [new Map()];
     this.scopeKinds = ['global'];
     this.sharedVars = new Set();
     this.typeDefinitions = new Map();
+    this.typeReferences = [];
+    this.procedureSignatures = new Map();
+    this.procedureCallSites = [];
 
     /** @type {string[]} DATA statement values */
     this.dataValues = [];
@@ -78,12 +147,19 @@ module.exports = {
       }
     }
 
+    this._validateTypeReferences();
+    this._validateTypeDefinitionGraph();
+    this._validateProcedureCallSites();
     this._emitFooter();
     return this.output.join('\n');
   },
 
   get currentVars() {
     return this.scopes[this.scopes.length - 1];
+  },
+
+  get currentConsts() {
+    return this.constScopes[this.constScopes.length - 1];
   },
 
   get currentScopeKind() {
@@ -100,6 +176,10 @@ module.exports = {
 
   _addVar(name) {
     this.currentVars.add(name);
+  },
+
+  _addConst(name) {
+    this.currentConsts.add(name);
   },
 
   _setVarMetadata(name, metadata) {
@@ -144,6 +224,35 @@ module.exports = {
 
     // If in SUB/FUNCTION, only access global variables if they are SHARED
     return this.sharedVars.has(name);
+  },
+
+  _hasConst(name) {
+    if (this.currentConsts.has(name)) return true;
+
+    for (let i = this.constScopes.length - 2; i >= 0; i--) {
+      if (this.constScopes[i].has(name)) return true;
+    }
+
+    return false;
+  },
+
+  _isDeclaredInCurrentScope(name) {
+    return (
+      this.currentVars.has(name) ||
+      this.currentConsts.has(name) ||
+      this._isCurrentFunctionName(name)
+    );
+  },
+
+  _reportDuplicateDeclaration(token, kind = 'declaration') {
+    const name = token?.value || 'identifier';
+    this._recordError({
+      message: `Duplicate ${kind} "${name}" in the same scope.`,
+      line: (token?.line || 1) - 1,
+      column: token?.col || 0,
+      severity: 'error',
+      category: 'semantic',
+    });
   },
 
   _getVarMetadata(name) {
@@ -195,6 +304,165 @@ module.exports = {
   _getTypeDefinition(typeName) {
     if (!typeName) return null;
     return this.typeDefinitions.get(String(typeName).toUpperCase()) || null;
+  },
+
+  _registerProcedureSignature(signature) {
+    if (!signature?.name) return;
+
+    this.procedureSignatures.set(String(signature.name).toUpperCase(), {
+      name: signature.name,
+      procedureType: signature.procedureType || 'SUB',
+      returnType: signature.returnType || null,
+      parameters: Array.isArray(signature.parameters)
+        ? signature.parameters.map((parameter) => ({
+          name: parameter.name,
+          passingMode: parameter.passingMode || 'BYREF',
+          isArray: Boolean(parameter.isArray),
+          typeSpec: parameter.typeSpec || null,
+        }))
+        : [],
+    });
+  },
+
+  _getProcedureSignature(name) {
+    if (!name) return null;
+    return this.procedureSignatures.get(String(name).toUpperCase()) || null;
+  },
+
+  _recordTypeReference(typeName, token = this._peek()) {
+    if (!typeName) return;
+
+    this.typeReferences.push({
+      typeName,
+      line: (token?.line || 1) - 1,
+      column: token?.col || 0,
+    });
+  },
+
+  _validateTypeReferences() {
+    for (const reference of this.typeReferences || []) {
+      if (this._getTypeDefinition(reference.typeName)) {
+        continue;
+      }
+
+      this._recordError({
+        message: `TYPE "${reference.typeName}" is not defined.`,
+        line: reference.line,
+        column: reference.column,
+        severity: 'error',
+        category: 'semantic',
+      });
+    }
+  },
+
+  _validateTypeDefinitionGraph() {
+    const visitState = new Map();
+    const reported = new Set();
+
+    const visit = (typeName) => {
+      const typeKey = String(typeName || '').toUpperCase();
+      const currentState = visitState.get(typeKey);
+      if (currentState === 'done') return;
+      if (currentState === 'visiting') {
+        if (!reported.has(typeKey)) {
+          reported.add(typeKey);
+          this._recordError({
+            message: `TYPE "${typeName}" recursively references itself.`,
+            line: 0,
+            column: 0,
+            severity: 'error',
+            category: 'semantic',
+          });
+        }
+        return;
+      }
+
+      const definition = this._getTypeDefinition(typeName);
+      if (!definition) return;
+
+      visitState.set(typeKey, 'visiting');
+      for (const fieldSpec of Object.values(definition)) {
+        if (fieldSpec?.kind === 'type') {
+          visit(fieldSpec.typeName);
+        }
+      }
+      visitState.set(typeKey, 'done');
+    };
+
+    for (const typeKey of this.typeDefinitions.keys()) {
+      visit(typeKey);
+    }
+  },
+
+  _recordProcedureCallSite(name, argCount, callType, token = this._peek()) {
+    if (!name) return;
+
+    this.procedureCallSites.push({
+      name,
+      argCount,
+      callType,
+      line: (token?.line || 1) - 1,
+      column: token?.col || 0,
+    });
+  },
+
+  _validateProcedureCallSites() {
+    for (const site of this.procedureCallSites || []) {
+      const upperName = String(site.name || '').toUpperCase();
+      if (Object.prototype.hasOwnProperty.call(BUILTIN_FUNCS, upperName)) {
+        continue;
+      }
+
+      const signature = this._getProcedureSignature(site.name);
+      if (!signature) {
+        this._recordError({
+          message:
+            site.callType === 'expression'
+              ? `Function "${site.name}" is not defined.`
+              : `Procedure "${site.name}" is not defined.`,
+          line: site.line,
+          column: site.column,
+          severity: 'error',
+          category: 'semantic',
+        });
+        continue;
+      }
+
+      if (
+        site.callType === 'expression' &&
+        signature.procedureType === 'SUB'
+      ) {
+        this._recordError({
+          message: `SUB "${site.name}" cannot be used in an expression.`,
+          line: site.line,
+          column: site.column,
+          severity: 'error',
+          category: 'semantic',
+        });
+      } else if (
+        site.callType === 'statement' &&
+        signature.procedureType === 'FUNCTION'
+      ) {
+        this._recordError({
+          message: `CALL cannot invoke FUNCTION "${site.name}".`,
+          line: site.line,
+          column: site.column,
+          severity: 'error',
+          category: 'semantic',
+        });
+      }
+
+      const expectedCount = signature.parameters?.length || 0;
+      if (expectedCount !== site.argCount) {
+        this._recordError({
+          message: `${signature.procedureType} "${site.name}" expects ${expectedCount} argument(s) but call provides ${site.argCount}.`,
+          line: site.line,
+          column: site.column,
+          severity: 'error',
+          category: 'semantic',
+        });
+      }
+    }
   },
 
   _initializerForMetadata(metadata, fallback = '0') {
@@ -308,7 +576,11 @@ module.exports = {
     if (isArrayElement) wrapOptions.arrayElement = true;
     if (members.length > 0) wrapOptions.members = members.slice();
 
-    if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
+    if (this._hasConst(name) && !this.currentVars.has(name)) {
+      this._raiseSyntaxError(`Cannot assign to CONST ${name}.`, id, 'semantic');
+    }
+
+    if (!this._hasVar(name) && !this._hasConst(name) && !this._isCurrentFunctionName(name)) {
       this._addVar(name);
       const initializer = isArrayElement
         ? '[]'
@@ -433,6 +705,7 @@ module.exports = {
 
   _enterScope(kind = 'local') {
     this.scopes.push(new Set());
+    this.constScopes.push(new Set());
     this.scopeMetadata.push(new Map());
     this.scopeStorageOverrides.push(new Map());
     this.scopeKinds.push(kind);
@@ -440,6 +713,7 @@ module.exports = {
 
   _exitScope() {
     this.scopes.pop();
+    this.constScopes.pop();
     this.scopeMetadata.pop();
     this.scopeStorageOverrides.pop();
     this.scopeKinds.pop();
@@ -496,6 +770,27 @@ module.exports = {
       severity: errorOrMessage?.severity || 'error',
       category: errorOrMessage?.category || 'syntax',
     });
+  },
+
+  _recordWarning(message, token = this._peek(), category = 'compatibility') {
+    this._recordError({
+      line: (token?.line || 1) - 1,
+      column: token?.col || 0,
+      message,
+      severity: 'warning',
+      category,
+    });
+  },
+
+  _isInternalRuntimeMode() {
+    return (
+      this.runtimeMode === 'internal-node' ||
+      this.runtimeMode === 'internal-web'
+    );
+  },
+
+  _isInternalWebRuntimeMode() {
+    return this.runtimeMode === 'internal-web';
   },
 
   _raiseSyntaxError(message, token = this._peek(), category = 'syntax') {
@@ -922,6 +1217,66 @@ function _defineType(typeName, spec) {
   return function(initialValues) {
     return _createTypeInstance(typeName, initialValues);
   };
+}
+
+function _cloneValue(value, metadata) {
+  if (metadata && typeof metadata === 'object') {
+    if (metadata.kind === 'fixedString') {
+      return _fixedString(value, metadata.length);
+    }
+
+    if (metadata.kind === 'string') {
+      return String(value ?? '');
+    }
+
+    if (metadata.kind === 'type') {
+      return _createTypeInstance(metadata.typeName, value);
+    }
+
+    if (metadata.kind === 'array') {
+      const source = Array.isArray(value) ? value : [];
+      return source.map((entry) => _cloneValue(entry, metadata.element));
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => _cloneValue(entry));
+  }
+
+  if (value && typeof value === 'object') {
+    if (ArrayBuffer.isView(value)) {
+      return new value.constructor(value);
+    }
+
+    if (value instanceof ArrayBuffer) {
+      return value.slice(0);
+    }
+
+    return { ...value };
+  }
+
+  return value;
+}
+
+function _makeRef(getter, setter) {
+  return {
+    get value() {
+      return getter();
+    },
+    set value(nextValue) {
+      setter(nextValue);
+    },
+  };
+}
+
+function _makeValueRef(initialValue) {
+  let currentValue = initialValue;
+  return _makeRef(
+    () => currentValue,
+    (nextValue) => {
+      currentValue = nextValue;
+    },
+  );
 }
 
 function _bytesToBinaryString(bytes) {
@@ -2719,6 +3074,22 @@ break _qbRestart;
     if (this._check(TokenType.IDENTIFIER) || this._check(TokenType.KEYWORD)) {
       return this._advance();
     }
+    return null;
+  },
+
+  _consumeDeclarationNameToken() {
+    if (this._check(TokenType.IDENTIFIER)) {
+      return this._advance();
+    }
+
+    const token = this._peek();
+    if (
+      token?.type === TokenType.KEYWORD &&
+      !DECLARATION_NAME_KEYWORD_BLACKLIST.has(String(token.value || '').toUpperCase())
+    ) {
+      return this._advance();
+    }
+
     return null;
   },
 

@@ -75,3 +75,7 @@ try {
 
 console.log('');
 console.log('All tests completed!');
+
+if (failed > 0) {
+    process.exit(1);
+}

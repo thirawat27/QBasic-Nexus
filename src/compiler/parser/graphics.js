@@ -215,6 +215,7 @@ _parsePutImage() {
 
 _parsePaint() {
     // PAINT (x, y), fillColor, borderColor [, pattern$]
+    const featureToken = this._prev();
     const isStep = this._matchKw('STEP');
 
     this._matchPunc('(');
@@ -246,8 +247,14 @@ _parsePaint() {
     const paintX = isStep ? `(_point(0) + (${x}))` : x;
     const paintY = isStep ? `(_point(1) + (${y}))` : y;
 
+    if (pattern !== 'undefined' && this._isInternalRuntimeMode()) {
+      this._recordWarning(
+        'PAINT pattern arguments are ignored in the QBasic Nexus runtime.',
+        featureToken,
+      );
+    }
     if (pattern !== 'undefined') {
-      this._emit(`// PAINT pattern ${pattern} is ignored in the web runtime`);
+      this._emit(`// PAINT pattern ${pattern} is ignored in the QBasic Nexus runtime`);
     }
 
     this._emit(`_paint(${paintX}, ${paintY}, ${fillColor}, ${borderColor});`);
@@ -341,15 +348,76 @@ _parsePcopy() {
     this._emit(`_pcopy(${src}, ${dst});`);
   },
 
-_parseScreenMove() {
+  _parseScreenMove() {
+    const featureToken = this._prev();
     // _SCREENMOVE x, y or _SCREENMOVE _MIDDLE
     if (this._matchKw('_MIDDLE')) {
-      this._emit('// _SCREENMOVE _MIDDLE - not supported in web');
+      if (this._isInternalRuntimeMode()) {
+        this._recordWarning(
+          '_SCREENMOVE is not supported in the QBasic Nexus runtime and will be ignored.',
+          featureToken,
+        );
+      }
+      this._emit('// _SCREENMOVE _MIDDLE - not supported in QBasic Nexus runtime');
     } else {
       const x = this._parseExpr();
       this._matchPunc(',');
       const y = this._parseExpr();
-      this._emit(`// _SCREENMOVE ${x}, ${y} - not supported in web`);
+      if (this._isInternalRuntimeMode()) {
+        this._recordWarning(
+          '_SCREENMOVE is not supported in the QBasic Nexus runtime and will be ignored.',
+          featureToken,
+        );
+      }
+      this._emit(`// _SCREENMOVE ${x}, ${y} - not supported in QBasic Nexus runtime`);
     }
-  }
+  },
+
+  _parseScreenIcon() {
+    const featureToken = this._prev();
+    this._skipToEndOfLine();
+    if (this._isInternalRuntimeMode()) {
+      this._recordWarning(
+        '_SCREENICON is not supported in the QBasic Nexus runtime and will be ignored.',
+        featureToken,
+      );
+    }
+    this._emit('// _SCREENICON - not supported in QBasic Nexus runtime');
+  },
+
+  _parseScreenHide() {
+    const featureToken = this._prev();
+    this._skipToEndOfLine();
+    if (this._isInternalRuntimeMode()) {
+      this._recordWarning(
+        '_SCREENHIDE is not supported in the QBasic Nexus runtime and will be ignored.',
+        featureToken,
+      );
+    }
+    this._emit('// _SCREENHIDE - not supported in QBasic Nexus runtime');
+  },
+
+  _parseScreenShow() {
+    const featureToken = this._prev();
+    this._skipToEndOfLine();
+    if (this._isInternalRuntimeMode()) {
+      this._recordWarning(
+        '_SCREENSHOW is not supported in the QBasic Nexus runtime and will be ignored.',
+        featureToken,
+      );
+    }
+    this._emit('// _SCREENSHOW - not supported in QBasic Nexus runtime');
+  },
+
+  _parseAutoDisplay() {
+    const featureToken = this._prev();
+    this._skipToEndOfLine();
+    if (this._isInternalRuntimeMode()) {
+      this._recordWarning(
+        '_AUTODISPLAY has no effect in the QBasic Nexus runtime because frames display automatically.',
+        featureToken,
+      );
+    }
+    this._emit('// _AUTODISPLAY - default in QBasic Nexus runtime');
+  },
 };

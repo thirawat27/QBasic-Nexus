@@ -6,7 +6,10 @@
 'use strict';
 
 const vscode = require('vscode');
-const { KEYWORDS, FUNCTIONS } = require('../../languageData');
+const {
+  isBuiltInFunction,
+  isReservedWord,
+} = require('../shared/languageRegistry');
 const { PATTERNS } = require('./patterns');
 const { workspaceAnalyzer } = require('../shared/workspaceAnalysis');
 
@@ -26,7 +29,7 @@ class QBasicRenameProvider {
     }
 
     // Check if it's a keyword
-    if (KEYWORDS[oldName.toUpperCase()] || KEYWORDS[newName.toUpperCase()]) {
+    if (isReservedWord(oldName) || isReservedWord(newName)) {
       throw new Error('Cannot rename keywords');
     }
 
@@ -58,7 +61,7 @@ class QBasicRenameProvider {
     const word = document.getText(wordRange);
 
     // Check if it's a keyword or built-in function
-    if (KEYWORDS[word.toUpperCase()] || FUNCTIONS[word.toUpperCase()]) {
+    if (isReservedWord(word) || isBuiltInFunction(word)) {
       throw new Error('Cannot rename keywords or built-in functions');
     }
 

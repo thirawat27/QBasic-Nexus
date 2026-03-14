@@ -13,6 +13,7 @@ const CONFIG = Object.freeze({
   ENABLE_LINT: 'enableLinting',
   LINT_DELAY: 'lintDelay',
   AUTO_FORMAT: 'autoFormatOnSave',
+  WORKSPACE_INDEX_MAX_FILES: 'workspaceIndexMaxFiles',
   LINE_NUMBER_START: 'lineNumberStart',
   LINE_NUMBER_STEP: 'lineNumberStep',
   MODE_QB64: 'QB64 (Recommended)',

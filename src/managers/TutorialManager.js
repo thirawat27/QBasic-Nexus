@@ -15,20 +15,6 @@ class TutorialManager {
   /** @type {Object | null} Current active lesson */
   static currentLesson = null;
 
-  /** @type {Object | null} Reference to WebviewManager (set externally to avoid circular deps) */
-  static _webviewManager = null;
-
-  /** @type {vscode.ExtensionContext | null} Stored extension context for reuse */
-  static _extensionContext = null;
-
-  /**
-   * Sets the WebviewManager reference (called during extension activation).
-   * @param {Object} wm - The WebviewManager class.
-   */
-  static setWebviewManager(wm) {
-    TutorialManager._webviewManager = wm;
-  }
-
   /**
    * Starts the interactive tutorial by showing a lesson picker.
    * @param {vscode.ExtensionContext} extensionContext - The extension context.
@@ -38,9 +24,6 @@ class TutorialManager {
       vscode.window.showErrorMessage('Extension context not available.');
       return;
     }
-
-    // Store context for reuse (e.g., Next Level)
-    TutorialManager._extensionContext = extensionContext;
 
     // Build lesson picker items
     const items = lessons.map((l) => ({
@@ -89,13 +72,17 @@ class TutorialManager {
 
     // Register an in-memory content provider (idempotent — safe to re-register)
     if (!TutorialManager._contentProviderRegistered) {
-      vscode.workspace.registerTextDocumentContentProvider('qbasic-nexus-lesson', {
-        provideTextDocumentContent() {
-          const l = TutorialManager.currentLesson;
-          if (!l) return '';
-          return TutorialManager._buildMarkdown(l);
+      const providerDisposable = vscode.workspace.registerTextDocumentContentProvider(
+        'qbasic-nexus-lesson',
+        {
+          provideTextDocumentContent() {
+            const l = TutorialManager.currentLesson;
+            if (!l) return '';
+            return TutorialManager._buildMarkdown(l);
+          },
         },
-      });
+      );
+      extensionContext.subscriptions.push(providerDisposable);
       TutorialManager._contentProviderRegistered = true;
     }
 
@@ -162,7 +149,6 @@ class TutorialManager {
    */
   static reset() {
     TutorialManager.currentLesson = null;
-    TutorialManager._extensionContext = null;
   }
 
   /**

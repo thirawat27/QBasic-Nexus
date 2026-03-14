@@ -223,7 +223,7 @@ class TrampolineBuilder {
         this._pushState({
           id: incrementState,
           kind: 'raw',
-          code: [`${statement.variable} += ${statement.step};`],
+          code: [`${statement.storageName || statement.variable} += ${statement.step};`],
           nextState: conditionState,
           errorResumeState: nextState,
         });
@@ -231,7 +231,7 @@ class TrampolineBuilder {
         this._pushState({
           id: conditionState,
           kind: 'branch',
-          condition: `(${statement.step} >= 0) ? ${statement.variable} <= ${statement.end} : ${statement.variable} >= ${statement.end}`,
+          condition: `(${statement.step} >= 0) ? ${statement.storageName || statement.variable} <= ${statement.end} : ${statement.storageName || statement.variable} >= ${statement.end}`,
           trueState: bodyEntry,
           falseState: nextState,
           errorResumeState: nextState,
@@ -240,7 +240,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('for_init'),
           kind: 'raw',
-          code: [`var ${statement.variable} = ${statement.start};`],
+          code: [`${statement.storageName === statement.variable || !statement.storageName ? 'var ' : ''}${statement.storageName || statement.variable} = ${statement.start};`],
           nextState: conditionState,
           errorResumeState: nextState,
         });
@@ -485,6 +485,80 @@ module.exports = {
     return false;
   },
 
+  _describeAstTypeSpec(typeSpec) {
+    if (!typeSpec || typeof typeSpec !== 'object') {
+      return 'ANY';
+    }
+
+    if (typeSpec.kind === 'fixedString') {
+      return `STRING * ${typeSpec.length}`;
+    }
+
+    return typeSpec.typeName || 'ANY';
+  },
+
+  _astTypeSpecsMatch(left, right) {
+    if (!left && !right) return true;
+    if (!left || !right) return false;
+    if (left.kind !== right.kind) return false;
+
+    const leftTypeName = String(left.typeName || '').toUpperCase();
+    const rightTypeName = String(right.typeName || '').toUpperCase();
+    if (leftTypeName !== rightTypeName) return false;
+
+    if (left.kind === 'fixedString') {
+      return String(left.length) === String(right.length);
+    }
+
+    return true;
+  },
+
+  _getAstProcedureSignatureMismatch(declaration, procedure) {
+    if (declaration.procedureType !== procedure.procedureType) {
+      return `DECLARE ${declaration.procedureType} "${declaration.name}" does not match ${procedure.procedureType} definition.`;
+    }
+
+    const declaredParameters = declaration.parameters || [];
+    const definedParameters = procedure.parameters || [];
+
+    if (declaredParameters.length !== definedParameters.length) {
+      return `DECLARE ${declaration.procedureType} "${declaration.name}" expects ${declaredParameters.length} parameter(s) but definition has ${definedParameters.length}.`;
+    }
+
+    for (let index = 0; index < declaredParameters.length; index++) {
+      const declaredParameter = declaredParameters[index];
+      const definedParameter = definedParameters[index];
+      const declaredPassingMode = declaredParameter.passingMode || 'BYREF';
+      const definedPassingMode = definedParameter.passingMode || 'BYREF';
+
+      if (declaredPassingMode !== definedPassingMode) {
+        return `Parameter ${index + 1} of "${declaration.name}" uses ${declaredPassingMode} in DECLARE but ${definedPassingMode} in definition.`;
+      }
+
+      if (Boolean(declaredParameter.isArray) !== Boolean(definedParameter.isArray)) {
+        return `Parameter ${index + 1} of "${declaration.name}" array declaration does not match its definition.`;
+      }
+
+      if (
+        !this._astTypeSpecsMatch(
+          declaredParameter.typeSpec,
+          definedParameter.typeSpec,
+        )
+      ) {
+        return `Parameter ${index + 1} of "${declaration.name}" has type ${this._describeAstTypeSpec(declaredParameter.typeSpec)} in DECLARE but ${this._describeAstTypeSpec(definedParameter.typeSpec)} in definition.`;
+      }
+    }
+
+    if (
+      declaration.procedureType === 'FUNCTION' &&
+      !this._astTypeSpecsMatch(declaration.returnType, procedure.returnType)
+    ) {
+      return `FUNCTION "${declaration.name}" return type ${this._describeAstTypeSpec(declaration.returnType)} in DECLARE does not match ${this._describeAstTypeSpec(procedure.returnType)} in definition.`;
+    }
+
+    return null;
+  },
+
   _isAstUnconditionalTransfer(statement) {
     return (
       statement?.kind === 'Goto' ||
@@ -501,6 +575,9 @@ module.exports = {
     this._collectDataValues();
     const ast = this._parseProgramAst();
     this._analyzeAstProgram(ast);
+    this._validateTypeReferences();
+    this._validateTypeDefinitionGraph();
+    this._validateProcedureCallSites();
 
     this.output.length = 0;
     this.indent = 0;
@@ -548,6 +625,8 @@ module.exports = {
       resultVar: options.resultVar || null,
       statements,
       needsTrampoline: false,
+      declarations: new Map(),
+      procedures: new Map(),
       labels: new Map(),
       rawJumpNodes: [],
       gosubCount: 0,
@@ -572,6 +651,7 @@ module.exports = {
       };
     }
 
+    if (this._matchKw('DECLARE')) return this._parseAstDeclareProcedure();
     if (this._matchKw('IF')) return this._parseAstIf(context);
     if (this._matchKw('FOR')) return this._parseAstFor(context);
     if (this._matchKw('NEXT')) {
@@ -663,12 +743,9 @@ module.exports = {
     if (this._matchKw('_FULLSCREEN')) return this._parseAstEmitStatement('_parseFullscreen');
     if (this._matchKw('_TITLE')) return this._parseAstEmitStatement('_parseTitle');
     if (this._matchKw('_SCREENMOVE')) return this._parseAstEmitStatement('_parseScreenMove');
-    if (this._matchKw('_SCREENICON'))
-      return this._parseAstEmitLines(['// _SCREENICON - not supported in web']);
-    if (this._matchKw('_SCREENHIDE'))
-      return this._parseAstEmitLines(['// _SCREENHIDE - not supported in web']);
-    if (this._matchKw('_SCREENSHOW'))
-      return this._parseAstEmitLines(['// _SCREENSHOW - not supported in web']);
+    if (this._matchKw('_SCREENICON')) return this._parseAstEmitStatement('_parseScreenIcon');
+    if (this._matchKw('_SCREENHIDE')) return this._parseAstEmitStatement('_parseScreenHide');
+    if (this._matchKw('_SCREENSHOW')) return this._parseAstEmitStatement('_parseScreenShow');
     if (this._matchKw('_ICON')) return this._parseAstEmitStatement('_parseIcon');
     if (this._matchKw('_DEST')) return this._parseAstEmitStatement('_parseDest');
     if (this._matchKw('_SOURCE')) return this._parseAstEmitStatement('_parseSource');
@@ -678,8 +755,7 @@ module.exports = {
     if (this._matchKw('_FREEIMAGE')) return this._parseAstEmitStatement('_parseFreeImage');
     if (this._matchKw('_SETALPHA')) return this._parseAstEmitStatement('_parseSetAlpha');
     if (this._matchKw('_CLEARCOLOR')) return this._parseAstEmitStatement('_parseClearColor');
-    if (this._matchKw('_AUTODISPLAY'))
-      return this._parseAstEmitLines(['// _AUTODISPLAY - default in web']);
+    if (this._matchKw('_AUTODISPLAY')) return this._parseAstEmitStatement('_parseAutoDisplay');
     if (this._matchKw('_MOUSEHIDE'))
       return this._parseAstEmitLines(['_runtime.mousehide?.();']);
     if (this._matchKw('_MOUSESHOW')) return this._parseAstEmitStatement('_parseMouseShow');
@@ -738,6 +814,121 @@ module.exports = {
     }
 
     return this._captureAstRawStatement();
+  },
+
+  _parseAstProcedureParameters() {
+    const parameters = [];
+
+    if (!this._matchPunc('(')) {
+      return parameters;
+    }
+
+    if (this._matchPunc(')')) {
+      return parameters;
+    }
+
+    do {
+      let passingMode = 'BYREF';
+      if (this._matchKw('BYVAL')) {
+        passingMode = 'BYVAL';
+      } else if (this._matchKw('BYREF')) {
+        passingMode = 'BYREF';
+      }
+
+      const parameterToken = this._consume(TokenType.IDENTIFIER);
+      if (!parameterToken) {
+        this._raiseSyntaxError(
+          'Expected parameter name in procedure signature.',
+        );
+      }
+
+      let isArray = false;
+      if (this._matchPunc('(')) {
+        isArray = true;
+        while (!this._isEnd() && !this._matchPunc(')')) {
+          this._advance();
+        }
+      }
+
+      const typeSpec = this._parseDeclaredTypeSpec(parameterToken.value);
+      parameters.push({
+        name: parameterToken.value,
+        passingMode,
+        isArray,
+        typeSpec,
+        ...this._astLoc(parameterToken),
+      });
+    } while (this._matchPunc(','));
+
+    this._matchPunc(')');
+    return parameters;
+  },
+
+  _parseAstDeclareProcedure() {
+    const procedureType = this._matchKw('SUB')
+      ? 'SUB'
+      : this._matchKw('FUNCTION')
+        ? 'FUNCTION'
+        : null;
+    if (!procedureType) {
+      this._reportAstDiagnostic(
+        'error',
+        'Expected SUB or FUNCTION after DECLARE.',
+        this._astLoc(this._peek() || this._prev()),
+        'syntax',
+      );
+      this._skipToEndOfLine();
+      return null;
+    }
+
+    const id = this._consume(TokenType.IDENTIFIER);
+    if (!id) return null;
+
+    let libraryName = null;
+    let aliasName = null;
+    while (true) {
+      if (this._matchKw('LIB')) {
+        const libraryToken =
+          this._consume(TokenType.STRING) || this._consume(TokenType.IDENTIFIER);
+        libraryName = libraryToken?.value || null;
+        continue;
+      }
+
+      if (this._matchKw('ALIAS')) {
+        const aliasToken =
+          this._consume(TokenType.STRING) || this._consume(TokenType.IDENTIFIER);
+        aliasName = aliasToken?.value || null;
+        continue;
+      }
+
+      break;
+    }
+
+    const parameters = this._parseAstProcedureParameters();
+    const args = parameters.map((parameter) => parameter.name);
+    const argNodes = parameters.map((parameter) => ({
+      name: parameter.name,
+      line: parameter.line,
+      column: parameter.column,
+    }));
+    const returnType =
+      procedureType === 'FUNCTION'
+        ? this._parseDeclaredTypeSpec(id.value)
+        : null;
+    const declaration = {
+      kind: 'DeclareProcedure',
+      procedureType,
+      name: id.value,
+      parameters,
+      args,
+      argNodes,
+      returnType,
+      libraryName,
+      aliasName,
+      ...this._astLoc(id),
+    };
+    this._registerProcedureSignature(declaration);
+    return declaration;
   },
 
   _parseAstIf(context = {}) {
@@ -849,6 +1040,7 @@ module.exports = {
 
     const name = id.value;
     this._addVar(name);
+    const storageName = this._resolveStorageName(name);
 
     this._consumeOp('=');
     const prelude = [];
@@ -908,6 +1100,7 @@ module.exports = {
       {
         kind: 'For',
         variable: name,
+        storageName,
         start,
         end,
         step,
@@ -1159,18 +1352,25 @@ module.exports = {
     const id = this._consume(TokenType.IDENTIFIER);
     if (!id) return null;
 
+    const location = this._astLoc(id);
     const name = id.value;
-    const args = [];
-
-    if (this._matchPunc('(')) {
-      if (!this._matchPunc(')')) {
-        do {
-          const arg = this._consume(TokenType.IDENTIFIER);
-          if (arg) args.push(arg.value);
-        } while (this._matchPunc(','));
-        this._matchPunc(')');
-      }
-    }
+    const parameters = this._parseAstProcedureParameters();
+    const args = parameters.map((parameter) => parameter.name);
+    const argNodes = parameters.map((parameter) => ({
+      name: parameter.name,
+      line: parameter.line,
+      column: parameter.column,
+    }));
+    const returnType =
+      procedureType === 'FUNCTION'
+        ? this._parseDeclaredTypeSpec(name)
+        : null;
+    this._registerProcedureSignature({
+      name,
+      procedureType,
+      parameters,
+      returnType,
+    });
 
     this._skipNewlines();
     this._enterScope();
@@ -1182,10 +1382,22 @@ module.exports = {
 
     this.currentProcedure = { name, staticStore, kind: procedureType };
     if (procedureType === 'FUNCTION') {
-      this.currentFunction = { name, resultVar };
+      this.currentFunction = { name, resultVar, returnType };
     }
 
-    args.forEach((arg) => this._addVar(arg));
+    parameters.forEach((parameter) => {
+      this._addVar(parameter.name);
+      if (parameter.passingMode !== 'BYVAL') {
+        this._setStorageOverride(parameter.name, `${parameter.name}.value`);
+      }
+      const metadata = this._getTypeMetadata(
+        parameter.typeSpec,
+        parameter.isArray,
+      );
+      if (metadata) {
+        this._setVarMetadata(parameter.name, metadata);
+      }
+    });
 
     const body = this._parseAstBody({
       bodyType: 'PROCEDURE',
@@ -1211,9 +1423,14 @@ module.exports = {
       procedureType,
       name,
       args,
+      argNodes,
+      parameters,
       staticStore,
       resultVar: procedureType === 'FUNCTION' ? resultVar : null,
+      returnType,
       body,
+      skipCodegen: false,
+      ...location,
     };
   },
 
@@ -1530,6 +1747,8 @@ module.exports = {
 
   _analyzeAstBody(body, context = {}) {
     body.labels = new Map();
+    body.declarations = new Map();
+    body.procedures = new Map();
     body.rawJumpNodes = [];
     body.gosubCount = 0;
     body.returnCount = 0;
@@ -1578,7 +1797,11 @@ module.exports = {
 
       if (statement.kind === 'Label') {
         reachable = true;
-      } else if (statement.kind !== 'Procedure' && !reachable) {
+      } else if (
+        statement.kind !== 'Procedure' &&
+        statement.kind !== 'DeclareProcedure' &&
+        !reachable
+      ) {
         this._reportAstDiagnostic(
           'warning',
           'Statement is unreachable because control flow transfers before this point.',
@@ -1586,7 +1809,64 @@ module.exports = {
         );
       }
 
+      if (statement.kind === 'DeclareProcedure') {
+        const procedureKey = String(statement.name).toUpperCase();
+        if (body.declarations.has(procedureKey)) {
+          this._reportAstDiagnostic(
+            'error',
+            `Duplicate DECLARE for procedure "${statement.name}"`,
+            statement,
+          );
+        } else {
+          body.declarations.set(procedureKey, statement);
+        }
+
+        if (this._reportDuplicateAstProcedureParameters(statement)) {
+          statement.skipCodegen = true;
+        }
+
+        const matchingProcedure = body.procedures.get(procedureKey);
+        if (matchingProcedure) {
+          const mismatch = this._getAstProcedureSignatureMismatch(
+            statement,
+            matchingProcedure,
+          );
+          if (mismatch) {
+            this._reportAstDiagnostic('error', mismatch, matchingProcedure);
+          }
+        }
+        continue;
+      }
+
       if (statement.kind === 'Procedure') {
+        const procedureKey = String(statement.name).toUpperCase();
+        if (body.procedures.has(procedureKey)) {
+          statement.skipCodegen = true;
+          this._reportAstDiagnostic(
+            'error',
+            `Duplicate procedure "${statement.name}"`,
+            statement,
+          );
+        } else {
+          body.procedures.set(procedureKey, statement);
+        }
+
+        if (this._reportDuplicateAstProcedureParameters(statement)) {
+          statement.skipCodegen = true;
+        }
+
+        const declaration = body.declarations.get(procedureKey);
+        if (declaration) {
+          const mismatch = this._getAstProcedureSignatureMismatch(
+            declaration,
+            statement,
+          );
+          if (mismatch) {
+            statement.skipCodegen = true;
+            this._reportAstDiagnostic('error', mismatch, statement);
+          }
+        }
+
         this._analyzeAstBody(statement.body, {
           procedureType: statement.procedureType,
           loops: [],
@@ -1600,6 +1880,28 @@ module.exports = {
         reachable = false;
       }
     }
+  },
+
+  _reportDuplicateAstProcedureParameters(procedure) {
+    let hasDuplicateParameter = false;
+    const seenParams = new Set();
+
+    for (const parameter of procedure.parameters || procedure.argNodes || []) {
+      const parameterKey = String(parameter.name).toUpperCase();
+      if (seenParams.has(parameterKey)) {
+        hasDuplicateParameter = true;
+        this._reportAstDiagnostic(
+          'error',
+          `Duplicate parameter "${parameter.name}" in ${procedure.kind === 'DeclareProcedure' ? 'DECLARE ' : ''}${procedure.procedureType} ${procedure.name}.`,
+          parameter,
+        );
+        continue;
+      }
+
+      seenParams.add(parameterKey);
+    }
+
+    return hasDuplicateParameter;
   },
 
   _validateAstLabelReferences(statements, body) {
@@ -1864,13 +2166,15 @@ module.exports = {
 
   _generateAstBody(body, context = {}) {
     for (const statement of body.statements) {
-      if (statement?.kind === 'Procedure') {
+      if (statement?.kind === 'Procedure' && !statement.skipCodegen) {
         this._generateAstProcedure(statement);
       }
     }
 
     const executableStatements = body.statements.filter(
-      (statement) => statement?.kind !== 'Procedure',
+      (statement) =>
+        statement?.kind !== 'Procedure' &&
+        statement?.kind !== 'DeclareProcedure',
     );
 
     if (body.needsTrampoline) {
@@ -1890,8 +2194,14 @@ module.exports = {
     this.indent++;
 
     if (procedure.procedureType === 'FUNCTION') {
+      const resultInitializer =
+        procedure.returnType != null
+          ? this._getTypeInitializer(procedure.returnType)
+          : procedure.name.endsWith('$')
+            ? '""'
+            : '0';
       this._emit(
-        `let ${procedure.resultVar} = ${procedure.name.endsWith('$') ? '""' : '0'};`,
+        `let ${procedure.resultVar} = ${resultInitializer};`,
       );
     }
 
@@ -1967,7 +2277,7 @@ module.exports = {
 
         case 'For':
           this._emit(
-            `for (var ${statement.variable} = ${statement.start}; (${statement.step} >= 0) ? ${statement.variable} <= ${statement.end} : ${statement.variable} >= ${statement.end}; ${statement.variable} += ${statement.step}) {`,
+            `for (${statement.storageName === statement.variable || !statement.storageName ? 'var ' : ''}${statement.storageName || statement.variable} = ${statement.start}; (${statement.step} >= 0) ? ${statement.storageName || statement.variable} <= ${statement.end} : ${statement.storageName || statement.variable} >= ${statement.end}; ${statement.storageName || statement.variable} += ${statement.step}) {`,
           );
           this.indent++;
           this._generateStructuredStatements(statement.body, context);

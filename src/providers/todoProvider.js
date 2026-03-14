@@ -2,6 +2,10 @@
 
 const vscode = require('vscode');
 
+const TODO_GLOB = '**/*.{bas,bi,bm,inc}';
+const TODO_EXCLUDE_GLOB = '**/{node_modules,.git}/**';
+const TODO_REGEX = /(?:'|\bREM\b).*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b.*$/gim;
+
 class TodoItem extends vscode.TreeItem {
   constructor(label, collapsibleState, range, uri, keyword) {
     super(label, collapsibleState);
@@ -12,7 +16,7 @@ class TodoItem extends vscode.TreeItem {
     // Set icons based on keyword
     if (keyword === 'TODO') {
       this.iconPath = new vscode.ThemeIcon('checklist');
-    } else if (keyword === 'FIXME' || keyword === 'FIXIT' || keyword === 'BUG') {
+    } else if (keyword === 'FIXME' || keyword === 'FIXIT' || keyword === 'HACK' || keyword === 'BUG') {
       this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
     } else if (keyword === 'NOTE') {
       this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('infoForeground'));
@@ -42,6 +46,10 @@ class QBasicTodoProvider {
     this._onDidChangeTreeData.fire();
   }
 
+  dispose() {
+    this._onDidChangeTreeData.dispose();
+  }
+
   getTreeItem(element) {
     return element;
   }
@@ -57,16 +65,12 @@ class QBasicTodoProvider {
 
   async scanWorkspace() {
     this.todos = [];
-    if (!vscode.workspace.workspaceFolders) {
+    const workspaceFolders = vscode.workspace.workspaceFolders || [];
+    if (workspaceFolders.length === 0) {
       return;
     }
 
-    const files = await vscode.workspace.findFiles(
-      new vscode.RelativePattern(vscode.workspace.workspaceFolders[0], '**/*.{bas,bi,bm,inc}'),
-      '**/{node_modules,.git}/**'
-    );
-
-    const regex = /(?:'|\bREM\b).*?\b(TODO|FIXME|FIXIT|BUG|NOTE)\b.*$/gim;
+    const files = await getWorkspaceQBasicFiles(workspaceFolders);
 
     for (const file of files) {
       try {
@@ -78,12 +82,12 @@ class QBasicTodoProvider {
           const line = lines[i];
           let match;
           // Reset lastIndex because we're using /g flag on a per RegExp level but recreating it might be slow, so we just run it
-          regex.lastIndex = 0;
+          TODO_REGEX.lastIndex = 0;
           
-          while ((match = regex.exec(line)) !== null) {
+          while ((match = TODO_REGEX.exec(line)) !== null) {
             const keyword = match[1].toUpperCase();
             // Just display the comment without the ' characters if possible
-            let displayLabel = match[0].replace(/^('|REM)\s*/i, '').trim();
+            const displayLabel = match[0].replace(/^('|REM)\s*/i, '').trim();
             
             const startPos = new vscode.Position(i, match.index);
             const endPos = new vscode.Position(i, match.index + match[0].length);
@@ -104,7 +108,7 @@ class QBasicTodoProvider {
     }
     
     // Sort so FIXMEs are first, sorted by filename and line number
-    const keywordRank = { 'BUG': 1, 'FIXME': 1, 'FIXIT': 1, 'TODO': 2, 'NOTE': 3 };
+    const keywordRank = { 'BUG': 1, 'FIXME': 1, 'FIXIT': 1, 'HACK': 1, 'TODO': 2, 'NOTE': 3 };
     this.todos.sort((a, b) => {
       const aRank = keywordRank[a.keyword] || 4;
       const bRank = keywordRank[b.keyword] || 4;
@@ -116,6 +120,26 @@ class QBasicTodoProvider {
       return a.range.start.line - b.range.start.line;
     });
   }
+}
+
+async function getWorkspaceQBasicFiles(workspaceFolders) {
+  const seenFiles = new Set();
+  const files = [];
+
+  for (const folder of workspaceFolders) {
+    const matches = await vscode.workspace.findFiles(
+      new vscode.RelativePattern(folder, TODO_GLOB),
+      TODO_EXCLUDE_GLOB,
+    );
+
+    for (const file of matches) {
+      if (seenFiles.has(file.fsPath)) continue;
+      seenFiles.add(file.fsPath);
+      files.push(file);
+    }
+  }
+
+  return files;
 }
 
 module.exports = { QBasicTodoProvider, TodoItem };

@@ -165,11 +165,26 @@ async function runInternalTranspiler(document, shouldRun) {
         const result = compile(sourceCode, {
           target: 'node',
           sourcePath: document.uri.fsPath,
+          runtimeMode: 'internal-node',
         });
 
         if (!result.isSuccess()) {
           const msg = result.getErrors().map((e) => e.message).join('; ');
           throw new Error(`Syntax Error: ${msg || 'Compilation failed'}`);
+        }
+
+        const warnings = result.getWarnings();
+        if (warnings.length > 0) {
+          channel.appendLine(`  ⚠ Compatibility warnings: ${warnings.length}`);
+          for (const warning of warnings.slice(0, 5)) {
+            const line = Number.isInteger(warning.line) ? warning.line + 1 : '?';
+            const column = Number.isInteger(warning.column) ? warning.column : 0;
+            channel.appendLine(`    - line ${line}:${column} ${warning.message}`);
+          }
+          if (warnings.length > 5) {
+            channel.appendLine(`    - ... ${warnings.length - 5} more warning(s)`);
+          }
+          channel.appendLine('');
         }
 
         const jsCode = result.getCode();

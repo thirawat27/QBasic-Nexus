@@ -1,12 +1,11 @@
 'use strict';
 
-const { KEYWORDS, FUNCTIONS } = require('../../languageData');
+const { RESERVED_WORDS } = require('./languageRegistry');
 const { PATTERNS } = require('../providers/patterns');
 
 const UPPER_KEYWORDS = new Set(
   [
-    ...Object.keys(KEYWORDS),
-    ...Object.keys(FUNCTIONS),
+    ...Array.from(RESERVED_WORDS),
     'AS',
     'TO',
     'STEP',

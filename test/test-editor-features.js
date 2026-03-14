@@ -16,6 +16,16 @@ const {
   getOnTypeIndentText,
 } = require('../src/shared/editorLayout');
 const {
+  KEYWORDS: EDITOR_KEYWORDS,
+  FUNCTIONS: EDITOR_FUNCTIONS,
+  isBuiltInFunction,
+  isReservedWord,
+} = require('../src/shared/languageRegistry');
+const {
+  KEYWORDS: COMPILER_KEYWORDS,
+  BUILTIN_FUNCS,
+} = require('../src/compiler/constants');
+const {
   analyzeQBasicText,
   findDefinitionInAnalysis,
   findIdentifierMatchesInAnalysis,
@@ -139,6 +149,44 @@ test('formatter preserves suffix identifiers and escaped quotes while capitalizi
     '  PRINT "and ""or"" stay lower", flag%',
     'Formatter should preserve escaped quotes and suffix variables',
   );
+});
+
+test('language registry covers compiler-reserved keywords and built-ins used by editor features', () => {
+  assertEqual(isReservedWord('RUN'), true, 'RUN should stay reserved even if language docs are missing');
+  assertEqual(isReservedWord('CHAIN'), true, 'CHAIN should stay reserved even if language docs are missing');
+  assertEqual(isBuiltInFunction('DIR$'), true, 'DIR$ should stay classified as a built-in');
+  assertEqual(isBuiltInFunction('FREEFILE'), true, 'FREEFILE should stay classified as a built-in');
+  assertEqual(Boolean(EDITOR_KEYWORDS.RUN), true, 'RUN should have fallback keyword metadata');
+  assertEqual(Boolean(EDITOR_KEYWORDS.CHAIN), true, 'CHAIN should have fallback keyword metadata');
+  assertEqual(Boolean(EDITOR_FUNCTIONS['DIR$']), true, 'DIR$ should have fallback function metadata');
+  assertEqual(Boolean(EDITOR_FUNCTIONS.FREEFILE), true, 'FREEFILE should have fallback function metadata');
+  assertEqual(Boolean(EDITOR_KEYWORDS.LEN), false, 'Built-in functions should not also surface as keyword metadata');
+  assertEqual(Boolean(EDITOR_FUNCTIONS.LEN), true, 'Built-in function metadata should win over keyword fallback');
+});
+
+test('language registry covers every compiler keyword and built-in symbol', () => {
+  for (const keyword of COMPILER_KEYWORDS) {
+    if (!EDITOR_KEYWORDS[keyword] && !EDITOR_FUNCTIONS[keyword]) {
+      throw new Error(`Missing editor metadata for compiler keyword ${keyword}`);
+    }
+  }
+
+  for (const builtinName of Object.keys(BUILTIN_FUNCS)) {
+    if (!EDITOR_FUNCTIONS[builtinName]) {
+      throw new Error(`Missing editor metadata for compiler built-in ${builtinName}`);
+    }
+  }
+});
+
+test('formatter capitalizes compiler-reserved statements that are absent from manual language metadata', () => {
+  const formatted = formatQBasicLines(
+    ['run "demo.bas"', 'chain "next.bas"', 'shell "dir"'],
+    { insertSpaces: true, tabSize: 2 },
+  );
+
+  assertEqual(formatted[0], 'RUN "demo.bas"', 'RUN should be capitalized from compiler-backed metadata');
+  assertEqual(formatted[1], 'CHAIN "next.bas"', 'CHAIN should be capitalized from compiler-backed metadata');
+  assertEqual(formatted[2], 'SHELL "dir"', 'SHELL should be capitalized from compiler-backed metadata');
 });
 
 test('folding helper keeps trailing comment blocks at EOF', () => {

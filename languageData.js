@@ -138,6 +138,7 @@ const KEYWORDS = {
 
     // Misc
     SLEEP: { label: 'SLEEP', detail: 'Pause execution' },
+    SHELL: { label: 'SHELL', detail: 'Run system command' },
     TIMER: { label: 'TIMER', detail: 'Seconds since midnight' },
     REM: { label: 'REM', detail: 'Comment line' },
     SWAP: { label: 'SWAP', detail: 'Exchange values of two variables' },
@@ -433,12 +434,6 @@ const FUNCTIONS = {
         documentation: '**ENVIRON$(varname)**\n\nReturns the value of an environment variable.\n\n**Example:**\n```qbasic\npath$ = ENVIRON$("PATH")\n```',
         params: ['varname']
     },
-    'SHELL': {
-        detail: 'Run system command',
-        documentation: '**SHELL [command$]**\n\nExecutes a system command.\n\n**Example:**\n```qbasic\nSHELL "dir"\n```',
-        params: ['command$']
-    },
-
     // File Functions
     'FREEFILE': {
         detail: 'Next free file number',

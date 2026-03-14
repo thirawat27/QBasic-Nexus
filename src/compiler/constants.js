@@ -56,7 +56,7 @@ const KEYWORDS = new Set([
     
     // Misc
     'REM', 'BEEP', 'SOUND', 'PLAY', 'WAIT', 'OUT', 'INP', 'RANDOMIZE',
-    'DEF', 'SEG', 'USR',
+    'DEF', 'SEG', 'USR', 'SHELL',
     
     // File I/O
     'OPEN', 'CLOSE', 'GET', 'PUT', 'SEEK', 'LOF', 'LOC', 'EOF', 'FREEFILE',
@@ -235,6 +235,7 @@ const BUILTIN_FUNCS = Object.freeze({
     
     // ========== File Functions (stubs for web) ==========
     'FREEFILE': '_freefile',
+    'DIR$': '_dir$',
     'EOF': '_eof',
     'LOF': '_lof',
     'LOC': '_loc',
@@ -264,19 +265,20 @@ const BUILTIN_FUNCS = Object.freeze({
       '_FINISHDROP': '_runtime.finisDrop || (() => {})',
       '_EMBEDDED$': '_runtime.embedded$ || (() => "")',
       '_ENVIRONCOUNT': '_runtime.environCount || (() => 0)',
-      '_BIN$': '_runtime.bin$ || (() => 0)',
       '_EXPLICIT': '_runtime.explicit || (() => false)',
       '_EXPLICITARRAY': '_runtime.explicitArray || (() => false)',
       '_CONTINUE': '_runtime.continue || (() => {})',
-      '_DIR$': '_runtime.dir$ || (() => "")',
-      '_CWD$': '_runtime.cwd$ || (() => "")',
-      '_STARTDIR$': '_runtime.startdir$ || (() => "")',
-      '_OS$': '_runtime.os$ || (() => "web")',
-      '_CLIPBOARD$': '_runtime.clipboard$ || (() => "")',
     
     // ========== Boolean Constants ==========
     'TRUE': '(() => -1)',
     'FALSE': '(() => 0)',
+
+    // ========== Mouse Input ==========
+    '_MOUSEINPUT': '(() => _runtime.mouseinput?.() ?? 0)',
+    '_MOUSEX': '(() => _mousex())',
+    '_MOUSEY': '(() => _mousey())',
+    '_MOUSEBUTTON': '((button) => _mousebutton(button))',
+    '_MOUSEWHEEL': '(() => _runtime.mousewheel?.() ?? 0)',
     
     // ========== Keyboard Input ==========
     'INKEY$': 'INKEY',
@@ -338,6 +340,7 @@ const BUILTIN_FUNCS = Object.freeze({
     'PEEK': '_peek',
     'INP': '_inp',
     'POINT': '_point',
+    'FRE': '((value) => 0)',
     'VARPTR': '((v) => 0)',
     'VARSEG': '((v) => 0)',
     'SADD': '((s) => 0)',

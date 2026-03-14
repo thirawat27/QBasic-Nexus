@@ -31,6 +31,7 @@ const DEFAULT_OPTIONS = {
   maxErrors: 100,         // Maximum errors before stopping
   sourcePath: null,
   cwd: process.cwd(),
+  runtimeMode: null,
 };
 
 function countLines(source) {
@@ -118,10 +119,13 @@ class Compiler {
       cwd: options.cwd,
     });
     const preprocessedSource = preprocessResult.source;
+    const cacheTargetKey = options.runtimeMode
+      ? `${options.target}:${options.runtimeMode}`
+      : options.target;
 
     // ── Check cache first (no tokenisation needed) ────────────────────────
     if (this.cache && !preprocessResult.diagnostics.hasErrors()) {
-      const cached = this.cache.getCode(preprocessedSource, options.target);
+      const cached = this.cache.getCode(preprocessedSource, cacheTargetKey);
       if (cached) {
         this.stats.cacheHits++;
         this.stats.compilations++;
@@ -173,7 +177,9 @@ class Compiler {
       // ── Parse + codegen (reuse token array — no re-tokenize) ───────────
       const parserStart = process.hrtime.bigint();
       const transpiler = new InternalTranspiler();
-      const { code, errors } = transpiler.transpileTokens(tokens, options.target);
+      const { code, errors } = transpiler.transpileTokens(tokens, options.target, {
+        runtimeMode: options.runtimeMode,
+      });
       const parserTime = Number(process.hrtime.bigint() - parserStart) / 1_000_000;
 
       // Collect errors directly from the parse result (no extra lint pass)
@@ -200,7 +206,7 @@ class Compiler {
       if (this.cache && !diagnostics.hasErrors()) {
         this.cache.setCode(
           preprocessedSource,
-          options.target,
+          cacheTargetKey,
           code,
           diagnostics.getAll(),
         );

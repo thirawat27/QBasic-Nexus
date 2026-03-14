@@ -23,7 +23,9 @@ const InternalTranspiler = require('../compiler/parser');
  * @typedef {{
  *   lastDiags: Array,
  *   lastLintVersion: number,
+ *   lastLintOptionsKey: string,
  *   pendingVersion: number | null,
+ *   pendingOptionsKey: string | null,
  *   lastLength: number,
  *   lastDiagKey: string
  * }} DocState
@@ -47,10 +49,11 @@ class IncrementalLinter {
    * @param {import('vscode').DiagnosticCollection} diagnosticCollection
    * @param {number} baseDelay  - default delay in ms from settings
    */
-  schedule(document, diagnosticCollection, baseDelay = 500) {
+  schedule(document, diagnosticCollection, baseDelay = 500, lintOptions = {}) {
     if (!document || document.languageId !== 'qbasic') return;
 
     const key = document.uri.toString();
+    const optionsKey = _fingerprintLintOptions(lintOptions);
     const existing = this._pendingTimers.get(key);
     const state = this._getOrCreateState(key);
     const newLength = document.getText().length;
@@ -59,13 +62,20 @@ class IncrementalLinter {
 
     // ── Version guards ──────────────────────────────────────────────────────
     // 1. Already linted this exact version → serve from cache immediately
-    if (state.lastLintVersion === document.version) {
+    if (
+      state.lastLintVersion === document.version &&
+      state.lastLintOptionsKey === optionsKey
+    ) {
       diagnosticCollection.set(document.uri, state.lastDiags);
       return;
     }
 
     // 2. A timer is already queued for this exact version → no-op
-    if (existing && state.pendingVersion === document.version) {
+    if (
+      existing &&
+      state.pendingVersion === document.version &&
+      state.pendingOptionsKey === optionsKey
+    ) {
       return;
     }
 
@@ -84,11 +94,17 @@ class IncrementalLinter {
 
     const scheduledVersion = document.version;
     state.pendingVersion = scheduledVersion;
+    state.pendingOptionsKey = optionsKey;
 
     const timerId = setTimeout(() => {
       this._pendingTimers.delete(key);
-      if (state.pendingVersion !== scheduledVersion) return;
-      this._runLint(document, diagnosticCollection, state);
+      if (
+        state.pendingVersion !== scheduledVersion ||
+        state.pendingOptionsKey !== optionsKey
+      ) {
+        return;
+      }
+      this._runLint(document, diagnosticCollection, state, lintOptions, optionsKey);
     }, adaptiveDelay);
 
     this._pendingTimers.set(key, timerId);
@@ -120,7 +136,9 @@ class IncrementalLinter {
       this._docStates.set(key, {
         lastDiags: [],
         lastLintVersion: -1,
+        lastLintOptionsKey: '',
         pendingVersion: null,
+        pendingOptionsKey: null,
         lastLength: 0,
         lastDiagKey: '',
       });
@@ -134,7 +152,7 @@ class IncrementalLinter {
    * @param {import('vscode').DiagnosticCollection} collection
    * @param {DocState} state
    */
-  _runLint(document, collection, state) {
+  _runLint(document, collection, state, lintOptions = {}, optionsKey = '') {
     try {
       const source = document.getText();
       const lineCount = document.lineCount;
@@ -142,6 +160,7 @@ class IncrementalLinter {
       // Reuse transpiler instance (avoids object creation overhead)
       const errors = this._transpiler.lint(source, {
         sourcePath: document.uri.fsPath,
+        ...lintOptions,
       });
 
       const diagnostics = errors.map((err) => {
@@ -177,11 +196,14 @@ class IncrementalLinter {
       }
 
       state.lastLintVersion = document.version;
+      state.lastLintOptionsKey = optionsKey;
       state.pendingVersion = null;
+      state.pendingOptionsKey = null;
     } catch (err) {
       // Never let linting crash the extension
       console.error('[IncrementalLinter] Error:', err.message);
       state.pendingVersion = null;
+      state.pendingOptionsKey = null;
     }
   }
 }
@@ -214,6 +236,13 @@ function _fingerprintDiags(diags) {
     s += `${d.range.start.line}:${d.range.start.character}:${d.severity}:${d.message}|`;
   }
   return s;
+}
+
+function _fingerprintLintOptions(options) {
+  return JSON.stringify({
+    target: options?.target || 'node',
+    runtimeMode: options?.runtimeMode || 'generic',
+  });
 }
 
 // Global singleton – one linter shared across the extension lifecycle

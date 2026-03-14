@@ -12,10 +12,10 @@ const {
 } = require('../preprocessor');
 
 class Parser {
-  constructor(tokens, target = 'node') {
+  constructor(tokens, target = 'node', options = {}) {
     // Call the initialized method that we mapped from core.js
     if (this._init) {
-      this._init(tokens, target);
+      this._init(tokens, target, options);
     }
   }
 }
@@ -97,7 +97,9 @@ class InternalTranspiler {
         return '// No tokens generated';
       }
 
-      const parser = new Parser(tokens, target);
+      const parser = new Parser(tokens, target, {
+        runtimeMode: options.runtimeMode,
+      });
       const result = parser.parse();
       const blockingErrors = getBlockingParserErrors(parser.errors);
       if (blockingErrors.length > 0) {
@@ -122,13 +124,15 @@ class InternalTranspiler {
    * @param {string} target - 'node' or 'web'.
    * @returns {{ code: string, errors: Array }} Result object.
    */
-  transpileTokens(tokens, target = 'web') {
+  transpileTokens(tokens, target = 'web', options = {}) {
     if (!Array.isArray(tokens) || tokens.length === 0) {
       return { code: '// No tokens generated', errors: [] };
     }
     if (target !== 'node' && target !== 'web') target = 'web';
     try {
-      const parser = new Parser(tokens, target);
+      const parser = new Parser(tokens, target, {
+        runtimeMode: options.runtimeMode,
+      });
       const code = parser.parse();
       return { code, errors: parser.errors || [] };
     } catch (e) {
@@ -145,10 +149,13 @@ class InternalTranspiler {
    * @param {Array} tokens - Pre-built token array from Lexer.tokenize().
    * @returns {Array<{line: number, message: string, column: number}>}
    */
-  lintTokens(tokens) {
+  lintTokens(tokens, options = {}) {
     if (!Array.isArray(tokens) || tokens.length === 0) return [];
     try {
-      const parser = new Parser(tokens, 'node');
+      const parserTarget = options.target === 'web' ? 'web' : 'node';
+      const parser = new Parser(tokens, parserTarget, {
+        runtimeMode: options.runtimeMode || 'generic',
+      });
       parser.parse();
       return parser.errors || [];
     } catch (e) {
@@ -182,10 +189,14 @@ class InternalTranspiler {
         }));
       }
 
+      const lintTarget = options.target === 'web' ? 'web' : 'node';
       const lexer = new Lexer(preprocessResult.source);
       tokens = lexer.tokenize();
       // Delegate to lintTokens to avoid code duplication
-      return this.lintTokens(tokens);
+      return this.lintTokens(tokens, {
+        target: lintTarget,
+        runtimeMode: options.runtimeMode || 'generic',
+      });
     } catch (e) {
       return [
         {
