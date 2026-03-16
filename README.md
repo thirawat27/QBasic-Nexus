@@ -81,7 +81,7 @@ The internal compiler transpiles your QBasic code to JavaScript, then packages i
 
 - **File Size** - Executables are typically 40-50MB (includes Node.js runtime)
 - **Performance** - Slightly slower than native QB64 compilation, but excellent for most use cases
-- **Compatibility** - Supports 400+ QBasic/QB64 keywords and functions
+- **Compatibility** - Supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions
 - **Platform** - Generates a native executable for the host platform (`.exe` on Windows, extensionless binary on macOS/Linux)
 
 **Limitations Compared to QB64**
@@ -1058,7 +1058,7 @@ Write code faster, with fewer bugs, using tooling typically reserved for modern 
 - **Signature Help** - Parameter hints for built-in functions and your custom SUBs/FUNCTIONs.
 - **Document Symbols** - Quick navigation through your code structure with the Outline view.
 - **Code Folding** - Collapse and expand SUBs, FUNCTIONs, and control structures for better code organization.
-- **Hover Information** - Instant documentation and type information when hovering over keywords and symbols.
+- **Hover Information** - Rich inline reference for keywords, built-ins, and symbols, including generated syntax and examples for multi-word commands such as `LINE INPUT`, `ON ERROR`, `PRINT #`, plus advanced legacy/QB64 commands like `INTERRUPT`, `IOCTL`, `_MEMCOPY`, and `_SNDLEN`.
 - **Find All References** - Locate all usages of variables, SUBs, and FUNCTIONs throughout your code.
 
 ### 🔧 Advanced Code Tools
@@ -1094,7 +1094,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
 ## 🎬 Web Runtime Capabilities
 
-QBasic Nexus supports over 400 keywords natively for testing within the editor.
+QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions natively for testing within the editor.
 
 **Compatibility Overview**
 
@@ -1167,6 +1167,30 @@ To check if your code will work in the Web Runtime
 ## 🧩 Snippets Reference
 
 Never type repetitive code again. Start typing these keywords and press `Tab`
+
+QBasic Nexus now ships with 680+ snippets, including handcrafted templates plus generated keyword and built-in reference snippets for QBasic, QuickBASIC 4.5, and QB64.
+
+Short structural snippets keep their classic prefixes such as `for`, `if`, `sub`, and `screen`. Generated reference snippets use `kw...` for keywords and `fn...` for built-ins to avoid IntelliSense collisions.
+
+### Reference Snippets
+
+Use generated reference snippets when you want to insert exact keywords or built-ins without losing the short handcrafted prefixes.
+
+**Keyword reference prefixes**
+
+- `kw line input` inserts `LINE INPUT`
+- `kw on error` inserts `ON ERROR`
+- `kw interrupt` inserts `INTERRUPT`
+- `kw _memcopy` inserts `_MEMCOPY`
+
+**Function reference prefixes**
+
+- `fn cbool` inserts `CBOOL(value)`
+- `fn _sndlen` inserts `_SNDLEN(soundHandle)`
+- `fn _openhost` inserts `_OPENHOST(port)`
+- `fn varptr` inserts `VARPTR(variable)`
+
+These reference snippets are useful for advanced or less frequently typed commands where you want the exact spelling quickly while still keeping classic short prefixes like `for`, `if`, `sub`, and `screen` dedicated to structural templates.
 
 ### Structure Snippets
 
@@ -1347,6 +1371,8 @@ LOOP UNTIL k$ = CHR$(27) ' ESC to exit
 
 - Snippets save time on repetitive code structures
 - Tab key moves between editable fields in the snippet
+- `kw...` snippets are best for language keywords and statements, while `fn...` snippets are best for built-in functions and QB64 helpers
+- Hover over a generated keyword or built-in after insertion to see syntax notes and examples directly in the editor
 - You can customize snippets in `.vscode/snippets/qbasic.json`
 - Combine snippets with IntelliSense for maximum productivity
 

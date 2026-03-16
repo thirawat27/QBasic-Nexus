@@ -480,4 +480,70 @@ _parseFileVariableTarget() {
       contextLabel: 'GET #',
     });
   },
+
+_parsePrintUsing() {
+    // PRINT USING format$; expressions
+    const format = this._parseExpr();
+    this._matchPunc(';');
+    
+    const parts = [];
+    while (!this._isStmtEnd()) {
+      if (this._matchPunc(';')) {
+        // No newline
+      } else if (this._matchPunc(',')) {
+        parts.push('"\\t"');
+      } else {
+        parts.push(this._parseExpr());
+      }
+    }
+    
+    const content = parts.length > 0 ? parts.join(' + ') : '""';
+    this._emit(`_printusing(${format}, ${content});`);
+  },
+
+_parsePrintUsingFile() {
+    // PRINT #filenum, USING format$; expressions
+    const filenum = this._parseExpr();
+    this._matchPunc(',');
+    this._matchKw('USING');
+    const format = this._parseExpr();
+    this._matchPunc(';');
+    
+    const parts = [];
+    while (!this._isStmtEnd()) {
+      if (this._matchPunc(';')) {
+        // No newline
+      } else if (this._matchPunc(',')) {
+        parts.push('"\\t"');
+      } else {
+        parts.push(this._parseExpr());
+      }
+    }
+    
+    const content = parts.length > 0 ? parts.join(' + ') : '""';
+    this._emit(`_printusingfile(${filenum}, ${format}, ${content});`);
+  },
+
+_parseInputDollar() {
+    // INPUT$(n, [#]filenum)
+    const n = this._parseExpr();
+    this._matchPunc(',');
+    
+    if (this._matchPunc('#')) {
+      const filenum = this._parseExpr();
+      this._emit(`_inputdollar(${n}, ${filenum});`);
+    } else {
+      const filenum = this._parseExpr();
+      this._emit(`_inputdollar(${n}, ${filenum});`);
+    }
+  },
+
+_parseSeek() {
+    // SEEK #filenum, position
+    this._matchPunc('#');
+    const fileNum = this._parseExpr();
+    this._matchPunc(',');
+    const position = this._parseExpr();
+    this._emit(`_seek(${fileNum}, ${position});`);
+  }
 };

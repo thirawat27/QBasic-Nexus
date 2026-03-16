@@ -1723,80 +1723,124 @@ function _freefile() {
   let candidate = 1;
   while (_fileHandles[candidate]) {
     candidate++;
+    // Safety limit to prevent infinite loop
+    if (candidate > 999) break;
   }
   _nextFileNum = Math.max(_nextFileNum, candidate + 1);
   return candidate;
 }
 
 function _eof(filenum) {
-  if (_eofFunc) return _eofFunc(filenum) ? -1 : 0;
-  const handle = _getFileHandle(filenum);
-  return !handle || handle.eof ? -1 : 0;
+  try {
+    if (_eofFunc) return _eofFunc(filenum) ? -1 : 0;
+    const handle = _getFileHandle(filenum);
+    return !handle || handle.eof ? -1 : 0;
+  } catch (e) {
+    return -1;
+  }
 }
 
 function _lof(filenum) {
-  if (_lofFunc) return Number(_lofFunc(filenum)) || 0;
-  const handle = _getFileHandle(filenum);
-  return handle ? String(handle.data ?? '').length : 0;
+  try {
+    if (_lofFunc) return Number(_lofFunc(filenum)) || 0;
+    const handle = _getFileHandle(filenum);
+    return handle ? String(handle.data ?? '').length : 0;
+  } catch (e) {
+    return 0;
+  }
 }
 
 function _loc(filenum) {
-  if (_locFunc) return Number(_locFunc(filenum)) || 0;
-  const handle = _getFileHandle(filenum);
-  return handle ? handle.pos : 0;
+  try {
+    if (_locFunc) return Number(_locFunc(filenum)) || 0;
+    const handle = _getFileHandle(filenum);
+    return handle ? handle.pos : 0;
+  } catch (e) {
+    return 0;
+  }
 }
 
 function _fileexists(filename) {
-  return (_fileExistsFunc ? _fileExistsFunc(filename) : _fallbackFileExists(filename)) ? -1 : 0;
+  try {
+    if (!filename) return 0;
+    return (_fileExistsFunc ? _fileExistsFunc(filename) : _fallbackFileExists(filename)) ? -1 : 0;
+  } catch (e) {
+    return 0;
+  }
 }
 
 function _direxists(dirname) {
-  return (_dirExistsFunc ? _dirExistsFunc(dirname) : _fallbackDirExists(dirname)) ? -1 : 0;
+  try {
+    if (!dirname) return 0;
+    return (_dirExistsFunc ? _dirExistsFunc(dirname) : _fallbackDirExists(dirname)) ? -1 : 0;
+  } catch (e) {
+    return 0;
+  }
 }
 
 function _cwd$() {
-  return _cwdFunc ? String(_cwdFunc()) : String(_currentDir);
+  try {
+    return _cwdFunc ? String(_cwdFunc()) : String(_currentDir || '/');
+  } catch (e) {
+    return '/';
+  }
 }
 
 function _startdir$() {
-  return _startDirFunc ? String(_startDirFunc()) : String(_startDir);
+  try {
+    return _startDirFunc ? String(_startDirFunc()) : String(_startDir || '/');
+  } catch (e) {
+    return '/';
+  }
 }
 
 function _command$() {
-  if (_commandFunc) return String(_commandFunc());
-  ${this.target === 'node'
-    ? 'return process.argv ? process.argv.slice(2).join(" ") : "";'
-    : 'return "";'}
+  try {
+    if (_commandFunc) return String(_commandFunc());
+    ${this.target === 'node'
+      ? 'return process.argv ? process.argv.slice(2).join(" ") : "";'
+      : 'return "";'}
+  } catch (e) {
+    return "";
+  }
 }
 
 function _environ$(key) {
-  if (_environFunc) return String(_environFunc(key));
-  ${this.target === 'node'
-    ? 'return process.env ? process.env[String(key)] || "" : "";'
-    : 'return "";'}
+  try {
+    if (_environFunc) return String(_environFunc(key));
+    ${this.target === 'node'
+      ? 'return process.env ? process.env[String(key)] || "" : "";'
+      : 'return "";'}
+  } catch (e) {
+    return "";
+  }
 }
 
 function _dir$(spec) {
-  if (_dirFunc) {
-    if (spec === undefined) return String(_dirFunc());
-    return String(_dirFunc(spec));
-  }
+  try {
+    if (_dirFunc) {
+      if (spec === undefined) return String(_dirFunc());
+      return String(_dirFunc(spec));
+    }
 
-  if (spec !== undefined && String(spec).length > 0) {
-    _dirSearchPattern = String(spec);
-    _dirSearchMatches = _listFallbackFiles(_dirSearchPattern);
-    _dirSearchIndex = 0;
-  } else if (_dirSearchPattern == null) {
+    if (spec !== undefined && String(spec).length > 0) {
+      _dirSearchPattern = String(spec);
+      _dirSearchMatches = _listFallbackFiles(_dirSearchPattern);
+      _dirSearchIndex = 0;
+    } else if (_dirSearchPattern == null) {
+      return '';
+    }
+
+    if (_dirSearchIndex >= _dirSearchMatches.length) {
+      return '';
+    }
+
+    const next = _dirSearchMatches[_dirSearchIndex];
+    _dirSearchIndex++;
+    return next || '';
+  } catch (e) {
     return '';
   }
-
-  if (_dirSearchIndex >= _dirSearchMatches.length) {
-    return '';
-  }
-
-  const next = _dirSearchMatches[_dirSearchIndex];
-  _dirSearchIndex++;
-  return next || '';
 }
 
 function _normalizeFileAccess(mode, access) {
@@ -2636,6 +2680,448 @@ function INSTR(start, str, find) {
 // TRUE/FALSE constants
 const TRUE = -1;
 const FALSE = 0;
+
+// ========== Additional QBasic Functions ==========
+
+// CLEAR - clears all variables
+function _clear() {
+  for (const key of Object.keys(_mainMemory)) {
+    delete _mainMemory[key];
+  }
+  for (const key of Object.keys(_ioPorts)) {
+    delete _ioPorts[key];
+  }
+  // Note: In QBasic CLEAR also resets data pointer
+  _DATA_PTR = 0;
+}
+
+// FRE - returns bytes of free memory
+function _fre(expr) {
+  if (expr === undefined || expr === -1 || expr === '-1') {
+    return _MAIN_MEMORY_SIZE;
+  }
+  if (typeof expr === 'string') {
+    return _MAIN_MEMORY_SIZE - (expr.length || 0);
+  }
+  return _MAIN_MEMORY_SIZE;
+}
+
+// _err - returns last error number
+let _lastError = 0;
+function _err() {
+  return _lastError;
+}
+
+// _erl - returns last error line
+let _lastErrorLine = 0;
+function _erl() {
+  return _lastErrorLine;
+}
+
+// _varptr$ - returns string representation of variable pointer
+function _varptr$(varname) {
+  return '0';
+}
+
+// _environ - set environment variable
+function _environ(envstring) {
+  const parts = String(envstring).split('=');
+  if (parts.length >= 2) {
+    const key = parts[0].trim();
+    const value = parts.slice(1).join('=').trim();
+    ${this.target === 'node'
+      ? 'process.env[key] = value;'
+      : '// Environment variables not available in web mode'}
+  }
+}
+
+// _dateset - set system date
+function _dateset(datestr) {
+  // Not supported in most environments
+  console.log('DATE$ = ' + datestr);
+}
+
+// _timeset - set system time
+function _timeset(timestr) {
+  // Not supported in most environments
+  console.log('TIME$ = ' + timestr);
+}
+
+// ========== QB64 Additional Functions ==========
+
+// _key - sets function key string
+function _key(keynum, keystr) {
+  console.log('KEY ' + keynum + ' = ' + keystr);
+}
+
+// _strig - joystick button status (stub)
+function _strig(button) {
+  return 0;
+}
+
+// _console - console control
+function _console(mode) {
+  if (typeof _runtime.console === 'function') {
+    _runtime.console(mode === 'ON');
+  }
+}
+
+// _consoletitle - console title
+function _consoletitle(title) {
+  if (typeof _runtime.consoletitle === 'function') {
+    _runtime.consoletitle(title);
+  }
+}
+
+// _shellhide - shell hide
+function _shellhide(cmd) {
+  return _shell(cmd);
+}
+
+// _acceptfiledrop - file drop control
+function _acceptfiledrop(mode) {
+  if (typeof _runtime.acceptfiledrop === 'function') {
+    _runtime.acceptfiledrop(mode === 'ON');
+  }
+}
+
+// _newimage - create new image
+function _newimage(width, height, mode) {
+  if (typeof _runtime.newimage === 'function') {
+    return _runtime.newimage(width, height, mode);
+  }
+  return -1;
+}
+
+// _loadimage - load image from file
+function _loadimage(filename, mode) {
+  if (typeof _runtime.loadimage === 'function') {
+    return _runtime.loadimage(filename, mode);
+  }
+  return -1;
+}
+
+// _copyimage - copy existing image
+function _copyimage(handle) {
+  if (typeof _runtime.copyimage === 'function') {
+    return _runtime.copyimage(handle);
+  }
+  return -1;
+}
+
+// _sndopen - open sound file
+function _sndopen(filename, flags) {
+  if (typeof _runtime.sndopen === 'function') {
+    return _runtime.sndopen(filename, flags);
+  }
+  return -1;
+}
+
+// _sndplayfile - play sound file
+function _sndplayfile(filename, volume) {
+  if (typeof _runtime.sndplayfile === 'function') {
+    return _runtime.sndplayfile(filename, volume);
+  }
+}
+
+// _sndlen - get sound length
+function _sndlen(handle) {
+  if (typeof _runtime.sndlen === 'function') {
+    return _runtime.sndlen(handle);
+  }
+  return 0;
+}
+
+// _sndplaying - check if sound is playing
+function _sndplaying(handle) {
+  if (typeof _runtime.sndplaying === 'function') {
+    return _runtime.sndplaying(handle);
+  }
+  return 0;
+}
+
+// _openhost - open TCP host
+function _openhost(protocol) {
+  if (typeof _runtime.openhost === 'function') {
+    return _runtime.openhost(protocol);
+  }
+  return -1;
+}
+
+// _openclient - open TCP client
+function _openclient(protocol, address) {
+  if (typeof _runtime.openclient === 'function') {
+    return _runtime.openclient(protocol, address);
+  }
+  return -1;
+}
+
+// _openconnection - open network connection
+function _openconnection(handle) {
+  if (typeof _runtime.openconnection === 'function') {
+    return _runtime.openconnection(handle);
+  }
+  return -1;
+}
+
+// _keydown - check if key is pressed
+function _keydown(keycode) {
+  if (typeof _runtime.keydown === 'function') {
+    return _runtime.keydown(keycode);
+  }
+  return 0;
+}
+
+// _keyhit - get key hit
+function _keyhit() {
+  if (typeof _runtime.keyhit === 'function') {
+    return _runtime.keyhit();
+  }
+  return 0;
+}
+
+// _resize - window resize control
+function _resize(mode) {
+  if (typeof _runtime.resize === 'function') {
+    _runtime.resize(mode);
+  }
+}
+
+// _mousewheel - get mouse wheel value
+function _mousewheel() {
+  if (typeof _runtime.mousewheel === 'function') {
+    return _runtime.mousewheel();
+  }
+  return 0;
+}
+
+// _screenexists - check if screen exists
+function _screenexists() {
+  if (typeof _runtime.screenexists === 'function') {
+    return _runtime.screenexists();
+  }
+  return -1;
+}
+
+// _os$ - get OS name
+function _os$() {
+  ${this.target === 'node'
+    ? 'return process.platform === \'win32\' ? \'WINDOWS\' : process.platform === \'darwin\' ? \'MACOSX\' : \'LINUX\';'
+    : 'return \'WEB\';'}
+}
+
+// _errormessage$ - get error message
+function _errormessage$(errnum) {
+  const messages = {
+    1: 'NEXT without FOR',
+    2: 'Syntax error',
+    3: 'RETURN without GOSUB',
+    4: 'READ without DATA',
+    5: 'Illegal function call',
+    6: 'Overflow',
+    7: 'Out of memory',
+    8: 'Label not defined',
+    9: 'Subscript out of range',
+    10: 'Duplicate definition',
+    11: 'Division by zero',
+    12: 'Illegal in direct mode',
+    13: 'Type mismatch',
+    14: 'Out of string space',
+    24: 'Device timeout',
+    25: 'Device fault',
+    26: 'FOR without NEXT',
+    27: 'Out of paper',
+    52: 'Bad file name/number',
+    53: 'File not found',
+    54: 'Bad file mode',
+    55: 'File already open',
+    56: 'FIELD statement active',
+    57: 'Internal error',
+    58: 'File already exists',
+    59: 'Bad record length',
+    60: 'Disk full',
+    61: 'Input past end of file',
+    62: 'Bad record number',
+    63: 'Bad file name',
+    64: 'Bad file number',
+    65: 'File already exists',
+    66: 'PATH not found',
+    67: 'Too many files',
+    68: 'Device unavailable',
+    69: 'Disk not ready',
+    70: 'Disk write protection',
+    71: 'Disk media error',
+    72: 'Bad FAT',
+    73: 'Rename across disks',
+    74: 'Path/FILE required',
+    75: 'Path access denied',
+    76: 'String formula too complex'
+  };
+  return messages[errnum] || 'Unknown error';
+}
+
+// _environcount - get environment variable count
+function _environcount() {
+  ${this.target === 'node'
+    ? 'return process.env ? Object.keys(process.env).length : 0;'
+    : 'return 0;'}
+}
+
+// _files$ - get file list
+function _files$(spec) {
+  return _dir$(spec);
+}
+
+// _fullpath$ - get full path
+function _fullpath$(path) {
+  ${this.target === 'node'
+    ? 'return _nodePath.resolve(path);'
+    : 'return path;'}
+}
+
+// _capslock - get caps lock state (stub)
+function _capslock() {
+  return 0;
+}
+
+// _numlock - get num lock state (stub)
+function _numlock() {
+  return 0;
+}
+
+// _scrolllock - get scroll lock state (stub)
+function _scrolllock() {
+  return 0;
+}
+
+// _devices - get input devices
+function _devices() {
+  if (typeof _runtime.devices === 'function') {
+    return _runtime.devices();
+  }
+  return 0;
+}
+
+// _device$ - get device info
+function _device$(num) {
+  if (typeof _runtime.device === 'function') {
+    return _runtime.device(num);
+  }
+  return '';
+}
+
+// _axis - get joystick axis value
+function _axis(device, axis) {
+  if (typeof _runtime.axis === 'function') {
+    return _runtime.axis(device, axis);
+  }
+  return 0;
+}
+
+// _button - get joystick button state
+function _button(device, button) {
+  if (typeof _runtime.button === 'function') {
+    return _runtime.button(device, button);
+  }
+  return 0;
+}
+
+// _buttonchange - get joystick button change
+function _buttonchange(device, button) {
+  if (typeof _runtime.buttonchange === 'function') {
+    return _runtime.buttonchange(device, button);
+  }
+  return 0;
+}
+
+// _lastbutton - get last button pressed
+function _lastbutton(device) {
+  if (typeof _runtime.lastbutton === 'function') {
+    return _runtime.lastbutton(device);
+  }
+  return 0;
+}
+
+// _lastaxis - get last axis value
+function _lastaxis(device) {
+  if (typeof _runtime.lastaxis === 'function') {
+    return _runtime.lastaxis(device);
+  }
+  return 0;
+}
+
+// _lastwheel - get last wheel value
+function _lastwheel(device) {
+  if (typeof _runtime.lastwheel === 'function') {
+    return _runtime.lastwheel(device);
+  }
+  return 0;
+}
+
+// _totaldroppedfiles - get total dropped files
+function _totaldroppedfiles() {
+  if (typeof _runtime.totaldroppedfiles === 'function') {
+    return _runtime.totaldroppedfiles();
+  }
+  return 0;
+}
+
+// _droppedfile$ - get dropped file name
+function _droppedfile$(index) {
+  if (typeof _runtime.droppedfile === 'function') {
+    return _runtime.droppedfile(index);
+  }
+  return '';
+}
+
+// _instrrev - reverse instr
+function _instrrev(str, find, start) {
+  str = String(str);
+  find = String(find);
+  if (start === undefined) {
+    return str.lastIndexOf(find) + 1;
+  }
+  return str.lastIndexOf(find, start - 1) + 1;
+}
+
+// ========== Additional String Functions ==========
+
+// _trim$ - trim string
+function _trim$(str) {
+  return String(str).trim();
+}
+
+// _leftof$ - get left of string
+function _leftof$(str, delim) {
+  str = String(str);
+  delim = String(delim);
+  const idx = str.indexOf(delim);
+  return idx >= 0 ? str.slice(0, idx) : str;
+}
+
+// _rightof$ - get right of string
+function _rightof$(str, delim) {
+  str = String(str);
+  delim = String(delim);
+  const idx = str.indexOf(delim);
+  return idx >= 0 ? str.slice(idx + delim.length) : '';
+}
+
+// _leftoflast$ - get left of last occurrence
+function _leftoflast$(str, delim) {
+  str = String(str);
+  delim = String(delim);
+  const idx = str.lastIndexOf(delim);
+  return idx >= 0 ? str.slice(0, idx) : str;
+}
+
+// _rightoflast$ - get right of last occurrence
+function _rightoflast$(str, delim) {
+  str = String(str);
+  delim = String(delim);
+  const idx = str.lastIndexOf(delim);
+  return idx >= 0 ? str.slice(idx + delim.length) : str;
+}
 
 (async () => {
 try {

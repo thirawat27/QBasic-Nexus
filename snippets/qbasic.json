@@ -309,7 +309,7 @@
 	"Line Input Statement": {
 		"prefix": "lineinput",
 		"body": [
-			"LINE INPUT \"${1:Enter a sentence}: \"; ${2:stringVariable$}"
+			"LINE INPUT \"${1:Enter a sentence}: \"; ${2:stringVariable\\$}"
 		],
 		"description": "Gets a full line of text input from the user."
 	},
@@ -382,14 +382,14 @@
 		"prefix": "readfile",
 		"body": [
 			"DIM f AS INTEGER",
-			"DIM ${1:line$} AS STRING",
+			"DIM ${1:line\\$} AS STRING",
 			"f = FREEFILE",
 			"",
 			"IF _FILEEXISTS(\"${2:filename.txt}\") THEN",
 			"\tOPEN \"${2:filename.txt}\" FOR INPUT AS #f",
 			"\tDO UNTIL EOF(f)",
-			"\t\tLINE INPUT #f, ${1:line$}",
-			"\t\tPRINT ${1:line$}",
+			"\t\tLINE INPUT #f, ${1:line\\$}",
+			"\t\tPRINT ${1:line\\$}",
 			"\tLOOP",
 			"\tCLOSE #f",
 			"ELSE",
@@ -710,7 +710,7 @@
 		"prefix": "clipboard",
 		"body": [
 			"DIM clipText AS STRING",
-			"clipText = _CLIPBOARD$",
+			"clipText = _CLIPBOARD\\$",
 			"PRINT \"Clipboard: \"; clipText",
 			"$0"
 		],
@@ -850,7 +850,7 @@
 		"prefix": "waitkey",
 		"body": [
 			"PRINT \"${1:Press any key to continue...}\"",
-			"DO: LOOP UNTIL INKEY$ <> \"\"",
+			"DO: LOOP UNTIL INKEY\\$ <> \"\"",
 			"$0"
 		],
 		"description": "Waits for any key press."
@@ -861,7 +861,7 @@
 			"DIM answer AS STRING",
 			"DO",
 			"\tINPUT \"${1:Are you sure} (Y/N)? \", answer",
-			"\tanswer = UCASE$(LEFT$(answer, 1))",
+			"\tanswer = UCASE\\$(LEFT\\$(answer, 1))",
 			"LOOP UNTIL answer = \"Y\" OR answer = \"N\"",
 			"",
 			"IF answer = \"Y\" THEN",
@@ -907,42 +907,42 @@
 	"String - UpperCase": {
 		"prefix": "ucase",
 		"body": [
-			"UCASE$(${1:string})"
+			"UCASE\\$(${1:string})"
 		],
 		"description": "Converts a string to uppercase."
 	},
 	"String - LowerCase": {
 		"prefix": "lcase",
 		"body": [
-			"LCASE$(${1:string})"
+			"LCASE\\$(${1:string})"
 		],
 		"description": "Converts a string to lowercase."
 	},
 	"String - Left Substring": {
 		"prefix": "left",
 		"body": [
-			"LEFT$(${1:string}, ${2:length})"
+			"LEFT\\$(${1:string}, ${2:length})"
 		],
 		"description": "Returns the leftmost characters of a string."
 	},
 	"String - Right Substring": {
 		"prefix": "right",
 		"body": [
-			"RIGHT$(${1:string}, ${2:length})"
+			"RIGHT\\$(${1:string}, ${2:length})"
 		],
 		"description": "Returns the rightmost characters of a string."
 	},
 	"String - Middle Substring": {
 		"prefix": "mid",
 		"body": [
-			"MID$(${1:string}, ${2:start}, ${3:length})"
+			"MID\\$(${1:string}, ${2:start}, ${3:length})"
 		],
 		"description": "Returns a substring from the middle."
 	},
 	"String - Trim": {
 		"prefix": "trim",
 		"body": [
-			"LTRIM$(RTRIM$(${1:string}))"
+			"LTRIM\\$(RTRIM\\$(${1:string}))"
 		],
 		"description": "Removes leading and trailing spaces from a string."
 	},
@@ -1029,5 +1029,5775 @@
 			"LBOUND(${1:arrayName})"
 		],
 		"description": "Returns the lowest available index for a given array."
+	},
+	"Keyword: $ASSERTS": {
+		"prefix": [
+			"kw $asserts",
+			"kw$asserts"
+		],
+		"body": [
+			"\\$ASSERTS"
+		],
+		"description": "Compiler directive that enables or configures assertion support. Inserts the $ASSERTS keyword."
+	},
+	"Keyword: $CHECKING": {
+		"prefix": [
+			"kw $checking",
+			"kw$checking"
+		],
+		"body": [
+			"\\$CHECKING"
+		],
+		"description": "Compiler directive that controls runtime checking behavior. Inserts the $CHECKING keyword."
+	},
+	"Keyword: $COLOR": {
+		"prefix": [
+			"kw $color",
+			"kw$color"
+		],
+		"body": [
+			"\\$COLOR"
+		],
+		"description": "Compiler directive that selects a default console color mode. Inserts the $COLOR keyword."
+	},
+	"Keyword: $CONSOLE": {
+		"prefix": [
+			"kw $console",
+			"kw$console"
+		],
+		"body": [
+			"\\$CONSOLE"
+		],
+		"description": "Compiler directive that forces console-style output behavior. Inserts the $CONSOLE keyword."
+	},
+	"Keyword: $DEBUG": {
+		"prefix": [
+			"kw $debug",
+			"kw$debug"
+		],
+		"body": [
+			"\\$DEBUG"
+		],
+		"description": "Compiler directive that enables debug-oriented compilation behavior. Inserts the $DEBUG keyword."
+	},
+	"Keyword: $DYNAMIC": {
+		"prefix": [
+			"kw $dynamic",
+			"kw$dynamic"
+		],
+		"body": [
+			"\\$DYNAMIC"
+		],
+		"description": "Compiler directive that makes arrays dynamic by default. Inserts the $DYNAMIC keyword."
+	},
+	"Keyword: $ELSE": {
+		"prefix": [
+			"kw $else",
+			"kw$else"
+		],
+		"body": [
+			"\\$ELSE"
+		],
+		"description": "Compile-time conditional alternative branch. Inserts the $ELSE keyword."
+	},
+	"Keyword: $ELSEIF": {
+		"prefix": [
+			"kw $elseif",
+			"kw$elseif"
+		],
+		"body": [
+			"\\$ELSEIF"
+		],
+		"description": "Compile-time conditional branch with an extra condition. Inserts the $ELSEIF keyword."
+	},
+	"Keyword: $END IF": {
+		"prefix": [
+			"kw $end if",
+			"kw$end if",
+			"kw $endif",
+			"kw$endif"
+		],
+		"body": [
+			"\\$END IF"
+		],
+		"description": "Compile-time conditional terminator. Inserts the $END IF keyword."
+	},
+	"Keyword: $IF": {
+		"prefix": [
+			"kw $if",
+			"kw$if"
+		],
+		"body": [
+			"\\$IF"
+		],
+		"description": "Compile-time conditional directive. Inserts the $IF keyword."
+	},
+	"Keyword: $INCLUDE": {
+		"prefix": [
+			"kw $include",
+			"kw$include"
+		],
+		"body": [
+			"\\$INCLUDE"
+		],
+		"description": "Compile-time directive that inserts another source file. Inserts the $INCLUDE keyword."
+	},
+	"Keyword: $STATIC": {
+		"prefix": [
+			"kw $static",
+			"kw$static"
+		],
+		"body": [
+			"\\$STATIC"
+		],
+		"description": "Compiler directive that makes procedure variables static by default. Inserts the $STATIC keyword."
+	},
+	"Keyword: ABSOLUTE": {
+		"prefix": [
+			"kw absolute",
+			"kwabsolute"
+		],
+		"body": [
+			"ABSOLUTE"
+		],
+		"description": "Declares storage or procedures at a fixed memory location. Inserts the ABSOLUTE keyword."
+	},
+	"Keyword: _ACCEPTFILEDROP": {
+		"prefix": [
+			"kw _acceptfiledrop",
+			"kw_acceptfiledrop"
+		],
+		"body": [
+			"_ACCEPTFILEDROP"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _ACCEPTFILEDROP keyword."
+	},
+	"Keyword: ACCESS": {
+		"prefix": [
+			"kw access",
+			"kwaccess"
+		],
+		"body": [
+			"ACCESS"
+		],
+		"description": "OPEN clause that selects file access permissions. Inserts the ACCESS keyword."
+	},
+	"Keyword: _ACOS": {
+		"prefix": [
+			"kw _acos",
+			"kw_acos"
+		],
+		"body": [
+			"_ACOS"
+		],
+		"description": "QB64 math helper keyword. Inserts the _ACOS keyword."
+	},
+	"Keyword: _ALPHA": {
+		"prefix": [
+			"kw _alpha",
+			"kw_alpha"
+		],
+		"body": [
+			"_ALPHA"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _ALPHA keyword."
+	},
+	"Keyword: AND": {
+		"prefix": [
+			"kw and",
+			"kwand"
+		],
+		"body": [
+			"AND"
+		],
+		"description": "Logical/bitwise AND. Inserts the AND keyword."
+	},
+	"Keyword: ANY": {
+		"prefix": [
+			"kw any",
+			"kwany"
+		],
+		"body": [
+			"ANY"
+		],
+		"description": "Data type keyword. Inserts the ANY keyword."
+	},
+	"Keyword: APPEND": {
+		"prefix": [
+			"kw append",
+			"kwappend"
+		],
+		"body": [
+			"APPEND"
+		],
+		"description": "OPEN mode that writes new records at the end of a file. Inserts the APPEND keyword."
+	},
+	"Keyword: _ARCCOT": {
+		"prefix": [
+			"kw _arccot",
+			"kw_arccot"
+		],
+		"body": [
+			"_ARCCOT"
+		],
+		"description": "QB64 math helper keyword. Inserts the _ARCCOT keyword."
+	},
+	"Keyword: _ARCCSC": {
+		"prefix": [
+			"kw _arccsc",
+			"kw_arccsc"
+		],
+		"body": [
+			"_ARCCSC"
+		],
+		"description": "QB64 math helper keyword. Inserts the _ARCCSC keyword."
+	},
+	"Keyword: _ARCSEC": {
+		"prefix": [
+			"kw _arcsec",
+			"kw_arcsec"
+		],
+		"body": [
+			"_ARCSEC"
+		],
+		"description": "QB64 math helper keyword. Inserts the _ARCSEC keyword."
+	},
+	"Keyword: AS": {
+		"prefix": [
+			"kw as",
+			"kwas"
+		],
+		"body": [
+			"AS"
+		],
+		"description": "Specify data type. Inserts the AS keyword."
+	},
+	"Keyword: _ASIN": {
+		"prefix": [
+			"kw _asin",
+			"kw_asin"
+		],
+		"body": [
+			"_ASIN"
+		],
+		"description": "QB64 math helper keyword. Inserts the _ASIN keyword."
+	},
+	"Keyword: _ATAN2": {
+		"prefix": [
+			"kw _atan2",
+			"kw_atan2"
+		],
+		"body": [
+			"_ATAN2"
+		],
+		"description": "QB64 math helper keyword. Inserts the _ATAN2 keyword."
+	},
+	"Keyword: _AUTODISPLAY": {
+		"prefix": [
+			"kw _autodisplay",
+			"kw_autodisplay"
+		],
+		"body": [
+			"_AUTODISPLAY"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _AUTODISPLAY keyword."
+	},
+	"Keyword: _AXIS": {
+		"prefix": [
+			"kw _axis",
+			"kw_axis"
+		],
+		"body": [
+			"_AXIS"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _AXIS keyword."
+	},
+	"Keyword: _BACKGROUNDCOLOR": {
+		"prefix": [
+			"kw _backgroundcolor",
+			"kw_backgroundcolor"
+		],
+		"body": [
+			"_BACKGROUNDCOLOR"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _BACKGROUNDCOLOR keyword."
+	},
+	"Keyword: BASE": {
+		"prefix": [
+			"kw base",
+			"kwbase"
+		],
+		"body": [
+			"BASE"
+		],
+		"description": "Set array base (0 or 1). Inserts the BASE keyword."
+	},
+	"Keyword: BEEP": {
+		"prefix": [
+			"kw beep",
+			"kwbeep"
+		],
+		"body": [
+			"BEEP"
+		],
+		"description": "Produce a beep sound. Inserts the BEEP keyword."
+	},
+	"Keyword: _BIN$": {
+		"prefix": [
+			"kw _bin$",
+			"kw_bin$"
+		],
+		"body": [
+			"_BIN\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the _BIN$ keyword."
+	},
+	"Keyword: BINARY": {
+		"prefix": [
+			"kw binary",
+			"kwbinary"
+		],
+		"body": [
+			"BINARY"
+		],
+		"description": "OPEN mode for byte-oriented file access. Inserts the BINARY keyword."
+	},
+	"Keyword: _BIT": {
+		"prefix": [
+			"kw _bit",
+			"kw_bit"
+		],
+		"body": [
+			"_BIT"
+		],
+		"description": "QB64: 1-bit value. Inserts the _BIT keyword."
+	},
+	"Keyword: BLOAD": {
+		"prefix": [
+			"kw bload",
+			"kwbload"
+		],
+		"body": [
+			"BLOAD"
+		],
+		"description": "Graphics drawing keyword. Inserts the BLOAD keyword."
+	},
+	"Keyword: _BLUE": {
+		"prefix": [
+			"kw _blue",
+			"kw_blue"
+		],
+		"body": [
+			"_BLUE"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _BLUE keyword."
+	},
+	"Keyword: BSAVE": {
+		"prefix": [
+			"kw bsave",
+			"kwbsave"
+		],
+		"body": [
+			"BSAVE"
+		],
+		"description": "Graphics drawing keyword. Inserts the BSAVE keyword."
+	},
+	"Keyword: _BUTTON": {
+		"prefix": [
+			"kw _button",
+			"kw_button"
+		],
+		"body": [
+			"_BUTTON"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _BUTTON keyword."
+	},
+	"Keyword: _BUTTONCHANGE": {
+		"prefix": [
+			"kw _buttonchange",
+			"kw_buttonchange"
+		],
+		"body": [
+			"_BUTTONCHANGE"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _BUTTONCHANGE keyword."
+	},
+	"Keyword: BYREF": {
+		"prefix": [
+			"kw byref",
+			"kwbyref"
+		],
+		"body": [
+			"BYREF"
+		],
+		"description": "Pass parameter by reference. Inserts the BYREF keyword."
+	},
+	"Keyword: _BYTE": {
+		"prefix": [
+			"kw _byte",
+			"kw_byte"
+		],
+		"body": [
+			"_BYTE"
+		],
+		"description": "QB64: 8-bit signed integer. Inserts the _BYTE keyword."
+	},
+	"Keyword: BYVAL": {
+		"prefix": [
+			"kw byval",
+			"kwbyval"
+		],
+		"body": [
+			"BYVAL"
+		],
+		"description": "Pass parameter by value. Inserts the BYVAL keyword."
+	},
+	"Keyword: CALL": {
+		"prefix": [
+			"kw call",
+			"kwcall"
+		],
+		"body": [
+			"CALL"
+		],
+		"description": "Call subroutine. Inserts the CALL keyword."
+	},
+	"Keyword: CALLS": {
+		"prefix": [
+			"kw calls",
+			"kwcalls"
+		],
+		"body": [
+			"CALLS"
+		],
+		"description": "QuickBASIC keyword used when calling external-language procedures. Inserts the CALLS keyword."
+	},
+	"Keyword: _CAPSLOCK": {
+		"prefix": [
+			"kw _capslock",
+			"kw_capslock"
+		],
+		"body": [
+			"_CAPSLOCK"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _CAPSLOCK keyword."
+	},
+	"Keyword: CASE": {
+		"prefix": [
+			"kw case",
+			"kwcase"
+		],
+		"body": [
+			"CASE"
+		],
+		"description": "Define a case. Inserts the CASE keyword."
+	},
+	"Keyword: _CEIL": {
+		"prefix": [
+			"kw _ceil",
+			"kw_ceil"
+		],
+		"body": [
+			"_CEIL"
+		],
+		"description": "QB64 math helper keyword. Inserts the _CEIL keyword."
+	},
+	"Keyword: CHAIN": {
+		"prefix": [
+			"kw chain",
+			"kwchain"
+		],
+		"body": [
+			"CHAIN"
+		],
+		"description": "Stops the current program and loads another program. Inserts the CHAIN keyword."
+	},
+	"Keyword: CHDIR": {
+		"prefix": [
+			"kw chdir",
+			"kwchdir"
+		],
+		"body": [
+			"CHDIR"
+		],
+		"description": "Change directory. Inserts the CHDIR keyword."
+	},
+	"Keyword: CIRCLE": {
+		"prefix": [
+			"kw circle",
+			"kwcircle"
+		],
+		"body": [
+			"CIRCLE"
+		],
+		"description": "Draw circle or ellipse. Inserts the CIRCLE keyword."
+	},
+	"Keyword: CLEAR": {
+		"prefix": [
+			"kw clear",
+			"kwclear"
+		],
+		"body": [
+			"CLEAR"
+		],
+		"description": "Resets variables, arrays, file buffers, and runtime state. Inserts the CLEAR keyword."
+	},
+	"Keyword: _CLEARCOLOR": {
+		"prefix": [
+			"kw _clearcolor",
+			"kw_clearcolor"
+		],
+		"body": [
+			"_CLEARCOLOR"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _CLEARCOLOR keyword."
+	},
+	"Keyword: _CLIPBOARD": {
+		"prefix": [
+			"kw _clipboard",
+			"kw_clipboard"
+		],
+		"body": [
+			"_CLIPBOARD"
+		],
+		"description": "QB64 clipboard-access keyword. Inserts the _CLIPBOARD keyword."
+	},
+	"Keyword: _CLIPBOARD$": {
+		"prefix": [
+			"kw _clipboard$",
+			"kw_clipboard$"
+		],
+		"body": [
+			"_CLIPBOARD\\$"
+		],
+		"description": "QB64: Get/set clipboard text. Inserts the _CLIPBOARD$ keyword."
+	},
+	"Keyword: CLOSE": {
+		"prefix": [
+			"kw close",
+			"kwclose"
+		],
+		"body": [
+			"CLOSE"
+		],
+		"description": "Close a file. Inserts the CLOSE keyword."
+	},
+	"Keyword: CLS": {
+		"prefix": [
+			"kw cls",
+			"kwcls"
+		],
+		"body": [
+			"CLS"
+		],
+		"description": "Clear the screen. Inserts the CLS keyword."
+	},
+	"Keyword: COLOR": {
+		"prefix": [
+			"kw color",
+			"kwcolor"
+		],
+		"body": [
+			"COLOR"
+		],
+		"description": "Set foreground and background colors. Inserts the COLOR keyword."
+	},
+	"Keyword: COMMON": {
+		"prefix": [
+			"kw common",
+			"kwcommon"
+		],
+		"body": [
+			"COMMON"
+		],
+		"description": "Share variables between modules. Inserts the COMMON keyword."
+	},
+	"Keyword: _CONNECTED": {
+		"prefix": [
+			"kw _connected",
+			"kw_connected"
+		],
+		"body": [
+			"_CONNECTED"
+		],
+		"description": "QB64: Check network connection. Inserts the _CONNECTED keyword."
+	},
+	"Keyword: _CONNECTIONADDRESS$": {
+		"prefix": [
+			"kw _connectionaddress$",
+			"kw_connectionaddress$"
+		],
+		"body": [
+			"_CONNECTIONADDRESS\\$"
+		],
+		"description": "QB64 networking keyword. Inserts the _CONNECTIONADDRESS$ keyword."
+	},
+	"Keyword: _CONSOLE": {
+		"prefix": [
+			"kw _console",
+			"kw_console"
+		],
+		"body": [
+			"_CONSOLE"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _CONSOLE keyword."
+	},
+	"Keyword: _CONSOLEINPUT": {
+		"prefix": [
+			"kw _consoleinput",
+			"kw_consoleinput"
+		],
+		"body": [
+			"_CONSOLEINPUT"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _CONSOLEINPUT keyword."
+	},
+	"Keyword: _CONSOLETITLE": {
+		"prefix": [
+			"kw _consoletitle",
+			"kw_consoletitle"
+		],
+		"body": [
+			"_CONSOLETITLE"
+		],
+		"description": "QB64: Set console title. Inserts the _CONSOLETITLE keyword."
+	},
+	"Keyword: CONST": {
+		"prefix": [
+			"kw const",
+			"kwconst"
+		],
+		"body": [
+			"CONST"
+		],
+		"description": "Define constant. Inserts the CONST keyword."
+	},
+	"Keyword: CONTINUE": {
+		"prefix": [
+			"kw continue",
+			"kwcontinue"
+		],
+		"body": [
+			"CONTINUE"
+		],
+		"description": "Control-flow keyword. Inserts the CONTINUE keyword."
+	},
+	"Keyword: _CONTINUE": {
+		"prefix": [
+			"kw _continue",
+			"kw_continue"
+		],
+		"body": [
+			"_CONTINUE"
+		],
+		"description": "QB64 loop-control keyword that skips to the next iteration. Inserts the _CONTINUE keyword."
+	},
+	"Keyword: _CONTROLCHR": {
+		"prefix": [
+			"kw _controlchr",
+			"kw_controlchr"
+		],
+		"body": [
+			"_CONTROLCHR"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _CONTROLCHR keyword."
+	},
+	"Keyword: _COPYIMAGE": {
+		"prefix": [
+			"kw _copyimage",
+			"kw_copyimage"
+		],
+		"body": [
+			"_COPYIMAGE"
+		],
+		"description": "QB64: Copy image. Inserts the _COPYIMAGE keyword."
+	},
+	"Keyword: _COPYPALETTE": {
+		"prefix": [
+			"kw _copypalette",
+			"kw_copypalette"
+		],
+		"body": [
+			"_COPYPALETTE"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _COPYPALETTE keyword."
+	},
+	"Keyword: _COSH": {
+		"prefix": [
+			"kw _cosh",
+			"kw_cosh"
+		],
+		"body": [
+			"_COSH"
+		],
+		"description": "QB64 math helper keyword. Inserts the _COSH keyword."
+	},
+	"Keyword: _COT": {
+		"prefix": [
+			"kw _cot",
+			"kw_cot"
+		],
+		"body": [
+			"_COT"
+		],
+		"description": "QB64 math helper keyword. Inserts the _COT keyword."
+	},
+	"Keyword: _COTH": {
+		"prefix": [
+			"kw _coth",
+			"kw_coth"
+		],
+		"body": [
+			"_COTH"
+		],
+		"description": "QB64 math helper keyword. Inserts the _COTH keyword."
+	},
+	"Keyword: _CSC": {
+		"prefix": [
+			"kw _csc",
+			"kw_csc"
+		],
+		"body": [
+			"_CSC"
+		],
+		"description": "QB64 math helper keyword. Inserts the _CSC keyword."
+	},
+	"Keyword: _CSCH": {
+		"prefix": [
+			"kw _csch",
+			"kw_csch"
+		],
+		"body": [
+			"_CSCH"
+		],
+		"description": "QB64 math helper keyword. Inserts the _CSCH keyword."
+	},
+	"Keyword: CSRLIN": {
+		"prefix": [
+			"kw csrlin",
+			"kwcsrlin"
+		],
+		"body": [
+			"CSRLIN"
+		],
+		"description": "Returns current cursor row. Inserts the CSRLIN keyword."
+	},
+	"Keyword: _CV": {
+		"prefix": [
+			"kw _cv",
+			"kw_cv"
+		],
+		"body": [
+			"_CV"
+		],
+		"description": "QB64 packed-byte conversion keyword. Inserts the _CV keyword."
+	},
+	"Keyword: _CVD": {
+		"prefix": [
+			"kw _cvd",
+			"kw_cvd"
+		],
+		"body": [
+			"_CVD"
+		],
+		"description": "QB64 DOUBLE conversion keyword for packed-byte data. Inserts the _CVD keyword."
+	},
+	"Keyword: _CVI": {
+		"prefix": [
+			"kw _cvi",
+			"kw_cvi"
+		],
+		"body": [
+			"_CVI"
+		],
+		"description": "QB64 INTEGER conversion keyword for packed-byte data. Inserts the _CVI keyword."
+	},
+	"Keyword: _CVL": {
+		"prefix": [
+			"kw _cvl",
+			"kw_cvl"
+		],
+		"body": [
+			"_CVL"
+		],
+		"description": "QB64 LONG conversion keyword for packed-byte data. Inserts the _CVL keyword."
+	},
+	"Keyword: _CVS": {
+		"prefix": [
+			"kw _cvs",
+			"kw_cvs"
+		],
+		"body": [
+			"_CVS"
+		],
+		"description": "QB64 SINGLE conversion keyword for packed-byte data. Inserts the _CVS keyword."
+	},
+	"Keyword: _CWD$": {
+		"prefix": [
+			"kw _cwd$",
+			"kw_cwd$"
+		],
+		"body": [
+			"_CWD\\$"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _CWD$ keyword."
+	},
+	"Keyword: _D2G": {
+		"prefix": [
+			"kw _d2g",
+			"kw_d2g"
+		],
+		"body": [
+			"_D2G"
+		],
+		"description": "QB64 math helper keyword. Inserts the _D2G keyword."
+	},
+	"Keyword: _D2R": {
+		"prefix": [
+			"kw _d2r",
+			"kw_d2r"
+		],
+		"body": [
+			"_D2R"
+		],
+		"description": "QB64 math helper keyword. Inserts the _D2R keyword."
+	},
+	"Keyword: DATA": {
+		"prefix": [
+			"kw data",
+			"kwdata"
+		],
+		"body": [
+			"DATA"
+		],
+		"description": "Store data values. Inserts the DATA keyword."
+	},
+	"Keyword: _DATE$": {
+		"prefix": [
+			"kw _date$",
+			"kw_date$"
+		],
+		"body": [
+			"_DATE\\$"
+		],
+		"description": "QB64 date and time keyword. Inserts the _DATE$ keyword."
+	},
+	"Keyword: DATE$": {
+		"prefix": [
+			"kw date$",
+			"kwdate$"
+		],
+		"body": [
+			"DATE\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the DATE$ keyword."
+	},
+	"Keyword: _DAY": {
+		"prefix": [
+			"kw _day",
+			"kw_day"
+		],
+		"body": [
+			"_DAY"
+		],
+		"description": "QB64 date and time keyword. Inserts the _DAY keyword."
+	},
+	"Keyword: DECLARE": {
+		"prefix": [
+			"kw declare",
+			"kwdeclare"
+		],
+		"body": [
+			"DECLARE"
+		],
+		"description": "Declare SUB or FUNCTION. Inserts the DECLARE keyword."
+	},
+	"Keyword: DEF": {
+		"prefix": [
+			"kw def",
+			"kwdef"
+		],
+		"body": [
+			"DEF"
+		],
+		"description": "Define user function (legacy). Inserts the DEF keyword."
+	},
+	"Keyword: _DEFAULTCOLOR": {
+		"prefix": [
+			"kw _defaultcolor",
+			"kw_defaultcolor"
+		],
+		"body": [
+			"_DEFAULTCOLOR"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _DEFAULTCOLOR keyword."
+	},
+	"Keyword: DEFDBL": {
+		"prefix": [
+			"kw defdbl",
+			"kwdefdbl"
+		],
+		"body": [
+			"DEFDBL"
+		],
+		"description": "Sets the default type of matching variable names to DOUBLE. Inserts the DEFDBL keyword."
+	},
+	"Keyword: DEFINT": {
+		"prefix": [
+			"kw defint",
+			"kwdefint"
+		],
+		"body": [
+			"DEFINT"
+		],
+		"description": "Sets the default type of matching variable names to INTEGER. Inserts the DEFINT keyword."
+	},
+	"Keyword: DEFLNG": {
+		"prefix": [
+			"kw deflng",
+			"kwdeflng"
+		],
+		"body": [
+			"DEFLNG"
+		],
+		"description": "Sets the default type of matching variable names to LONG. Inserts the DEFLNG keyword."
+	},
+	"Keyword: DEFSNG": {
+		"prefix": [
+			"kw defsng",
+			"kwdefsng"
+		],
+		"body": [
+			"DEFSNG"
+		],
+		"description": "Sets the default type of matching variable names to SINGLE. Inserts the DEFSNG keyword."
+	},
+	"Keyword: DEFSTR": {
+		"prefix": [
+			"kw defstr",
+			"kwdefstr"
+		],
+		"body": [
+			"DEFSTR"
+		],
+		"description": "Sets the default type of matching variable names to STRING. Inserts the DEFSTR keyword."
+	},
+	"Keyword: _DELAY": {
+		"prefix": [
+			"kw _delay",
+			"kw_delay"
+		],
+		"body": [
+			"_DELAY"
+		],
+		"description": "QB64: Delay in seconds. Inserts the _DELAY keyword."
+	},
+	"Keyword: _DEST": {
+		"prefix": [
+			"kw _dest",
+			"kw_dest"
+		],
+		"body": [
+			"_DEST"
+		],
+		"description": "QB64: Set destination image. Inserts the _DEST keyword."
+	},
+	"Keyword: _DEVICE": {
+		"prefix": [
+			"kw _device",
+			"kw_device"
+		],
+		"body": [
+			"_DEVICE"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _DEVICE keyword."
+	},
+	"Keyword: _DEVICE$": {
+		"prefix": [
+			"kw _device$",
+			"kw_device$"
+		],
+		"body": [
+			"_DEVICE\\$"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _DEVICE$ keyword."
+	},
+	"Keyword: _DEVICEINPUT": {
+		"prefix": [
+			"kw _deviceinput",
+			"kw_deviceinput"
+		],
+		"body": [
+			"_DEVICEINPUT"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _DEVICEINPUT keyword."
+	},
+	"Keyword: _DEVICES": {
+		"prefix": [
+			"kw _devices",
+			"kw_devices"
+		],
+		"body": [
+			"_DEVICES"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _DEVICES keyword."
+	},
+	"Keyword: DIM": {
+		"prefix": [
+			"kw dim",
+			"kwdim"
+		],
+		"body": [
+			"DIM"
+		],
+		"description": "Declare variable/array. Inserts the DIM keyword."
+	},
+	"Keyword: _DIR$": {
+		"prefix": [
+			"kw _dir$",
+			"kw_dir$"
+		],
+		"body": [
+			"_DIR\\$"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _DIR$ keyword."
+	},
+	"Keyword: _DIREXISTS": {
+		"prefix": [
+			"kw _direxists",
+			"kw_direxists"
+		],
+		"body": [
+			"_DIREXISTS"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _DIREXISTS keyword."
+	},
+	"Keyword: _DISPLAY": {
+		"prefix": [
+			"kw _display",
+			"kw_display"
+		],
+		"body": [
+			"_DISPLAY"
+		],
+		"description": "QB64: Update display. Inserts the _DISPLAY keyword."
+	},
+	"Keyword: DO": {
+		"prefix": [
+			"kw do",
+			"kwdo"
+		],
+		"body": [
+			"DO"
+		],
+		"description": "Begin DO loop. Inserts the DO keyword."
+	},
+	"Keyword: _DONTWAIT": {
+		"prefix": [
+			"kw _dontwait",
+			"kw_dontwait"
+		],
+		"body": [
+			"_DONTWAIT"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _DONTWAIT keyword."
+	},
+	"Keyword: DOUBLE": {
+		"prefix": [
+			"kw double",
+			"kwdouble"
+		],
+		"body": [
+			"DOUBLE"
+		],
+		"description": "64-bit floating point. Inserts the DOUBLE keyword."
+	},
+	"Keyword: DRAW": {
+		"prefix": [
+			"kw draw",
+			"kwdraw"
+		],
+		"body": [
+			"DRAW"
+		],
+		"description": "Draw using string commands. Inserts the DRAW keyword."
+	},
+	"Keyword: _DROPPEDFILE$": {
+		"prefix": [
+			"kw _droppedfile$",
+			"kw_droppedfile$"
+		],
+		"body": [
+			"_DROPPEDFILE\\$"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _DROPPEDFILE$ keyword."
+	},
+	"Keyword: ELSE": {
+		"prefix": [
+			"kw else",
+			"kwelse"
+		],
+		"body": [
+			"ELSE"
+		],
+		"description": "Alternative branch. Inserts the ELSE keyword."
+	},
+	"Keyword: ELSEIF": {
+		"prefix": [
+			"kw elseif",
+			"kwelseif"
+		],
+		"body": [
+			"ELSEIF"
+		],
+		"description": "Additional condition. Inserts the ELSEIF keyword."
+	},
+	"Keyword: _EMBEDDED$": {
+		"prefix": [
+			"kw _embedded$",
+			"kw_embedded$"
+		],
+		"body": [
+			"_EMBEDDED\\$"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _EMBEDDED$ keyword."
+	},
+	"Keyword: END": {
+		"prefix": [
+			"kw end",
+			"kwend"
+		],
+		"body": [
+			"END"
+		],
+		"description": "End a block or program. Inserts the END keyword."
+	},
+	"Keyword: ENVIRON": {
+		"prefix": [
+			"kw environ",
+			"kwenviron"
+		],
+		"body": [
+			"ENVIRON"
+		],
+		"description": "Sets an environment variable or command shell value. Inserts the ENVIRON keyword."
+	},
+	"Keyword: _ENVIRONCOUNT": {
+		"prefix": [
+			"kw _environcount",
+			"kw_environcount"
+		],
+		"body": [
+			"_ENVIRONCOUNT"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _ENVIRONCOUNT keyword."
+	},
+	"Keyword: EOF": {
+		"prefix": [
+			"kw eof",
+			"kweof"
+		],
+		"body": [
+			"EOF"
+		],
+		"description": "Check end of file. Inserts the EOF keyword."
+	},
+	"Keyword: EQV": {
+		"prefix": [
+			"kw eqv",
+			"kweqv"
+		],
+		"body": [
+			"EQV"
+		],
+		"description": "Logical equivalence. Inserts the EQV keyword."
+	},
+	"Keyword: ERASE": {
+		"prefix": [
+			"kw erase",
+			"kwerase"
+		],
+		"body": [
+			"ERASE"
+		],
+		"description": "Clear array. Inserts the ERASE keyword."
+	},
+	"Keyword: ERL": {
+		"prefix": [
+			"kw erl",
+			"kwerl"
+		],
+		"body": [
+			"ERL"
+		],
+		"description": "Error line number. Inserts the ERL keyword."
+	},
+	"Keyword: ERR": {
+		"prefix": [
+			"kw err",
+			"kwerr"
+		],
+		"body": [
+			"ERR"
+		],
+		"description": "Error code. Inserts the ERR keyword."
+	},
+	"Keyword: ERROR": {
+		"prefix": [
+			"kw error",
+			"kwerror"
+		],
+		"body": [
+			"ERROR"
+		],
+		"description": "Simulate error. Inserts the ERROR keyword."
+	},
+	"Keyword: _ERROR$": {
+		"prefix": [
+			"kw _error$",
+			"kw_error$"
+		],
+		"body": [
+			"_ERROR\\$"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _ERROR$ keyword."
+	},
+	"Keyword: _ERRORMESSAGE$": {
+		"prefix": [
+			"kw _errormessage$",
+			"kw_errormessage$"
+		],
+		"body": [
+			"_ERRORMESSAGE\\$"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _ERRORMESSAGE$ keyword."
+	},
+	"Keyword: EXIT": {
+		"prefix": [
+			"kw exit",
+			"kwexit"
+		],
+		"body": [
+			"EXIT"
+		],
+		"description": "Exit loop/sub/function early. Inserts the EXIT keyword."
+	},
+	"Keyword: _EXIT": {
+		"prefix": [
+			"kw _exit",
+			"kw_exit"
+		],
+		"body": [
+			"_EXIT"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _EXIT keyword."
+	},
+	"Keyword: _EXP10": {
+		"prefix": [
+			"kw _exp10",
+			"kw_exp10"
+		],
+		"body": [
+			"_EXP10"
+		],
+		"description": "QB64 math helper keyword. Inserts the _EXP10 keyword."
+	},
+	"Keyword: _EXPLICIT": {
+		"prefix": [
+			"kw _explicit",
+			"kw_explicit"
+		],
+		"body": [
+			"_EXPLICIT"
+		],
+		"description": "QB64 directive or option related to explicit declarations. Inserts the _EXPLICIT keyword."
+	},
+	"Keyword: _EXPLICITARRAY": {
+		"prefix": [
+			"kw _explicitarray",
+			"kw_explicitarray"
+		],
+		"body": [
+			"_EXPLICITARRAY"
+		],
+		"description": "QB64 directive or option related to explicit array declarations. Inserts the _EXPLICITARRAY keyword."
+	},
+	"Keyword: FIELD": {
+		"prefix": [
+			"kw field",
+			"kwfield"
+		],
+		"body": [
+			"FIELD"
+		],
+		"description": "Maps fixed-length variables onto a random-file record buffer. Inserts the FIELD keyword."
+	},
+	"Keyword: _FILEEXISTS": {
+		"prefix": [
+			"kw _fileexists",
+			"kw_fileexists"
+		],
+		"body": [
+			"_FILEEXISTS"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _FILEEXISTS keyword."
+	},
+	"Keyword: FILES": {
+		"prefix": [
+			"kw files",
+			"kwfiles"
+		],
+		"body": [
+			"FILES"
+		],
+		"description": "List directory. Inserts the FILES keyword."
+	},
+	"Keyword: _FINISHDROP": {
+		"prefix": [
+			"kw _finishdrop",
+			"kw_finishdrop"
+		],
+		"body": [
+			"_FINISHDROP"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _FINISHDROP keyword."
+	},
+	"Keyword: _FLOAT": {
+		"prefix": [
+			"kw _float",
+			"kw_float"
+		],
+		"body": [
+			"_FLOAT"
+		],
+		"description": "QB64: Extended precision float. Inserts the _FLOAT keyword."
+	},
+	"Keyword: _FLOOR": {
+		"prefix": [
+			"kw _floor",
+			"kw_floor"
+		],
+		"body": [
+			"_FLOOR"
+		],
+		"description": "QB64 math helper keyword. Inserts the _FLOOR keyword."
+	},
+	"Keyword: FN": {
+		"prefix": [
+			"kw fn",
+			"kwfn"
+		],
+		"body": [
+			"FN"
+		],
+		"description": "Declaration or definition keyword. Inserts the FN keyword."
+	},
+	"Keyword: _FONT": {
+		"prefix": [
+			"kw _font",
+			"kw_font"
+		],
+		"body": [
+			"_FONT"
+		],
+		"description": "QB64: Set font. Inserts the _FONT keyword."
+	},
+	"Keyword: _FONTHEIGHT": {
+		"prefix": [
+			"kw _fontheight",
+			"kw_fontheight"
+		],
+		"body": [
+			"_FONTHEIGHT"
+		],
+		"description": "QB64: Get font height. Inserts the _FONTHEIGHT keyword."
+	},
+	"Keyword: _FONTWIDTH": {
+		"prefix": [
+			"kw _fontwidth",
+			"kw_fontwidth"
+		],
+		"body": [
+			"_FONTWIDTH"
+		],
+		"description": "QB64: Get font width. Inserts the _FONTWIDTH keyword."
+	},
+	"Keyword: FOR": {
+		"prefix": [
+			"kw for",
+			"kwfor"
+		],
+		"body": [
+			"FOR"
+		],
+		"description": "Counting loop. Inserts the FOR keyword."
+	},
+	"Keyword: FRE": {
+		"prefix": [
+			"kw fre",
+			"kwfre"
+		],
+		"body": [
+			"FRE"
+		],
+		"description": "Returns available memory or string-space information. Inserts the FRE keyword."
+	},
+	"Keyword: FREEFILE": {
+		"prefix": [
+			"kw freefile",
+			"kwfreefile"
+		],
+		"body": [
+			"FREEFILE"
+		],
+		"description": "Input/output keyword. Inserts the FREEFILE keyword."
+	},
+	"Keyword: _FREEFONT": {
+		"prefix": [
+			"kw _freefont",
+			"kw_freefont"
+		],
+		"body": [
+			"_FREEFONT"
+		],
+		"description": "QB64: Free font memory. Inserts the _FREEFONT keyword."
+	},
+	"Keyword: _FREEIMAGE": {
+		"prefix": [
+			"kw _freeimage",
+			"kw_freeimage"
+		],
+		"body": [
+			"_FREEIMAGE"
+		],
+		"description": "QB64: Free image memory. Inserts the _FREEIMAGE keyword."
+	},
+	"Keyword: _FULLSCREEN": {
+		"prefix": [
+			"kw _fullscreen",
+			"kw_fullscreen"
+		],
+		"body": [
+			"_FULLSCREEN"
+		],
+		"description": "QB64: Toggle fullscreen. Inserts the _FULLSCREEN keyword."
+	},
+	"Keyword: FUNCTION": {
+		"prefix": [
+			"kw function",
+			"kwfunction"
+		],
+		"body": [
+			"FUNCTION"
+		],
+		"description": "Define function. Inserts the FUNCTION keyword."
+	},
+	"Keyword: _G2D": {
+		"prefix": [
+			"kw _g2d",
+			"kw_g2d"
+		],
+		"body": [
+			"_G2D"
+		],
+		"description": "QB64 math helper keyword. Inserts the _G2D keyword."
+	},
+	"Keyword: _G2R": {
+		"prefix": [
+			"kw _g2r",
+			"kw_g2r"
+		],
+		"body": [
+			"_G2R"
+		],
+		"description": "QB64 math helper keyword. Inserts the _G2R keyword."
+	},
+	"Keyword: GET": {
+		"prefix": [
+			"kw get",
+			"kwget"
+		],
+		"body": [
+			"GET"
+		],
+		"description": "Read from random access file. Inserts the GET keyword."
+	},
+	"Keyword: _GETPTR": {
+		"prefix": [
+			"kw _getptr",
+			"kw_getptr"
+		],
+		"body": [
+			"_GETPTR"
+		],
+		"description": "QB64 memory-pointer query keyword. Inserts the _GETPTR keyword."
+	},
+	"Keyword: _GETPTR$": {
+		"prefix": [
+			"kw _getptr$",
+			"kw_getptr$"
+		],
+		"body": [
+			"_GETPTR\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the _GETPTR$ keyword."
+	},
+	"Keyword: GOSUB": {
+		"prefix": [
+			"kw gosub",
+			"kwgosub"
+		],
+		"body": [
+			"GOSUB"
+		],
+		"description": "Call subroutine at label. Inserts the GOSUB keyword."
+	},
+	"Keyword: GOTO": {
+		"prefix": [
+			"kw goto",
+			"kwgoto"
+		],
+		"body": [
+			"GOTO"
+		],
+		"description": "Jump to label. Inserts the GOTO keyword."
+	},
+	"Keyword: _GREEN": {
+		"prefix": [
+			"kw _green",
+			"kw_green"
+		],
+		"body": [
+			"_GREEN"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _GREEN keyword."
+	},
+	"Keyword: _HEIGHT": {
+		"prefix": [
+			"kw _height",
+			"kw_height"
+		],
+		"body": [
+			"_HEIGHT"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _HEIGHT keyword."
+	},
+	"Keyword: _HIDE": {
+		"prefix": [
+			"kw _hide",
+			"kw_hide"
+		],
+		"body": [
+			"_HIDE"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _HIDE keyword."
+	},
+	"Keyword: _HOUR": {
+		"prefix": [
+			"kw _hour",
+			"kw_hour"
+		],
+		"body": [
+			"_HOUR"
+		],
+		"description": "QB64 date and time keyword. Inserts the _HOUR keyword."
+	},
+	"Keyword: _HYPOT": {
+		"prefix": [
+			"kw _hypot",
+			"kw_hypot"
+		],
+		"body": [
+			"_HYPOT"
+		],
+		"description": "QB64 math helper keyword. Inserts the _HYPOT keyword."
+	},
+	"Keyword: _ICON": {
+		"prefix": [
+			"kw _icon",
+			"kw_icon"
+		],
+		"body": [
+			"_ICON"
+		],
+		"description": "QB64 keyword that sets or queries the application icon. Inserts the _ICON keyword."
+	},
+	"Keyword: IF": {
+		"prefix": [
+			"kw if",
+			"kwif"
+		],
+		"body": [
+			"IF"
+		],
+		"description": "Conditional statement. Inserts the IF keyword."
+	},
+	"Keyword: IMP": {
+		"prefix": [
+			"kw imp",
+			"kwimp"
+		],
+		"body": [
+			"IMP"
+		],
+		"description": "Logical implication. Inserts the IMP keyword."
+	},
+	"Keyword: INKEY$": {
+		"prefix": [
+			"kw inkey$",
+			"kwinkey$"
+		],
+		"body": [
+			"INKEY\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the INKEY$ keyword."
+	},
+	"Keyword: INP": {
+		"prefix": [
+			"kw inp",
+			"kwinp"
+		],
+		"body": [
+			"INP"
+		],
+		"description": "Input/output keyword. Inserts the INP keyword."
+	},
+	"Keyword: _INPOKE": {
+		"prefix": [
+			"kw _inpoke",
+			"kw_inpoke"
+		],
+		"body": [
+			"_INPOKE"
+		],
+		"description": "QB64 low-level input/output helper keyword. Inserts the _INPOKE keyword."
+	},
+	"Keyword: INPUT": {
+		"prefix": [
+			"kw input",
+			"kwinput"
+		],
+		"body": [
+			"INPUT"
+		],
+		"description": "Get user input from keyboard. Inserts the INPUT keyword."
+	},
+	"Keyword: INPUT #": {
+		"prefix": [
+			"kw input #",
+			"kwinput #",
+			"kw input#",
+			"kwinput#"
+		],
+		"body": [
+			"INPUT #"
+		],
+		"description": "Read from file. Inserts the INPUT # keyword."
+	},
+	"Keyword: _INSTRREV": {
+		"prefix": [
+			"kw _instrrev",
+			"kw_instrrev"
+		],
+		"body": [
+			"_INSTRREV"
+		],
+		"description": "QB64 reverse string-search keyword. Inserts the _INSTRREV keyword."
+	},
+	"Keyword: INTEGER": {
+		"prefix": [
+			"kw integer",
+			"kwinteger"
+		],
+		"body": [
+			"INTEGER"
+		],
+		"description": "16-bit signed integer (-32768 to 32767). Inserts the INTEGER keyword."
+	},
+	"Keyword: _INTEGER64": {
+		"prefix": [
+			"kw _integer64",
+			"kw_integer64"
+		],
+		"body": [
+			"_INTEGER64"
+		],
+		"description": "QB64: 64-bit integer. Inserts the _INTEGER64 keyword."
+	},
+	"Keyword: INTERRUPT": {
+		"prefix": [
+			"kw interrupt",
+			"kwinterrupt"
+		],
+		"body": [
+			"INTERRUPT"
+		],
+		"description": "Calls a DOS or BIOS interrupt routine. Inserts the INTERRUPT keyword."
+	},
+	"Keyword: INTERRUPTX": {
+		"prefix": [
+			"kw interruptx",
+			"kwinterruptx"
+		],
+		"body": [
+			"INTERRUPTX"
+		],
+		"description": "Calls a DOS or BIOS interrupt routine with extended registers. Inserts the INTERRUPTX keyword."
+	},
+	"Keyword: IOCTL": {
+		"prefix": [
+			"kw ioctl",
+			"kwioctl"
+		],
+		"body": [
+			"IOCTL"
+		],
+		"description": "Performs low-level device control on an open file handle. Inserts the IOCTL keyword."
+	},
+	"Keyword: IOCTL$": {
+		"prefix": [
+			"kw ioctl$",
+			"kwioctl$"
+		],
+		"body": [
+			"IOCTL\\$"
+		],
+		"description": "Returns a low-level device control string from an open file handle. Inserts the IOCTL$ keyword."
+	},
+	"Keyword: KEY": {
+		"prefix": [
+			"kw key",
+			"kwkey"
+		],
+		"body": [
+			"KEY"
+		],
+		"description": "Defines or enables function-key assignments. Inserts the KEY keyword."
+	},
+	"Keyword: _KEYBOARDTYPE": {
+		"prefix": [
+			"kw _keyboardtype",
+			"kw_keyboardtype"
+		],
+		"body": [
+			"_KEYBOARDTYPE"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _KEYBOARDTYPE keyword."
+	},
+	"Keyword: _KEYCLEAR": {
+		"prefix": [
+			"kw _keyclear",
+			"kw_keyclear"
+		],
+		"body": [
+			"_KEYCLEAR"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _KEYCLEAR keyword."
+	},
+	"Keyword: _KEYDOWN": {
+		"prefix": [
+			"kw _keydown",
+			"kw_keydown"
+		],
+		"body": [
+			"_KEYDOWN"
+		],
+		"description": "QB64: Check if key is held. Inserts the _KEYDOWN keyword."
+	},
+	"Keyword: _KEYHIT": {
+		"prefix": [
+			"kw _keyhit",
+			"kw_keyhit"
+		],
+		"body": [
+			"_KEYHIT"
+		],
+		"description": "QB64: Get key press. Inserts the _KEYHIT keyword."
+	},
+	"Keyword: _KEYTOSTR$": {
+		"prefix": [
+			"kw _keytostr$",
+			"kw_keytostr$"
+		],
+		"body": [
+			"_KEYTOSTR\\$"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _KEYTOSTR$ keyword."
+	},
+	"Keyword: KILL": {
+		"prefix": [
+			"kw kill",
+			"kwkill"
+		],
+		"body": [
+			"KILL"
+		],
+		"description": "Delete file. Inserts the KILL keyword."
+	},
+	"Keyword: _LASTAXIS": {
+		"prefix": [
+			"kw _lastaxis",
+			"kw_lastaxis"
+		],
+		"body": [
+			"_LASTAXIS"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _LASTAXIS keyword."
+	},
+	"Keyword: _LASTBUTTON": {
+		"prefix": [
+			"kw _lastbutton",
+			"kw_lastbutton"
+		],
+		"body": [
+			"_LASTBUTTON"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _LASTBUTTON keyword."
+	},
+	"Keyword: _LASTWHEEL": {
+		"prefix": [
+			"kw _lastwheel",
+			"kw_lastwheel"
+		],
+		"body": [
+			"_LASTWHEEL"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _LASTWHEEL keyword."
+	},
+	"Keyword: LEN": {
+		"prefix": [
+			"kw len",
+			"kwlen"
+		],
+		"body": [
+			"LEN"
+		],
+		"description": "File mode or file-sharing keyword. Inserts the LEN keyword."
+	},
+	"Keyword: LET": {
+		"prefix": [
+			"kw let",
+			"kwlet"
+		],
+		"body": [
+			"LET"
+		],
+		"description": "Assign value to variable. Inserts the LET keyword."
+	},
+	"Keyword: _LIMIT": {
+		"prefix": [
+			"kw _limit",
+			"kw_limit"
+		],
+		"body": [
+			"_LIMIT"
+		],
+		"description": "QB64: Limit FPS. Inserts the _LIMIT keyword."
+	},
+	"Keyword: LINE": {
+		"prefix": [
+			"kw line",
+			"kwline"
+		],
+		"body": [
+			"LINE"
+		],
+		"description": "Draw line or box. Inserts the LINE keyword."
+	},
+	"Keyword: LINE INPUT": {
+		"prefix": [
+			"kw line input",
+			"kwline input",
+			"kw lineinput",
+			"kwlineinput"
+		],
+		"body": [
+			"LINE INPUT"
+		],
+		"description": "Read entire line. Inserts the LINE INPUT keyword."
+	},
+	"Keyword: _LOADFONT": {
+		"prefix": [
+			"kw _loadfont",
+			"kw_loadfont"
+		],
+		"body": [
+			"_LOADFONT"
+		],
+		"description": "QB64: Load font file. Inserts the _LOADFONT keyword."
+	},
+	"Keyword: _LOADIMAGE": {
+		"prefix": [
+			"kw _loadimage",
+			"kw_loadimage"
+		],
+		"body": [
+			"_LOADIMAGE"
+		],
+		"description": "QB64: Load image file. Inserts the _LOADIMAGE keyword."
+	},
+	"Keyword: LOC": {
+		"prefix": [
+			"kw loc",
+			"kwloc"
+		],
+		"body": [
+			"LOC"
+		],
+		"description": "Get file position. Inserts the LOC keyword."
+	},
+	"Keyword: LOCATE": {
+		"prefix": [
+			"kw locate",
+			"kwlocate"
+		],
+		"body": [
+			"LOCATE"
+		],
+		"description": "Position the cursor at row, column. Inserts the LOCATE keyword."
+	},
+	"Keyword: LOCK": {
+		"prefix": [
+			"kw lock",
+			"kwlock"
+		],
+		"body": [
+			"LOCK"
+		],
+		"description": "Applies a file or record lock to an open shared file. Inserts the LOCK keyword."
+	},
+	"Keyword: LOF": {
+		"prefix": [
+			"kw lof",
+			"kwlof"
+		],
+		"body": [
+			"LOF"
+		],
+		"description": "Get file length. Inserts the LOF keyword."
+	},
+	"Keyword: _LOG10": {
+		"prefix": [
+			"kw _log10",
+			"kw_log10"
+		],
+		"body": [
+			"_LOG10"
+		],
+		"description": "QB64 math helper keyword. Inserts the _LOG10 keyword."
+	},
+	"Keyword: LONG": {
+		"prefix": [
+			"kw long",
+			"kwlong"
+		],
+		"body": [
+			"LONG"
+		],
+		"description": "32-bit signed integer. Inserts the LONG keyword."
+	},
+	"Keyword: LOOP": {
+		"prefix": [
+			"kw loop",
+			"kwloop"
+		],
+		"body": [
+			"LOOP"
+		],
+		"description": "End DO loop. Inserts the LOOP keyword."
+	},
+	"Keyword: LPOS": {
+		"prefix": [
+			"kw lpos",
+			"kwlpos"
+		],
+		"body": [
+			"LPOS"
+		],
+		"description": "Input/output keyword. Inserts the LPOS keyword."
+	},
+	"Keyword: LPRINT": {
+		"prefix": [
+			"kw lprint",
+			"kwlprint"
+		],
+		"body": [
+			"LPRINT"
+		],
+		"description": "Input/output keyword. Inserts the LPRINT keyword."
+	},
+	"Keyword: LSET": {
+		"prefix": [
+			"kw lset",
+			"kwlset"
+		],
+		"body": [
+			"LSET"
+		],
+		"description": "Declaration or definition keyword. Inserts the LSET keyword."
+	},
+	"Keyword: _MEM": {
+		"prefix": [
+			"kw _mem",
+			"kw_mem"
+		],
+		"body": [
+			"_MEM"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEM keyword."
+	},
+	"Keyword: _MEMCOPY": {
+		"prefix": [
+			"kw _memcopy",
+			"kw_memcopy"
+		],
+		"body": [
+			"_MEMCOPY"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMCOPY keyword."
+	},
+	"Keyword: _MEMEXISTS": {
+		"prefix": [
+			"kw _memexists",
+			"kw_memexists"
+		],
+		"body": [
+			"_MEMEXISTS"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMEXISTS keyword."
+	},
+	"Keyword: _MEMFILL": {
+		"prefix": [
+			"kw _memfill",
+			"kw_memfill"
+		],
+		"body": [
+			"_MEMFILL"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMFILL keyword."
+	},
+	"Keyword: _MEMFREE": {
+		"prefix": [
+			"kw _memfree",
+			"kw_memfree"
+		],
+		"body": [
+			"_MEMFREE"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMFREE keyword."
+	},
+	"Keyword: _MEMGET": {
+		"prefix": [
+			"kw _memget",
+			"kw_memget"
+		],
+		"body": [
+			"_MEMGET"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMGET keyword."
+	},
+	"Keyword: _MEMIMAGE": {
+		"prefix": [
+			"kw _memimage",
+			"kw_memimage"
+		],
+		"body": [
+			"_MEMIMAGE"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMIMAGE keyword."
+	},
+	"Keyword: _MEMNEW": {
+		"prefix": [
+			"kw _memnew",
+			"kw_memnew"
+		],
+		"body": [
+			"_MEMNEW"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMNEW keyword."
+	},
+	"Keyword: _MEMPUT": {
+		"prefix": [
+			"kw _memput",
+			"kw_memput"
+		],
+		"body": [
+			"_MEMPUT"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMPUT keyword."
+	},
+	"Keyword: _MEMSOUND": {
+		"prefix": [
+			"kw _memsound",
+			"kw_memsound"
+		],
+		"body": [
+			"_MEMSOUND"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _MEMSOUND keyword."
+	},
+	"Keyword: MID$": {
+		"prefix": [
+			"kw mid$",
+			"kwmid$"
+		],
+		"body": [
+			"MID\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the MID$ keyword."
+	},
+	"Keyword: _MINUTE": {
+		"prefix": [
+			"kw _minute",
+			"kw_minute"
+		],
+		"body": [
+			"_MINUTE"
+		],
+		"description": "QB64 date and time keyword. Inserts the _MINUTE keyword."
+	},
+	"Keyword: _MK$": {
+		"prefix": [
+			"kw _mk$",
+			"kw_mk$"
+		],
+		"body": [
+			"_MK\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the _MK$ keyword."
+	},
+	"Keyword: _MKD$": {
+		"prefix": [
+			"kw _mkd$",
+			"kw_mkd$"
+		],
+		"body": [
+			"_MKD\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the _MKD$ keyword."
+	},
+	"Keyword: MKDIR": {
+		"prefix": [
+			"kw mkdir",
+			"kwmkdir"
+		],
+		"body": [
+			"MKDIR"
+		],
+		"description": "Create directory. Inserts the MKDIR keyword."
+	},
+	"Keyword: _MKI$": {
+		"prefix": [
+			"kw _mki$",
+			"kw_mki$"
+		],
+		"body": [
+			"_MKI\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the _MKI$ keyword."
+	},
+	"Keyword: _MKL$": {
+		"prefix": [
+			"kw _mkl$",
+			"kw_mkl$"
+		],
+		"body": [
+			"_MKL\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the _MKL$ keyword."
+	},
+	"Keyword: _MKS$": {
+		"prefix": [
+			"kw _mks$",
+			"kw_mks$"
+		],
+		"body": [
+			"_MKS\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the _MKS$ keyword."
+	},
+	"Keyword: MOD": {
+		"prefix": [
+			"kw mod",
+			"kwmod"
+		],
+		"body": [
+			"MOD"
+		],
+		"description": "Modulo operator. Inserts the MOD keyword."
+	},
+	"Keyword: _MONTH": {
+		"prefix": [
+			"kw _month",
+			"kw_month"
+		],
+		"body": [
+			"_MONTH"
+		],
+		"description": "QB64 date and time keyword. Inserts the _MONTH keyword."
+	},
+	"Keyword: _MOUSEBUTTON": {
+		"prefix": [
+			"kw _mousebutton",
+			"kw_mousebutton"
+		],
+		"body": [
+			"_MOUSEBUTTON"
+		],
+		"description": "QB64: Check mouse button. Inserts the _MOUSEBUTTON keyword."
+	},
+	"Keyword: _MOUSEHIDE": {
+		"prefix": [
+			"kw _mousehide",
+			"kw_mousehide"
+		],
+		"body": [
+			"_MOUSEHIDE"
+		],
+		"description": "QB64 mouse input keyword. Inserts the _MOUSEHIDE keyword."
+	},
+	"Keyword: _MOUSEINPUT": {
+		"prefix": [
+			"kw _mouseinput",
+			"kw_mouseinput"
+		],
+		"body": [
+			"_MOUSEINPUT"
+		],
+		"description": "QB64: Update mouse state. Inserts the _MOUSEINPUT keyword."
+	},
+	"Keyword: _MOUSEMOVE": {
+		"prefix": [
+			"kw _mousemove",
+			"kw_mousemove"
+		],
+		"body": [
+			"_MOUSEMOVE"
+		],
+		"description": "QB64 mouse input keyword. Inserts the _MOUSEMOVE keyword."
+	},
+	"Keyword: _MOUSESHOW": {
+		"prefix": [
+			"kw _mouseshow",
+			"kw_mouseshow"
+		],
+		"body": [
+			"_MOUSESHOW"
+		],
+		"description": "QB64 mouse input keyword. Inserts the _MOUSESHOW keyword."
+	},
+	"Keyword: _MOUSEWHEEL": {
+		"prefix": [
+			"kw _mousewheel",
+			"kw_mousewheel"
+		],
+		"body": [
+			"_MOUSEWHEEL"
+		],
+		"description": "QB64 mouse input keyword. Inserts the _MOUSEWHEEL keyword."
+	},
+	"Keyword: _MOUSEX": {
+		"prefix": [
+			"kw _mousex",
+			"kw_mousex"
+		],
+		"body": [
+			"_MOUSEX"
+		],
+		"description": "QB64: Mouse X position. Inserts the _MOUSEX keyword."
+	},
+	"Keyword: _MOUSEY": {
+		"prefix": [
+			"kw _mousey",
+			"kw_mousey"
+		],
+		"body": [
+			"_MOUSEY"
+		],
+		"description": "QB64: Mouse Y position. Inserts the _MOUSEY keyword."
+	},
+	"Keyword: NAME": {
+		"prefix": [
+			"kw name",
+			"kwname"
+		],
+		"body": [
+			"NAME"
+		],
+		"description": "Rename file. Inserts the NAME keyword."
+	},
+	"Keyword: _NEWIMAGE": {
+		"prefix": [
+			"kw _newimage",
+			"kw_newimage"
+		],
+		"body": [
+			"_NEWIMAGE"
+		],
+		"description": "QB64: Create new image. Inserts the _NEWIMAGE keyword."
+	},
+	"Keyword: NEXT": {
+		"prefix": [
+			"kw next",
+			"kwnext"
+		],
+		"body": [
+			"NEXT"
+		],
+		"description": "End FOR loop. Inserts the NEXT keyword."
+	},
+	"Keyword: NOT": {
+		"prefix": [
+			"kw not",
+			"kwnot"
+		],
+		"body": [
+			"NOT"
+		],
+		"description": "Logical/bitwise NOT. Inserts the NOT keyword."
+	},
+	"Keyword: _NUMLOCK": {
+		"prefix": [
+			"kw _numlock",
+			"kw_numlock"
+		],
+		"body": [
+			"_NUMLOCK"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _NUMLOCK keyword."
+	},
+	"Keyword: _OFFSET": {
+		"prefix": [
+			"kw _offset",
+			"kw_offset"
+		],
+		"body": [
+			"_OFFSET"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _OFFSET keyword."
+	},
+	"Keyword: ON": {
+		"prefix": [
+			"kw on",
+			"kwon"
+		],
+		"body": [
+			"ON"
+		],
+		"description": "Branch on value or event. Inserts the ON keyword."
+	},
+	"Keyword: ON ERROR": {
+		"prefix": [
+			"kw on error",
+			"kwon error",
+			"kw onerror",
+			"kwonerror"
+		],
+		"body": [
+			"ON ERROR"
+		],
+		"description": "Set error handler. Inserts the ON ERROR keyword."
+	},
+	"Keyword: OPEN": {
+		"prefix": [
+			"kw open",
+			"kwopen"
+		],
+		"body": [
+			"OPEN"
+		],
+		"description": "Open a file. Inserts the OPEN keyword."
+	},
+	"Keyword: _OPENCLIENT": {
+		"prefix": [
+			"kw _openclient",
+			"kw_openclient"
+		],
+		"body": [
+			"_OPENCLIENT"
+		],
+		"description": "QB64: Open network client. Inserts the _OPENCLIENT keyword."
+	},
+	"Keyword: _OPENCONNECTION": {
+		"prefix": [
+			"kw _openconnection",
+			"kw_openconnection"
+		],
+		"body": [
+			"_OPENCONNECTION"
+		],
+		"description": "QB64 networking keyword. Inserts the _OPENCONNECTION keyword."
+	},
+	"Keyword: _OPENHOST": {
+		"prefix": [
+			"kw _openhost",
+			"kw_openhost"
+		],
+		"body": [
+			"_OPENHOST"
+		],
+		"description": "QB64: Open network host. Inserts the _OPENHOST keyword."
+	},
+	"Keyword: OPTION": {
+		"prefix": [
+			"kw option",
+			"kwoption"
+		],
+		"body": [
+			"OPTION"
+		],
+		"description": "Set compiler options. Inserts the OPTION keyword."
+	},
+	"Keyword: OR": {
+		"prefix": [
+			"kw or",
+			"kwor"
+		],
+		"body": [
+			"OR"
+		],
+		"description": "Logical/bitwise OR. Inserts the OR keyword."
+	},
+	"Keyword: _OS$": {
+		"prefix": [
+			"kw _os$",
+			"kw_os$"
+		],
+		"body": [
+			"_OS\\$"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _OS$ keyword."
+	},
+	"Keyword: OUT": {
+		"prefix": [
+			"kw out",
+			"kwout"
+		],
+		"body": [
+			"OUT"
+		],
+		"description": "Input/output keyword. Inserts the OUT keyword."
+	},
+	"Keyword: OUTPUT": {
+		"prefix": [
+			"kw output",
+			"kwoutput"
+		],
+		"body": [
+			"OUTPUT"
+		],
+		"description": "OPEN mode that recreates a file for writing. Inserts the OUTPUT keyword."
+	},
+	"Keyword: PAINT": {
+		"prefix": [
+			"kw paint",
+			"kwpaint"
+		],
+		"body": [
+			"PAINT"
+		],
+		"description": "Fill area with color. Inserts the PAINT keyword."
+	},
+	"Keyword: PALETTE": {
+		"prefix": [
+			"kw palette",
+			"kwpalette"
+		],
+		"body": [
+			"PALETTE"
+		],
+		"description": "Set palette colors. Inserts the PALETTE keyword."
+	},
+	"Keyword: _PALETTECOLOR": {
+		"prefix": [
+			"kw _palettecolor",
+			"kw_palettecolor"
+		],
+		"body": [
+			"_PALETTECOLOR"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _PALETTECOLOR keyword."
+	},
+	"Keyword: PCOPY": {
+		"prefix": [
+			"kw pcopy",
+			"kwpcopy"
+		],
+		"body": [
+			"PCOPY"
+		],
+		"description": "Copy screen page. Inserts the PCOPY keyword."
+	},
+	"Keyword: PEEK": {
+		"prefix": [
+			"kw peek",
+			"kwpeek"
+		],
+		"body": [
+			"PEEK"
+		],
+		"description": "Reads a byte from a memory address. Inserts the PEEK keyword."
+	},
+	"Keyword: _PI": {
+		"prefix": [
+			"kw _pi",
+			"kw_pi"
+		],
+		"body": [
+			"_PI"
+		],
+		"description": "QB64 math helper keyword. Inserts the _PI keyword."
+	},
+	"Keyword: PLAY": {
+		"prefix": [
+			"kw play",
+			"kwplay"
+		],
+		"body": [
+			"PLAY"
+		],
+		"description": "Play music string. Inserts the PLAY keyword."
+	},
+	"Keyword: POINT": {
+		"prefix": [
+			"kw point",
+			"kwpoint"
+		],
+		"body": [
+			"POINT"
+		],
+		"description": "Get pixel color. Inserts the POINT keyword."
+	},
+	"Keyword: POKE": {
+		"prefix": [
+			"kw poke",
+			"kwpoke"
+		],
+		"body": [
+			"POKE"
+		],
+		"description": "Writes a byte to a memory address. Inserts the POKE keyword."
+	},
+	"Keyword: POS": {
+		"prefix": [
+			"kw pos",
+			"kwpos"
+		],
+		"body": [
+			"POS"
+		],
+		"description": "Returns current cursor column. Inserts the POS keyword."
+	},
+	"Keyword: PRESERVE": {
+		"prefix": [
+			"kw preserve",
+			"kwpreserve"
+		],
+		"body": [
+			"PRESERVE"
+		],
+		"description": "Keep data when using REDIM. Inserts the PRESERVE keyword."
+	},
+	"Keyword: PRESET": {
+		"prefix": [
+			"kw preset",
+			"kwpreset"
+		],
+		"body": [
+			"PRESET"
+		],
+		"description": "Reset pixel. Inserts the PRESET keyword."
+	},
+	"Keyword: PRINT": {
+		"prefix": [
+			"kw print",
+			"kwprint"
+		],
+		"body": [
+			"PRINT"
+		],
+		"description": "Output text to the screen. Inserts the PRINT keyword."
+	},
+	"Keyword: PRINT #": {
+		"prefix": [
+			"kw print #",
+			"kwprint #",
+			"kw print#",
+			"kwprint#"
+		],
+		"body": [
+			"PRINT #"
+		],
+		"description": "Write to file. Inserts the PRINT # keyword."
+	},
+	"Keyword: _PRINTSTRING": {
+		"prefix": [
+			"kw _printstring",
+			"kw_printstring"
+		],
+		"body": [
+			"_PRINTSTRING"
+		],
+		"description": "QB64: Print at pixel position. Inserts the _PRINTSTRING keyword."
+	},
+	"Keyword: _PRINTWIDTH": {
+		"prefix": [
+			"kw _printwidth",
+			"kw_printwidth"
+		],
+		"body": [
+			"_PRINTWIDTH"
+		],
+		"description": "QB64: Get text width in pixels. Inserts the _PRINTWIDTH keyword."
+	},
+	"Keyword: PSET": {
+		"prefix": [
+			"kw pset",
+			"kwpset"
+		],
+		"body": [
+			"PSET"
+		],
+		"description": "Set pixel color. Inserts the PSET keyword."
+	},
+	"Keyword: PUT": {
+		"prefix": [
+			"kw put",
+			"kwput"
+		],
+		"body": [
+			"PUT"
+		],
+		"description": "Write to random access file. Inserts the PUT keyword."
+	},
+	"Keyword: _PUTIMAGE": {
+		"prefix": [
+			"kw _putimage",
+			"kw_putimage"
+		],
+		"body": [
+			"_PUTIMAGE"
+		],
+		"description": "QB64: Display image. Inserts the _PUTIMAGE keyword."
+	},
+	"Keyword: _R2D": {
+		"prefix": [
+			"kw _r2d",
+			"kw_r2d"
+		],
+		"body": [
+			"_R2D"
+		],
+		"description": "QB64 math helper keyword. Inserts the _R2D keyword."
+	},
+	"Keyword: _R2G": {
+		"prefix": [
+			"kw _r2g",
+			"kw_r2g"
+		],
+		"body": [
+			"_R2G"
+		],
+		"description": "QB64 math helper keyword. Inserts the _R2G keyword."
+	},
+	"Keyword: RANDOM": {
+		"prefix": [
+			"kw random",
+			"kwrandom"
+		],
+		"body": [
+			"RANDOM"
+		],
+		"description": "OPEN mode for random-access records. Inserts the RANDOM keyword."
+	},
+	"Keyword: RANDOMIZE": {
+		"prefix": [
+			"kw randomize",
+			"kwrandomize"
+		],
+		"body": [
+			"RANDOMIZE"
+		],
+		"description": "Seed random number generator. Inserts the RANDOMIZE keyword."
+	},
+	"Keyword: READ": {
+		"prefix": [
+			"kw read",
+			"kwread"
+		],
+		"body": [
+			"READ"
+		],
+		"description": "Read data values. Inserts the READ keyword."
+	},
+	"Keyword: _RED": {
+		"prefix": [
+			"kw _red",
+			"kw_red"
+		],
+		"body": [
+			"_RED"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _RED keyword."
+	},
+	"Keyword: REDIM": {
+		"prefix": [
+			"kw redim",
+			"kwredim"
+		],
+		"body": [
+			"REDIM"
+		],
+		"description": "Re-dimension dynamic array. Inserts the REDIM keyword."
+	},
+	"Keyword: REM": {
+		"prefix": [
+			"kw rem",
+			"kwrem"
+		],
+		"body": [
+			"REM"
+		],
+		"description": "Comment line. Inserts the REM keyword."
+	},
+	"Keyword: RESET": {
+		"prefix": [
+			"kw reset",
+			"kwreset"
+		],
+		"body": [
+			"RESET"
+		],
+		"description": "Input/output keyword. Inserts the RESET keyword."
+	},
+	"Keyword: _RESIZE": {
+		"prefix": [
+			"kw _resize",
+			"kw_resize"
+		],
+		"body": [
+			"_RESIZE"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _RESIZE keyword."
+	},
+	"Keyword: _RESIZEHEIGHT": {
+		"prefix": [
+			"kw _resizeheight",
+			"kw_resizeheight"
+		],
+		"body": [
+			"_RESIZEHEIGHT"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _RESIZEHEIGHT keyword."
+	},
+	"Keyword: _RESIZEWIDTH": {
+		"prefix": [
+			"kw _resizewidth",
+			"kw_resizewidth"
+		],
+		"body": [
+			"_RESIZEWIDTH"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _RESIZEWIDTH keyword."
+	},
+	"Keyword: RESTORE": {
+		"prefix": [
+			"kw restore",
+			"kwrestore"
+		],
+		"body": [
+			"RESTORE"
+		],
+		"description": "Reset data pointer. Inserts the RESTORE keyword."
+	},
+	"Keyword: RESUME": {
+		"prefix": [
+			"kw resume",
+			"kwresume"
+		],
+		"body": [
+			"RESUME"
+		],
+		"description": "Resume after error. Inserts the RESUME keyword."
+	},
+	"Keyword: RETURN": {
+		"prefix": [
+			"kw return",
+			"kwreturn"
+		],
+		"body": [
+			"RETURN"
+		],
+		"description": "Return from GOSUB. Inserts the RETURN keyword."
+	},
+	"Keyword: _RGB": {
+		"prefix": [
+			"kw _rgb",
+			"kw_rgb"
+		],
+		"body": [
+			"_RGB"
+		],
+		"description": "QB64: Create RGB color. Inserts the _RGB keyword."
+	},
+	"Keyword: _RGB32": {
+		"prefix": [
+			"kw _rgb32",
+			"kw_rgb32"
+		],
+		"body": [
+			"_RGB32"
+		],
+		"description": "QB64: Create 32-bit RGB color. Inserts the _RGB32 keyword."
+	},
+	"Keyword: _RGBA": {
+		"prefix": [
+			"kw _rgba",
+			"kw_rgba"
+		],
+		"body": [
+			"_RGBA"
+		],
+		"description": "QB64: Create RGBA color. Inserts the _RGBA keyword."
+	},
+	"Keyword: _RGBA32": {
+		"prefix": [
+			"kw _rgba32",
+			"kw_rgba32"
+		],
+		"body": [
+			"_RGBA32"
+		],
+		"description": "QB64: Create 32-bit RGBA color. Inserts the _RGBA32 keyword."
+	},
+	"Keyword: RMDIR": {
+		"prefix": [
+			"kw rmdir",
+			"kwrmdir"
+		],
+		"body": [
+			"RMDIR"
+		],
+		"description": "Remove directory. Inserts the RMDIR keyword."
+	},
+	"Keyword: _ROUND": {
+		"prefix": [
+			"kw _round",
+			"kw_round"
+		],
+		"body": [
+			"_ROUND"
+		],
+		"description": "QB64 math helper keyword. Inserts the _ROUND keyword."
+	},
+	"Keyword: RSET": {
+		"prefix": [
+			"kw rset",
+			"kwrset"
+		],
+		"body": [
+			"RSET"
+		],
+		"description": "Declaration or definition keyword. Inserts the RSET keyword."
+	},
+	"Keyword: RUN": {
+		"prefix": [
+			"kw run",
+			"kwrun"
+		],
+		"body": [
+			"RUN"
+		],
+		"description": "Control-flow keyword. Inserts the RUN keyword."
+	},
+	"Keyword: SADD": {
+		"prefix": [
+			"kw sadd",
+			"kwsadd"
+		],
+		"body": [
+			"SADD"
+		],
+		"description": "Returns the address of a string buffer. Inserts the SADD keyword."
+	},
+	"Keyword: SCREEN": {
+		"prefix": [
+			"kw screen",
+			"kwscreen"
+		],
+		"body": [
+			"SCREEN"
+		],
+		"description": "Set screen mode. Inserts the SCREEN keyword."
+	},
+	"Keyword: _SCREENEXISTS": {
+		"prefix": [
+			"kw _screenexists",
+			"kw_screenexists"
+		],
+		"body": [
+			"_SCREENEXISTS"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _SCREENEXISTS keyword."
+	},
+	"Keyword: _SCREENHIDE": {
+		"prefix": [
+			"kw _screenhide",
+			"kw_screenhide"
+		],
+		"body": [
+			"_SCREENHIDE"
+		],
+		"description": "QB64: Hide window. Inserts the _SCREENHIDE keyword."
+	},
+	"Keyword: _SCREENICON": {
+		"prefix": [
+			"kw _screenicon",
+			"kw_screenicon"
+		],
+		"body": [
+			"_SCREENICON"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _SCREENICON keyword."
+	},
+	"Keyword: _SCREENMOVE": {
+		"prefix": [
+			"kw _screenmove",
+			"kw_screenmove"
+		],
+		"body": [
+			"_SCREENMOVE"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _SCREENMOVE keyword."
+	},
+	"Keyword: _SCREENPRINT": {
+		"prefix": [
+			"kw _screenprint",
+			"kw_screenprint"
+		],
+		"body": [
+			"_SCREENPRINT"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _SCREENPRINT keyword."
+	},
+	"Keyword: _SCREENSHOW": {
+		"prefix": [
+			"kw _screenshow",
+			"kw_screenshow"
+		],
+		"body": [
+			"_SCREENSHOW"
+		],
+		"description": "QB64: Show window. Inserts the _SCREENSHOW keyword."
+	},
+	"Keyword: _SCROLLLOCK": {
+		"prefix": [
+			"kw _scrolllock",
+			"kw_scrolllock"
+		],
+		"body": [
+			"_SCROLLLOCK"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _SCROLLLOCK keyword."
+	},
+	"Keyword: _SEC": {
+		"prefix": [
+			"kw _sec",
+			"kw_sec"
+		],
+		"body": [
+			"_SEC"
+		],
+		"description": "QB64 math helper keyword. Inserts the _SEC keyword."
+	},
+	"Keyword: _SECH": {
+		"prefix": [
+			"kw _sech",
+			"kw_sech"
+		],
+		"body": [
+			"_SECH"
+		],
+		"description": "QB64 math helper keyword. Inserts the _SECH keyword."
+	},
+	"Keyword: _SECOND": {
+		"prefix": [
+			"kw _second",
+			"kw_second"
+		],
+		"body": [
+			"_SECOND"
+		],
+		"description": "QB64 date and time keyword. Inserts the _SECOND keyword."
+	},
+	"Keyword: SEEK": {
+		"prefix": [
+			"kw seek",
+			"kwseek"
+		],
+		"body": [
+			"SEEK"
+		],
+		"description": "Set file position. Inserts the SEEK keyword."
+	},
+	"Keyword: SEG": {
+		"prefix": [
+			"kw seg",
+			"kwseg"
+		],
+		"body": [
+			"SEG"
+		],
+		"description": "Works with DEF SEG to select a memory segment. Inserts the SEG keyword."
+	},
+	"Keyword: SELECT": {
+		"prefix": [
+			"kw select",
+			"kwselect"
+		],
+		"body": [
+			"SELECT"
+		],
+		"description": "Multi-way branch. Inserts the SELECT keyword."
+	},
+	"Keyword: _SETALPHA": {
+		"prefix": [
+			"kw _setalpha",
+			"kw_setalpha"
+		],
+		"body": [
+			"_SETALPHA"
+		],
+		"description": "QB64 color-manipulation keyword. Inserts the _SETALPHA keyword."
+	},
+	"Keyword: _SETPTR": {
+		"prefix": [
+			"kw _setptr",
+			"kw_setptr"
+		],
+		"body": [
+			"_SETPTR"
+		],
+		"description": "QB64 memory-block keyword. Inserts the _SETPTR keyword."
+	},
+	"Keyword: SHARED": {
+		"prefix": [
+			"kw shared",
+			"kwshared"
+		],
+		"body": [
+			"SHARED"
+		],
+		"description": "Share variable with procedures. Inserts the SHARED keyword."
+	},
+	"Keyword: _SHELL": {
+		"prefix": [
+			"kw _shell",
+			"kw_shell"
+		],
+		"body": [
+			"_SHELL"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _SHELL keyword."
+	},
+	"Keyword: _SHELLHIDE": {
+		"prefix": [
+			"kw _shellhide",
+			"kw_shellhide"
+		],
+		"body": [
+			"_SHELLHIDE"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _SHELLHIDE keyword."
+	},
+	"Keyword: SINGLE": {
+		"prefix": [
+			"kw single",
+			"kwsingle"
+		],
+		"body": [
+			"SINGLE"
+		],
+		"description": "32-bit floating point. Inserts the SINGLE keyword."
+	},
+	"Keyword: _SINH": {
+		"prefix": [
+			"kw _sinh",
+			"kw_sinh"
+		],
+		"body": [
+			"_SINH"
+		],
+		"description": "QB64 math helper keyword. Inserts the _SINH keyword."
+	},
+	"Keyword: SLEEP": {
+		"prefix": [
+			"kw sleep",
+			"kwsleep"
+		],
+		"body": [
+			"SLEEP"
+		],
+		"description": "Pause execution. Inserts the SLEEP keyword."
+	},
+	"Keyword: _SNDBAL": {
+		"prefix": [
+			"kw _sndbal",
+			"kw_sndbal"
+		],
+		"body": [
+			"_SNDBAL"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDBAL keyword."
+	},
+	"Keyword: _SNDCLOSE": {
+		"prefix": [
+			"kw _sndclose",
+			"kw_sndclose"
+		],
+		"body": [
+			"_SNDCLOSE"
+		],
+		"description": "QB64: Close sound. Inserts the _SNDCLOSE keyword."
+	},
+	"Keyword: _SNDGETPOS": {
+		"prefix": [
+			"kw _sndgetpos",
+			"kw_sndgetpos"
+		],
+		"body": [
+			"_SNDGETPOS"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDGETPOS keyword."
+	},
+	"Keyword: _SNDLEN": {
+		"prefix": [
+			"kw _sndlen",
+			"kw_sndlen"
+		],
+		"body": [
+			"_SNDLEN"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDLEN keyword."
+	},
+	"Keyword: _SNDLOOP": {
+		"prefix": [
+			"kw _sndloop",
+			"kw_sndloop"
+		],
+		"body": [
+			"_SNDLOOP"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDLOOP keyword."
+	},
+	"Keyword: _SNDOPEN": {
+		"prefix": [
+			"kw _sndopen",
+			"kw_sndopen"
+		],
+		"body": [
+			"_SNDOPEN"
+		],
+		"description": "QB64: Open sound file. Inserts the _SNDOPEN keyword."
+	},
+	"Keyword: _SNDOPENRAW": {
+		"prefix": [
+			"kw _sndopenraw",
+			"kw_sndopenraw"
+		],
+		"body": [
+			"_SNDOPENRAW"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDOPENRAW keyword."
+	},
+	"Keyword: _SNDPAUSE": {
+		"prefix": [
+			"kw _sndpause",
+			"kw_sndpause"
+		],
+		"body": [
+			"_SNDPAUSE"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDPAUSE keyword."
+	},
+	"Keyword: _SNDPLAY": {
+		"prefix": [
+			"kw _sndplay",
+			"kw_sndplay"
+		],
+		"body": [
+			"_SNDPLAY"
+		],
+		"description": "QB64: Play sound. Inserts the _SNDPLAY keyword."
+	},
+	"Keyword: _SNDPLAYFILE": {
+		"prefix": [
+			"kw _sndplayfile",
+			"kw_sndplayfile"
+		],
+		"body": [
+			"_SNDPLAYFILE"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDPLAYFILE keyword."
+	},
+	"Keyword: _SNDPLAYING": {
+		"prefix": [
+			"kw _sndplaying",
+			"kw_sndplaying"
+		],
+		"body": [
+			"_SNDPLAYING"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDPLAYING keyword."
+	},
+	"Keyword: _SNDRATE": {
+		"prefix": [
+			"kw _sndrate",
+			"kw_sndrate"
+		],
+		"body": [
+			"_SNDRATE"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDRATE keyword."
+	},
+	"Keyword: _SNDRAW": {
+		"prefix": [
+			"kw _sndraw",
+			"kw_sndraw"
+		],
+		"body": [
+			"_SNDRAW"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDRAW keyword."
+	},
+	"Keyword: _SNDRAWDONE": {
+		"prefix": [
+			"kw _sndrawdone",
+			"kw_sndrawdone"
+		],
+		"body": [
+			"_SNDRAWDONE"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDRAWDONE keyword."
+	},
+	"Keyword: _SNDRAWLEN": {
+		"prefix": [
+			"kw _sndrawlen",
+			"kw_sndrawlen"
+		],
+		"body": [
+			"_SNDRAWLEN"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDRAWLEN keyword."
+	},
+	"Keyword: _SNDSETPOS": {
+		"prefix": [
+			"kw _sndsetpos",
+			"kw_sndsetpos"
+		],
+		"body": [
+			"_SNDSETPOS"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDSETPOS keyword."
+	},
+	"Keyword: _SNDSTOP": {
+		"prefix": [
+			"kw _sndstop",
+			"kw_sndstop"
+		],
+		"body": [
+			"_SNDSTOP"
+		],
+		"description": "QB64: Stop sound. Inserts the _SNDSTOP keyword."
+	},
+	"Keyword: _SNDVOL": {
+		"prefix": [
+			"kw _sndvol",
+			"kw_sndvol"
+		],
+		"body": [
+			"_SNDVOL"
+		],
+		"description": "QB64 sound and audio keyword. Inserts the _SNDVOL keyword."
+	},
+	"Keyword: SOUND": {
+		"prefix": [
+			"kw sound",
+			"kwsound"
+		],
+		"body": [
+			"SOUND"
+		],
+		"description": "Play sound. Inserts the SOUND keyword."
+	},
+	"Keyword: _SOURCE": {
+		"prefix": [
+			"kw _source",
+			"kw_source"
+		],
+		"body": [
+			"_SOURCE"
+		],
+		"description": "QB64: Set source image. Inserts the _SOURCE keyword."
+	},
+	"Keyword: SPC": {
+		"prefix": [
+			"kw spc",
+			"kwspc"
+		],
+		"body": [
+			"SPC"
+		],
+		"description": "PRINT helper that inserts a fixed number of spaces. Inserts the SPC keyword."
+	},
+	"Keyword: _STARTDIR$": {
+		"prefix": [
+			"kw _startdir$",
+			"kw_startdir$"
+		],
+		"body": [
+			"_STARTDIR\\$"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _STARTDIR$ keyword."
+	},
+	"Keyword: STATIC": {
+		"prefix": [
+			"kw static",
+			"kwstatic"
+		],
+		"body": [
+			"STATIC"
+		],
+		"description": "Preserve value between calls. Inserts the STATIC keyword."
+	},
+	"Keyword: STEP": {
+		"prefix": [
+			"kw step",
+			"kwstep"
+		],
+		"body": [
+			"STEP"
+		],
+		"description": "Loop increment. Inserts the STEP keyword."
+	},
+	"Keyword: STOP": {
+		"prefix": [
+			"kw stop",
+			"kwstop"
+		],
+		"body": [
+			"STOP"
+		],
+		"description": "Stop program execution. Inserts the STOP keyword."
+	},
+	"Keyword: STRIG": {
+		"prefix": [
+			"kw strig",
+			"kwstrig"
+		],
+		"body": [
+			"STRIG"
+		],
+		"description": "Joystick trigger event keyword. Inserts the STRIG keyword."
+	},
+	"Keyword: STRING": {
+		"prefix": [
+			"kw string",
+			"kwstring"
+		],
+		"body": [
+			"STRING"
+		],
+		"description": "Text string type. Inserts the STRING keyword."
+	},
+	"Keyword: SUB": {
+		"prefix": [
+			"kw sub",
+			"kwsub"
+		],
+		"body": [
+			"SUB"
+		],
+		"description": "Define subroutine. Inserts the SUB keyword."
+	},
+	"Keyword: SWAP": {
+		"prefix": [
+			"kw swap",
+			"kwswap"
+		],
+		"body": [
+			"SWAP"
+		],
+		"description": "Exchange values of two variables. Inserts the SWAP keyword."
+	},
+	"Keyword: SYSTEM": {
+		"prefix": [
+			"kw system",
+			"kwsystem"
+		],
+		"body": [
+			"SYSTEM"
+		],
+		"description": "Exit program and return to OS. Inserts the SYSTEM keyword."
+	},
+	"Keyword: TAB": {
+		"prefix": [
+			"kw tab",
+			"kwtab"
+		],
+		"body": [
+			"TAB"
+		],
+		"description": "PRINT helper that moves to a target column. Inserts the TAB keyword."
+	},
+	"Keyword: _TAN": {
+		"prefix": [
+			"kw _tan",
+			"kw_tan"
+		],
+		"body": [
+			"_TAN"
+		],
+		"description": "QB64 tangent helper keyword. Inserts the _TAN keyword."
+	},
+	"Keyword: _TANH": {
+		"prefix": [
+			"kw _tanh",
+			"kw_tanh"
+		],
+		"body": [
+			"_TANH"
+		],
+		"description": "QB64 math helper keyword. Inserts the _TANH keyword."
+	},
+	"Keyword: THEN": {
+		"prefix": [
+			"kw then",
+			"kwthen"
+		],
+		"body": [
+			"THEN"
+		],
+		"description": "Execute if condition is true. Inserts the THEN keyword."
+	},
+	"Keyword: _TIME$": {
+		"prefix": [
+			"kw _time$",
+			"kw_time$"
+		],
+		"body": [
+			"_TIME\\$"
+		],
+		"description": "QB64 date and time keyword. Inserts the _TIME$ keyword."
+	},
+	"Keyword: TIME$": {
+		"prefix": [
+			"kw time$",
+			"kwtime$"
+		],
+		"body": [
+			"TIME\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the TIME$ keyword."
+	},
+	"Keyword: _TIMER": {
+		"prefix": [
+			"kw _timer",
+			"kw_timer"
+		],
+		"body": [
+			"_TIMER"
+		],
+		"description": "QB64 date and time keyword. Inserts the _TIMER keyword."
+	},
+	"Keyword: TIMER": {
+		"prefix": [
+			"kw timer",
+			"kwtimer"
+		],
+		"body": [
+			"TIMER"
+		],
+		"description": "Seconds since midnight. Inserts the TIMER keyword."
+	},
+	"Keyword: _TITLE": {
+		"prefix": [
+			"kw _title",
+			"kw_title"
+		],
+		"body": [
+			"_TITLE"
+		],
+		"description": "QB64: Set window title. Inserts the _TITLE keyword."
+	},
+	"Keyword: _TITLE$": {
+		"prefix": [
+			"kw _title$",
+			"kw_title$"
+		],
+		"body": [
+			"_TITLE\\$"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _TITLE$ keyword."
+	},
+	"Keyword: TO": {
+		"prefix": [
+			"kw to",
+			"kwto"
+		],
+		"body": [
+			"TO"
+		],
+		"description": "Loop end value. Inserts the TO keyword."
+	},
+	"Keyword: _TOTALDROPPEDFILES": {
+		"prefix": [
+			"kw _totaldroppedfiles",
+			"kw_totaldroppedfiles"
+		],
+		"body": [
+			"_TOTALDROPPEDFILES"
+		],
+		"description": "QB64 system and environment keyword. Inserts the _TOTALDROPPEDFILES keyword."
+	},
+	"Keyword: _TRIM$": {
+		"prefix": [
+			"kw _trim$",
+			"kw_trim$"
+		],
+		"body": [
+			"_TRIM\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the _TRIM$ keyword."
+	},
+	"Keyword: TYPE": {
+		"prefix": [
+			"kw type",
+			"kwtype"
+		],
+		"body": [
+			"TYPE"
+		],
+		"description": "Define user type. Inserts the TYPE keyword."
+	},
+	"Keyword: UNLOCK": {
+		"prefix": [
+			"kw unlock",
+			"kwunlock"
+		],
+		"body": [
+			"UNLOCK"
+		],
+		"description": "Releases a file or record lock on an open shared file. Inserts the UNLOCK keyword."
+	},
+	"Keyword: _UNSIGNED": {
+		"prefix": [
+			"kw _unsigned",
+			"kw_unsigned"
+		],
+		"body": [
+			"_UNSIGNED"
+		],
+		"description": "QB64: Unsigned number modifier. Inserts the _UNSIGNED keyword."
+	},
+	"Keyword: UNTIL": {
+		"prefix": [
+			"kw until",
+			"kwuntil"
+		],
+		"body": [
+			"UNTIL"
+		],
+		"description": "Loop until condition. Inserts the UNTIL keyword."
+	},
+	"Keyword: USING": {
+		"prefix": [
+			"kw using",
+			"kwusing"
+		],
+		"body": [
+			"USING"
+		],
+		"description": "Formatting clause used by PRINT USING and WRITE-style output. Inserts the USING keyword."
+	},
+	"Keyword: USR": {
+		"prefix": [
+			"kw usr",
+			"kwusr"
+		],
+		"body": [
+			"USR"
+		],
+		"description": "Calls a machine-language routine through a DEF USR entry point. Inserts the USR keyword."
+	},
+	"Keyword: VARPTR": {
+		"prefix": [
+			"kw varptr",
+			"kwvarptr"
+		],
+		"body": [
+			"VARPTR"
+		],
+		"description": "Returns the address of a variable. Inserts the VARPTR keyword."
+	},
+	"Keyword: VARPTR$": {
+		"prefix": [
+			"kw varptr$",
+			"kwvarptr$"
+		],
+		"body": [
+			"VARPTR\\$"
+		],
+		"description": "String-oriented keyword or intrinsic value. Inserts the VARPTR$ keyword."
+	},
+	"Keyword: VARSEG": {
+		"prefix": [
+			"kw varseg",
+			"kwvarseg"
+		],
+		"body": [
+			"VARSEG"
+		],
+		"description": "Returns the segment address of a variable. Inserts the VARSEG keyword."
+	},
+	"Keyword: VIEW": {
+		"prefix": [
+			"kw view",
+			"kwview"
+		],
+		"body": [
+			"VIEW"
+		],
+		"description": "Set viewport. Inserts the VIEW keyword."
+	},
+	"Keyword: WAIT": {
+		"prefix": [
+			"kw wait",
+			"kwwait"
+		],
+		"body": [
+			"WAIT"
+		],
+		"description": "Input/output keyword. Inserts the WAIT keyword."
+	},
+	"Keyword: _WEEKDAY": {
+		"prefix": [
+			"kw _weekday",
+			"kw_weekday"
+		],
+		"body": [
+			"_WEEKDAY"
+		],
+		"description": "QB64 date and time keyword. Inserts the _WEEKDAY keyword."
+	},
+	"Keyword: WEND": {
+		"prefix": [
+			"kw wend",
+			"kwwend"
+		],
+		"body": [
+			"WEND"
+		],
+		"description": "End WHILE loop. Inserts the WEND keyword."
+	},
+	"Keyword: _WHEEL": {
+		"prefix": [
+			"kw _wheel",
+			"kw_wheel"
+		],
+		"body": [
+			"_WHEEL"
+		],
+		"description": "QB64 keyboard, mouse, or controller keyword. Inserts the _WHEEL keyword."
+	},
+	"Keyword: WHILE": {
+		"prefix": [
+			"kw while",
+			"kwwhile"
+		],
+		"body": [
+			"WHILE"
+		],
+		"description": "Loop while condition. Inserts the WHILE keyword."
+	},
+	"Keyword: WIDTH": {
+		"prefix": [
+			"kw width",
+			"kwwidth"
+		],
+		"body": [
+			"WIDTH"
+		],
+		"description": "Graphics drawing keyword. Inserts the WIDTH keyword."
+	},
+	"Keyword: _WIDTH": {
+		"prefix": [
+			"kw _width",
+			"kw_width"
+		],
+		"body": [
+			"_WIDTH"
+		],
+		"description": "QB64 screen, window, font, or image keyword. Inserts the _WIDTH keyword."
+	},
+	"Keyword: WINDOW": {
+		"prefix": [
+			"kw window",
+			"kwwindow"
+		],
+		"body": [
+			"WINDOW"
+		],
+		"description": "Set world coordinates. Inserts the WINDOW keyword."
+	},
+	"Keyword: WRITE": {
+		"prefix": [
+			"kw write",
+			"kwwrite"
+		],
+		"body": [
+			"WRITE"
+		],
+		"description": "Write data to file. Inserts the WRITE keyword."
+	},
+	"Keyword: XOR": {
+		"prefix": [
+			"kw xor",
+			"kwxor"
+		],
+		"body": [
+			"XOR"
+		],
+		"description": "Logical/bitwise XOR. Inserts the XOR keyword."
+	},
+	"Keyword: _YEAR": {
+		"prefix": [
+			"kw _year",
+			"kw_year"
+		],
+		"body": [
+			"_YEAR"
+		],
+		"description": "QB64 date and time keyword. Inserts the _YEAR keyword."
+	},
+	"Function: ABS": {
+		"prefix": [
+			"fn abs",
+			"fnabs"
+		],
+		"body": [
+			"ABS(${1:n})"
+		],
+		"description": "Absolute value. Inserts the ABS built-in."
+	},
+	"Function: _ACOS": {
+		"prefix": [
+			"fn _acos",
+			"fn_acos"
+		],
+		"body": [
+			"_ACOS(${1:number})"
+		],
+		"description": "Math and numeric function. Inserts the _ACOS built-in."
+	},
+	"Function: _ALPHA": {
+		"prefix": [
+			"fn _alpha",
+			"fn_alpha"
+		],
+		"body": [
+			"_ALPHA(${1:colorValue})"
+		],
+		"description": "Extract the alpha component from a QB64 color value. Inserts the _ALPHA built-in."
+	},
+	"Function: _ALPHA32": {
+		"prefix": [
+			"fn _alpha32",
+			"fn_alpha32"
+		],
+		"body": [
+			"_ALPHA32(${1:colorValue})"
+		],
+		"description": "Extract the alpha component from a 32-bit QB64 color value. Inserts the _ALPHA32 built-in."
+	},
+	"Function: _ARCCOT": {
+		"prefix": [
+			"fn _arccot",
+			"fn_arccot"
+		],
+		"body": [
+			"_ARCCOT(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _ARCCOT built-in."
+	},
+	"Function: _ARCCSC": {
+		"prefix": [
+			"fn _arccsc",
+			"fn_arccsc"
+		],
+		"body": [
+			"_ARCCSC(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _ARCCSC built-in."
+	},
+	"Function: _ARCSEC": {
+		"prefix": [
+			"fn _arcsec",
+			"fn_arcsec"
+		],
+		"body": [
+			"_ARCSEC(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _ARCSEC built-in."
+	},
+	"Function: ASC": {
+		"prefix": [
+			"fn asc",
+			"fnasc"
+		],
+		"body": [
+			"ASC(${1:string})"
+		],
+		"description": "Character to ASCII. Inserts the ASC built-in."
+	},
+	"Function: _ASIN": {
+		"prefix": [
+			"fn _asin",
+			"fn_asin"
+		],
+		"body": [
+			"_ASIN(${1:number})"
+		],
+		"description": "Math and numeric function. Inserts the _ASIN built-in."
+	},
+	"Function: _ATAN2": {
+		"prefix": [
+			"fn _atan2",
+			"fn_atan2"
+		],
+		"body": [
+			"_ATAN2(${1:y}, ${2:x})"
+		],
+		"description": "Math and numeric function. Inserts the _ATAN2 built-in."
+	},
+	"Function: ATN": {
+		"prefix": [
+			"fn atn",
+			"fnatn"
+		],
+		"body": [
+			"ATN(${1:n})"
+		],
+		"description": "Arctangent. Inserts the ATN built-in."
+	},
+	"Function: _AXIS": {
+		"prefix": [
+			"fn _axis",
+			"fn_axis"
+		],
+		"body": [
+			"_AXIS(${1:axisNumber})"
+		],
+		"description": "Return the current joystick axis value. Inserts the _AXIS built-in."
+	},
+	"Function: BIN$": {
+		"prefix": [
+			"fn bin$",
+			"fnbin$"
+		],
+		"body": [
+			"BIN\\$(${1:value})"
+		],
+		"description": "Convert a value to its binary string representation. Inserts the BIN$ built-in."
+	},
+	"Function: _BIN$": {
+		"prefix": [
+			"fn _bin$",
+			"fn_bin$"
+		],
+		"body": [
+			"_BIN\\$(${1:value})"
+		],
+		"description": "String-processing function. Inserts the _BIN$ built-in."
+	},
+	"Function: _BLUE": {
+		"prefix": [
+			"fn _blue",
+			"fn_blue"
+		],
+		"body": [
+			"_BLUE(${1:colorValue})"
+		],
+		"description": "Extract the blue component from a QB64 color value. Inserts the _BLUE built-in."
+	},
+	"Function: _BLUE32": {
+		"prefix": [
+			"fn _blue32",
+			"fn_blue32"
+		],
+		"body": [
+			"_BLUE32(${1:colorValue})"
+		],
+		"description": "Extract the blue component from a 32-bit QB64 color value. Inserts the _BLUE32 built-in."
+	},
+	"Function: _BUTTON": {
+		"prefix": [
+			"fn _button",
+			"fn_button"
+		],
+		"body": [
+			"_BUTTON(${1:buttonNumber})"
+		],
+		"description": "Return the current state of a device button. Inserts the _BUTTON built-in."
+	},
+	"Function: _BUTTONCHANGE": {
+		"prefix": [
+			"fn _buttonchange",
+			"fn_buttonchange"
+		],
+		"body": [
+			"_BUTTONCHANGE(${1:buttonNumber})"
+		],
+		"description": "Return whether a device button changed state. Inserts the _BUTTONCHANGE built-in."
+	},
+	"Function: _CAPSLOCK": {
+		"prefix": [
+			"fn _capslock",
+			"fn_capslock"
+		],
+		"body": [
+			"_CAPSLOCK"
+		],
+		"description": "Return whether Caps Lock is currently enabled. Inserts the _CAPSLOCK built-in."
+	},
+	"Function: CBOOL": {
+		"prefix": [
+			"fn cbool",
+			"fncbool"
+		],
+		"body": [
+			"CBOOL(${1:value})"
+		],
+		"description": "Convert a value to a BASIC boolean (-1 for true, 0 for false). Inserts the CBOOL built-in."
+	},
+	"Function: CDBL": {
+		"prefix": [
+			"fn cdbl",
+			"fncdbl"
+		],
+		"body": [
+			"CDBL(${1:n})"
+		],
+		"description": "Convert to double. Inserts the CDBL built-in."
+	},
+	"Function: _CEIL": {
+		"prefix": [
+			"fn _ceil",
+			"fn_ceil"
+		],
+		"body": [
+			"_CEIL(${1:number})"
+		],
+		"description": "Math and numeric function. Inserts the _CEIL built-in."
+	},
+	"Function: CHR$": {
+		"prefix": [
+			"fn chr$",
+			"fnchr$"
+		],
+		"body": [
+			"CHR\\$(${1:code})"
+		],
+		"description": "ASCII to character. Inserts the CHR$ built-in."
+	},
+	"Function: CINT": {
+		"prefix": [
+			"fn cint",
+			"fncint"
+		],
+		"body": [
+			"CINT(${1:n})"
+		],
+		"description": "Convert to integer. Inserts the CINT built-in."
+	},
+	"Function: _CLIPBOARD$": {
+		"prefix": [
+			"fn _clipboard$",
+			"fn_clipboard$"
+		],
+		"body": [
+			"_CLIPBOARD\\$"
+		],
+		"description": "Read or write text through the system clipboard. Inserts the _CLIPBOARD$ built-in."
+	},
+	"Function: CLNG": {
+		"prefix": [
+			"fn clng",
+			"fnclng"
+		],
+		"body": [
+			"CLNG(${1:n})"
+		],
+		"description": "Convert to long. Inserts the CLNG built-in."
+	},
+	"Function: _COLORCHOOSERDIALOG": {
+		"prefix": [
+			"fn _colorchooserdialog",
+			"fn_colorchooserdialog"
+		],
+		"body": [
+			"_COLORCHOOSERDIALOG(${1:initialColor})"
+		],
+		"description": "Open the native color picker dialog. Inserts the _COLORCHOOSERDIALOG built-in."
+	},
+	"Function: COMMAND$": {
+		"prefix": [
+			"fn command$",
+			"fncommand$"
+		],
+		"body": [
+			"COMMAND\\$(${1:n})"
+		],
+		"description": "Command line args. Inserts the COMMAND$ built-in."
+	},
+	"Function: _CONNECTED": {
+		"prefix": [
+			"fn _connected",
+			"fn_connected"
+		],
+		"body": [
+			"_CONNECTED"
+		],
+		"description": "Return whether a network handle is still connected. Inserts the _CONNECTED built-in."
+	},
+	"Function: _CONNECTIONADDRESS$": {
+		"prefix": [
+			"fn _connectionaddress$",
+			"fn_connectionaddress$"
+		],
+		"body": [
+			"_CONNECTIONADDRESS\\$"
+		],
+		"description": "Return the remote address of a network connection. Inserts the _CONNECTIONADDRESS$ built-in."
+	},
+	"Function: _CONSOLEINPUT": {
+		"prefix": [
+			"fn _consoleinput",
+			"fn_consoleinput"
+		],
+		"body": [
+			"_CONSOLEINPUT"
+		],
+		"description": "Read a line from the QB64 console. Inserts the _CONSOLEINPUT built-in."
+	},
+	"Function: _CONSOLETITLE": {
+		"prefix": [
+			"fn _consoletitle",
+			"fn_consoletitle"
+		],
+		"body": [
+			"_CONSOLETITLE(${1:title\\$})"
+		],
+		"description": "Set or query the console window title. Inserts the _CONSOLETITLE built-in."
+	},
+	"Function: _CONTROLCHR": {
+		"prefix": [
+			"fn _controlchr",
+			"fn_controlchr"
+		],
+		"body": [
+			"_CONTROLCHR(${1:code})"
+		],
+		"description": "Build a control-character string from a numeric code. Inserts the _CONTROLCHR built-in."
+	},
+	"Function: _COPYIMAGE": {
+		"prefix": [
+			"fn _copyimage",
+			"fn_copyimage"
+		],
+		"body": [
+			"_COPYIMAGE(${1:imageHandle}, ${2:mode})"
+		],
+		"description": "Duplicate an existing image surface. Inserts the _COPYIMAGE built-in."
+	},
+	"Function: COS": {
+		"prefix": [
+			"fn cos",
+			"fncos"
+		],
+		"body": [
+			"COS(${1:radians})"
+		],
+		"description": "Cosine. Inserts the COS built-in."
+	},
+	"Function: _COSH": {
+		"prefix": [
+			"fn _cosh",
+			"fn_cosh"
+		],
+		"body": [
+			"_COSH(${1:number})"
+		],
+		"description": "Math and numeric function. Inserts the _COSH built-in."
+	},
+	"Function: _COT": {
+		"prefix": [
+			"fn _cot",
+			"fn_cot"
+		],
+		"body": [
+			"_COT(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _COT built-in."
+	},
+	"Function: _COTH": {
+		"prefix": [
+			"fn _coth",
+			"fn_coth"
+		],
+		"body": [
+			"_COTH(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _COTH built-in."
+	},
+	"Function: _CSC": {
+		"prefix": [
+			"fn _csc",
+			"fn_csc"
+		],
+		"body": [
+			"_CSC(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _CSC built-in."
+	},
+	"Function: _CSCH": {
+		"prefix": [
+			"fn _csch",
+			"fn_csch"
+		],
+		"body": [
+			"_CSCH(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _CSCH built-in."
+	},
+	"Function: CSNG": {
+		"prefix": [
+			"fn csng",
+			"fncsng"
+		],
+		"body": [
+			"CSNG(${1:n})"
+		],
+		"description": "Convert to single. Inserts the CSNG built-in."
+	},
+	"Function: CSRLIN": {
+		"prefix": [
+			"fn csrlin",
+			"fncsrlin"
+		],
+		"body": [
+			"CSRLIN"
+		],
+		"description": "Return the current text cursor row. Inserts the CSRLIN built-in."
+	},
+	"Function: _CV": {
+		"prefix": [
+			"fn _cv",
+			"fn_cv"
+		],
+		"body": [
+			"_CV(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into a numeric value. Inserts the _CV built-in."
+	},
+	"Function: CVD": {
+		"prefix": [
+			"fn cvd",
+			"fncvd"
+		],
+		"body": [
+			"CVD(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into a DOUBLE value. Inserts the CVD built-in."
+	},
+	"Function: _CVD": {
+		"prefix": [
+			"fn _cvd",
+			"fn_cvd"
+		],
+		"body": [
+			"_CVD(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into a DOUBLE value. Inserts the _CVD built-in."
+	},
+	"Function: CVI": {
+		"prefix": [
+			"fn cvi",
+			"fncvi"
+		],
+		"body": [
+			"CVI(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into an INTEGER value. Inserts the CVI built-in."
+	},
+	"Function: _CVI": {
+		"prefix": [
+			"fn _cvi",
+			"fn_cvi"
+		],
+		"body": [
+			"_CVI(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into an INTEGER value. Inserts the _CVI built-in."
+	},
+	"Function: CVL": {
+		"prefix": [
+			"fn cvl",
+			"fncvl"
+		],
+		"body": [
+			"CVL(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into a LONG value. Inserts the CVL built-in."
+	},
+	"Function: _CVL": {
+		"prefix": [
+			"fn _cvl",
+			"fn_cvl"
+		],
+		"body": [
+			"_CVL(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into a LONG value. Inserts the _CVL built-in."
+	},
+	"Function: CVS": {
+		"prefix": [
+			"fn cvs",
+			"fncvs"
+		],
+		"body": [
+			"CVS(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into a SINGLE value. Inserts the CVS built-in."
+	},
+	"Function: _CVS": {
+		"prefix": [
+			"fn _cvs",
+			"fn_cvs"
+		],
+		"body": [
+			"_CVS(${1:bytes\\$})"
+		],
+		"description": "Decode packed bytes into a SINGLE value. Inserts the _CVS built-in."
+	},
+	"Function: _CWD$": {
+		"prefix": [
+			"fn _cwd$",
+			"fn_cwd$"
+		],
+		"body": [
+			"_CWD\\$"
+		],
+		"description": "Return the current working directory. Inserts the _CWD$ built-in."
+	},
+	"Function: _D2G": {
+		"prefix": [
+			"fn _d2g",
+			"fn_d2g"
+		],
+		"body": [
+			"_D2G(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _D2G built-in."
+	},
+	"Function: _D2R": {
+		"prefix": [
+			"fn _d2r",
+			"fn_d2r"
+		],
+		"body": [
+			"_D2R(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _D2R built-in."
+	},
+	"Function: DATE$": {
+		"prefix": [
+			"fn date$",
+			"fndate$"
+		],
+		"body": [
+			"DATE\\$"
+		],
+		"description": "Current date. Inserts the DATE$ built-in."
+	},
+	"Function: _DAY": {
+		"prefix": [
+			"fn _day",
+			"fn_day"
+		],
+		"body": [
+			"_DAY"
+		],
+		"description": "Return the day-of-month from the current date or a QB64 timestamp. Inserts the _DAY built-in."
+	},
+	"Function: _DEVICE$": {
+		"prefix": [
+			"fn _device$",
+			"fn_device$"
+		],
+		"body": [
+			"_DEVICE\\$"
+		],
+		"description": "Return the name of a device by index. Inserts the _DEVICE$ built-in."
+	},
+	"Function: _DEVICES": {
+		"prefix": [
+			"fn _devices",
+			"fn_devices"
+		],
+		"body": [
+			"_DEVICES"
+		],
+		"description": "Return the number of available input devices. Inserts the _DEVICES built-in."
+	},
+	"Function: DIR$": {
+		"prefix": [
+			"fn dir$",
+			"fndir$"
+		],
+		"body": [
+			"DIR\\$(${1:filespec})"
+		],
+		"description": "Return the next filename that matches a filespec. Inserts the DIR$ built-in."
+	},
+	"Function: _DIR$": {
+		"prefix": [
+			"fn _dir$",
+			"fn_dir$"
+		],
+		"body": [
+			"_DIR\\$(${1:filespec})"
+		],
+		"description": "Return matching filesystem entries in QB64. Inserts the _DIR$ built-in."
+	},
+	"Function: _DIREXISTS": {
+		"prefix": [
+			"fn _direxists",
+			"fn_direxists"
+		],
+		"body": [
+			"_DIREXISTS(${1:path\\$})"
+		],
+		"description": "Check whether a directory exists. Inserts the _DIREXISTS built-in."
+	},
+	"Function: _DROPPEDFILE$": {
+		"prefix": [
+			"fn _droppedfile$",
+			"fn_droppedfile$"
+		],
+		"body": [
+			"_DROPPEDFILE\\$"
+		],
+		"description": "Return a dropped filename by index. Inserts the _DROPPEDFILE$ built-in."
+	},
+	"Function: ENVIRON$": {
+		"prefix": [
+			"fn environ$",
+			"fnenviron$"
+		],
+		"body": [
+			"ENVIRON\\$(${1:varname})"
+		],
+		"description": "Environment variable. Inserts the ENVIRON$ built-in."
+	},
+	"Function: _ENVIRON$": {
+		"prefix": [
+			"fn _environ$",
+			"fn_environ$"
+		],
+		"body": [
+			"_ENVIRON\\$(${1:name})"
+		],
+		"description": "Return the value of an environment variable. Inserts the _ENVIRON$ built-in."
+	},
+	"Function: _ENVIRONCOUNT": {
+		"prefix": [
+			"fn _environcount",
+			"fn_environcount"
+		],
+		"body": [
+			"_ENVIRONCOUNT"
+		],
+		"description": "Return how many environment strings are available. Inserts the _ENVIRONCOUNT built-in."
+	},
+	"Function: EOF": {
+		"prefix": [
+			"fn eof",
+			"fneof"
+		],
+		"body": [
+			"EOF(${1:fileNum})"
+		],
+		"description": "File I/O function. Inserts the EOF built-in."
+	},
+	"Function: ERL": {
+		"prefix": [
+			"fn erl",
+			"fnerl"
+		],
+		"body": [
+			"ERL"
+		],
+		"description": "Return the source line number of the most recent error. Inserts the ERL built-in."
+	},
+	"Function: ERR": {
+		"prefix": [
+			"fn err",
+			"fnerr"
+		],
+		"body": [
+			"ERR"
+		],
+		"description": "Return the most recent runtime error code. Inserts the ERR built-in."
+	},
+	"Function: _ERRORMESSAGE$": {
+		"prefix": [
+			"fn _errormessage$",
+			"fn_errormessage$"
+		],
+		"body": [
+			"_ERRORMESSAGE\\$"
+		],
+		"description": "Return a human-readable message for an error code. Inserts the _ERRORMESSAGE$ built-in."
+	},
+	"Function: EXP": {
+		"prefix": [
+			"fn exp",
+			"fnexp"
+		],
+		"body": [
+			"EXP(${1:n})"
+		],
+		"description": "Exponential. Inserts the EXP built-in."
+	},
+	"Function: _EXP10": {
+		"prefix": [
+			"fn _exp10",
+			"fn_exp10"
+		],
+		"body": [
+			"_EXP10(${1:value})"
+		],
+		"description": "Raise 10 to the specified power. Inserts the _EXP10 built-in."
+	},
+	"Function: _EXPLICIT": {
+		"prefix": [
+			"fn _explicit",
+			"fn_explicit"
+		],
+		"body": [
+			"_EXPLICIT"
+		],
+		"description": "Return or reflect QB64 explicit-declaration mode. Inserts the _EXPLICIT built-in."
+	},
+	"Function: _EXPLICITARRAY": {
+		"prefix": [
+			"fn _explicitarray",
+			"fn_explicitarray"
+		],
+		"body": [
+			"_EXPLICITARRAY"
+		],
+		"description": "Return or reflect QB64 explicit-array mode. Inserts the _EXPLICITARRAY built-in."
+	},
+	"Function: FALSE": {
+		"prefix": [
+			"fn false",
+			"fnfalse"
+		],
+		"body": [
+			"FALSE"
+		],
+		"description": "Boolean false constant. Inserts the FALSE built-in."
+	},
+	"Function: FILEATTR": {
+		"prefix": [
+			"fn fileattr",
+			"fnfileattr"
+		],
+		"body": [
+			"FILEATTR(${1:filenumber}, ${2:attribute})"
+		],
+		"description": "File attribute. Inserts the FILEATTR built-in."
+	},
+	"Function: _FILEEXISTS": {
+		"prefix": [
+			"fn _fileexists",
+			"fn_fileexists"
+		],
+		"body": [
+			"_FILEEXISTS(${1:path\\$})"
+		],
+		"description": "Check whether a file exists. Inserts the _FILEEXISTS built-in."
+	},
+	"Function: _FILES$": {
+		"prefix": [
+			"fn _files$",
+			"fn_files$"
+		],
+		"body": [
+			"_FILES\\$"
+		],
+		"description": "Return matching filesystem entries as strings. Inserts the _FILES$ built-in."
+	},
+	"Function: FIX": {
+		"prefix": [
+			"fn fix",
+			"fnfix"
+		],
+		"body": [
+			"FIX(${1:n})"
+		],
+		"description": "Truncate. Inserts the FIX built-in."
+	},
+	"Function: _FLOOR": {
+		"prefix": [
+			"fn _floor",
+			"fn_floor"
+		],
+		"body": [
+			"_FLOOR(${1:value})"
+		],
+		"description": "Round a value downward to the nearest integer. Inserts the _FLOOR built-in."
+	},
+	"Function: _FONTHEIGHT": {
+		"prefix": [
+			"fn _fontheight",
+			"fn_fontheight"
+		],
+		"body": [
+			"_FONTHEIGHT(${1:fontHandle})"
+		],
+		"description": "Return the pixel height of a font. Inserts the _FONTHEIGHT built-in."
+	},
+	"Function: _FONTWIDTH": {
+		"prefix": [
+			"fn _fontwidth",
+			"fn_fontwidth"
+		],
+		"body": [
+			"_FONTWIDTH(${1:fontHandle})"
+		],
+		"description": "Return the average pixel width of a font. Inserts the _FONTWIDTH built-in."
+	},
+	"Function: FREEFILE": {
+		"prefix": [
+			"fn freefile",
+			"fnfreefile"
+		],
+		"body": [
+			"FREEFILE"
+		],
+		"description": "Next free file number. Inserts the FREEFILE built-in."
+	},
+	"Function: _FREEFONT": {
+		"prefix": [
+			"fn _freefont",
+			"fn_freefont"
+		],
+		"body": [
+			"_FREEFONT(${1:fontHandle})"
+		],
+		"description": "Release a loaded QB64 font resource. Inserts the _FREEFONT built-in."
+	},
+	"Function: _FULLPATH$": {
+		"prefix": [
+			"fn _fullpath$",
+			"fn_fullpath$"
+		],
+		"body": [
+			"_FULLPATH\\$"
+		],
+		"description": "Resolve a path to its absolute form. Inserts the _FULLPATH$ built-in."
+	},
+	"Function: _G2D": {
+		"prefix": [
+			"fn _g2d",
+			"fn_g2d"
+		],
+		"body": [
+			"_G2D(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _G2D built-in."
+	},
+	"Function: _G2R": {
+		"prefix": [
+			"fn _g2r",
+			"fn_g2r"
+		],
+		"body": [
+			"_G2R(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _G2R built-in."
+	},
+	"Function: _GREEN": {
+		"prefix": [
+			"fn _green",
+			"fn_green"
+		],
+		"body": [
+			"_GREEN(${1:colorValue})"
+		],
+		"description": "Extract the green component from a QB64 color value. Inserts the _GREEN built-in."
+	},
+	"Function: _GREEN32": {
+		"prefix": [
+			"fn _green32",
+			"fn_green32"
+		],
+		"body": [
+			"_GREEN32(${1:colorValue})"
+		],
+		"description": "Extract the green component from a 32-bit QB64 color value. Inserts the _GREEN32 built-in."
+	},
+	"Function: _HEIGHT": {
+		"prefix": [
+			"fn _height",
+			"fn_height"
+		],
+		"body": [
+			"_HEIGHT(${1:image})"
+		],
+		"description": "Screen height. Inserts the _HEIGHT built-in."
+	},
+	"Function: HEX$": {
+		"prefix": [
+			"fn hex$",
+			"fnhex$"
+		],
+		"body": [
+			"HEX\\$(${1:number})"
+		],
+		"description": "Decimal to hexadecimal. Inserts the HEX$ built-in."
+	},
+	"Function: _HOUR": {
+		"prefix": [
+			"fn _hour",
+			"fn_hour"
+		],
+		"body": [
+			"_HOUR"
+		],
+		"description": "Return the hour from the current time or a QB64 timestamp. Inserts the _HOUR built-in."
+	},
+	"Function: _HYPOT": {
+		"prefix": [
+			"fn _hypot",
+			"fn_hypot"
+		],
+		"body": [
+			"_HYPOT(${1:x}, ${2:y})"
+		],
+		"description": "Math and numeric function. Inserts the _HYPOT built-in."
+	},
+	"Function: INKEY$": {
+		"prefix": [
+			"fn inkey$",
+			"fninkey$"
+		],
+		"body": [
+			"INKEY\\$"
+		],
+		"description": "Get keyboard input. Inserts the INKEY$ built-in."
+	},
+	"Function: INP": {
+		"prefix": [
+			"fn inp",
+			"fninp"
+		],
+		"body": [
+			"INP(${1:portNumber})"
+		],
+		"description": "Read a byte from an input port in the virtual runtime. Inserts the INP built-in."
+	},
+	"Function: INPUT$": {
+		"prefix": [
+			"fn input$",
+			"fninput$"
+		],
+		"body": [
+			"INPUT\\$(${1:n}, ${2:filenumber})"
+		],
+		"description": "Read characters from file. Inserts the INPUT$ built-in."
+	},
+	"Function: INSTR": {
+		"prefix": [
+			"fn instr",
+			"fninstr"
+		],
+		"body": [
+			"INSTR(${1:start}, ${2:string}, ${3:find})"
+		],
+		"description": "Find substring. Inserts the INSTR built-in."
+	},
+	"Function: _INSTRREV": {
+		"prefix": [
+			"fn _instrrev",
+			"fn_instrrev"
+		],
+		"body": [
+			"_INSTRREV(${1:text}, ${2:find}, ${3:start})"
+		],
+		"description": "Search for a substring starting from the end of a string. Inserts the _INSTRREV built-in."
+	},
+	"Function: INT": {
+		"prefix": [
+			"fn int",
+			"fnint"
+		],
+		"body": [
+			"INT(${1:n})"
+		],
+		"description": "Integer (floor). Inserts the INT built-in."
+	},
+	"Function: _KEYDOWN": {
+		"prefix": [
+			"fn _keydown",
+			"fn_keydown"
+		],
+		"body": [
+			"_KEYDOWN(${1:scanCode})"
+		],
+		"description": "Return whether a scan code is currently held down. Inserts the _KEYDOWN built-in."
+	},
+	"Function: _KEYHIT": {
+		"prefix": [
+			"fn _keyhit",
+			"fn_keyhit"
+		],
+		"body": [
+			"_KEYHIT"
+		],
+		"description": "Return the latest keypress code. Inserts the _KEYHIT built-in."
+	},
+	"Function: _LASTAXIS": {
+		"prefix": [
+			"fn _lastaxis",
+			"fn_lastaxis"
+		],
+		"body": [
+			"_LASTAXIS"
+		],
+		"description": "Return the last axis number that changed. Inserts the _LASTAXIS built-in."
+	},
+	"Function: _LASTBUTTON": {
+		"prefix": [
+			"fn _lastbutton",
+			"fn_lastbutton"
+		],
+		"body": [
+			"_LASTBUTTON"
+		],
+		"description": "Return the last button number that changed. Inserts the _LASTBUTTON built-in."
+	},
+	"Function: _LASTWHEEL": {
+		"prefix": [
+			"fn _lastwheel",
+			"fn_lastwheel"
+		],
+		"body": [
+			"_LASTWHEEL"
+		],
+		"description": "Return the most recent mouse-wheel delta. Inserts the _LASTWHEEL built-in."
+	},
+	"Function: LBOUND": {
+		"prefix": [
+			"fn lbound",
+			"fnlbound"
+		],
+		"body": [
+			"LBOUND(${1:array}, ${2:dimension})"
+		],
+		"description": "Lower bound. Inserts the LBOUND built-in."
+	},
+	"Function: LCASE$": {
+		"prefix": [
+			"fn lcase$",
+			"fnlcase$"
+		],
+		"body": [
+			"LCASE\\$(${1:string})"
+		],
+		"description": "Lowercase. Inserts the LCASE$ built-in."
+	},
+	"Function: LEFT$": {
+		"prefix": [
+			"fn left$",
+			"fnleft$"
+		],
+		"body": [
+			"LEFT\\$(${1:string}, ${2:n})"
+		],
+		"description": "Get left characters. Inserts the LEFT$ built-in."
+	},
+	"Function: _LEFTOF$": {
+		"prefix": [
+			"fn _leftof$",
+			"fn_leftof$"
+		],
+		"body": [
+			"_LEFTOF\\$(${1:text}, ${2:delimiter})"
+		],
+		"description": "Return the text to the left of a delimiter. Inserts the _LEFTOF$ built-in."
+	},
+	"Function: _LEFTOFLAST$": {
+		"prefix": [
+			"fn _leftoflast$",
+			"fn_leftoflast$"
+		],
+		"body": [
+			"_LEFTOFLAST\\$(${1:text}, ${2:delimiter})"
+		],
+		"description": "Return the text to the left of the last delimiter. Inserts the _LEFTOFLAST$ built-in."
+	},
+	"Function: LEN": {
+		"prefix": [
+			"fn len",
+			"fnlen"
+		],
+		"body": [
+			"LEN(${1:string})"
+		],
+		"description": "Get string length. Inserts the LEN built-in."
+	},
+	"Function: _LOADFONT": {
+		"prefix": [
+			"fn _loadfont",
+			"fn_loadfont"
+		],
+		"body": [
+			"_LOADFONT(${1:path\\$}, ${2:size})"
+		],
+		"description": "Load a font resource from disk. Inserts the _LOADFONT built-in."
+	},
+	"Function: _LOADIMAGE": {
+		"prefix": [
+			"fn _loadimage",
+			"fn_loadimage"
+		],
+		"body": [
+			"_LOADIMAGE(${1:path\\$}, ${2:mode})"
+		],
+		"description": "Load an image resource from disk. Inserts the _LOADIMAGE built-in."
+	},
+	"Function: LOC": {
+		"prefix": [
+			"fn loc",
+			"fnloc"
+		],
+		"body": [
+			"LOC(${1:fileNum})"
+		],
+		"description": "Return the current position of an open file. Inserts the LOC built-in."
+	},
+	"Function: LOF": {
+		"prefix": [
+			"fn lof",
+			"fnlof"
+		],
+		"body": [
+			"LOF(${1:fileNum})"
+		],
+		"description": "Return the length of an open file. Inserts the LOF built-in."
+	},
+	"Function: LOG": {
+		"prefix": [
+			"fn log",
+			"fnlog"
+		],
+		"body": [
+			"LOG(${1:n})"
+		],
+		"description": "Natural log. Inserts the LOG built-in."
+	},
+	"Function: _LOG10": {
+		"prefix": [
+			"fn _log10",
+			"fn_log10"
+		],
+		"body": [
+			"_LOG10(${1:value})"
+		],
+		"description": "Return the base-10 logarithm of a value. Inserts the _LOG10 built-in."
+	},
+	"Function: LSET": {
+		"prefix": [
+			"fn lset",
+			"fnlset"
+		],
+		"body": [
+			"LSET(${1:var\\$}, ${2:string\\$})"
+		],
+		"description": "Left-justify string. Inserts the LSET built-in."
+	},
+	"Function: LTRIM$": {
+		"prefix": [
+			"fn ltrim$",
+			"fnltrim$"
+		],
+		"body": [
+			"LTRIM\\$(${1:string})"
+		],
+		"description": "Trim left spaces. Inserts the LTRIM$ built-in."
+	},
+	"Function: MID$": {
+		"prefix": [
+			"fn mid$",
+			"fnmid$"
+		],
+		"body": [
+			"MID\\$(${1:string}, ${2:start}, ${3:length})"
+		],
+		"description": "Get substring. Inserts the MID$ built-in."
+	},
+	"Function: _MINUTE": {
+		"prefix": [
+			"fn _minute",
+			"fn_minute"
+		],
+		"body": [
+			"_MINUTE"
+		],
+		"description": "Return the minute from the current time or a QB64 timestamp. Inserts the _MINUTE built-in."
+	},
+	"Function: _MK$": {
+		"prefix": [
+			"fn _mk$",
+			"fn_mk$"
+		],
+		"body": [
+			"_MK\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into packed-byte format. Inserts the _MK$ built-in."
+	},
+	"Function: MKD$": {
+		"prefix": [
+			"fn mkd$",
+			"fnmkd$"
+		],
+		"body": [
+			"MKD\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into DOUBLE byte format. Inserts the MKD$ built-in."
+	},
+	"Function: _MKD$": {
+		"prefix": [
+			"fn _mkd$",
+			"fn_mkd$"
+		],
+		"body": [
+			"_MKD\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into DOUBLE byte format. Inserts the _MKD$ built-in."
+	},
+	"Function: MKI$": {
+		"prefix": [
+			"fn mki$",
+			"fnmki$"
+		],
+		"body": [
+			"MKI\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into INTEGER byte format. Inserts the MKI$ built-in."
+	},
+	"Function: _MKI$": {
+		"prefix": [
+			"fn _mki$",
+			"fn_mki$"
+		],
+		"body": [
+			"_MKI\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into INTEGER byte format. Inserts the _MKI$ built-in."
+	},
+	"Function: MKL$": {
+		"prefix": [
+			"fn mkl$",
+			"fnmkl$"
+		],
+		"body": [
+			"MKL\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into LONG byte format. Inserts the MKL$ built-in."
+	},
+	"Function: _MKL$": {
+		"prefix": [
+			"fn _mkl$",
+			"fn_mkl$"
+		],
+		"body": [
+			"_MKL\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into LONG byte format. Inserts the _MKL$ built-in."
+	},
+	"Function: MKS$": {
+		"prefix": [
+			"fn mks$",
+			"fnmks$"
+		],
+		"body": [
+			"MKS\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into SINGLE byte format. Inserts the MKS$ built-in."
+	},
+	"Function: _MKS$": {
+		"prefix": [
+			"fn _mks$",
+			"fn_mks$"
+		],
+		"body": [
+			"_MKS\\$(${1:value})"
+		],
+		"description": "Encode a numeric value into SINGLE byte format. Inserts the _MKS$ built-in."
+	},
+	"Function: _MONTH": {
+		"prefix": [
+			"fn _month",
+			"fn_month"
+		],
+		"body": [
+			"_MONTH"
+		],
+		"description": "Return the month from the current date or a QB64 timestamp. Inserts the _MONTH built-in."
+	},
+	"Function: _MOUSEBUTTON": {
+		"prefix": [
+			"fn _mousebutton",
+			"fn_mousebutton"
+		],
+		"body": [
+			"_MOUSEBUTTON(${1:buttonNumber})"
+		],
+		"description": "Return the current state of a mouse button. Inserts the _MOUSEBUTTON built-in."
+	},
+	"Function: _MOUSEINPUT": {
+		"prefix": [
+			"fn _mouseinput",
+			"fn_mouseinput"
+		],
+		"body": [
+			"_MOUSEINPUT"
+		],
+		"description": "Poll QB64 mouse input events. Inserts the _MOUSEINPUT built-in."
+	},
+	"Function: _MOUSEWHEEL": {
+		"prefix": [
+			"fn _mousewheel",
+			"fn_mousewheel"
+		],
+		"body": [
+			"_MOUSEWHEEL"
+		],
+		"description": "Return the current mouse-wheel value. Inserts the _MOUSEWHEEL built-in."
+	},
+	"Function: _MOUSEX": {
+		"prefix": [
+			"fn _mousex",
+			"fn_mousex"
+		],
+		"body": [
+			"_MOUSEX"
+		],
+		"description": "Return the current mouse X position. Inserts the _MOUSEX built-in."
+	},
+	"Function: _MOUSEY": {
+		"prefix": [
+			"fn _mousey",
+			"fn_mousey"
+		],
+		"body": [
+			"_MOUSEY"
+		],
+		"description": "Return the current mouse Y position. Inserts the _MOUSEY built-in."
+	},
+	"Function: _NEWIMAGE": {
+		"prefix": [
+			"fn _newimage",
+			"fn_newimage"
+		],
+		"body": [
+			"_NEWIMAGE(${1:width}, ${2:height}, ${3:mode})"
+		],
+		"description": "Create a new image surface. Inserts the _NEWIMAGE built-in."
+	},
+	"Function: _NUMLOCK": {
+		"prefix": [
+			"fn _numlock",
+			"fn_numlock"
+		],
+		"body": [
+			"_NUMLOCK"
+		],
+		"description": "Return whether Num Lock is currently enabled. Inserts the _NUMLOCK built-in."
+	},
+	"Function: OCT$": {
+		"prefix": [
+			"fn oct$",
+			"fnoct$"
+		],
+		"body": [
+			"OCT\\$(${1:number})"
+		],
+		"description": "Decimal to octal. Inserts the OCT$ built-in."
+	},
+	"Function: _OPENCLIENT": {
+		"prefix": [
+			"fn _openclient",
+			"fn_openclient"
+		],
+		"body": [
+			"_OPENCLIENT(${1:host\\$}, ${2:port})"
+		],
+		"description": "Open an outbound network client connection. Inserts the _OPENCLIENT built-in."
+	},
+	"Function: _OPENCONNECTION": {
+		"prefix": [
+			"fn _openconnection",
+			"fn_openconnection"
+		],
+		"body": [
+			"_OPENCONNECTION(${1:handle})"
+		],
+		"description": "Accept or wrap a network connection handle. Inserts the _OPENCONNECTION built-in."
+	},
+	"Function: _OPENHOST": {
+		"prefix": [
+			"fn _openhost",
+			"fn_openhost"
+		],
+		"body": [
+			"_OPENHOST(${1:port})"
+		],
+		"description": "Open a listening network host socket. Inserts the _OPENHOST built-in."
+	},
+	"Function: _OS$": {
+		"prefix": [
+			"fn _os$",
+			"fn_os$"
+		],
+		"body": [
+			"_OS\\$"
+		],
+		"description": "Return the current operating-system name. Inserts the _OS$ built-in."
+	},
+	"Function: PEEK": {
+		"prefix": [
+			"fn peek",
+			"fnpeek"
+		],
+		"body": [
+			"PEEK(${1:address})"
+		],
+		"description": "Read a byte from a memory address in the virtual runtime. Inserts the PEEK built-in."
+	},
+	"Function: _PI": {
+		"prefix": [
+			"fn _pi",
+			"fn_pi"
+		],
+		"body": [
+			"_PI"
+		],
+		"description": "Return the value of pi. Inserts the _PI built-in."
+	},
+	"Function: POINT": {
+		"prefix": [
+			"fn point",
+			"fnpoint"
+		],
+		"body": [
+			"POINT(${1:x}, ${2:y})"
+		],
+		"description": "Return the color value of a graphics pixel. Inserts the POINT built-in."
+	},
+	"Function: POS": {
+		"prefix": [
+			"fn pos",
+			"fnpos"
+		],
+		"body": [
+			"POS(${1:dummy})"
+		],
+		"description": "Return the current text cursor column. Inserts the POS built-in."
+	},
+	"Function: _R2D": {
+		"prefix": [
+			"fn _r2d",
+			"fn_r2d"
+		],
+		"body": [
+			"_R2D(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _R2D built-in."
+	},
+	"Function: _R2G": {
+		"prefix": [
+			"fn _r2g",
+			"fn_r2g"
+		],
+		"body": [
+			"_R2G(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _R2G built-in."
+	},
+	"Function: _RED": {
+		"prefix": [
+			"fn _red",
+			"fn_red"
+		],
+		"body": [
+			"_RED(${1:colorValue})"
+		],
+		"description": "Extract the red component from a QB64 color value. Inserts the _RED built-in."
+	},
+	"Function: _RED32": {
+		"prefix": [
+			"fn _red32",
+			"fn_red32"
+		],
+		"body": [
+			"_RED32(${1:colorValue})"
+		],
+		"description": "Extract the red component from a 32-bit QB64 color value. Inserts the _RED32 built-in."
+	},
+	"Function: _RESIZE": {
+		"prefix": [
+			"fn _resize",
+			"fn_resize"
+		],
+		"body": [
+			"_RESIZE"
+		],
+		"description": "Return whether the window was resized. Inserts the _RESIZE built-in."
+	},
+	"Function: _RESIZEHEIGHT": {
+		"prefix": [
+			"fn _resizeheight",
+			"fn_resizeheight"
+		],
+		"body": [
+			"_RESIZEHEIGHT"
+		],
+		"description": "Return the pending resized window height. Inserts the _RESIZEHEIGHT built-in."
+	},
+	"Function: _RESIZEWIDTH": {
+		"prefix": [
+			"fn _resizewidth",
+			"fn_resizewidth"
+		],
+		"body": [
+			"_RESIZEWIDTH"
+		],
+		"description": "Return the pending resized window width. Inserts the _RESIZEWIDTH built-in."
+	},
+	"Function: _RGB": {
+		"prefix": [
+			"fn _rgb",
+			"fn_rgb"
+		],
+		"body": [
+			"_RGB(${1:red}, ${2:green}, ${3:blue})"
+		],
+		"description": "QB64 color function. Inserts the _RGB built-in."
+	},
+	"Function: _RGB32": {
+		"prefix": [
+			"fn _rgb32",
+			"fn_rgb32"
+		],
+		"body": [
+			"_RGB32(${1:red}, ${2:green}, ${3:blue})"
+		],
+		"description": "QB64 color function. Inserts the _RGB32 built-in."
+	},
+	"Function: _RGBA": {
+		"prefix": [
+			"fn _rgba",
+			"fn_rgba"
+		],
+		"body": [
+			"_RGBA(${1:red}, ${2:green}, ${3:blue}, ${4:alpha})"
+		],
+		"description": "QB64 color function. Inserts the _RGBA built-in."
+	},
+	"Function: _RGBA32": {
+		"prefix": [
+			"fn _rgba32",
+			"fn_rgba32"
+		],
+		"body": [
+			"_RGBA32(${1:red}, ${2:green}, ${3:blue}, ${4:alpha})"
+		],
+		"description": "QB64 color function. Inserts the _RGBA32 built-in."
+	},
+	"Function: RIGHT$": {
+		"prefix": [
+			"fn right$",
+			"fnright$"
+		],
+		"body": [
+			"RIGHT\\$(${1:string}, ${2:n})"
+		],
+		"description": "Get right characters. Inserts the RIGHT$ built-in."
+	},
+	"Function: _RIGHTOF$": {
+		"prefix": [
+			"fn _rightof$",
+			"fn_rightof$"
+		],
+		"body": [
+			"_RIGHTOF\\$(${1:text}, ${2:delimiter})"
+		],
+		"description": "String-processing function. Inserts the _RIGHTOF$ built-in."
+	},
+	"Function: _RIGHTOFLAST$": {
+		"prefix": [
+			"fn _rightoflast$",
+			"fn_rightoflast$"
+		],
+		"body": [
+			"_RIGHTOFLAST\\$(${1:text}, ${2:delimiter})"
+		],
+		"description": "String-processing function. Inserts the _RIGHTOFLAST$ built-in."
+	},
+	"Function: RND": {
+		"prefix": [
+			"fn rnd",
+			"fnrnd"
+		],
+		"body": [
+			"RND"
+		],
+		"description": "Random number. Inserts the RND built-in."
+	},
+	"Function: _ROUND": {
+		"prefix": [
+			"fn _round",
+			"fn_round"
+		],
+		"body": [
+			"_ROUND(${1:n}, ${2:places})"
+		],
+		"description": "Math and numeric function. Inserts the _ROUND built-in."
+	},
+	"Function: RSET": {
+		"prefix": [
+			"fn rset",
+			"fnrset"
+		],
+		"body": [
+			"RSET(${1:var\\$}, ${2:string\\$})"
+		],
+		"description": "Right-justify string. Inserts the RSET built-in."
+	},
+	"Function: RTRIM$": {
+		"prefix": [
+			"fn rtrim$",
+			"fnrtrim$"
+		],
+		"body": [
+			"RTRIM\\$(${1:string})"
+		],
+		"description": "Trim right spaces. Inserts the RTRIM$ built-in."
+	},
+	"Function: SADD": {
+		"prefix": [
+			"fn sadd",
+			"fnsadd"
+		],
+		"body": [
+			"SADD(${1:stringVariable})"
+		],
+		"description": "Return the address of a string buffer. Inserts the SADD built-in."
+	},
+	"Function: _SCREENEXISTS": {
+		"prefix": [
+			"fn _screenexists",
+			"fn_screenexists"
+		],
+		"body": [
+			"_SCREENEXISTS(${1:screenHandle})"
+		],
+		"description": "Check whether a screen or image handle is valid. Inserts the _SCREENEXISTS built-in."
+	},
+	"Function: _SCROLLLOCK": {
+		"prefix": [
+			"fn _scrolllock",
+			"fn_scrolllock"
+		],
+		"body": [
+			"_SCROLLLOCK"
+		],
+		"description": "Return whether Scroll Lock is currently enabled. Inserts the _SCROLLLOCK built-in."
+	},
+	"Function: _SEC": {
+		"prefix": [
+			"fn _sec",
+			"fn_sec"
+		],
+		"body": [
+			"_SEC(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _SEC built-in."
+	},
+	"Function: _SECH": {
+		"prefix": [
+			"fn _sech",
+			"fn_sech"
+		],
+		"body": [
+			"_SECH(${1:value})"
+		],
+		"description": "Math and numeric function. Inserts the _SECH built-in."
+	},
+	"Function: _SECOND": {
+		"prefix": [
+			"fn _second",
+			"fn_second"
+		],
+		"body": [
+			"_SECOND"
+		],
+		"description": "Return the second from the current time or a QB64 timestamp. Inserts the _SECOND built-in."
+	},
+	"Function: _SELECTFOLDERDIALOG$": {
+		"prefix": [
+			"fn _selectfolderdialog$",
+			"fn_selectfolderdialog$"
+		],
+		"body": [
+			"_SELECTFOLDERDIALOG\\$(${1:title\\$})"
+		],
+		"description": "Open the native folder-selection dialog. Inserts the _SELECTFOLDERDIALOG$ built-in."
+	},
+	"Function: SGN": {
+		"prefix": [
+			"fn sgn",
+			"fnsgn"
+		],
+		"body": [
+			"SGN(${1:n})"
+		],
+		"description": "Sign. Inserts the SGN built-in."
+	},
+	"Function: SHELL": {
+		"prefix": [
+			"fn shell",
+			"fnshell"
+		],
+		"body": [
+			"SHELL ${1:command\\$}"
+		],
+		"description": "Run system command. Inserts the SHELL built-in."
+	},
+	"Function: SIN": {
+		"prefix": [
+			"fn sin",
+			"fnsin"
+		],
+		"body": [
+			"SIN(${1:radians})"
+		],
+		"description": "Sine. Inserts the SIN built-in."
+	},
+	"Function: _SINH": {
+		"prefix": [
+			"fn _sinh",
+			"fn_sinh"
+		],
+		"body": [
+			"_SINH(${1:number})"
+		],
+		"description": "Math and numeric function. Inserts the _SINH built-in."
+	},
+	"Function: _SNDGETPOS": {
+		"prefix": [
+			"fn _sndgetpos",
+			"fn_sndgetpos"
+		],
+		"body": [
+			"_SNDGETPOS(${1:handle})"
+		],
+		"description": "Sound position. Inserts the _SNDGETPOS built-in."
+	},
+	"Function: _SNDLEN": {
+		"prefix": [
+			"fn _sndlen",
+			"fn_sndlen"
+		],
+		"body": [
+			"_SNDLEN(${1:handle})"
+		],
+		"description": "Sound length. Inserts the _SNDLEN built-in."
+	},
+	"Function: _SNDPLAYING": {
+		"prefix": [
+			"fn _sndplaying",
+			"fn_sndplaying"
+		],
+		"body": [
+			"_SNDPLAYING(${1:soundHandle})"
+		],
+		"description": "Return whether a sound handle is currently playing. Inserts the _SNDPLAYING built-in."
+	},
+	"Function: SPACE$": {
+		"prefix": [
+			"fn space$",
+			"fnspace$"
+		],
+		"body": [
+			"SPACE\\$(${1:n})"
+		],
+		"description": "Create spaces. Inserts the SPACE$ built-in."
+	},
+	"Function: SPC": {
+		"prefix": [
+			"fn spc",
+			"fnspc"
+		],
+		"body": [
+			"SPC(${1:n})"
+		],
+		"description": "Print spaces. Inserts the SPC built-in."
+	},
+	"Function: SQR": {
+		"prefix": [
+			"fn sqr",
+			"fnsqr"
+		],
+		"body": [
+			"SQR(${1:n})"
+		],
+		"description": "Square root. Inserts the SQR built-in."
+	},
+	"Function: _STARTDIR$": {
+		"prefix": [
+			"fn _startdir$",
+			"fn_startdir$"
+		],
+		"body": [
+			"_STARTDIR\\$"
+		],
+		"description": "Return QB64s startup directory. Inserts the _STARTDIR$ built-in."
+	},
+	"Function: STR$": {
+		"prefix": [
+			"fn str$",
+			"fnstr$"
+		],
+		"body": [
+			"STR\\$(${1:number})"
+		],
+		"description": "Number to string. Inserts the STR$ built-in."
+	},
+	"Function: STRING$": {
+		"prefix": [
+			"fn string$",
+			"fnstring$"
+		],
+		"body": [
+			"STRING\\$(${1:n}, ${2:char})"
+		],
+		"description": "Repeat character. Inserts the STRING$ built-in."
+	},
+	"Function: TAB": {
+		"prefix": [
+			"fn tab",
+			"fntab"
+		],
+		"body": [
+			"TAB(${1:column})"
+		],
+		"description": "Tab to column. Inserts the TAB built-in."
+	},
+	"Function: TAN": {
+		"prefix": [
+			"fn tan",
+			"fntan"
+		],
+		"body": [
+			"TAN(${1:radians})"
+		],
+		"description": "Tangent. Inserts the TAN built-in."
+	},
+	"Function: _TANH": {
+		"prefix": [
+			"fn _tanh",
+			"fn_tanh"
+		],
+		"body": [
+			"_TANH(${1:number})"
+		],
+		"description": "Math and numeric function. Inserts the _TANH built-in."
+	},
+	"Function: TIME$": {
+		"prefix": [
+			"fn time$",
+			"fntime$"
+		],
+		"body": [
+			"TIME\\$"
+		],
+		"description": "Current time. Inserts the TIME$ built-in."
+	},
+	"Function: TIMER": {
+		"prefix": [
+			"fn timer",
+			"fntimer"
+		],
+		"body": [
+			"TIMER"
+		],
+		"description": "Seconds since midnight. Inserts the TIMER built-in."
+	},
+	"Function: _TIMER": {
+		"prefix": [
+			"fn _timer",
+			"fn_timer"
+		],
+		"body": [
+			"_TIMER"
+		],
+		"description": "Return QB64 timer ticks or elapsed time. Inserts the _TIMER built-in."
+	},
+	"Function: _TOTALDROPPEDFILES": {
+		"prefix": [
+			"fn _totaldroppedfiles",
+			"fn_totaldroppedfiles"
+		],
+		"body": [
+			"_TOTALDROPPEDFILES"
+		],
+		"description": "Return how many files were dropped onto the window. Inserts the _TOTALDROPPEDFILES built-in."
+	},
+	"Function: _TRIM$": {
+		"prefix": [
+			"fn _trim$",
+			"fn_trim$"
+		],
+		"body": [
+			"_TRIM\\$(${1:text})"
+		],
+		"description": "Trim leading and trailing spaces from a string. Inserts the _TRIM$ built-in."
+	},
+	"Function: TRUE": {
+		"prefix": [
+			"fn true",
+			"fntrue"
+		],
+		"body": [
+			"TRUE"
+		],
+		"description": "Boolean true constant. Inserts the TRUE built-in."
+	},
+	"Function: UBOUND": {
+		"prefix": [
+			"fn ubound",
+			"fnubound"
+		],
+		"body": [
+			"UBOUND(${1:array}, ${2:dimension})"
+		],
+		"description": "Upper bound. Inserts the UBOUND built-in."
+	},
+	"Function: UCASE$": {
+		"prefix": [
+			"fn ucase$",
+			"fnucase$"
+		],
+		"body": [
+			"UCASE\\$(${1:string})"
+		],
+		"description": "Uppercase. Inserts the UCASE$ built-in."
+	},
+	"Function: VAL": {
+		"prefix": [
+			"fn val",
+			"fnval"
+		],
+		"body": [
+			"VAL(${1:string})"
+		],
+		"description": "String to number. Inserts the VAL built-in."
+	},
+	"Function: VARPTR": {
+		"prefix": [
+			"fn varptr",
+			"fnvarptr"
+		],
+		"body": [
+			"VARPTR(${1:variable})"
+		],
+		"description": "Return the address of a variable. Inserts the VARPTR built-in."
+	},
+	"Function: VARPTR$": {
+		"prefix": [
+			"fn varptr$",
+			"fnvarptr$"
+		],
+		"body": [
+			"VARPTR\\$(${1:variable})"
+		],
+		"description": "Return the address of a variable as a string. Inserts the VARPTR$ built-in."
+	},
+	"Function: VARSEG": {
+		"prefix": [
+			"fn varseg",
+			"fnvarseg"
+		],
+		"body": [
+			"VARSEG(${1:variable})"
+		],
+		"description": "Return the segment address of a variable. Inserts the VARSEG built-in."
+	},
+	"Function: _WEEKDAY": {
+		"prefix": [
+			"fn _weekday",
+			"fn_weekday"
+		],
+		"body": [
+			"_WEEKDAY"
+		],
+		"description": "Return the weekday for the current date or a QB64 timestamp. Inserts the _WEEKDAY built-in."
+	},
+	"Function: _WHEEL": {
+		"prefix": [
+			"fn _wheel",
+			"fn_wheel"
+		],
+		"body": [
+			"_WHEEL(${1:wheelNumber})"
+		],
+		"description": "Return the current wheel value for a device. Inserts the _WHEEL built-in."
+	},
+	"Function: _WIDTH": {
+		"prefix": [
+			"fn _width",
+			"fn_width"
+		],
+		"body": [
+			"_WIDTH(${1:image})"
+		],
+		"description": "Screen width. Inserts the _WIDTH built-in."
+	},
+	"Function: _YEAR": {
+		"prefix": [
+			"fn _year",
+			"fn_year"
+		],
+		"body": [
+			"_YEAR"
+		],
+		"description": "Return the year from the current date or a QB64 timestamp. Inserts the _YEAR built-in."
 	}
 }

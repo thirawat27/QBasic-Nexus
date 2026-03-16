@@ -31,7 +31,7 @@ const KEYWORDS = new Set([
     // I/O
     'PRINT', 'INPUT', 'CLS', 'LOCATE', 'COLOR', 'SCREEN', 'WIDTH',
     'WRITE', 'INKEY$', 'CSRLIN', 'POS', 'SPC', 'TAB', 'USING',
-    'LPRINT', 'LPOS', 'VIEW', 'PRINT',
+    'LPRINT', 'LPOS',
     
     // Control Flow
     'IF', 'THEN', 'ELSE', 'ELSEIF', 'END', 'SELECT', 'CASE',
@@ -128,7 +128,47 @@ const KEYWORDS = new Set([
     
     // QB64 Specific - Date/Time
     '_DATE$', '_TIME$', '_TIMER', '_YEAR', '_MONTH', '_DAY', '_HOUR',
-    '_MINUTE', '_SECOND', '_WEEKDAY'
+    '_MINUTE', '_SECOND', '_WEEKDAY',
+    
+    // Additional QBasic/QuickBASIC Keywords
+    'CLEAR', 'IOCTL', 'IOCTL$', 'KEY', 'STRIG', 'TIMER', 'ON', 
+    'FRE', 'DATE$', 'TIME$', 'VARPTR$', 'PRESERVE', 'ENVIRON',
+    'USR', 'CALL', 'CALLS', 'INTERRUPT', 'INTERRUPTX', 'ABSOLUTE',
+    '$STATIC', '$DYNAMIC', '$INCLUDE', '$IF', '$ELSE', '$ELSEIF', '$END IF',
+    '$CONSOLE', '$DEBUG', '$CHECKING', '$ASSERTS', '$COLOR',
+    
+    // Additional QB64 Keywords
+    '_BIT', '_BYTE', '_FLOAT', '_INTEGER64', '_UNSIGNED', '_OFFSET', '_MEM',
+    '_WHEEL', '_LASTWHEEL', '_DEVICE', '_DEVICEINPUT', '_LASTBUTTON', '_LASTAXIS',
+    '_AXIS', '_BUTTON', '_BUTTONCHANGE', '_WHEEL',
+    '_NEWIMAGE', '_LOADIMAGE', '_COPYIMAGE', '_FREEIMAGE',
+    '_PRINTWIDTH', '_LOADFONT', '_FREEFONT',
+    '_MOUSEX', '_MOUSEY', '_MOUSEBUTTON', '_MOUSEWHEEL', '_MOUSEINPUT',
+    '_SCREENEXISTS', '_RESIZE', '_RESIZEWIDTH', '_RESIZEHEIGHT',
+    '_PRINTSTRING', '_FONT', '_LOADFONT', '_FREEFONT',
+    '_RED', '_GREEN', '_BLUE', '_ALPHA', '_RGBA', '_RGB32', '_RGBA32',
+    '_CLEARCOLOR', '_SETALPHA', '_COPYPALETTE',
+    '_SNDOPEN', '_SNDPLAY', '_SNDSTOP', '_SNDCLOSE', '_SNDVOL', '_SNDPAUSE',
+    '_SNDPLAYING', '_SNDPLAYFILE', '_SNDLOOP', '_SNDBAL', '_SNDRAW', '_SNDRAWLEN',
+    '_SNDRATE', '_SNDRAWDONE', '_SNDOPENRAW', '_SNDSETPOS', '_SNDGETPOS', '_SNDLEN',
+    '_OPENHOST', '_OPENCLIENT', '_OPENCONNECTION', '_CONNECTED',
+    '_CONNECTIONADDRESS$', '_DEVICE$', '_DEVICES',
+    '_CLIPBOARD$', '_CONTROLCHR', '_CONSOLE', '_CONSOLETITLE', '_CONSOLEINPUT',
+    '_EXIT', '_FILEEXISTS', '_DIREXISTS', '_CWD$', '_DIR$', '_STARTDIR$',
+    '_OS$', '_SHELL', '_SHELLHIDE', '_DONTWAIT', '_ACCEPTFILEDROP',
+    '_TOTALDROPPEDFILES', '_DROPPEDFILE$', '_FINISHDROP', '_EMBEDDED$',
+    '_ENVIRONCOUNT', '_INSTRREV', '_TRIM$', '_EXPLICIT', '_EXPLICITARRAY',
+    '_CONTINUE', '_D2R', '_D2G', '_R2D', '_R2G', '_G2D', '_G2R',
+    '_ATAN2', '_ASIN', '_ACOS', '_COSH', '_SINH', '_TANH', '_SECH', '_CSCH', '_COTH',
+    '_ARCSEC', '_ARCCSC', '_ARCCOT', '_SEC', '_CSC', '_COT', '_HYPOT', '_CEIL',
+    '_ROUND', '_PI', '_TAN', '_FLOOR', '_LOG10', '_EXP10',
+    '_CV', '_CVD', '_CVI', '_CVL', '_CVS', '_MK$', '_MKD$', '_MKI$', '_MKL$', '_MKS$',
+    '_RGB', '_RGBA', '_RGB32', '_RGBA32',
+    '_ERROR$', '_ERRORMESSAGE$', '_GETPTR', '_GETPTR$', '_SETPTR',
+    '_MEM', '_MEMIMAGE', '_MEMNEW', '_MEMFREE', '_MEMGET', '_MEMPUT', '_MEMCOPY',
+    '_MEMFILL', '_MEMSOUND', '_MEMEXISTS', '_OFFSET',
+    '_CAPSLOCK', '_NUMLOCK', '_SCROLLLOCK',
+    '_KEYCLEAR', '_KEYTOSTR$', '_INPOKE'
 ]);
 
 // ============================================================================
@@ -323,7 +363,121 @@ const BUILTIN_FUNCS = Object.freeze({
     
     // ========== Conversion Functions ==========
     '_CV': '_cv',
-    '_MK$': '_mk$'
+    '_MK$': '_mk$',
+    
+    // ========== Additional Math Functions ==========
+    // FRE - memory available (implemented in runtime)
+    // FREEFILE - (already defined above)
+    // LOF - (already defined above)
+    // LOC - (already defined above)
+    // EOF - (already defined above)
+    'ERR': '_err',
+    'ERL': '_erl',
+    'VARPTR$': '_varptr$',
+    // VARSEG - (already defined above)
+    // SADD - (already defined above)
+    
+    // ========== Additional QB64 Math ==========
+    '_LOG10': '(n => Math.log10(n))',
+    '_EXP10': '(n => Math.pow(10, n))',
+    '_FLOOR': 'Math.floor',
+    
+    // ========== QB64 Keyboard/Mouse ==========
+    '_KEYDOWN': '_keydown',
+    '_KEYHIT': '_keyhit',
+    '_MOUSEX': '_mousex',
+    '_MOUSEY': '_mousey',
+    '_MOUSEBUTTON': '_mousebutton',
+    '_MOUSEWHEEL': '_mousewheel',
+    '_MOUSEINPUT': '_mouseinput',
+    '_AXIS': '_axis',
+    '_BUTTON': '_button',
+    '_BUTTONCHANGE': '_buttonchange',
+    '_WHEEL': '_wheel',
+    '_DEVICE$': '_device$',
+    '_DEVICES': '_devices',
+    '_LASTBUTTON': '_lastbutton',
+    '_LASTAXIS': '_lastaxis',
+    '_LASTWHEEL': '_lastwheel',
+    
+    // ========== QB64 Screen Functions ==========
+    '_SCREENEXISTS': '_screenexists',
+    '_RESIZE': '_resize',
+    '_RESIZEWIDTH': '_resizewidth',
+    '_RESIZEHEIGHT': '_resizeheight',
+    // _PRINTWIDTH - (already defined above)
+    
+    // ========== QB64 Font Functions ==========
+    '_LOADFONT': '_loadfont',
+    '_FREEFONT': '_freefont',
+    // _FONTWIDTH - (already defined above)
+    // _FONTHEIGHT - (already defined above)
+    
+    // ========== QB64 Image Functions ==========
+    '_NEWIMAGE': '_newimage',
+    '_LOADIMAGE': '_loadimage',
+    '_COPYIMAGE': '_copyimage',
+    
+    // ========== QB64 Console ==========
+    '_CONSOLETITLE': '_consoletitle',
+    '_CONSOLEINPUT': '_consoleinput',
+    '_CONTROLCHR': '_controlchr',
+    
+    // ========== QB64 Network ==========
+    '_OPENHOST': '_openhost',
+    '_OPENCLIENT': '_openclient',
+    '_OPENCONNECTION': '_openconnection',
+    '_CONNECTED': '_connected',
+    '_CONNECTIONADDRESS$': '_connectionaddress$',
+    
+    // ========== QB64 Environment ==========
+    '_ENVIRONCOUNT': '_environcount',
+    '_ENVIRON$': '_environ$',
+    
+    // ========== QB64 Error Handling ==========
+    '_ERRORMESSAGE$': '_errormessage$',
+    
+    // ========== QB64 Keyboard State ==========
+    '_CAPSLOCK': '_capslock',
+    '_NUMLOCK': '_numlock',
+    '_SCROLLLOCK': '_scrolllock',
+    
+    // ========== QB64 File System ==========
+    '_FULLPATH$': '_fullpath$',
+    '_FILES$': '_files$',
+    '_SELECTFOLDERDIALOG$': '_selectfolderdialog$',
+    '_COLORCHOOSERDIALOG': '_colorchooserdialog',
+    
+    // ========== QB64 Additional String ==========
+    // _INSTRREV - (already defined above)
+    // _TRIM$ - (already defined above)
+    '_LEFTOF$': '_leftof$',
+    '_RIGHTOF$': '_rightof$',
+    '_LEFTOFLAST$': '_leftoflast$',
+    '_RIGHTOFLAST$': '_rightoflast$',
+    // _LTRIM$ - (already defined above)
+    // _RTRIM$ - (already defined above)
+    
+    // ========== QB64 Time ==========
+    // _TIMER - (already defined above)
+    // _DATE$ - (already defined above)
+    // _TIME$ - (already defined above)
+    // _YEAR - (already defined above)
+    // _MONTH - (already defined above)
+    // _DAY - (already defined above)
+    // _HOUR - (already defined above)
+    // _MINUTE - (already defined above)
+    // _SECOND - (already defined above)
+    // _WEEKDAY - (already defined above)
+    
+    // ========== QB64 Misc ==========
+    // _OS$ - (already defined above)
+    '_EXPLICIT': '_explicit',
+    '_EXPLICITARRAY': '_explicitarray',
+    // _STARTDIR$ - (already defined above)
+    // _CWD$ - (already defined above)
+    '_TOTALDROPPEDFILES': '_totaldroppedfiles',
+    '_DROPPEDFILE$': '_droppedfile$'
 });
 
 module.exports = {

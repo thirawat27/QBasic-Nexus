@@ -9,10 +9,16 @@ const vscode = require('vscode');
 const { KEYWORDS, FUNCTIONS } = require('../../languageData');
 const { PATTERNS } = require('./patterns');
 const {
+  buildKeywordSearchEntries,
+  findKeywordEntryAtPosition,
+} = require('../shared/keywordLookup');
+const {
   SYMBOL_KIND,
   findDefinitionInAnalysis,
 } = require('../shared/documentAnalysis');
 const { workspaceAnalyzer } = require('../shared/workspaceAnalysis');
+
+const KEYWORD_SEARCH_ENTRIES = buildKeywordSearchEntries(KEYWORDS);
 
 const USER_SYMBOL_LABELS = Object.freeze({
   [SYMBOL_KIND.FUNCTION]: 'function',
@@ -25,20 +31,23 @@ const USER_SYMBOL_LABELS = Object.freeze({
 
 class QBasicHoverProvider {
   async provideHover(document, position) {
+    const lineText = document.lineAt(position.line).text;
+    const keywordMatch = findKeywordEntryAtPosition(
+      lineText,
+      position.character,
+      KEYWORD_SEARCH_ENTRIES,
+    );
     const range = document.getWordRangeAtPosition(
       position,
       PATTERNS.IDENTIFIER,
     );
-    if (!range) return null;
-
-    const originalWord = document.getText(range);
+    const originalWord = range ? document.getText(range) : '';
     const word = originalWord.toUpperCase();
 
-    // Keyword
-    if (KEYWORDS[word]) {
-      const k = KEYWORDS[word];
+    if (keywordMatch && /[\s#]/.test(keywordMatch.label)) {
+      const keywordDoc = keywordMatch.entry.documentation || keywordMatch.entry.detail;
       return new vscode.Hover(
-        new vscode.MarkdownString(`**${k.label}** *(keyword)*\n\n${k.detail}`),
+        new vscode.MarkdownString(keywordDoc),
       );
     }
 
@@ -46,11 +55,20 @@ class QBasicHoverProvider {
     if (FUNCTIONS[word]) {
       const f = FUNCTIONS[word];
       return new vscode.Hover(
-        new vscode.MarkdownString(
-          `**${word}** *(function)*\n\n${f.documentation}`,
-        ),
+        new vscode.MarkdownString(f.documentation),
       );
     }
+
+    // Keyword
+    if (keywordMatch) {
+      const k = keywordMatch.entry;
+      const keywordDoc = k.documentation || k.detail;
+      return new vscode.Hover(
+        new vscode.MarkdownString(keywordDoc),
+      );
+    }
+
+    if (!range) return null;
 
     const analysis = await workspaceAnalyzer.getWorkspaceAnalysis(document);
     const definition = findDefinitionInAnalysis(analysis, originalWord);

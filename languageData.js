@@ -5,11 +5,13 @@
 
 'use strict';
 
+const { buildLanguageCatalog } = require('./src/shared/languageCatalog');
+
 // ============================================================================
 // KEYWORDS
 // ============================================================================
 
-const KEYWORDS = {
+const CURATED_KEYWORDS = {
     // I/O
     PRINT: { label: 'PRINT', detail: 'Output text to the screen' },
     INPUT: { label: 'INPUT', detail: 'Get user input from keyboard' },
@@ -200,7 +202,7 @@ const KEYWORDS = {
 // FUNCTIONS
 // ============================================================================
 
-const FUNCTIONS = {
+const CURATED_FUNCTIONS = {
     // String Functions
     'MID$': {
         detail: 'Get substring',
@@ -482,5 +484,10 @@ const FUNCTIONS = {
 // ============================================================================
 // QB64 METACOMMANDS
 // ============================================================================
+
+const { KEYWORDS, FUNCTIONS } = buildLanguageCatalog({
+    curatedKeywords: CURATED_KEYWORDS,
+    curatedFunctions: CURATED_FUNCTIONS,
+});
 
 module.exports = { KEYWORDS, FUNCTIONS };

@@ -208,6 +208,56 @@ _parseStatement() {
     // Error Handling
     if (this._matchKw('ERROR')) return this._parseError();
 
+    // ============ NEW: Additional Commands ============
+    if (this._matchKw('CLEAR')) return this._parseClear();
+    if (this._matchKw('KEY')) return this._parseKey();
+    if (this._matchKw('STRIG')) return this._parseStrig();
+    if (this._matchKw('TIMER')) return this._parseTimer();
+    if (this._matchKw('FRE')) return this._parseFre();
+    if (this._matchKw('ENVIRON')) return this._parseEnviron();
+    if (this._matchKw('DATE$')) return this._parseDate$();
+    if (this._matchKw('TIME$')) return this._parseTime$();
+    if (this._matchKw('ON')) return this._parseOnStatement();
+    
+    // ============ NEW: QB64 Console Commands ============
+    if (this._matchKw('_CONSOLE')) return this._parseConsole();
+    if (this._matchKw('_CONSOLETITLE')) return this._parseConsoleTitle();
+    if (this._matchKw('_SCREENHIDE')) return this._parseScreenHide();
+    if (this._matchKw('_SCREENSHOW')) return this._parseScreenShow();
+    if (this._matchKw('_SHELLHIDE')) return this._parseShellHide();
+    if (this._matchKw('_ACCEPTFILEDROP')) return this._parseAcceptFileDrop();
+    
+    // ============ NEW: QB64 Image Commands ============
+    if (this._matchKw('_NEWIMAGE')) return this._parseNewImage();
+    if (this._matchKw('_LOADIMAGE')) return this._parseLoadImage();
+    if (this._matchKw('_COPYIMAGE')) return this._parseCopyImage();
+    
+    // ============ NEW: QB64 Sound Commands ============
+    if (this._matchKw('_SNDOPEN')) return this._parseSndOpen();
+    if (this._matchKw('_SNDPLAYFILE')) return this._parseSndPlayFile();
+    if (this._matchKw('_SNDSETPOS')) return this._parseSndSetPos();
+    if (this._matchKw('_SNDGETPOS')) return this._parseSndGetPos();
+    if (this._matchKw('_SNDLEN')) return this._parseSndLen();
+    if (this._matchKw('_SNDPLAYING')) return this._parseSndPlaying();
+    
+    // ============ NEW: QB64 Mouse Commands ============
+    if (this._matchKw('_MOUSEMOVE')) return this._parseMouseMove();
+    if (this._matchKw('_MOUSEWHEEL')) return this._parseMouseWheel();
+    if (this._matchKw('_MOUSEINPUT')) return this._parseMouseInput();
+    
+    // ============ NEW: QB64 Network Commands ============
+    if (this._matchKw('_OPENHOST')) return this._parseOpenHost();
+    if (this._matchKw('_OPENCLIENT')) return this._parseOpenClient();
+    if (this._matchKw('_OPENCONNECTION')) return this._parseOpenConnection();
+    if (this._matchKw('_CLOSE')) return this._parseClose();
+    
+    // ============ NEW: QB64 Keyboard Commands ============
+    if (this._matchKw('_KEYDOWN')) return this._parseKeyDown();
+    if (this._matchKw('_KEYHIT')) return this._parseKeyHit();
+    
+    // ============ NEW: QB64 Resize Commands ============
+    if (this._matchKw('_RESIZE')) return this._parseResize();
+    
     // Check for label definition (identifier followed by colon)
     if (this._check(TokenType.IDENTIFIER)) {
       const next = this.tokens[this.pos + 1];
@@ -1055,6 +1105,221 @@ _parseResume() {
 _parseError() {
     const errNum = this._parseExpr();
     this._emit(`throw new Error("Error " + ${errNum});`);
+  },
+
+_parseClear() {
+    // CLEAR - clears all variables
+    this._emit('_clear();');
+  },
+
+_parseKey() {
+    // KEY n, string$ - sets function key string
+    // KEY ON/OFF - shows/hides function key display
+    if (this._matchKw('ON') || this._matchKw('OFF')) {
+      this._emit(`// KEY ${this._prev().value}`);
+    } else {
+      const keyNum = this._parseExpr();
+      this._matchPunc(',');
+      const keyStr = this._parseExpr();
+      this._emit(`_key(${keyNum}, ${keyStr});`);
+    }
+  },
+
+_parseStrig() {
+    // STRIG(n) - joystick button status
+    const button = this._parseExpr();
+    this._emit(`_strig(${button});`);
+  },
+
+_parseTimer() {
+    // TIMER ON/OFF/STOP - timer control
+    // TIMER = seconds - sets timer interval
+    if (this._matchKw('ON') || this._matchKw('OFF') || this._matchKw('STOP')) {
+      this._emit(`// TIMER ${this._prev().value}`);
+    } else {
+      const seconds = this._parseExpr();
+      this._emit(`_timer = ${seconds};`);
+    }
+  },
+
+_parseFre() {
+    // FRE(string$) or FRE(-1) - returns bytes of memory
+    if (this._isStmtEnd()) {
+      this._emit('_fre(-1);');
+    } else {
+      const expr = this._parseExpr();
+      this._emit(`_fre(${expr});`);
+    }
+  },
+
+_parseEnviron() {
+    // ENVIRON string$ or ENVIRON "name=value"
+    if (!this._isStmtEnd()) {
+      const envStr = this._parseExpr();
+      this._emit(`_environ(${envStr});`);
+    }
+  },
+
+_parseDate$() {
+    // DATE$ = mm-dd-yyyy
+    if (this._matchOp('=')) {
+      const dateStr = this._parseExpr();
+      this._emit(`_dateset(${dateStr});`);
+    } else {
+      this._emit('_date$');
+    }
+  },
+
+_parseTime$() {
+    // TIME$ = hh:mm:ss
+    if (this._matchOp('=')) {
+      const timeStr = this._parseExpr();
+      this._emit(`_timeset(${timeStr});`);
+    } else {
+      this._emit('_time$');
+    }
+  },
+
+_parseConsole() {
+    // _CONSOLE ON/OFF
+    let mode = 'ON';
+    if (this._matchKw('OFF')) mode = 'OFF';
+    this._emit(`_console(${mode});`);
+  },
+
+_parseConsoleTitle() {
+    // _CONSOLETITLE title$
+    const title = this._parseExpr();
+    this._emit(`_consoletitle(${title});`);
+  },
+
+_parseScreenHide() {
+    // _SCREENHIDE
+    this._emit('_runtime.screenhide?.();');
+  },
+
+_parseScreenShow() {
+    // _SCREENSHOW
+    this._emit('_runtime.screenshow?.();');
+  },
+
+_parseShellHide() {
+    // _SHELLHIDE command$
+    const cmd = this._parseExpr();
+    this._emit(`_shellhide(${cmd});`);
+  },
+
+_parseAcceptFileDrop() {
+    // _ACCEPTFILEDROP ON/OFF
+    let mode = 'ON';
+    if (this._matchKw('OFF')) mode = 'OFF';
+    this._emit(`_acceptfiledrop(${mode});`);
+  },
+
+_parseNewImage() {
+    // _NEWIMAGE(width, height, mode) or _NEWIMAGE(array, mode)
+    const width = this._parseExpr();
+    this._matchPunc(',');
+    const height = this._parseExpr();
+    this._matchPunc(',');
+    const mode = this._parseExpr();
+    this._emit(`_newimage(${width}, ${height}, ${mode});`);
+  },
+
+_parseLoadImage() {
+    // _LOADIMAGE(filename$) or _LOADIMAGE(filename$, mode)
+    const filename = this._parseExpr();
+    let mode = '32';
+    if (this._matchPunc(',')) {
+      mode = this._parseExpr();
+    }
+    this._emit(`_loadimage(${filename}, ${mode});`);
+  },
+
+_parseCopyImage() {
+    // _COPYIMAGE(imageHandle)
+    const handle = this._parseExpr();
+    this._emit(`_copyimage(${handle});`);
+  },
+
+_parseSndOpen() {
+    // _SNDOPEN(filename$) or _SNDOPEN(filename$, flags)
+    const filename = this._parseExpr();
+    let flags = '0';
+    if (this._matchPunc(',')) {
+      flags = this._parseExpr();
+    }
+    this._emit(`_sndopen(${filename}, ${flags});`);
+  },
+
+_parseSndPlayFile() {
+    // _SNDPLAYFILE(filename$, volume)
+    const filename = this._parseExpr();
+    this._matchPunc(',');
+    const volume = this._parseExpr();
+    this._emit(`_sndplayfile(${filename}, ${volume});`);
+  },
+
+_parseSndLen() {
+    // _SNDLEN(handle)
+    const handle = this._parseExpr();
+    this._emit(`_sndlen(${handle});`);
+  },
+
+_parseSndPlaying() {
+    // _SNDPLAYING(handle)
+    const handle = this._parseExpr();
+    this._emit(`_sndplaying(${handle});`);
+  },
+
+_parseMouseWheel() {
+    // _MOUSEWHEEL
+    this._emit('_mousewheel();');
+  },
+
+_parseMouseInput() {
+    // _MOUSEINPUT
+    this._emit('_mouseinput();');
+  },
+
+_parseOpenHost() {
+    // _OPENHOST("TCP")
+    const protocol = this._parseExpr();
+    this._emit(`_openhost(${protocol});`);
+  },
+
+_parseOpenClient() {
+    // _OPENCLIENT("TCP", address$)
+    const protocol = this._parseExpr();
+    this._matchPunc(',');
+    const address = this._parseExpr();
+    this._emit(`_openclient(${protocol}, ${address});`);
+  },
+
+_parseOpenConnection() {
+    // _OPENCONNECTION(handle)
+    const handle = this._parseExpr();
+    this._emit(`_openconnection(${handle});`);
+  },
+
+_parseKeyDown() {
+    // _KEYDOWN(code)
+    const code = this._parseExpr();
+    this._emit(`_keydown(${code});`);
+  },
+
+_parseKeyHit() {
+    // _KEYHIT
+    this._emit('_keyhit();');
+  },
+
+_parseResize() {
+    // _RESIZE ON/OFF/STRETCH/SMOOTH
+    let mode = 'ON';
+    if (this._matchKw('OFF') || this._matchKw('STRETCH') || this._matchKw('SMOOTH')) {
+      mode = this._prev().value;
+    }
+    this._emit(`_resize(${mode});`);
   },
 
 _parseOnStatement() {

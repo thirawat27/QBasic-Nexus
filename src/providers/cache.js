@@ -16,16 +16,26 @@ const symbolCache = new Map();
 // Pre-built completion items for keywords/functions (immutable, never changes)
 let cachedKeywordItems = null;
 let cachedFunctionItems = null;
+const UPPER_FUNCTION_NAMES = new Set(
+  Object.keys(FUNCTIONS).map((name) => name.toUpperCase()),
+);
 
 function getKeywordCompletionItems() {
   if (cachedKeywordItems) return cachedKeywordItems;
   cachedKeywordItems = [];
   for (const [key, data] of Object.entries(KEYWORDS)) {
+    const label = data.label || key;
+    if (UPPER_FUNCTION_NAMES.has(label.toUpperCase())) {
+      continue;
+    }
     const item = new vscode.CompletionItem(
-      data.label,
+      label,
       vscode.CompletionItemKind.Keyword,
     );
     item.detail = data.detail;
+    if (data.documentation) {
+      item.documentation = new vscode.MarkdownString(data.documentation);
+    }
     item.sortText = `0_${key}`;
     cachedKeywordItems.push(item);
   }

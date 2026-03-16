@@ -351,5 +351,35 @@ _parseScreenMove() {
       const y = this._parseExpr();
       this._emit(`// _SCREENMOVE ${x}, ${y} - not supported in web`);
     }
+  },
+
+_parseGetGraphics() {
+    // GET @ x, y, arrayname - get pixel at position
+    this._matchPunc('@');
+    this._matchPunc('(');
+    const x = this._parseExpr();
+    this._matchPunc(',');
+    const y = this._parseExpr();
+    this._matchPunc(')');
+    this._matchPunc(',');
+    const array = this._parseExpr();
+    this._emit(`_getat(${x}, ${y}, ${array});`);
+  },
+
+_parsePutGraphics() {
+    // PUT @ x, y, arrayname, action
+    this._matchPunc('@');
+    this._matchPunc('(');
+    const x = this._parseExpr();
+    this._matchPunc(',');
+    const y = this._parseExpr();
+    this._matchPunc(')');
+    this._matchPunc(',');
+    const array = this._parseExpr();
+    let action = 'undefined';
+    if (this._matchPunc(',')) {
+      action = this._parseExpr();
+    }
+    this._emit(`_putat(${x}, ${y}, ${array}, ${action});`);
   }
 };

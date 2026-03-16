@@ -111,6 +111,12 @@ _parseUnary() {
 _parsePrimary() {
   const tok = this._peek();
   if (!tok) return '0';
+  
+  // Handle unexpected EOF gracefully
+  if (tok.type === TokenType.EOF) {
+    return '0';
+  }
+  
   if (this._check(TokenType.NUMBER)) return this._advance().value;
   if (this._check(TokenType.STRING)) {
     const s = this._advance()

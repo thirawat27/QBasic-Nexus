@@ -33,6 +33,7 @@
         "test:integration": "node test/test-integration.js",
         "test:autodetect": "node test/test-qb64-autodetect.js",
         "test:all": "npm run test:compiler && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run benchmark",
+        "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish"
     },

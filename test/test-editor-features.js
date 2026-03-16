@@ -1,5 +1,7 @@
 'use strict';
 
+const { KEYWORDS, FUNCTIONS } = require('../languageData');
+const SNIPPETS = require('../snippets/qbasic.json');
 const {
   removeLineNumbersFromText,
   renumberLinesFromText,
@@ -16,12 +18,17 @@ const {
   getOnTypeIndentText,
 } = require('../src/shared/editorLayout');
 const {
+  buildKeywordSearchEntries,
+  findKeywordEntryAtPosition,
+} = require('../src/shared/keywordLookup');
+const {
   analyzeQBasicText,
   findDefinitionInAnalysis,
   findIdentifierMatchesInAnalysis,
   getDocumentAnalysis,
   invalidateDocumentAnalysis,
 } = require('../src/shared/documentAnalysis');
+const { sanitizeSnippetBody } = require('../src/shared/snippetSanitizer');
 
 let passed = 0;
 let failed = 0;
@@ -165,6 +172,112 @@ test('on-type indent helper handles block middles and enders', () => {
     getOnTypeIndentText('    END IF'),
     '    ',
     'END IF should keep the current indent level',
+  );
+});
+
+test('language catalog generates rich documentation for fallback keywords and functions', () => {
+  assertEqual(
+    KEYWORDS['$INCLUDE'].detail,
+    'Compile-time directive that inserts another source file',
+    'Expected $INCLUDE to use a specific detail string',
+  );
+  assertEqual(
+    KEYWORDS.LINE_INPUT.documentation.includes('LINE INPUT [#fileNum,] stringVariable$'),
+    true,
+    'LINE INPUT should expose generated syntax documentation',
+  );
+  assertEqual(
+    KEYWORDS.OPEN.documentation.includes('FREEFILE'),
+    true,
+    'OPEN should expose a concrete usage example',
+  );
+  assertEqual(
+    KEYWORDS._MEMCOPY.documentation.includes('_MEMCOPY srcMem, 0 TO dstMem, 0, byteCount'),
+    true,
+    '_MEMCOPY should expose concrete syntax for memory transfers',
+  );
+  assertEqual(
+    KEYWORDS.INTERRUPT.documentation.includes('INTERRUPT &H10, inRegs, outRegs'),
+    true,
+    'INTERRUPT should expose a concrete BIOS/DOS interrupt example',
+  );
+  assertEqual(
+    KEYWORDS.CALLS.documentation.includes('CALLS FarRoutine(argument%)'),
+    true,
+    'CALLS should expose an external procedure example',
+  );
+  assertEqual(
+    FUNCTIONS.CSRLIN.params.length,
+    0,
+    'CSRLIN should not expose a fake placeholder parameter',
+  );
+  assertEqual(
+    FUNCTIONS.CSRLIN.documentation.includes('current text cursor row'),
+    true,
+    'CSRLIN should expose a specialized generated description',
+  );
+  assertEqual(
+    FUNCTIONS._OPENHOST.documentation.includes('networking handles'),
+    true,
+    '_OPENHOST should describe its generated networking usage',
+  );
+  assertEqual(
+    FUNCTIONS.CBOOL.documentation.includes('true is `-1` and false is `0`'),
+    true,
+    'CBOOL should document BASIC boolean conversion behavior',
+  );
+  assertEqual(
+    FUNCTIONS._CVD.documentation.includes('number# = _CVD(bytes$)'),
+    true,
+    '_CVD should expose a packed-byte conversion example',
+  );
+});
+
+test('keyword lookup resolves longest multi-word keyword at cursor position', () => {
+  const searchEntries = buildKeywordSearchEntries(KEYWORDS);
+  const lineInputMatch = findKeywordEntryAtPosition(
+    'LINE INPUT #1, playerName$',
+    6,
+    searchEntries,
+  );
+  const onErrorMatch = findKeywordEntryAtPosition(
+    'ON ERROR GOTO Handler',
+    4,
+    searchEntries,
+  );
+
+  assertEqual(
+    lineInputMatch.label,
+    'LINE INPUT',
+    'Lookup should prefer LINE INPUT over the shorter INPUT token',
+  );
+  assertEqual(
+    onErrorMatch.label,
+    'ON ERROR',
+    'Lookup should resolve ON ERROR as one keyword label',
+  );
+});
+
+test('snippet bodies escape literal dollar signs for VS Code snippet syntax', () => {
+  const mismatches = [];
+
+  for (const [name, snippet] of Object.entries(SNIPPETS)) {
+    const originalBody = snippet.body;
+    const sanitizedBody = sanitizeSnippetBody(originalBody);
+
+    if (JSON.stringify(originalBody) !== JSON.stringify(sanitizedBody)) {
+      mismatches.push({
+        name,
+        originalBody,
+        sanitizedBody,
+      });
+    }
+  }
+
+  assertEqual(
+    mismatches.length,
+    0,
+    `Snippet bodies contain unescaped literal dollar signs: ${JSON.stringify(mismatches.slice(0, 10))}`,
   );
 });
 
