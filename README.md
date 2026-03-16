@@ -81,7 +81,7 @@ The internal compiler transpiles your QBasic code to JavaScript, then packages i
 
 - **File Size** - Executables are typically 40-50MB (includes Node.js runtime)
 - **Performance** - Slightly slower than native QB64 compilation, but excellent for most use cases
-- **Compatibility** - Supports 510+ QBasic/QB64 keywords and functions
+- **Compatibility** - Supports 400+ QBasic/QB64 keywords and functions
 - **Platform** - Generates a native executable for the host platform (`.exe` on Windows, extensionless binary on macOS/Linux)
 
 **Limitations Compared to QB64**
@@ -1094,7 +1094,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
 ## 🎬 Web Runtime Capabilities
 
-QBasic Nexus supports over 510 keywords natively for testing within the editor.
+QBasic Nexus supports over 400 keywords natively for testing within the editor.
 
 **Compatibility Overview**
 

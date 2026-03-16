@@ -6,7 +6,7 @@
 'use strict';
 
 const vscode = require('vscode');
-const { KEYWORDS, FUNCTIONS } = require('../shared/languageRegistry');
+const { KEYWORDS, FUNCTIONS } = require('../../languageData');
 const { invalidateDocumentAnalysis } = require('../shared/documentAnalysis');
 
 // Version-based cache: invalidates when document content changes (more accurate than TTL)

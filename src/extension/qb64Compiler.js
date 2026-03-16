@@ -360,7 +360,7 @@ function parseCompilerErrors(output, uri) {
 
   // Pattern: filename.bas:line: error message
   const pattern =
-    /([^\\/]+\.(?:bas|bi|bm|inc))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:(error|warning))?:?\s*(.+)/gi;
+    /([^\\/]+\.(?:bas|bi|bm))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:(error|warning))?:?\s*(.+)/gi;
 
   let match;
   while ((match = pattern.exec(output)) !== null) {

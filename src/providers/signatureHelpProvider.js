@@ -6,7 +6,7 @@
 'use strict';
 
 const vscode = require('vscode');
-const { FUNCTIONS } = require('../shared/languageRegistry');
+const { FUNCTIONS } = require('../../languageData');
 const { findActiveCall } = require('../shared/callContext');
 
 class QBasicSignatureHelpProvider {
@@ -20,7 +20,7 @@ class QBasicSignatureHelpProvider {
     const funcName = callContext.name.toUpperCase();
     const funcData = FUNCTIONS[funcName];
 
-    if (!funcData || !Array.isArray(funcData.params)) return null;
+    if (!funcData || !funcData.params) return null;
 
     const sig = new vscode.SignatureInformation(
       `${funcName}(${funcData.params.join(', ')})`,
@@ -33,10 +33,10 @@ class QBasicSignatureHelpProvider {
     const help = new vscode.SignatureHelp();
     help.signatures = [sig];
     help.activeSignature = 0;
-    help.activeParameter =
-      funcData.params.length > 0
-        ? Math.min(callContext.activeParameter, funcData.params.length - 1)
-        : 0;
+    help.activeParameter = Math.min(
+      callContext.activeParameter,
+      funcData.params.length - 1,
+    );
 
     return help;
   }

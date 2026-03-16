@@ -24,7 +24,6 @@ const { state } = require('./src/extension/state');
 const {
   debounce,
   throttle,
-  getConfig,
 } = require('./src/extension/utils');
 const {
   updateStatusBar,
@@ -43,8 +42,8 @@ const {
   showAsciiChart,
   insertChrFromAsciiChart,
 } = require('./src/extension/asciiChart');
+const { getWebviewManager } = require('./src/extension/lazyModules');
 const { getIncrementalLinter } = require('./src/managers/IncrementalLinter');
-const { workspaceAnalyzer } = require('./src/shared/workspaceAnalysis');
 
 // ── Language Providers ───────────────────────────────────────────────────────
 const {
@@ -170,6 +169,7 @@ async function activate(context) {
       selector,
       new QBasicColorProvider(),
     ),
+
   );
 
   // ── Activate custom internal decorators ──────────────────────────────────
@@ -177,13 +177,8 @@ async function activate(context) {
 
   // ── Register Todo Tree View ──────────────────────────────────────────────
   const todoProvider = new QBasicTodoProvider();
-  context.subscriptions.push(todoProvider);
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('qbasic-todo', todoProvider),
-    vscode.commands.registerCommand('qbasic-nexus.refreshTodo', () =>
-      todoProvider.refresh(),
-    ),
-  );
+  vscode.window.registerTreeDataProvider('qbasic-todo', todoProvider);
+  context.subscriptions.push(vscode.commands.registerCommand('qbasic-nexus.refreshTodo', () => todoProvider.refresh()));
 
   // ── Register commands ────────────────────────────────────────────────────
   context.subscriptions.push(
@@ -195,8 +190,9 @@ async function activate(context) {
     ),
     vscode.commands.registerCommand(COMMANDS.RUN_CRT, runInCrt),
     vscode.commands.registerCommand(COMMANDS.START_TUTORIAL, () => {
-      // Lazy-load tutorial manager on first use
+      // Lazy-wire on first use: load both modules and connect them
       const tm = getTutorialManager();
+      tm.setWebviewManager(getWebviewManager());
       return tm.startTutorial(state.extensionContext);
     }),
     vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
@@ -267,7 +263,6 @@ async function activate(context) {
       }
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      void workspaceAnalyzer.refreshFile(doc.uri.fsPath);
       lintDocument(doc);
       updateCodeStats(doc);
     }),
@@ -275,43 +270,6 @@ async function activate(context) {
       if (e.affectsConfiguration(CONFIG.SECTION)) {
         updateStatusBar();
       }
-      if (
-        e.affectsConfiguration(`${CONFIG.SECTION}.${CONFIG.ENABLE_LINT}`) ||
-        e.affectsConfiguration(`${CONFIG.SECTION}.${CONFIG.LINT_DELAY}`) ||
-        e.affectsConfiguration(`${CONFIG.SECTION}.${CONFIG.COMPILER_MODE}`)
-      ) {
-        if (!getConfig(CONFIG.ENABLE_LINT, true)) {
-          state.diagnosticCollection?.clear();
-        } else {
-          for (const doc of vscode.workspace.textDocuments) {
-            lintDocument(doc);
-          }
-        }
-      }
-      if (e.affectsConfiguration(`${CONFIG.SECTION}.${CONFIG.WORKSPACE_INDEX_MAX_FILES}`)) {
-        workspaceAnalyzer.clear();
-        workspaceAnalyzer.queueRefresh();
-      }
-    }),
-    vscode.workspace.onDidCreateFiles((e) => {
-      for (const file of e.files) {
-        void workspaceAnalyzer.refreshFile(file.fsPath);
-      }
-    }),
-    vscode.workspace.onDidDeleteFiles((e) => {
-      for (const file of e.files) {
-        workspaceAnalyzer.removeFile(file.fsPath);
-      }
-    }),
-    vscode.workspace.onDidRenameFiles((e) => {
-      for (const file of e.files) {
-        workspaceAnalyzer.removeFile(file.oldUri.fsPath);
-        void workspaceAnalyzer.refreshFile(file.newUri.fsPath);
-      }
-    }),
-    vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      workspaceAnalyzer.clear();
-      workspaceAnalyzer.queueRefresh();
     }),
     vscode.window.onDidCloseTerminal((t) => {
       if (t === state.terminal) {
@@ -328,7 +286,6 @@ async function activate(context) {
 
   // ── Initial setup ────────────────────────────────────────────────────────
   updateStatusBar();
-  workspaceAnalyzer.queueRefresh();
   if (vscode.window.activeTextEditor) {
     const doc = vscode.window.activeTextEditor.document;
     void maybeAutoConfigureQB64(vscode.window.activeTextEditor);

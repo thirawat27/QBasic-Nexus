@@ -2,148 +2,21 @@
 'use strict';
 const { TokenType, BUILTIN_FUNCS } = require('../constants');
 module.exports = {
-_cloneProcedureArgument(valueExpression, parameter = null) {
-    if (!parameter || parameter.passingMode === 'BYREF') {
-      return valueExpression;
-    }
-
-    const metadata = this._getTypeMetadata(
-      parameter.typeSpec,
-      Boolean(parameter.isArray),
-    );
-    return `_cloneValue(${valueExpression}, ${this._metadataToRuntimeLiteral(metadata)})`;
-  },
-
-_buildByRefProcedureArgument(reference) {
-    const setterValue = this._wrapAssignmentValue(
-      reference.name,
-      '__qb_nextValue',
-      reference.wrapOptions,
-    );
-
-    return `_makeRef(() => ${reference.expr}, (__qb_nextValue) => { ${reference.expr} = ${setterValue}; })`;
-  },
-
-_tryParseByRefProcedureArgument() {
-    if (!(this._check(TokenType.IDENTIFIER) || this._check(TokenType.KEYWORD))) {
-      return null;
-    }
-
-    const startPos = this.pos;
-    const firstToken = this._peek();
-    const name = firstToken?.value;
-    const isBuiltinOnlyName =
-      name &&
-      Object.prototype.hasOwnProperty.call(BUILTIN_FUNCS, String(name).toUpperCase()) &&
-      !this._hasVar(name) &&
-      !this._hasConst(name) &&
-      !this._isCurrentFunctionName(name);
-
-    if (isBuiltinOnlyName) {
-      return null;
-    }
-
-    try {
-      const reference = this._parseValueReference({
-        contextLabel: 'procedure argument',
-      });
-      const nextToken = this._peek();
-      const isArgumentBoundary =
-        this._isStmtEnd() ||
-        (
-          nextToken?.type === TokenType.PUNCTUATION &&
-          (nextToken.value === ',' || nextToken.value === ')')
-        );
-
-      if (!isArgumentBoundary) {
-        this.pos = startPos;
-        return null;
-      }
-
-      const hasIndexedBase = Boolean(reference.wrapOptions?.arrayElement);
-      const hasMembers = Boolean(reference.wrapOptions?.members?.length);
-      const baseUnknown =
-        !this._hasVar(name) &&
-        !this._hasConst(name) &&
-        !this._isCurrentFunctionName(name);
-
-      if (this._hasConst(name) && !this.currentVars.has(name)) {
-        this.pos = startPos;
-        return null;
-      }
-
-      if (baseUnknown && (hasIndexedBase || hasMembers)) {
-        this.pos = startPos;
-        return null;
-      }
-
-      if (baseUnknown) {
-        this._addVar(name);
-        this._emit(`var ${name} = ${name.endsWith('$') ? '""' : '0'}; // Auto-declared`);
-      }
-
-      return reference;
-    } catch (_error) {
-      this.pos = startPos;
-      return null;
-    }
-  },
-
-_parseProcedureArgument(parameter = null) {
-    if (parameter?.passingMode === 'BYVAL') {
-      return this._cloneProcedureArgument(this._parseExpr(), parameter);
-    }
-
-    const reference = this._tryParseByRefProcedureArgument();
-    if (reference) {
-      return this._buildByRefProcedureArgument(reference);
-    }
-
-    return `_makeValueRef(${this._cloneProcedureArgument(this._parseExpr(), parameter)})`;
-  },
-
-_parseProcedureArguments(name) {
-    const args = [];
-    const signature = this._getProcedureSignature(name);
-    let parameterIndex = 0;
-
-    if (!this._check(TokenType.PUNCTUATION) || this._peek()?.value !== ')') {
-      do {
-        args.push(
-          this._parseProcedureArgument(
-            signature?.parameters?.[parameterIndex] || null,
-          ),
-        );
-        parameterIndex++;
-      } while (this._matchPunc(','));
-    }
-
-    return args;
-  },
-
 _parseCall() {
     const id = this._consume(TokenType.IDENTIFIER);
     if (!id) return;
 
     let args = [];
     if (this._matchPunc('(')) {
-      args = this._parseProcedureArguments(id.value);
+      args = this._parseArgs().split(', ');
       this._matchPunc(')');
     } else {
-      const signature = this._getProcedureSignature(id.value);
-      let parameterIndex = 0;
       while (!this._isStmtEnd()) {
-        args.push(
-          this._parseProcedureArgument(
-            signature?.parameters?.[parameterIndex] || null,
-          ),
-        );
-        parameterIndex++;
+        args.push(this._parseExpr());
         this._matchPunc(',');
       }
     }
 
-    this._recordProcedureCallSite(id.value, args.length, 'statement', id);
     this._emit(`await ${id.value}(${args.join(', ')});`);
   },
 
@@ -251,8 +124,7 @@ _parsePrimary() {
     return `(${expr})`;
   }
   if (this._check(TokenType.IDENTIFIER) || this._check(TokenType.KEYWORD)) {
-    const nameToken = this._advance();
-    const name = nameToken.value;
+    const name = this._advance().value;
     const upper = name.toUpperCase();
     const builtin = BUILTIN_FUNCS[upper];
     const fnName = builtin ? `(${builtin})` : name;
@@ -288,17 +160,8 @@ _parsePrimary() {
     }
 
     if (this._matchPunc('(')) {
-      const procedureArgs = builtin ? null : this._parseProcedureArguments(name);
-      const args = builtin ? this._parseArgs() : procedureArgs.join(', ');
+      const args = this._parseArgs();
       this._matchPunc(')');
-      if (!builtin) {
-        this._recordProcedureCallSite(
-          name,
-          procedureArgs.length,
-          'expression',
-          nameToken,
-        );
-      }
       return builtin ? `${fnName}(${args})` : `(await ${name}(${args}))`;
     }
 
@@ -325,13 +188,13 @@ _parsePrimary() {
     }
 
     // If it's a built-in function (like RND) and no args, call it
-    if (builtin && !this._hasVar(name) && !this._hasConst(name)) {
+    if (builtin && !this._hasVar(name)) {
       return `${fnName}()`; // e.g. Math.random()
     }
 
     // Auto-declare undefined variables with default values
     // This handles cases where variables are used before explicit declaration
-    if (!builtin && !this._hasVar(name) && !this._hasConst(name) && !isCurrentFunctionName) {
+    if (!builtin && !this._hasVar(name) && !isCurrentFunctionName) {
       this._addVar(name);
       const defaultValue = name.endsWith('$') ? '""' : '0';
       this._emit(`var ${name} = ${defaultValue}; // Auto-declared`);

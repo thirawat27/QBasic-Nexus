@@ -56,7 +56,7 @@ const KEYWORDS = new Set([
     
     // Misc
     'REM', 'BEEP', 'SOUND', 'PLAY', 'WAIT', 'OUT', 'INP', 'RANDOMIZE',
-    'DEF', 'SEG', 'USR', 'SHELL',
+    'DEF', 'SEG', 'USR',
     
     // File I/O
     'OPEN', 'CLOSE', 'GET', 'PUT', 'SEEK', 'LOF', 'LOC', 'EOF', 'FREEFILE',
@@ -235,57 +235,26 @@ const BUILTIN_FUNCS = Object.freeze({
     
     // ========== File Functions (stubs for web) ==========
     'FREEFILE': '_freefile',
-    'DIR$': '_dir$',
     'EOF': '_eof',
     'LOF': '_lof',
     'LOC': '_loc',
     
-     // ========== QB64 System ==========
-     '_CLIPBOARD': '_runtime.clipboard || (() => "")',
-     '_CLIPBOARD$': '_runtime.clipboard$ || (() => "")',
-     '_CONTROLCHR': '_runtime.controlchr || (() => 0)',
-     '_CONSOLE': '_runtime.console || (() => {})',
-     '_CONSOLETITLE': '_runtime.consoletitle || (() => "")',
-     '_CONSOLEINPUT': '_runtime.consoleinput || (() => {})',
-     '_EXIT': '_runtime.exit || (() => false)',
-     '_FILEEXISTS': '_fileexists',
-     '_DIREXISTS': '_direxists',
-     '_ICON': '_runtime.icon || (() => 0)',
-     '_CWD$': '_runtime.cwd$ || (() => "")',
-     '_DIR$': '_runtime.dir$ || (() => "")',
-     '_STARTDIR$': '_runtime.startdir$ || (() => "")',
-     '_OS$': '_runtime.os$ || (() => "web")',
-     '_SHELL': '_runtime.shell || (() => {})',
-     '_SHELLHIDE': '_runtime.shellhide || (() => {})',
-     '_DONTWAIT': '_runtime.dontwait || (() => {})',
-     '_HIDE': '_runtime.hide || (() => {})',
-     '_ACCEPTFILEDROP': '_runtime.acceptfiledrop || (() => {})',
-     '_TOTALDROPPEDFILES': '_runtime.totaldroppedfiles || (() => 0)',
-     '_DROPPEDFILE$': '_runtime.droppedfile$ || (() => "")',
-      '_FINISHDROP': '_runtime.finisDrop || (() => {})',
-      '_EMBEDDED$': '_runtime.embedded$ || (() => "")',
-      '_ENVIRONCOUNT': '_runtime.environCount || (() => 0)',
-      '_EXPLICIT': '_runtime.explicit || (() => false)',
-      '_EXPLICITARRAY': '_runtime.explicitArray || (() => false)',
-      '_CONTINUE': '_runtime.continue || (() => {})',
+    // ========== QB64 System ==========
+    '_FILEEXISTS': '_fileexists',
+    '_DIREXISTS': '_direxists',
+    'DIR$': '_dir$',
+    '_DIR$': '_dir$',
+    '_CWD$': '_cwd$',
+    '_STARTDIR$': '_startdir$',
+    '_OS$': '(() => typeof process !== "undefined" ? process.platform : "web")',
+    '_CLIPBOARD$': '(() => "")',
     
     // ========== Boolean Constants ==========
     'TRUE': '(() => -1)',
     'FALSE': '(() => 0)',
-
-    // ========== Mouse Input ==========
-    '_MOUSEINPUT': '(() => _runtime.mouseinput?.() ?? 0)',
-    '_MOUSEX': '(() => _mousex())',
-    '_MOUSEY': '(() => _mousey())',
-    '_MOUSEBUTTON': '((button) => _mousebutton(button))',
-    '_MOUSEWHEEL': '(() => _runtime.mousewheel?.() ?? 0)',
     
     // ========== Keyboard Input ==========
     'INKEY$': 'INKEY',
-    '_KEYHIT': '_runtime.keyhit || (() => 0)',
-    '_KEYDOWN': '_runtime.keydown || (() => 0)',
-    '_KEYCLEAR': '_runtime.keyclear || (() => {})',
-    '_KEYBOARDTYPE': '_runtime.keyboardtype || (() => 0)',
     
     // ========== Screen/Cursor Functions ==========
     'CSRLIN': '(() => typeof window !== "undefined" && window.runtime ? window.runtime.CSRLIN : _cursorRow)',
@@ -340,7 +309,6 @@ const BUILTIN_FUNCS = Object.freeze({
     'PEEK': '_peek',
     'INP': '_inp',
     'POINT': '_point',
-    'FRE': '((value) => 0)',
     'VARPTR': '((v) => 0)',
     'VARSEG': '((v) => 0)',
     'SADD': '((s) => 0)',
@@ -348,26 +316,12 @@ const BUILTIN_FUNCS = Object.freeze({
     // ========== Timer Functions (QB64) ==========
     '_TIMER': '((accuracy) => { const d = new Date(); return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000; })',
     
-// ========== Sound (stubs for web) ==========
-'_SNDLEN': '((handle) => 0)',
-'_SNDGETPOS': '((handle) => 0)',
-'_SNDPLAYING': '((handle) => 0)',
-'_SNDOPEN': '((handle) => -1)',
-'_SNDPLAY': '((handle) => {})',
-'_SNDSTOP': '((handle) => {})',
-'_SNDCLOSE': '((handle) => {})',
-'_SNDVOL': '((handle, vol) => {})',
-'_SNDPAUSE': '((handle) => {})',
-'_SNDPLAYFILE': '((file) => {})',
-'_SNDLOOP': '((handle) => {})',
-'_SNDBAL': '((handle, bal) => {})',
-'_SNDRAW': '((sample) => {})',
-'_SNDRAWDONE': '(() => {})',
-'_SNDOPENRAW': '(() => -1)',
-'_SNDRATE': '((handle) => 44100)',
-'_SNDSETPOS': '((handle, pos) => {})',
-
-// ========== Conversion Functions ==========
+    // ========== Sound (stubs for web) ==========
+    '_SNDLEN': '((handle) => 0)',
+    '_SNDGETPOS': '((handle) => 0)',
+    '_SNDPLAYING': '((handle) => 0)',
+    
+    // ========== Conversion Functions ==========
     '_CV': '_cv',
     '_MK$': '_mk$'
 });

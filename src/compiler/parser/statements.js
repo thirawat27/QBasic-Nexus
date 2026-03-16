@@ -153,13 +153,17 @@ _parseStatement() {
     if (this._matchKw('_TITLE')) return this._parseTitle();
     if (this._matchKw('_FULLSCREEN')) return this._parseFullscreen();
     if (this._matchKw('_SCREENMOVE')) return this._parseScreenMove();
-    if (this._matchKw('_SCREENICON')) return this._parseScreenIcon();
-    if (this._matchKw('_SCREENHIDE')) return this._parseScreenHide();
-    if (this._matchKw('_SCREENSHOW')) return this._parseScreenShow();
+    if (this._matchKw('_SCREENICON'))
+      return this._emit('// _SCREENICON - not supported in web');
+    if (this._matchKw('_SCREENHIDE'))
+      return this._emit('// _SCREENHIDE - not supported in web');
+    if (this._matchKw('_SCREENSHOW'))
+      return this._emit('// _SCREENSHOW - not supported in web');
     if (this._matchKw('_ICON')) return this._parseIcon();
     if (this._matchKw('_DEST')) return this._parseDest();
     if (this._matchKw('_SOURCE')) return this._parseSource();
-    if (this._matchKw('_AUTODISPLAY')) return this._parseAutoDisplay();
+    if (this._matchKw('_AUTODISPLAY'))
+      return this._emit('// _AUTODISPLAY - default in web');
     if (this._matchKw('_FONT')) return this._parseFont();
 
     // ============ NEW: QB64 Sound Commands ============
@@ -729,14 +733,8 @@ _parseStatic() {
       const name = id.value;
       const dimensions = this._parseOptionalDimensions();
       const typeSpec = this._parseDeclaredTypeSpec(name);
-      const duplicateDeclaration = this._isDeclaredInCurrentScope(name);
       const metadata = this._getTypeMetadata(typeSpec, dimensions.length > 0);
       const storageName = `${this.currentProcedure.staticStore}.${name}`;
-
-      if (duplicateDeclaration) {
-        this._reportDuplicateDeclaration(id, 'STATIC declaration');
-        continue;
-      }
 
       this._addVar(name);
       this._setStorageOverride(name, storageName);
@@ -847,16 +845,9 @@ _parsePoke() {
   },
 
 _parseRun() {
-    const featureToken = this._prev();
     // RUN [program] - restart or run another program
     if (!this._isStmtEnd()) {
       const prog = this._parseExpr();
-      if (this._isInternalRuntimeMode()) {
-        this._recordWarning(
-          'RUN with an external program is not supported in the QBasic Nexus runtime. Use QB64 mode to launch another program.',
-          featureToken,
-        );
-      }
       this._emit(`throw {type: "RUN", program: ${prog}};`);
     } else {
       this._emit('throw {type: "RUN", restart: true};');
@@ -864,37 +855,17 @@ _parseRun() {
   },
 
 _parseChain() {
-    const featureToken = this._prev();
     // CHAIN program
     const prog = this._parseExpr();
-    if (this._isInternalRuntimeMode()) {
-      this._recordWarning(
-        'CHAIN is not supported in the QBasic Nexus runtime. Use QB64 mode for chained program execution.',
-        featureToken,
-      );
-    }
     this._emit(`throw {type: "CHAIN", program: ${prog}};`);
   },
 
 _parseShell() {
-    const featureToken = this._prev();
     // SHELL [command]
     if (!this._isStmtEnd()) {
       const cmd = this._parseExpr();
-      if (this._isInternalWebRuntimeMode()) {
-        this._recordWarning(
-          'SHELL is not available in the web runtime. Use the internal executable build or QB64 mode instead.',
-          featureToken,
-        );
-      }
       this._emit(`await _shell(${cmd});`);
     } else {
-      if (this._isInternalWebRuntimeMode()) {
-        this._recordWarning(
-          'SHELL is not available in the web runtime. Use the internal executable build or QB64 mode instead.',
-          featureToken,
-        );
-      }
       this._emit('await _shell();');
     }
   },
@@ -917,25 +888,12 @@ _parseFullscreen() {
   },
 
 _parseIcon() {
-    const featureToken = this._prev();
     // _ICON [handle]
     if (!this._isStmtEnd()) {
       const handle = this._parseExpr();
-      if (this._isInternalRuntimeMode()) {
-        this._recordWarning(
-          '_ICON is not supported in the QBasic Nexus runtime and will be ignored.',
-          featureToken,
-        );
-      }
-      this._emit(`// _ICON ${handle} - not supported in QBasic Nexus runtime`);
+      this._emit(`// _ICON ${handle} - not supported in web`);
     } else {
-      if (this._isInternalRuntimeMode()) {
-        this._recordWarning(
-          '_ICON is not supported in the QBasic Nexus runtime and will be ignored.',
-          featureToken,
-        );
-      }
-      this._emit('// _ICON - not supported in QBasic Nexus runtime');
+      this._emit('// _ICON - not supported in web');
     }
   },
 
@@ -1071,18 +1029,13 @@ _parseClearColor() {
   },
 
 _parseMouseMove() {
-    const featureToken = this._prev();
     // _MOUSEMOVE x, y
     const x = this._parseExpr();
     this._matchPunc(',');
     const y = this._parseExpr();
-    if (this._isInternalRuntimeMode()) {
-      this._recordWarning(
-        '_MOUSEMOVE is not supported in the QBasic Nexus runtime and will be ignored.',
-        featureToken,
-      );
-    }
-    this._emit(`// _MOUSEMOVE ${x}, ${y} - not supported in QBasic Nexus runtime`);
+    this._emit(
+      `// _MOUSEMOVE ${x}, ${y} - cannot programmatically move mouse in browsers`,
+    );
   },
 
 _parseResume() {
