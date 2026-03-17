@@ -1,3 +1,8 @@
+/**
+ * QBasic Nexus - Document Analysis
+ * Provides comprehensive analysis of QBasic documents including symbols, variables, and statistics
+ */
+
 'use strict';
 
 const { KEYWORDS } = require('../../languageData');
@@ -8,6 +13,11 @@ const {
   makeIdentifierRegex,
 } = require('../providers/patterns');
 
+/**
+ * Symbol kinds for QBasic code elements
+ * @readonly
+ * @enum {string}
+ */
 const SYMBOL_KIND = Object.freeze({
   FUNCTION: 'function',
   METHOD: 'method',
@@ -16,6 +26,10 @@ const SYMBOL_KIND = Object.freeze({
   EVENT: 'event',
 });
 
+/**
+ * Cache for document analysis results
+ * @type {Map<string, {version: number, analysis: DocumentAnalysis}>}
+ */
 const analysisCache = new Map();
 
 const GOTO_RE = /\bGOTO\b/gi;
@@ -24,6 +38,12 @@ const SELECT_CASE_RE = /^\s*SELECT\s+CASE\b/i;
 const DECLARATION_CONTEXT_RE = /\b(?:DIM|SUB|FUNCTION|TYPE|CONST)\s*$/i;
 const DIM_PREFIX_RE = /^\s*DIM\s+(?:SHARED\s+)?/i;
 
+/**
+ * Register a definition in the definitions map
+ * @param {Map<string, Definition>} definitions - Definitions map
+ * @param {string} name - Symbol name
+ * @param {Definition} definition - Definition object
+ */
 function registerDefinition(definitions, name, definition) {
   const key = name.toUpperCase();
   if (!definitions.has(key)) {
@@ -31,6 +51,12 @@ function registerDefinition(definitions, name, definition) {
   }
 }
 
+/**
+ * Get the range of a captured group in a regex match
+ * @param {RegExpExecArray} match - Regex match result
+ * @param {string} groupValue - Captured group value
+ * @returns {{start: number, end: number}} Character range
+ */
 function getCaptureRange(match, groupValue) {
   if (!match || typeof groupValue !== 'string') {
     return { start: 0, end: 0 };
@@ -47,6 +73,11 @@ function getCaptureRange(match, groupValue) {
   };
 }
 
+/**
+ * Extract DIM declarations from a line, handling comma-separated variables
+ * @param {string} line - Source code line
+ * @returns {Array<{name: string, start: number, end: number}>} Extracted declarations
+ */
 function extractDimDeclarations(line = '') {
   const prefixMatch = DIM_PREFIX_RE.exec(line);
   if (!prefixMatch) return [];
@@ -98,6 +129,11 @@ function extractDimDeclarations(line = '') {
   return declarations;
 }
 
+/**
+ * Analyze QBasic source code and extract symbols, variables, and statistics
+ * @param {string} text - QBasic source code
+ * @returns {DocumentAnalysis} Analysis result with symbols, variables, and stats
+ */
 function analyzeQBasicText(text = '') {
   if (typeof text !== 'string') {
     text = String(text ?? '');
@@ -297,6 +333,11 @@ function analyzeQBasicText(text = '') {
   };
 }
 
+/**
+ * Get cached analysis for a VS Code document
+ * @param {vscode.TextDocument} document - VS Code document
+ * @returns {DocumentAnalysis} Cached or fresh analysis result
+ */
 function getDocumentAnalysis(document) {
   if (!document || typeof document.getText !== 'function' || !document.uri) {
     return analyzeQBasicText('');
@@ -313,16 +354,29 @@ function getDocumentAnalysis(document) {
   return analysis;
 }
 
+/**
+ * Invalidate cached analysis for a document
+ * @param {vscode.Uri | string} uri - Document URI
+ */
 function invalidateDocumentAnalysis(uri) {
   if (!uri) return;
   const key = typeof uri === 'string' ? uri : uri.toString();
   analysisCache.delete(key);
 }
 
+/**
+ * Clear all cached document analyses
+ */
 function clearDocumentAnalysisCache() {
   analysisCache.clear();
 }
 
+/**
+ * Find definition of an identifier in analysis result
+ * @param {DocumentAnalysis} analysis - Document analysis
+ * @param {string} identifier - Identifier to find
+ * @returns {Definition | null} Definition or null if not found
+ */
 function findDefinitionInAnalysis(analysis, identifier) {
   if (!analysis?.definitions || !identifier) {
     return null;
@@ -331,6 +385,13 @@ function findDefinitionInAnalysis(analysis, identifier) {
   return analysis.definitions.get(identifier.toUpperCase()) || null;
 }
 
+/**
+ * Find all matches of an identifier in analysis result
+ * @param {DocumentAnalysis} analysis - Document analysis
+ * @param {string} identifier - Identifier to find
+ * @param {{includeDeclaration?: boolean}} options - Search options
+ * @returns {Array<{line: number, start: number, end: number}>} Match locations
+ */
 function findIdentifierMatchesInAnalysis(analysis, identifier, options = {}) {
   if (!analysis || !Array.isArray(analysis.lines) || !identifier) {
     return [];
@@ -385,6 +446,13 @@ function findIdentifierMatchesInAnalysis(analysis, identifier, options = {}) {
   return matches;
 }
 
+/**
+ * Find all matches of an identifier in a VS Code document
+ * @param {vscode.TextDocument} document - VS Code document
+ * @param {string} identifier - Identifier to find
+ * @param {{includeDeclaration?: boolean}} options - Search options
+ * @returns {Array<{line: number, start: number, end: number}>} Match locations
+ */
 function findDocumentIdentifierMatches(document, identifier, options = {}) {
   return findIdentifierMatchesInAnalysis(
     getDocumentAnalysis(document),

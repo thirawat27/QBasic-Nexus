@@ -44,6 +44,7 @@ const {
 } = require('./src/extension/asciiChart');
 const { getWebviewManager } = require('./src/extension/lazyModules');
 const { getIncrementalLinter } = require('./src/managers/IncrementalLinter');
+const { workspaceAnalyzer } = require('./src/shared/workspaceAnalysis');
 
 // ── Language Providers ───────────────────────────────────────────────────────
 const {
@@ -177,8 +178,26 @@ async function activate(context) {
 
   // ── Register Todo Tree View ──────────────────────────────────────────────
   const todoProvider = new QBasicTodoProvider();
-  vscode.window.registerTreeDataProvider('qbasic-todo', todoProvider);
-  context.subscriptions.push(vscode.commands.registerCommand('qbasic-nexus.refreshTodo', () => todoProvider.refresh()));
+  const qbasicFileWatcher = vscode.workspace.createFileSystemWatcher(
+    '**/*.{bas,bi,bm,inc}',
+  );
+  context.subscriptions.push(
+    qbasicFileWatcher,
+    vscode.window.registerTreeDataProvider('qbasic-todo', todoProvider),
+    vscode.commands.registerCommand('qbasic-nexus.refreshTodo', () => todoProvider.refresh()),
+    qbasicFileWatcher.onDidChange((uri) => {
+      workspaceAnalyzer.invalidateFile(uri);
+      todoProvider.refresh();
+    }),
+    qbasicFileWatcher.onDidCreate(() => {
+      workspaceAnalyzer.clear();
+      todoProvider.refresh();
+    }),
+    qbasicFileWatcher.onDidDelete((uri) => {
+      workspaceAnalyzer.invalidateFile(uri);
+      todoProvider.refresh();
+    }),
+  );
 
   // ── Register commands ────────────────────────────────────────────────────
   context.subscriptions.push(
@@ -263,6 +282,7 @@ async function activate(context) {
       }
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
+      workspaceAnalyzer.invalidateFile(doc);
       lintDocument(doc);
       updateCodeStats(doc);
     }),
@@ -270,6 +290,19 @@ async function activate(context) {
       if (e.affectsConfiguration(CONFIG.SECTION)) {
         updateStatusBar();
       }
+    }),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      workspaceAnalyzer.clear();
+      todoProvider.refresh();
+    }),
+    vscode.workspace.onDidCreateFiles(() => {
+      workspaceAnalyzer.clear();
+    }),
+    vscode.workspace.onDidDeleteFiles(() => {
+      workspaceAnalyzer.clear();
+    }),
+    vscode.workspace.onDidRenameFiles(() => {
+      workspaceAnalyzer.clear();
     }),
     vscode.window.onDidCloseTerminal((t) => {
       if (t === state.terminal) {
@@ -306,6 +339,7 @@ function deactivate() {
 
   // Dispose the incremental linter (cancels all pending timers)
   getIncrementalLinter().dispose();
+  workspaceAnalyzer.dispose();
 
   // Dispose VS Code resources
   state.statusBarItem?.dispose();

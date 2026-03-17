@@ -67,13 +67,20 @@ class WebviewManager {
   /** @type {(() => void) | null} */
   static _resolveReady = null;
 
+  /** @type {((error: Error) => void) | null} */
+  static _rejectReady = null;
+
   /** @type {boolean} */
   static _isReady = false;
 
+  /** @type {any | null} Cached TutorialManager module */
+  static _tutorialManagerCache = null;
+
   static _resetReadyState() {
     WebviewManager._isReady = false;
-    WebviewManager._readyPromise = new Promise((resolve) => {
+    WebviewManager._readyPromise = new Promise((resolve, reject) => {
       WebviewManager._resolveReady = resolve;
+      WebviewManager._rejectReady = reject;
     });
   }
 
@@ -82,6 +89,44 @@ class WebviewManager {
     WebviewManager._isReady = true;
     WebviewManager._resolveReady?.();
     WebviewManager._resolveReady = null;
+    WebviewManager._rejectReady = null;
+  }
+
+  static _clearReadyState() {
+    WebviewManager._isReady = false;
+    WebviewManager._readyPromise = null;
+    WebviewManager._resolveReady = null;
+    WebviewManager._rejectReady = null;
+  }
+
+  static _handlePanelDisposed(reason = null) {
+    const hadState =
+      WebviewManager.currentPanel !== undefined ||
+      WebviewManager._disposables.length > 0 ||
+      WebviewManager._readyPromise !== null ||
+      WebviewManager._tutorialManagerCache !== null;
+
+    if (!hadState) {
+      return;
+    }
+
+    if (!WebviewManager._isReady && WebviewManager._rejectReady) {
+      WebviewManager._rejectReady(
+        reason || new Error('CRT panel closed before initialization'),
+      );
+    }
+
+    WebviewManager.currentPanel = undefined;
+    WebviewManager._clearReadyState();
+    WebviewManager._tutorialManagerCache = null;
+
+    const disposables = WebviewManager._disposables;
+    WebviewManager._disposables = [];
+    for (const disposable of disposables) {
+      disposable.dispose();
+    }
+
+    emitter.emit('panelClosed', undefined);
   }
 
   static async _waitUntilReady(timeoutMs = 5000) {
@@ -90,15 +135,31 @@ class WebviewManager {
       WebviewManager._resetReadyState();
     }
 
-    await Promise.race([
-      WebviewManager._readyPromise,
-      new Promise((_, reject) => {
-        setTimeout(
-          () => reject(new Error('CRT runtime initialization timed out')),
-          timeoutMs,
-        );
-      }),
-    ]);
+    let timeoutHandle = null;
+    try {
+      await Promise.race([
+        WebviewManager._readyPromise,
+        new Promise((_, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new Error('CRT runtime initialization timed out')),
+            timeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
+  }
+
+  static async _postMessage(panel, message) {
+    if (!panel?.webview) {
+      throw new Error('CRT panel is no longer available');
+    }
+
+    const delivered = await Promise.resolve(panel.webview.postMessage(message));
+    if (delivered === false) {
+      throw new Error('CRT panel rejected the message');
+    }
   }
 
   /**
@@ -126,6 +187,11 @@ class WebviewManager {
 
     WebviewManager.currentPanel = panel;
     WebviewManager._resetReadyState();
+    let disposeReason = null;
+
+    panel.onDidDispose(() => {
+      WebviewManager._handlePanelDisposed(disposeReason);
+    });
 
     // Message handler (lazy-load TutorialManager to break circular deps)
     WebviewManager._disposables.push(
@@ -134,8 +200,11 @@ class WebviewManager {
           if (message.type === 'ready') {
             WebviewManager._markReady();
           } else if (message.type === 'check_output') {
-            const TutorialManager = require('./TutorialManager');
-            const completed = TutorialManager.checkResult(message.content);
+            // Cache TutorialManager to prevent memory leak from repeated requires
+            if (!WebviewManager._tutorialManagerCache) {
+              WebviewManager._tutorialManagerCache = require('./TutorialManager');
+            }
+            const completed = WebviewManager._tutorialManagerCache.checkResult(message.content);
             if (completed && panel.webview) {
               panel.webview.postMessage({ type: 'quest_complete' });
               emitter.emit('questComplete', message.content);
@@ -161,22 +230,11 @@ class WebviewManager {
     } catch (err) {
       vscode.window.showErrorMessage(`Failed to load CRT: ${err.message}`);
       if (WebviewManager.currentPanel === panel) {
+        disposeReason = err;
         panel.dispose();
-        WebviewManager.currentPanel = undefined;
       }
       return;
     }
-
-    // Cleanup on close
-    panel.onDidDispose(() => {
-      WebviewManager.currentPanel = undefined;
-      WebviewManager._isReady = false;
-      WebviewManager._readyPromise = null;
-      WebviewManager._resolveReady = null;
-      WebviewManager._disposables.forEach((d) => d.dispose());
-      WebviewManager._disposables = [];
-      emitter.emit('panelClosed', undefined);
-    });
 
     emitter.emit('panelOpened', undefined);
   }
@@ -190,8 +248,10 @@ class WebviewManager {
   static async runCode(code, filename, extensionUri) {
     // Reset tutorial history for a fresh run
     try {
-      const TutorialManager = require('./TutorialManager');
-      TutorialManager.clearHistory();
+      if (!WebviewManager._tutorialManagerCache) {
+        WebviewManager._tutorialManagerCache = require('./TutorialManager');
+      }
+      WebviewManager._tutorialManagerCache.clearHistory();
     } catch {
       /* Optional – ignore if TM not loaded */
     }
@@ -213,7 +273,7 @@ class WebviewManager {
       await WebviewManager._sendChunked(code, filename);
     } else {
       // Small payload: send in one message (common case)
-      WebviewManager.currentPanel.webview.postMessage({
+      await WebviewManager._postMessage(WebviewManager.currentPanel, {
         type: 'execute',
         code,
         filename,
@@ -241,7 +301,7 @@ class WebviewManager {
       const isFirst = chunkIdx === 0;
       const isLast = i + CHUNK_SIZE >= code.length;
 
-      panel.webview.postMessage({
+      await WebviewManager._postMessage(panel, {
         type: isFirst
           ? 'execute_start'
           : isLast
@@ -263,7 +323,10 @@ class WebviewManager {
   /** Clear the CRT screen. */
   static clearScreen() {
     if (WebviewManager.currentPanel) {
-      WebviewManager.currentPanel.webview.postMessage({ type: 'clear' });
+      void WebviewManager._postMessage(
+        WebviewManager.currentPanel,
+        { type: 'clear' },
+      ).catch(() => {});
     }
   }
 

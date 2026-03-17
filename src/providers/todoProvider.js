@@ -12,7 +12,7 @@ class TodoItem extends vscode.TreeItem {
     // Set icons based on keyword
     if (keyword === 'TODO') {
       this.iconPath = new vscode.ThemeIcon('checklist');
-    } else if (keyword === 'FIXME' || keyword === 'FIXIT' || keyword === 'BUG') {
+    } else if (keyword === 'FIXME' || keyword === 'FIXIT' || keyword === 'HACK' || keyword === 'BUG') {
       this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
     } else if (keyword === 'NOTE') {
       this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('infoForeground'));
@@ -61,14 +61,20 @@ class QBasicTodoProvider {
       return;
     }
 
-    const files = await vscode.workspace.findFiles(
-      new vscode.RelativePattern(vscode.workspace.workspaceFolders[0], '**/*.{bas,bi,bm,inc}'),
-      '**/{node_modules,.git}/**'
-    );
+    const files = new Map();
+    for (const folder of vscode.workspace.workspaceFolders) {
+      const folderFiles = await vscode.workspace.findFiles(
+        new vscode.RelativePattern(folder, '**/*.{bas,bi,bm,inc}'),
+        '**/{node_modules,.git}/**'
+      );
+      for (const file of folderFiles) {
+        files.set(file.toString(), file);
+      }
+    }
 
-    const regex = /(?:'|\bREM\b).*?\b(TODO|FIXME|FIXIT|BUG|NOTE)\b.*$/gim;
+    const regex = /(?:'|\bREM\b).*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b.*$/gim;
 
-    for (const file of files) {
+    for (const file of files.values()) {
       try {
         const textStr = await vscode.workspace.fs.readFile(file);
         const text = new TextDecoder('utf-8').decode(textStr);
@@ -104,7 +110,7 @@ class QBasicTodoProvider {
     }
     
     // Sort so FIXMEs are first, sorted by filename and line number
-    const keywordRank = { 'BUG': 1, 'FIXME': 1, 'FIXIT': 1, 'TODO': 2, 'NOTE': 3 };
+    const keywordRank = { 'BUG': 1, 'FIXME': 1, 'FIXIT': 1, 'HACK': 1, 'TODO': 2, 'NOTE': 3 };
     this.todos.sort((a, b) => {
       const aRank = keywordRank[a.keyword] || 4;
       const bRank = keywordRank[b.keyword] || 4;
