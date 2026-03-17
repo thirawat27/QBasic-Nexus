@@ -10,10 +10,8 @@ const { collectQBasicFoldingRanges } = require('../shared/editorLayout');
 
 class QBasicFoldingRangeProvider {
   provideFoldingRanges(document) {
-    const lines = [];
-    for (let index = 0; index < document.lineCount; index++) {
-      lines.push(document.lineAt(index).text);
-    }
+    const text = document.getText();
+    const lines = text.split(/\r?\n/);
 
     return collectQBasicFoldingRanges(lines).map(
       ({ start, end, kind }) =>

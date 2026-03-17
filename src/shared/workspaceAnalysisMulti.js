@@ -64,14 +64,14 @@ class WorkspaceAnalysis {
 
   async parseFileSymbols(filePath) {
     try {
-      const stat = fs.statSync(filePath);
+      const stat = await fs.promises.stat(filePath);
       const lastMod = stat.mtimeMs;
 
       if (this.symbolCache.has(filePath) && this.lastModified.get(filePath) === lastMod) {
         return this.symbolCache.get(filePath);
       }
 
-      const content = fs.readFileSync(filePath, 'utf8');
+      const content = await fs.promises.readFile(filePath, 'utf8');
       const analysis = analyzeQBasicText(content);
       
       this.symbolCache.set(filePath, analysis);

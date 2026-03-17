@@ -11,11 +11,7 @@ const { formatQBasicLines } = require('../shared/editorLayout');
 class QBasicDocumentFormattingEditProvider {
   provideDocumentFormattingEdits(document, options) {
     const edits = [];
-    const originalLines = [];
-    for (let index = 0; index < document.lineCount; index++) {
-      originalLines.push(document.lineAt(index).text);
-    }
-
+    const originalLines = document.getText().split(/\r?\n/);
     const formattedLines = formatQBasicLines(originalLines, options);
 
     for (let index = 0; index < originalLines.length; index++) {

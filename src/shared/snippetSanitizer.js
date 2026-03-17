@@ -45,11 +45,13 @@ const KNOWN_SNIPPET_VARIABLES = new Set([
 ]);
 
 function isIdentifierStart(char) {
-  return /[A-Za-z_]/.test(char || '');
+  const c = char ? char.charCodeAt(0) : -1;
+  return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95; // A-Z, a-z, _
 }
 
 function isIdentifierChar(char) {
-  return /[A-Za-z0-9_]/.test(char || '');
+  const c = char ? char.charCodeAt(0) : -1;
+  return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 95;
 }
 
 function readIdentifier(text, start) {
@@ -65,7 +67,10 @@ function readIdentifier(text, start) {
 
 function readDigits(text, start) {
   let index = start;
-  while (index < text.length && /[0-9]/.test(text[index])) {
+  const len = text.length;
+  while (index < len) {
+    const c = text.charCodeAt(index);
+    if (c < 48 || c > 57) break; // '0'-'9'
     index++;
   }
   return {
@@ -118,34 +123,34 @@ function readBracedExpression(text, start) {
 
 function sanitizeLiteralText(text, options = {}) {
   const { escapeClosingBrace = false } = options;
-  let result = '';
+  const out = [];
 
   for (let index = 0; index < text.length; index++) {
     const char = text[index];
 
     if (char === '\\') {
-      result += char;
+      out.push(char);
       if (index + 1 < text.length) {
-        result += text[index + 1];
+        out.push(text[index + 1]);
         index++;
       }
       continue;
     }
 
     if (char === '$') {
-      result += '\\$';
+      out.push('\\$');
       continue;
     }
 
     if (escapeClosingBrace && char === '}') {
-      result += '\\}';
+      out.push('\\}');
       continue;
     }
 
-    result += char;
+    out.push(char);
   }
 
-  return result;
+  return out.join('');
 }
 
 function sanitizeSnippetExpression(expression) {
@@ -168,15 +173,15 @@ function sanitizeSnippetExpression(expression) {
 
 function sanitizeSnippetText(text, options = {}) {
   const { escapeClosingBrace = false } = options;
-  let result = '';
+  const out = [];
 
   for (let index = 0; index < text.length; index++) {
     const char = text[index];
 
     if (char === '\\') {
-      result += char;
+      out.push(char);
       if (index + 1 < text.length) {
-        result += text[index + 1];
+        out.push(text[index + 1]);
         index++;
       }
       continue;
@@ -187,7 +192,7 @@ function sanitizeSnippetText(text, options = {}) {
 
       if (/[0-9]/.test(next || '')) {
         const digits = readDigits(text, index + 1);
-        result += `$${digits.value}`;
+        out.push('$', digits.value);
         index = digits.end;
         continue;
       }
@@ -195,11 +200,11 @@ function sanitizeSnippetText(text, options = {}) {
       if (next === '{') {
         const braced = readBracedExpression(text, index);
         if (!braced) {
-          result += '\\$';
+          out.push('\\$');
           continue;
         }
 
-        result += `\${${sanitizeSnippetExpression(braced.inner)}}`;
+        out.push('${', sanitizeSnippetExpression(braced.inner), '}');
         index = braced.end;
         continue;
       }
@@ -207,27 +212,27 @@ function sanitizeSnippetText(text, options = {}) {
       if (isIdentifierStart(next)) {
         const identifier = readIdentifier(text, index + 1);
         if (KNOWN_SNIPPET_VARIABLES.has(identifier.value)) {
-          result += `$${identifier.value}`;
+          out.push('$', identifier.value);
         } else {
-          result += `\\$${identifier.value}`;
+          out.push('\\$', identifier.value);
         }
         index = identifier.end;
         continue;
       }
 
-      result += '\\$';
+      out.push('\\$');
       continue;
     }
 
     if (escapeClosingBrace && char === '}') {
-      result += '\\}';
+      out.push('\\}');
       continue;
     }
 
-    result += char;
+    out.push(char);
   }
 
-  return result;
+  return out.join('');
 }
 
 function sanitizeSnippetBody(body) {

@@ -72,7 +72,7 @@ class QBasicTodoProvider {
       }
     }
 
-    const regex = /(?:'|\bREM\b).*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b.*$/gim;
+    const regex = /(?:'|\bREM\b)[^\r\n]*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b[^\r\n]*/gi;
 
     for (const file of files.values()) {
       try {
@@ -82,6 +82,15 @@ class QBasicTodoProvider {
         
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
+          
+          // Fast path to avoid regex execution on lines that don't have our keywords
+          const upperLine = line.toUpperCase();
+          if (!upperLine.includes('TODO') && !upperLine.includes('FIX') && 
+              !upperLine.includes('HACK') && !upperLine.includes('BUG') && 
+              !upperLine.includes('NOTE')) {
+            continue;
+          }
+
           let match;
           // Reset lastIndex because we're using /g flag on a per RegExp level but recreating it might be slow, so we just run it
           regex.lastIndex = 0;

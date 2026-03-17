@@ -13,8 +13,14 @@ class QBasicColorProvider {
   provideDocumentColors(document, _token) {
     const colors = [];
     const text = document.getText();
-    let match;
+    const upperText = text.toUpperCase();
 
+    // Fast path: if there are no occurrences of "_RGB", skip everything
+    if (!upperText.includes('_RGB')) {
+      return colors;
+    }
+
+    let match;
     COLOR_PATTERN.lastIndex = 0;
     while ((match = COLOR_PATTERN.exec(text)) !== null) {
       const type = match[1].toUpperCase();
@@ -100,25 +106,52 @@ function updateDecorations(editor) {
     return;
   }
 
-  const text = editor.document.getText();
   const todoOptions = [];
   const fixmeOptions = [];
   const noteOptions = [];
 
-  const extractRegex = /(?:'|\bREM\b).*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b.*$/gim;
-  let match;
-  while ((match = extractRegex.exec(text))) {
-    const keyword = match[1].toUpperCase();
-    const startPos = editor.document.positionAt(match.index);
-    const endPos = editor.document.positionAt(match.index + match[0].length);
-    const decoration = { range: new vscode.Range(startPos, endPos) };
+  const text = editor.document.getText();
+  const upperText = text.toUpperCase();
 
-    if (keyword === 'TODO') {
-      todoOptions.push(decoration);
-    } else if (keyword === 'FIXME' || keyword === 'FIXIT' || keyword === 'HACK' || keyword === 'BUG') {
-      fixmeOptions.push(decoration);
-    } else if (keyword === 'NOTE') {
-      noteOptions.push(decoration);
+  // Fast path to completely bypass regex testing if no matched words exist
+  if (!upperText.includes('TODO') && !upperText.includes('FIX') &&
+      !upperText.includes('HACK') && !upperText.includes('BUG') &&
+      !upperText.includes('NOTE')) {
+    editor.setDecorations(todoDecorationType, todoOptions);
+    editor.setDecorations(fixmeDecorationType, fixmeOptions);
+    editor.setDecorations(noteDecorationType, noteOptions);
+    return;
+  }
+
+  const extractRegex = /(?:'|\bREM\b)[^\r\n]*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b[^\r\n]*/gi;
+  const lines = text.split(/\r?\n/);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const upperLine = line.toUpperCase();
+
+    // Secondary fast path for individual lines
+    if (!upperLine.includes('TODO') && !upperLine.includes('FIX') &&
+        !upperLine.includes('HACK') && !upperLine.includes('BUG') &&
+        !upperLine.includes('NOTE')) {
+      continue; // Skip this line
+    }
+
+    let match;
+    extractRegex.lastIndex = 0; // reset for new line execution
+    while ((match = extractRegex.exec(line))) {
+      const keyword = match[1].toUpperCase();
+      const startPos = new vscode.Position(i, match.index);
+      const endPos = new vscode.Position(i, match.index + match[0].length);
+      const decoration = { range: new vscode.Range(startPos, endPos) };
+
+      if (keyword === 'TODO') {
+        todoOptions.push(decoration);
+      } else if (keyword === 'FIXME' || keyword === 'FIXIT' || keyword === 'HACK' || keyword === 'BUG') {
+        fixmeOptions.push(decoration);
+      } else if (keyword === 'NOTE') {
+        noteOptions.push(decoration);
+      }
     }
   }
 

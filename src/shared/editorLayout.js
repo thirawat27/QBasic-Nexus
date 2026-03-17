@@ -96,9 +96,15 @@ function formatQBasicLines(lines = [], options = {}) {
 function collectQBasicFoldingRanges(lines = []) {
   const ranges = [];
   const stack = [];
+  let commentStart = -1;
 
   for (let index = 0; index < lines.length; index++) {
     const line = typeof lines[index] === 'string' ? lines[index] : '';
+    
+    // Fast path skip blank lines somewhat
+    if (!line.trim()) {
+      continue;
+    }
 
     if (PATTERNS.BLOCK_START.test(line)) {
       stack.push(index);
@@ -108,19 +114,11 @@ function collectQBasicFoldingRanges(lines = []) {
         ranges.push({ start, end: index, kind: undefined });
       }
     }
-  }
 
-  let commentStart = -1;
-  for (let index = 0; index < lines.length; index++) {
-    const line = typeof lines[index] === 'string' ? lines[index] : '';
     const isComment = PATTERNS.COMMENT.test(line);
-
     if (isComment && commentStart === -1) {
       commentStart = index;
-      continue;
-    }
-
-    if (!isComment && commentStart !== -1) {
+    } else if (!isComment && commentStart !== -1) {
       if (index - 1 > commentStart) {
         ranges.push({ start: commentStart, end: index - 1, kind: 'comment' });
       }

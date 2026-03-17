@@ -13,6 +13,9 @@ const {
   makeIdentifierRegex,
 } = require('../providers/patterns');
 
+// O(1) keyword lookup set (avoids object property access overhead)
+const KEYWORDS_UPPER_SET = new Set(Object.keys(KEYWORDS).map(k => k.toUpperCase()));
+
 /**
  * Symbol kinds for QBasic code elements
  * @readonly
@@ -139,7 +142,19 @@ function analyzeQBasicText(text = '') {
     text = String(text ?? '');
   }
 
-  const lines = text.split(/\r?\n/);
+  // Fast split: avoid regex engine overhead by scanning char-codes directly
+  const lines = [];
+  let lineStart = 0;
+  for (let i = 0; i <= text.length; i++) {
+    const c = i < text.length ? text.charCodeAt(i) : 10;
+    if (c === 10) { // \n
+      // If previous char was \r, exclude it
+      const end = (i > lineStart && text.charCodeAt(i - 1) === 13) ? i - 1 : i;
+      lines.push(text.slice(lineStart, end));
+      lineStart = i + 1;
+    }
+  }
+
   const dimRe = makeDimRegex();
   const assignRe = makeAssignRegex();
   const variables = new Set();
@@ -165,153 +180,176 @@ function analyzeQBasicText(text = '') {
 
     if (!trimmed) {
       blankLines++;
-    } else if (PATTERNS.COMMENT.test(trimmed)) {
+      continue;
+    }
+
+    const upperTrimmed = trimmed.toUpperCase();
+    if (upperTrimmed.startsWith("'") || upperTrimmed.startsWith('REM ') || upperTrimmed === 'REM') {
       commentLines++;
-    } else {
-      codeLines++;
+      continue;
     }
 
-    GOTO_RE.lastIndex = 0;
-    while (GOTO_RE.exec(line) !== null) {
-      gotoCount++;
+    codeLines++;
+
+    if (upperTrimmed.startsWith('DECLARE ')) {
+      continue;
     }
 
-    GOSUB_RE.lastIndex = 0;
-    while (GOSUB_RE.exec(line) !== null) {
-      gosubCount++;
-    }
-    if (SELECT_CASE_RE.test(line)) selectCount++;
-
-    dimRe.lastIndex = 0;
+    const upperLine = upperTrimmed; // Instead of re-doing it, we already have upperTrimmed which is good enough for inclusion checks. Wait, line.toUpperCase() might have spaces intact but upperTrimmed lacks leading spaces, which is totally fine for includes().
     let match;
-    const dimDeclarations = extractDimDeclarations(line);
-    if (dimDeclarations.length > 0) {
-      dimCount++;
-      for (const declaration of dimDeclarations) {
-        variables.add(declaration.name);
-        registerDefinition(definitions, declaration.name, {
-          line: index,
-          start: declaration.start,
-          end: declaration.end,
-          detail: 'DIM',
-          kind: 'variable',
-        });
-      }
-    } else {
-      while ((match = dimRe.exec(line)) !== null) {
+
+    if (upperLine.includes('GOTO')) {
+      const gotos = line.match(GOTO_RE);
+      if (gotos) gotoCount += gotos.length;
+    }
+
+    if (upperLine.includes('GOSUB')) {
+      const gosubs = line.match(GOSUB_RE);
+      if (gosubs) gosubCount += gosubs.length;
+    }
+    
+    if (upperLine.includes('SELECT CASE')) {
+      if (SELECT_CASE_RE.test(line)) selectCount++;
+    }
+
+    if (upperLine.includes('DIM')) {
+      const dimDeclarations = extractDimDeclarations(line);
+      if (dimDeclarations.length > 0) {
         dimCount++;
-        variables.add(match[1]);
+        for (const declaration of dimDeclarations) {
+          variables.add(declaration.name);
+          registerDefinition(definitions, declaration.name, {
+            line: index,
+            start: declaration.start,
+            end: declaration.end,
+            detail: 'DIM',
+            kind: 'variable',
+          });
+        }
+      } else {
+        dimRe.lastIndex = 0;
+        while ((match = dimRe.exec(line)) !== null) {
+          dimCount++;
+          variables.add(match[1]);
+          const range = getCaptureRange(match, match[1]);
+          registerDefinition(definitions, match[1], {
+            line: index,
+            start: range.start,
+            end: range.end,
+            detail: 'DIM',
+            kind: 'variable',
+          });
+        }
+      }
+    }
+
+    if (line.includes('=')) {
+      assignRe.lastIndex = 0;
+      while ((match = assignRe.exec(line)) !== null) {
+        const variableName = match[1];
+        if (!KEYWORDS_UPPER_SET.has(variableName.toUpperCase())) {
+          variables.add(variableName);
+        }
+      }
+    }
+
+    if (upperTrimmed.startsWith('SUB ') || upperTrimmed.startsWith('FUNCTION ')) {
+      if ((match = PATTERNS.SUB_DEF.exec(line))) {
+        const kind =
+          match[1].toUpperCase() === 'FUNCTION'
+            ? SYMBOL_KIND.FUNCTION
+            : SYMBOL_KIND.METHOD;
+
+        if (kind === SYMBOL_KIND.FUNCTION) {
+          funcCount++;
+        } else {
+          subCount++;
+        }
+
+        symbols.push({
+          name: match[2],
+          detail: match[1].toUpperCase(),
+          kind,
+          line: index,
+        });
+        const range = getCaptureRange(match, match[2]);
+        registerDefinition(definitions, match[2], {
+          line: index,
+          start: range.start,
+          end: range.end,
+          detail: match[1].toUpperCase(),
+          kind,
+        });
+        continue;
+      }
+    }
+
+    if (upperTrimmed.startsWith('TYPE ')) {
+      if ((match = PATTERNS.TYPE_DEF.exec(line))) {
+        typeCount++;
+        symbols.push({
+          name: match[1],
+          detail: 'TYPE',
+          kind: SYMBOL_KIND.STRUCT,
+          line: index,
+        });
         const range = getCaptureRange(match, match[1]);
         registerDefinition(definitions, match[1], {
           line: index,
           start: range.start,
           end: range.end,
-          detail: 'DIM',
-          kind: 'variable',
+          detail: 'TYPE',
+          kind: SYMBOL_KIND.STRUCT,
+        });
+        continue;
+      }
+    }
+
+    if (upperTrimmed.startsWith('CONST ')) {
+      if ((match = PATTERNS.CONST_DEF.exec(line))) {
+        constCount++;
+        symbols.push({
+          name: match[1],
+          detail: 'CONST',
+          kind: SYMBOL_KIND.CONSTANT,
+          line: index,
+        });
+        const range = getCaptureRange(match, match[1]);
+        registerDefinition(definitions, match[1], {
+          line: index,
+          start: range.start,
+          end: range.end,
+          detail: 'CONST',
+          kind: SYMBOL_KIND.CONSTANT,
+        });
+        continue;
+      }
+    }
+
+    if (trimmed.includes(':')) {
+      if ((match = PATTERNS.LABEL.exec(line))) {
+        labelCount++;
+        symbols.push({
+          name: match[1],
+          detail: 'Label',
+          kind: SYMBOL_KIND.EVENT,
+          line: index,
+        });
+        const range = getCaptureRange(match, match[1]);
+        registerDefinition(definitions, match[1], {
+          line: index,
+          start: range.start,
+          end: range.end,
+          detail: 'Label',
+          kind: SYMBOL_KIND.EVENT,
         });
       }
-    }
-
-    assignRe.lastIndex = 0;
-    while ((match = assignRe.exec(line)) !== null) {
-      const variableName = match[1];
-      if (!KEYWORDS[variableName.toUpperCase()]) {
-        variables.add(variableName);
-      }
-    }
-
-    if (PATTERNS.COMMENT.test(line) || PATTERNS.DECLARE.test(line)) {
-      continue;
-    }
-
-    if ((match = PATTERNS.SUB_DEF.exec(line))) {
-      const kind =
-        match[1].toUpperCase() === 'FUNCTION'
-          ? SYMBOL_KIND.FUNCTION
-          : SYMBOL_KIND.METHOD;
-
-      if (kind === SYMBOL_KIND.FUNCTION) {
-        funcCount++;
-      } else {
-        subCount++;
-      }
-
-      symbols.push({
-        name: match[2],
-        detail: match[1].toUpperCase(),
-        kind,
-        line: index,
-      });
-      const range = getCaptureRange(match, match[2]);
-      registerDefinition(definitions, match[2], {
-        line: index,
-        start: range.start,
-        end: range.end,
-        detail: match[1].toUpperCase(),
-        kind,
-      });
-      continue;
-    }
-
-    if ((match = PATTERNS.TYPE_DEF.exec(line))) {
-      typeCount++;
-      symbols.push({
-        name: match[1],
-        detail: 'TYPE',
-        kind: SYMBOL_KIND.STRUCT,
-        line: index,
-      });
-      const range = getCaptureRange(match, match[1]);
-      registerDefinition(definitions, match[1], {
-        line: index,
-        start: range.start,
-        end: range.end,
-        detail: 'TYPE',
-        kind: SYMBOL_KIND.STRUCT,
-      });
-      continue;
-    }
-
-    if ((match = PATTERNS.CONST_DEF.exec(line))) {
-      constCount++;
-      symbols.push({
-        name: match[1],
-        detail: 'CONST',
-        kind: SYMBOL_KIND.CONSTANT,
-        line: index,
-      });
-      const range = getCaptureRange(match, match[1]);
-      registerDefinition(definitions, match[1], {
-        line: index,
-        start: range.start,
-        end: range.end,
-        detail: 'CONST',
-        kind: SYMBOL_KIND.CONSTANT,
-      });
-      continue;
-    }
-
-    if ((match = PATTERNS.LABEL.exec(line))) {
-      labelCount++;
-      symbols.push({
-        name: match[1],
-        detail: 'Label',
-        kind: SYMBOL_KIND.EVENT,
-        line: index,
-      });
-      const range = getCaptureRange(match, match[1]);
-      registerDefinition(definitions, match[1], {
-        line: index,
-        start: range.start,
-        end: range.end,
-        detail: 'Label',
-        kind: SYMBOL_KIND.EVENT,
-      });
     }
   }
 
   return {
     lines,
+    linesUpper: lines.map(l => l.toUpperCase()), // pre-built for fast identifier search
     totalLines: lines.length,
     codeLines,
     commentLines,
@@ -410,8 +448,19 @@ function findIdentifierMatchesInAnalysis(analysis, identifier, options = {}) {
   const matches = [];
   const wordPattern = makeIdentifierRegex(identifier, 'gi');
 
+  const identifierUpper = identifier.toUpperCase();
+  // Use precomputed uppercase lines if available for fast substring checks
+  const linesUpper = analysis.linesUpper;
+
   for (let lineNumber = 0; lineNumber < analysis.lines.length; lineNumber++) {
     const line = analysis.lines[lineNumber];
+    
+    // Fast path: skip lines that definitely don't contain the identifier
+    const lineU = linesUpper ? linesUpper[lineNumber] : line.toUpperCase();
+    if (!lineU.includes(identifierUpper)) {
+      continue;
+    }
+
     let match;
 
     wordPattern.lastIndex = 0;
