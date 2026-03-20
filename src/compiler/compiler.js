@@ -256,11 +256,17 @@ class Compiler {
     }
 
     // Execute the generated code
+    const runtimeProcess = Object.assign(Object.create(process), {
+      exit() {
+        // compileAndRun executes inside the current host process, so the
+        // generated runtime must not terminate the caller.
+      },
+    });
     const AsyncFunction = Object.getPrototypeOf(
       async function () {},
     ).constructor;
-    const fn = new AsyncFunction(result.getCode());
-    return await fn();
+    const fn = new AsyncFunction('require', 'process', result.getCode());
+    return await fn(require, runtimeProcess);
   }
 
   /**
