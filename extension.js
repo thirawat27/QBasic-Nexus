@@ -54,6 +54,8 @@ const {
   QBasicCompletionItemProvider,
   QBasicHoverProvider,
   QBasicSignatureHelpProvider,
+  QBasicDocumentSemanticTokenProvider,
+  QBasicSemanticTokensLegend,
   QBasicDocumentFormattingEditProvider,
   QBasicFoldingRangeProvider,
   QBasicDocumentHighlightProvider,
@@ -132,6 +134,12 @@ async function activate(context) {
       new QBasicSignatureHelpProvider(),
       '(',
       ',',
+      ' ',
+    ),
+    vscode.languages.registerDocumentSemanticTokensProvider(
+      selector,
+      new QBasicDocumentSemanticTokenProvider(),
+      QBasicSemanticTokensLegend,
     ),
 
     // Enhanced providers

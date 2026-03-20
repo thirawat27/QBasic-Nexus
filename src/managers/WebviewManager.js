@@ -73,6 +73,9 @@ class WebviewManager {
   /** @type {boolean} */
   static _isReady = false;
 
+  /** @type {string | null} */
+  static _lastSourcePath = null;
+
   /** @type {any | null} Cached TutorialManager module */
   static _tutorialManagerCache = null;
 
@@ -211,6 +214,10 @@ class WebviewManager {
             }
           } else if (message.type === 'error') {
             console.error('[QBasic CRT] Runtime error:', message.content);
+            void WebviewManager._revealRuntimeError(
+              message.content,
+              message.line,
+            );
             emitter.emit('runtimeError', message.content);
           }
         } catch (err) {
@@ -245,7 +252,7 @@ class WebviewManager {
    * @param {string} filename   - Source filename for display
    * @param {vscode.Uri} extensionUri
    */
-  static async runCode(code, filename, extensionUri) {
+  static async runCode(code, filename, extensionUri, sourcePath = null) {
     // Reset tutorial history for a fresh run
     try {
       if (!WebviewManager._tutorialManagerCache) {
@@ -265,18 +272,20 @@ class WebviewManager {
       return;
     }
 
+    WebviewManager._lastSourcePath = sourcePath;
     WebviewManager.currentPanel.reveal();
     await WebviewManager._waitUntilReady();
 
     // ── Chunked transfer for large payloads ──────────────────────────────
     if (code.length > CHUNK_SIZE) {
-      await WebviewManager._sendChunked(code, filename);
+      await WebviewManager._sendChunked(code, filename, sourcePath);
     } else {
       // Small payload: send in one message (common case)
       await WebviewManager._postMessage(WebviewManager.currentPanel, {
         type: 'execute',
         code,
         filename,
+        sourcePath,
       });
     }
 
@@ -289,7 +298,7 @@ class WebviewManager {
    * @param {string} code
    * @param {string} filename
    */
-  static async _sendChunked(code, filename) {
+  static async _sendChunked(code, filename, sourcePath = null) {
     const panel = WebviewManager.currentPanel;
     if (!panel) return;
 
@@ -309,6 +318,7 @@ class WebviewManager {
             : 'execute_chunk',
         chunk,
         filename: isFirst ? filename : undefined,
+        sourcePath: isFirst ? sourcePath : undefined,
         chunkIdx,
         totalChunks: total,
       });
@@ -375,6 +385,41 @@ class WebviewManager {
       .replace(/\{\{cspSource\}\}/g, webview.cspSource)
       .replace('{{cssUri}}', cssUri.toString())
       .replace('{{jsUri}}', jsUri.toString());
+  }
+
+  static async _revealRuntimeError(message, line) {
+    if (
+      !WebviewManager._lastSourcePath ||
+      !Number.isInteger(line) ||
+      line < 1
+    ) {
+      return;
+    }
+
+    try {
+      const uri = vscode.Uri.file(WebviewManager._lastSourcePath);
+      const document = await vscode.workspace.openTextDocument(uri);
+      const editor = await vscode.window.showTextDocument(document, {
+        preview: false,
+      });
+      const targetLine = Math.min(
+        Math.max(line - 1, 0),
+        Math.max(0, document.lineCount - 1),
+      );
+      const range = new vscode.Range(
+        targetLine,
+        0,
+        targetLine,
+        document.lineAt(targetLine).text.length,
+      );
+      editor.selection = new vscode.Selection(range.start, range.start);
+      editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+      vscode.window.showErrorMessage(
+        `CRT runtime error at line ${line}: ${message}`,
+      );
+    } catch (error) {
+      console.error('[QBasic CRT] Failed to reveal runtime error source:', error);
+    }
   }
 }
 

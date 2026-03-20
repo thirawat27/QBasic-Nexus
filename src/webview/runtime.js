@@ -48,6 +48,7 @@
   let fgColor = 7; // Light gray
   let bgColor = 0; // Black
   let keyBuffer = '';
+  let currentSourceLine = 0;
 
   // Virtual File System (VFS) - localStorage based
   const VFS_KEY = 'qbasic_nexus_vfs';
@@ -1444,7 +1445,9 @@
   function showError(msg) {
     flushPrintBatch(); // Ensure previous output is visible
     const span = document.createElement('span');
-    span.textContent = '\n❌ Runtime Error: ' + msg + '\n';
+    const linePrefix =
+      currentSourceLine > 0 ? `Line ${currentSourceLine}: ` : '';
+    span.textContent = '\n❌ Runtime Error: ' + linePrefix + msg + '\n';
     span.style.color = '#FF5555';
     screen.appendChild(span);
   }
@@ -1455,7 +1458,18 @@
     if (error) {
       console.error('[QBasic Runtime]', error);
     }
-    vscode.postMessage({ type: 'error', content: message });
+    vscode.postMessage({
+      type: 'error',
+      content: message,
+      line: currentSourceLine,
+    });
+  }
+
+  function setSourceLine(line) {
+    const numericLine = Number(line);
+    currentSourceLine = Number.isFinite(numericLine)
+      ? Math.max(0, Math.trunc(numericLine))
+      : 0;
   }
 
   // =========================================================================
@@ -2386,6 +2400,7 @@
     screen: screenMode,
     width: setWidth,
     error: reportRuntimeError,
+    setSourceLine,
 
     // Graphics
     pset: _pset,
@@ -3234,6 +3249,7 @@
     fgColor = 7;
     bgColor = 0;
     keyBuffer = '';
+    currentSourceLine = 0;
     lastFrameTime = 0;
     lastX = 0;
     lastY = 0;

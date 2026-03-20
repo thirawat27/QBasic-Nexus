@@ -28,8 +28,6 @@ const {
 } = require('../src/shared/documentAnalysis');
 
 const { sanitizeSnippetBody } = require('../src/shared/snippetSanitizer');
-
-const SNIPPETS = require('../snippets/qbasic.json');
 const { KEYWORDS, FUNCTIONS } = require('../languageData');
 
 const {
@@ -77,12 +75,6 @@ function assertEqual(actual, expected, message) {
 function assertContains(str, substring, message) {
   if (!str || !str.includes(substring)) {
     throw new Error(`${message}\nExpected to contain: ${substring}`);
-  }
-}
-
-function assertNotContains(str, substring, message) {
-  if (str && str.includes(substring)) {
-    throw new Error(`${message}\nShould NOT contain: ${substring}`);
   }
 }
 
@@ -348,7 +340,7 @@ test('Semantic: GOTO label validation', () => {
   let threw = false;
   try {
     t.transpile('GOTO missing', 'node');
-  } catch (e) {
+  } catch (_error) {
     threw = true;
   }
   if (!threw) throw new Error('Should reject undefined GOTO label');
@@ -365,7 +357,7 @@ test('Semantic: EXIT FOR outside loop', () => {
   let threw = false;
   try {
     t.transpile('EXIT FOR', 'node');
-  } catch (e) {
+  } catch (_error) {
     threw = true;
   }
   if (!threw) throw new Error('Should reject EXIT FOR outside loop');
@@ -382,7 +374,7 @@ test('Semantic: CONTINUE outside loop', () => {
   let threw = false;
   try {
     t.transpile('CONTINUE', 'node');
-  } catch (e) {
+  } catch (_error) {
     threw = true;
   }
   if (!threw) throw new Error('Should reject CONTINUE outside loop');
@@ -399,7 +391,7 @@ test('Semantic: NEXT without FOR', () => {
   let threw = false;
   try {
     t.transpile('NEXT i', 'node');
-  } catch (e) {
+  } catch (_error) {
     threw = true;
   }
   if (!threw) throw new Error('Should reject stray NEXT');
@@ -422,7 +414,7 @@ test('Semantic: END IF required', () => {
   let threw = false;
   try {
     t.transpile('IF x THEN\nPRINT "yes"', 'node');
-  } catch (e) {
+  } catch (_error) {
     threw = true;
   }
   if (!threw) throw new Error('Should require END IF');
@@ -439,7 +431,7 @@ test('Semantic: Missing END SUB', () => {
   let threw = false;
   try {
     t.transpile('SUB Test\nPRINT "hi"', 'node');
-  } catch (e) {
+  } catch (_error) {
     threw = true;
   }
   if (!threw) throw new Error('Should require END SUB');
@@ -450,7 +442,7 @@ test('Semantic: ON ERROR GOTO validation', () => {
   let threw = false;
   try {
     t.transpile('ON ERROR GOTO missing', 'node');
-  } catch (e) {
+  } catch (_error) {
     threw = true;
   }
   if (!threw) throw new Error('Should validate ON ERROR GOTO');

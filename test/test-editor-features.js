@@ -29,6 +29,8 @@ const {
   invalidateDocumentAnalysis,
 } = require('../src/shared/documentAnalysis');
 const { sanitizeSnippetBody } = require('../src/shared/snippetSanitizer');
+const { findActiveSignature } = require('../src/shared/signatureCatalog');
+const { buildSemanticTokenSpans } = require('../src/shared/semanticTokens');
 
 let passed = 0;
 let failed = 0;
@@ -132,6 +134,24 @@ test('call context tracks nested calls without counting inner commas', () => {
   assertEqual(inner.activeParameter, 1, 'Inner call should count its own commas');
   assertEqual(outer.name, 'MID$', 'After closing the inner call, the outer call should become active');
   assertEqual(outer.activeParameter, 2, 'Outer call should ignore commas consumed inside nested calls');
+});
+
+test('signature catalog resolves paren-based graphics statements after coordinate pairs', () => {
+  const context = findActiveSignature('CIRCLE (160, 100), 50, ');
+
+  assertEqual(context.name, 'CIRCLE', 'Should resolve CIRCLE statement signature');
+  assertEqual(
+    context.activeParameter,
+    2,
+    'Statement signature should count only commas outside the coordinate pair',
+  );
+});
+
+test('signature catalog resolves inline statement signatures', () => {
+  const context = findActiveSignature('PLAY "T120 O4 ');
+
+  assertEqual(context.name, 'PLAY', 'Should resolve PLAY statement signature');
+  assertEqual(context.activeParameter, 0, 'PLAY should expose a single macro-string parameter');
 });
 
 test('formatter preserves suffix identifiers and escaped quotes while capitalizing keywords', () => {
@@ -423,6 +443,44 @@ test('definition lookup resolves user-defined procedures and constants', () => {
   assertEqual(constDefinition.line, 0, 'CONST definition should be indexed');
   assertEqual(typeDefinition.line, 1, 'TYPE definition should be indexed');
   assertEqual(functionDefinition.line, 3, 'FUNCTION definition should be indexed');
+});
+
+test('semantic token helper distinguishes global, local, parameter, and array symbols', () => {
+  const spans = buildSemanticTokenSpans(
+    [
+      'DIM globalValue',
+      'TYPE Player',
+      '  name AS STRING',
+      'END TYPE',
+      'SUB Demo(name$)',
+      '  DIM localArray(10)',
+      '  PRINT globalValue, localArray(1), name$',
+      'END SUB',
+    ].join('\n'),
+  );
+
+  const globalValueDecl = spans.find(
+    (span) => span.line === 0 && span.start === 4,
+  );
+  const playerTypeDecl = spans.find(
+    (span) => span.line === 1 && span.type === 'struct',
+  );
+  const paramUse = spans.find(
+    (span) => span.line === 6 && span.type === 'parameter',
+  );
+  const localArrayUse = spans.find(
+    (span) =>
+      span.line === 6 &&
+      span.type === 'variable' &&
+      span.modifiers.includes('array') &&
+      span.modifiers.includes('local'),
+  );
+
+  assertEqual(globalValueDecl.modifiers.includes('global'), true, 'Global DIM should be marked global');
+  assertEqual(globalValueDecl.modifiers.includes('declaration'), true, 'Global DIM should be marked declaration');
+  assertEqual(playerTypeDecl.modifiers.includes('declaration'), true, 'TYPE name should be marked declaration');
+  assertEqual(paramUse.modifiers.includes('local'), true, 'Procedure parameter should be treated as local');
+  assertEqual(localArrayUse.modifiers.includes('array'), true, 'Array usage should retain array modifier');
 });
 
 console.log('\n════════════════════════════════════════');

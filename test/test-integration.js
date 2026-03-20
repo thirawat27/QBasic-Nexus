@@ -315,6 +315,23 @@ test('Web transpile keeps clipboard-write syntax on the runtime path', () => {
   }
 });
 
+test('Web transpile injects source-line tracking for CRT runtime errors', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('PRINT "Ready"\nERROR 5', 'web');
+
+  if (!code.includes('_qbTrackSourceLine(0);')) {
+    throw new Error('Expected generated code to track the first source line');
+  }
+
+  if (!code.includes('_qbTrackSourceLine(1);')) {
+    throw new Error('Expected generated code to track later source lines');
+  }
+
+  if (!code.includes('_runtime.error(e.message, { line: _currentSourceLine });')) {
+    throw new Error('Expected CRT runtime errors to include the current source line');
+  }
+});
+
 test('Transpile expands $INCLUDE relative to sourcePath', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbnx-preprocess-'));
 

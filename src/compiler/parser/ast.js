@@ -118,6 +118,7 @@ class TrampolineBuilder {
           id: this._newStateId(statement.kind === 'Emit' ? 'emit' : 'raw'),
           kind: 'raw',
           code: statement.code,
+          line: statement.line,
           nextState,
           errorResumeState: nextState,
         });
@@ -126,6 +127,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('goto'),
           kind: 'goto',
+          line: statement.line,
           targetLabel: statement.label,
         });
 
@@ -133,6 +135,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('gosub'),
           kind: 'gosub',
+          line: statement.line,
           targetLabel: statement.label,
           returnState: nextState,
         });
@@ -141,12 +144,14 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('return'),
           kind: 'return',
+          line: statement.line,
         });
 
       case 'RaiseError':
         return this._pushState({
           id: this._newStateId('raise_error'),
           kind: 'raiseError',
+          line: statement.line,
           expression: statement.expression,
           errorResumeState: nextState,
         });
@@ -155,6 +160,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('term'),
           kind: 'term',
+          line: statement.line,
         });
 
       case 'If': {
@@ -172,6 +178,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('if'),
           kind: 'branch',
+          line: statement.line,
           condition: statement.condition,
           trueState: thenEntry,
           falseState: elseEntry || nextState,
@@ -197,6 +204,7 @@ class TrampolineBuilder {
           currentState = this._pushState({
             id: this._newStateId('select'),
             kind: 'branch',
+            line: statement.line,
             condition: joinConditions(caseClause.conditions),
             trueState,
             falseState: currentState || nextState,
@@ -224,6 +232,7 @@ class TrampolineBuilder {
           id: incrementState,
           kind: 'raw',
           code: [`${statement.variable} += ${statement.step};`],
+          line: statement.line,
           nextState: conditionState,
           errorResumeState: nextState,
         });
@@ -231,6 +240,7 @@ class TrampolineBuilder {
         this._pushState({
           id: conditionState,
           kind: 'branch',
+          line: statement.line,
           condition: `(${statement.step} >= 0) ? ${statement.variable} <= ${statement.end} : ${statement.variable} >= ${statement.end}`,
           trueState: bodyEntry,
           falseState: nextState,
@@ -241,6 +251,7 @@ class TrampolineBuilder {
           id: this._newStateId('for_init'),
           kind: 'raw',
           code: [`var ${statement.variable} = ${statement.start};`],
+          line: statement.line,
           nextState: conditionState,
           errorResumeState: nextState,
         });
@@ -261,6 +272,7 @@ class TrampolineBuilder {
         this._pushState({
           id: conditionState,
           kind: 'branch',
+          line: statement.line,
           condition: statement.condition,
           trueState: bodyEntry,
           falseState: nextState,
@@ -286,6 +298,7 @@ class TrampolineBuilder {
           this._pushState({
             id: conditionState,
             kind: 'branch',
+            line: statement.line,
             condition: statement.negateCondition
               ? `!(${statement.condition})`
               : statement.condition,
@@ -311,6 +324,7 @@ class TrampolineBuilder {
         this._pushState({
           id: postConditionState,
           kind: 'branch',
+          line: statement.line,
           condition: statement.condition
             ? (statement.negateCondition
               ? `!(${statement.condition})`
@@ -337,6 +351,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('exit'),
           kind: 'assign',
+          line: statement.line,
           nextState: targetState || context.bodyEndState,
         });
       }
@@ -346,6 +361,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('continue'),
           kind: 'assign',
+          line: statement.line,
           nextState: targetState || nextState,
         });
       }
@@ -354,6 +370,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('on_jump'),
           kind: 'onJump',
+          line: statement.line,
           expression: statement.expression,
           mode: statement.mode,
           labels: [...statement.labels],
@@ -365,6 +382,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('on_error'),
           kind: 'onError',
+          line: statement.line,
           mode: statement.mode,
           target: statement.target || null,
           targetType: statement.targetType || null,
@@ -376,6 +394,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('resume'),
           kind: 'resume',
+          line: statement.line,
           mode: statement.mode,
           target: statement.target || null,
           targetType: statement.targetType || null,
@@ -387,6 +406,7 @@ class TrampolineBuilder {
           id: this._newStateId('raw'),
           kind: 'raw',
           code: statement.code || [],
+          line: statement.line,
           nextState,
           errorResumeState: nextState,
         });
@@ -1916,8 +1936,11 @@ module.exports = {
       switch (statement.kind) {
         case 'Raw':
         case 'Emit':
-          for (const line of statement.code) {
-            this._emit(line.trimStart());
+          if (statement.code.length > 0) {
+            this._emitTracked(statement.code[0].trimStart(), statement.line);
+            for (let index = 1; index < statement.code.length; index++) {
+              this._emit(statement.code[index].trimStart());
+            }
           }
           break;
 
@@ -1926,7 +1949,7 @@ module.exports = {
           break;
 
         case 'If':
-          this._emit(`if (${statement.condition}) {`);
+          this._emitTracked(`if (${statement.condition}) {`, statement.line);
           this.indent++;
           this._generateStructuredStatements(statement.thenBody, context);
           this.indent--;
@@ -1944,7 +1967,11 @@ module.exports = {
 
           for (const caseClause of statement.cases || []) {
             const condition = joinConditions(caseClause.conditions);
-            this._emit(hasBranches ? `} else if (${condition}) {` : `if (${condition}) {`);
+            if (hasBranches) {
+              this._emit(`} else if (${condition}) {`);
+            } else {
+              this._emitTracked(`if (${condition}) {`, statement.line);
+            }
             this.indent++;
             this._generateStructuredStatements(caseClause.body, context);
             this.indent--;
@@ -1952,7 +1979,11 @@ module.exports = {
           }
 
           if (statement.elseBody?.length > 0) {
-            this._emit(hasBranches ? '} else {' : 'if (true) {');
+            if (hasBranches) {
+              this._emit('} else {');
+            } else {
+              this._emitTracked('if (true) {', statement.line);
+            }
             this.indent++;
             this._generateStructuredStatements(statement.elseBody, context);
             this.indent--;
@@ -1966,8 +1997,9 @@ module.exports = {
         }
 
         case 'For':
-          this._emit(
+          this._emitTracked(
             `for (var ${statement.variable} = ${statement.start}; (${statement.step} >= 0) ? ${statement.variable} <= ${statement.end} : ${statement.variable} >= ${statement.end}; ${statement.variable} += ${statement.step}) {`,
+            statement.line,
           );
           this.indent++;
           this._generateStructuredStatements(statement.body, context);
@@ -1976,7 +2008,7 @@ module.exports = {
           break;
 
         case 'While':
-          this._emit(`while (${statement.condition}) {`);
+          this._emitTracked(`while (${statement.condition}) {`, statement.line);
           this.indent++;
           this._generateStructuredStatements(statement.body, context);
           this.indent--;
@@ -1985,15 +2017,16 @@ module.exports = {
 
         case 'DoLoop':
           if (statement.mode === 'PRETEST') {
-            this._emit(
+            this._emitTracked(
               `while (${statement.negateCondition ? `!(${statement.condition})` : statement.condition}) {`,
+              statement.line,
             );
             this.indent++;
             this._generateStructuredStatements(statement.body, context);
             this.indent--;
             this._emit('}');
           } else {
-            this._emit('do {');
+            this._emitTracked('do {', statement.line);
             this.indent++;
             this._generateStructuredStatements(statement.body, context);
             this.indent--;
@@ -2005,30 +2038,37 @@ module.exports = {
 
         case 'Exit':
           if (statement.target === 'SUB') {
-            this._emit('return;');
+            this._emitTracked('return;', statement.line);
           } else if (statement.target === 'FUNCTION') {
-            this._emit(`return ${context.resultVar || 'undefined'};`);
+            this._emitTracked(
+              `return ${context.resultVar || 'undefined'};`,
+              statement.line,
+            );
           } else {
-            this._emit('break;');
+            this._emitTracked('break;', statement.line);
           }
           break;
 
         case 'Continue':
-          this._emit('continue;');
+          this._emitTracked('continue;', statement.line);
           break;
 
         case 'Terminate':
-          this._emit('throw "__END__";');
+          this._emitTracked('throw "__END__";', statement.line);
           break;
 
         case 'RaiseError':
-          this._emit(`throw new Error("Error " + ${statement.expression});`);
+          this._emitTracked(
+            `throw new Error("Error " + ${statement.expression});`,
+            statement.line,
+          );
           break;
 
         default:
-          if (statement.code) {
-            for (const line of statement.code) {
-              this._emit(line.trimStart());
+          if (statement.code?.length > 0) {
+            this._emitTracked(statement.code[0].trimStart(), statement.line);
+            for (let index = 1; index < statement.code.length; index++) {
+              this._emit(statement.code[index].trimStart());
             }
           }
       }
@@ -2140,6 +2180,8 @@ module.exports = {
       if (machine.labelTargets.has(target)) return machine.labelTargets.get(target);
       return target;
     };
+
+    this._emitSourceTrace(state.line);
 
     if (state.kind === 'raw') {
       for (const line of state.code) {

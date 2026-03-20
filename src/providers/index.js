@@ -11,6 +11,10 @@ const { QBasicDefinitionProvider } = require('./definitionProvider');
 const { QBasicCompletionItemProvider } = require('./completionProvider');
 const { QBasicHoverProvider } = require('./hoverProvider');
 const { QBasicSignatureHelpProvider } = require('./signatureHelpProvider');
+const {
+  QBasicDocumentSemanticTokenProvider,
+  QBasicSemanticTokensLegend,
+} = require('./semanticTokenProvider');
 const { QBasicDocumentFormattingEditProvider } = require('./formattingProvider');
 const { QBasicFoldingRangeProvider } = require('./foldingProvider');
 const { QBasicDocumentHighlightProvider } = require('./highlightProvider');
@@ -33,6 +37,8 @@ module.exports = {
   QBasicCompletionItemProvider,
   QBasicHoverProvider,
   QBasicSignatureHelpProvider,
+  QBasicDocumentSemanticTokenProvider,
+  QBasicSemanticTokensLegend,
   QBasicDocumentFormattingEditProvider,
   QBasicFoldingRangeProvider,
   QBasicDocumentHighlightProvider,

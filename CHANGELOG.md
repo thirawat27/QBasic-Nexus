@@ -2,6 +2,41 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.5] - 2026-03-20
+
+### ✨ Features
+
+- **Statement-Aware Signature Help**: Expanded parameter hints beyond classic built-in functions so editor hints now cover statement-driven workflows such as `CIRCLE`, `PAINT`, `PLAY`, `DRAW`, `OPEN`, `LINE INPUT`, and `ON ERROR`.
+- **Semantic Token Highlighting**: Added a dedicated semantic token provider that distinguishes globals, locals, parameters, arrays, structure names, labels, and declarations to make QBasic code easier to scan in large files.
+- **CRT Runtime Error Source Tracking**: Internal web runtime execution now tracks the active source line and attempts to jump the editor back to the failing line when a runtime error occurs inside the Retro CRT panel.
+
+### 📝 Documentation
+
+- Updated `README.md` to reflect the new semantic-highlighting, signature-help, and CRT error-tracking behavior shipped in `1.5.5`.
+
+---
+
+## [1.5.4] - 2026-03-17
+
+### ✨ Features
+
+- **Language Services**: Introduced comprehensive language services including completion, hover, rename, definition, and references by implementing core QBasic parsing and compiler features.
+- **Code Snippets**: Added comprehensive QBasic code snippets.
+- **TODO/FIXME Provider**: Implemented a new tree view provider to track `TODO` and `FIXME` comments across your project.
+- **Multi-Workspace Analysis**: Added support for multi-workspace analysis to comfortably manage multiple project folders.
+- **Webview Manager**: Built a new WebviewManager to enhance runtime execution.
+
+### 🐛 Bug Fixes & Improvements
+
+- **CI Pipeline**: Fixed Node version environment and stabilized GitHub Actions testing/build workflows across multiple environments.
+- Updated multiple dependencies and refined documentation badges.
+
+### ✅ Quality Assurance
+
+- **Testing**: Added comprehensive test coverage for compiler features and language services.
+
+---
+
 ## [1.5.3] - 2026-03-13
 
 ### 💻 Critical Bug Fixes

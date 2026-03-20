@@ -1053,9 +1053,10 @@ Write code faster, with fewer bugs, using tooling typically reserved for modern 
 - **Color Preview & Picker** - Native VS Code visual color picker for `_RGB32`, `_RGBA`, and `_RGB` allowing an immediate visual display of QBasic colors in your code.
 - **Project TODOs View** - Automatically scans your workspace for `TODO:`, `FIXME:`, `BUG:`, and `NOTE:` tags, highlighting them securely in the editor and aggregating them in an interactive sidebar Explorer tree for instant tracking.
 - **Real-Time Semantic Diagnostics (Linting)** - Catch logic and syntax errors _as you type_. The parser dynamically evaluates your document without freezing your editor, providing distinct warnings and semantic checks (e.g., detecting missing labels, unreachable code, `RESUME` misuse, invalid `EXIT`, and type mismatches).
+- **Semantic Token Highlighting** - Context-aware highlighting separates globals, locals, parameters, arrays, labels, and `TYPE` declarations so large QBasic files stay readable even when classic regex grammar coloring is not enough.
 - **Advanced Preprocessor Support** - Automatic tracking and intelligent resolution for `$INCLUDE`, `$STATIC`, and `$DYNAMIC` directives. Included files are verified and integrated instantly for seamless cross-file completion and diagnostics.
 - **At-a-glance Code Stats** - Live status bar counter showing your total Lines of Code, SUBs, and FUNCTIONs.
-- **Signature Help** - Parameter hints for built-in functions and your custom SUBs/FUNCTIONs.
+- **Signature Help** - Parameter hints for built-in functions, custom procedures, and common statement signatures such as `CIRCLE`, `PAINT`, `PLAY`, `DRAW`, `OPEN`, `LINE INPUT`, and `ON ERROR`.
 - **Document Symbols** - Quick navigation through your code structure with the Outline view.
 - **Code Folding** - Collapse and expand SUBs, FUNCTIONs, and control structures for better code organization.
 - **Hover Information** - Rich inline reference for keywords, built-ins, and symbols, including generated syntax and examples for multi-word commands such as `LINE INPUT`, `ON ERROR`, `PRINT #`, plus advanced legacy/QB64 commands like `INTERRUPT`, `IOCTL`, `_MEMCOPY`, and `_SNDLEN`.
@@ -1096,6 +1097,8 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
 QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions natively for testing within the editor.
 
+The CRT runtime in `1.5.5` also keeps track of the active source line so runtime failures can be surfaced back in the editor with a direct jump to the most likely failing line.
+
 **Compatibility Overview**
 
 | Feature Category | Compatibility | Supported Commands Examples                                                                         |
@@ -1107,7 +1110,7 @@ QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functio
 | **File I/O**     | ✅ 95%        | `OPEN`, `PRINT#`, `INPUT#`, `GET`, `PUT`, `FREEFILE`, `LOCK`, `UNLOCK`, `FILES`, `KILL`, `NAME`     |
 | **Mem / Bin**    | ✅ 90%        | `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `MKI$`, `CVI`  |
 | **Graphics**     | ✅ 85%        | `LINE`, `CIRCLE`, `PSET`, `POINT`, `DRAW`, `PAINT`, `_RGB32`, `_CLEARCOLOR`                         |
-| **Input/Inter.** | ✅ 90%        | `INKEY$`, `TIMER`, `SLEEP`, `_LIMIT`, `_MOUSEINPUT`, `_MOUSEX`, `_KEYHIT`                           |
+| **Input/Inter.** | ✅ 90%        | `INKEY$`, `TIMER`, `SLEEP`, `_LIMIT`, `_MOUSEINPUT`, `_MOUSEX`, `_KEYHIT`, `_KEYDOWN`               |
 | **Arrays**       | ✅ 100%       | `DIM`, `REDIM`, `ERASE`, `LBOUND`, `UBOUND`, multi-dimensional arrays                               |
 | **SUB/FUNCTION** | ✅ 100%       | `SUB`, `FUNCTION`, `CALL`, `SHARED`, `COMMON SHARED`, `STATIC`, param passing                       |
 | **Data Types**   | ✅ 95%        | `INTEGER`, `LONG`, `SINGLE`, `DOUBLE`, `STRING`, `TYPE`, nested `TYPE`s                             |

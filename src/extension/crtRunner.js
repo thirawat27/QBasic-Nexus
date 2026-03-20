@@ -94,6 +94,7 @@ async function runInCrt() {
       jsCode,
       fileName,
       state.extensionContext.extensionUri,
+      document.uri.fsPath,
     );
 
     log('Launched Retro CRT 📺', 'success');
