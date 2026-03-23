@@ -551,7 +551,46 @@ const rl = readline.createInterface({
   crlfDelay: Infinity,
 });
 
+let _nodeCursorCol = 1;
 function _print(text, newline) {
+  const rawContent = String(text);
+  let content = '';
+  const parts = rawContent.split('\\x01');
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) {
+      const type = parts[i][0];
+      const val = parseInt(parts[i].substring(1), 10);
+      if (type === 'S') {
+        const spaces = Math.max(0, val);
+        content += ' '.repeat(spaces);
+        _nodeCursorCol += spaces;
+      } else if (type === 'T') {
+        if (val >= _nodeCursorCol) {
+          const spaces = val - _nodeCursorCol;
+          content += ' '.repeat(spaces);
+          _nodeCursorCol += spaces;
+        }
+      } else if (type === 'Z') {
+        const nextZone = Math.floor((_nodeCursorCol - 1) / 14) * 14 + 14 + 1;
+        const spaces = nextZone - _nodeCursorCol;
+        content += ' '.repeat(spaces);
+        _nodeCursorCol += spaces;
+      } else {
+        content += parts[i];
+      }
+    } else {
+      const str = parts[i];
+      content += str;
+      const lines = str.split('\\n');
+      if (lines.length > 1) {
+        _nodeCursorCol = lines[lines.length - 1].length + 1;
+      } else {
+        _nodeCursorCol += str.length;
+      }
+    }
+  }
+  if (newline) _nodeCursorCol = 1;
+  text = content;
   if (newline) console.log(text);
   else process.stdout.write(String(text));
 }
@@ -571,7 +610,7 @@ function _cls() {
 `);
     } else if (this.target === 'web') {
       this.output.push(`
-// Web Runtime Environment (Optimized v1.1.0)
+// Web Runtime Environment (Optimized)
 // Safe runtime reference — works in both browser and Node.js (pkg)
 const _runtime = (typeof globalThis !== 'undefined' && globalThis.runtime) ? globalThis.runtime
                : (typeof window   !== 'undefined' && window.runtime)       ? window.runtime
@@ -686,7 +725,7 @@ const _HYPOT = _runtime.hypot || Math.hypot;
 const _D2R = _runtime.d2r || ((d) => d * (Math.PI / 180));
 const _R2D = _runtime.r2d || ((r) => r * (180 / Math.PI));
 
-// Extended Math Functions (from qbjs-main)
+// Extended Math Functions
 const _ACOS = _runtime.acos || Math.acos;
 const _ASIN = _runtime.asin || Math.asin;
 const _ATAN2 = _runtime.atan2 || Math.atan2;
@@ -705,6 +744,37 @@ const _INSTR = _runtime.instr || ((a, b, c) => {
 // System Functions
 const _DESKTOPWIDTH = _runtime.desktopwidth || (() => (typeof screen !== 'undefined' ? screen.width : 1920));
 const _DESKTOPHEIGHT = _runtime.desktopheight || (() => (typeof screen !== 'undefined' ? screen.height : 1080));
+
+// Font System
+const _LOADFONT = _runtime.loadfont || (async () => 0);
+const _FREEFONT = _runtime.freefont || (() => {});
+const _SETFONT  = _runtime.font     || (() => {});
+const _FONTWIDTH  = _runtime.fontwidth  || (() => 8);
+const _FONTHEIGHT = _runtime.fontheight || (() => 16);
+
+// PRINT USING
+const _PRINTUSING = _runtime.printusing || ((fmt, ...v) => String(v.join('')));
+
+// WRITE helpers
+const _writeQuoted   = _runtime.writeQuoted   || ((v) => typeof v === 'string' ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
+const _writeFileLine = typeof _runtime.writeFileLine === 'function'
+  ? _runtime.writeFileLine.bind(_runtime)
+  : (async (filenum, line) => {
+    await _printFile(filenum, String(line ?? '') + '\\n');
+  });
+
+// MID$ assignment helper
+function _midAssign(target, start, length, replacement) {
+  const s = String(target || '');
+  const r = String(replacement || '');
+  const st = Math.max(0, Math.floor(Number(start)) - 1);
+  if (st >= s.length) return s;
+  const maxReplaceable = s.length - st;
+  let len = length !== undefined ? Math.floor(Number(length)) : r.length;
+  len = Math.min(len, r.length, maxReplaceable);
+  if (len <= 0) return s;
+  return s.substring(0, st) + r.substring(0, len) + s.substring(st + len);
+}
 
 // Frame rate limiter (legacy)
 let _lastLimitTime = Date.now();

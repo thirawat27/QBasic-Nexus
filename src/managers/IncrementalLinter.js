@@ -1,7 +1,7 @@
 /**
  * QBasic Nexus - Incremental Linter
  *
- * v1.5.2 optimisation pass:
+ * optimisation pass:
  *  - Caches last diagnostics per document URI
  *  - Adaptive debounce: responds faster on small edits (< 150 chars changed)
  *  - Version guard: skips work when document.version hasn't changed
@@ -72,7 +72,7 @@ class IncrementalLinter {
     if (existing) clearTimeout(existing);
 
     // ── Adaptive delay ──────────────────────────────────────────────────────
-    // v1.5.3: Optimized thresholds for better responsiveness
+    // Optimized thresholds for better responsiveness
     // Small edits (tiny keystrokes) get a shorter delay for snappier feedback.
     // Large pastes / structural changes get the full baseDelay.
     const adaptiveDelay =

@@ -374,6 +374,7 @@ class TrampolineBuilder {
           expression: statement.expression,
           mode: statement.mode,
           labels: [...statement.labels],
+          returnState: nextState,
           nextState,
           errorResumeState: nextState,
         });
@@ -747,6 +748,7 @@ module.exports = {
     if (this._matchKw('POKE')) return this._parseAstEmitStatement('_parsePoke');
     if (this._matchKw('LSET')) return this._parseAstEmitStatement('_parseLsetStatement');
     if (this._matchKw('RSET')) return this._parseAstEmitStatement('_parseRsetStatement');
+    if (this._matchKw('MID$')) return this._parseAstEmitStatement('_parseMidAssignment');
     if (this._matchKw('RUN')) return this._parseAstEmitStatement('_parseRun', { unconditional: true });
     if (this._matchKw('CHAIN')) return this._parseAstEmitStatement('_parseChain', { unconditional: true });
     if (this._matchKw('SHELL') || this._matchKw('_SHELL')) return this._parseAstEmitStatement('_parseShell');
@@ -2210,6 +2212,30 @@ module.exports = {
       );
       this._emit(`_pc = ${stateLiteral(resolveState(state.targetLabel))};`);
       this._emit(`continue ${loopLabel};`);
+      return;
+    }
+
+    if (state.kind === 'onJump') {
+      this._emit('{');
+      this.indent++;
+      this._emit(`const _on_idx = Math.floor(Number(${state.expression}) || 0);`);
+      this._emit('let _target = null;');
+      state.labels.forEach((label, i) => {
+        this._emit(`if (_on_idx === ${i + 1}) _target = ${stateLiteral(resolveState(label))};`);
+      });
+      this._emit('if (_target) {');
+      this.indent++;
+      if (state.mode === 'GOSUB') {
+        this._emit(`_gosubStack.push(${stateLiteral(resolveState(state.returnState))});`);
+      }
+      this._emit('_pc = _target;');
+      this._emit(`continue ${loopLabel};`);
+      this.indent--;
+      this._emit('}');
+      this._emit(`_pc = ${stateLiteral(resolveState(state.nextState))};`);
+      this._emit(`continue ${loopLabel};`);
+      this.indent--;
+      this._emit('}');
       return;
     }
 

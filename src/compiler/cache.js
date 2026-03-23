@@ -40,7 +40,7 @@ function fnv1a(str) {
 class L1Cache {
   /**
    * @param {number} maxSize – number of entries to keep (default 32)
-   *   Optimized for v1.5.3: increased to 32 to reduce cache misses
+   *   Optimized: increased to 32 to reduce cache misses
    *   in multi-file projects with frequent file switching.
    */
   constructor(maxSize = 32) {
@@ -80,7 +80,7 @@ class L1Cache {
 class TieredCache {
   /**
    * @param {number} l2Size – L2 LRU max size (default 300)
-   *   Optimized for v1.5.3: increased to 300 for better multi-file support
+   *   Optimized: increased to 300 for better multi-file support
    *   while maintaining low memory footprint (~15MB max).
    */
   constructor(l2Size = 300) {
@@ -150,7 +150,7 @@ class TieredCache {
 class CompilationCache {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
-    // v1.5.3: Default raised to 300 for better performance
+    // Default raised to 300 for better performance
     const l2Size = options.maxSize || 300;
     this.tokenCache = new TieredCache(l2Size);
     this.codeCache = new TieredCache(l2Size);

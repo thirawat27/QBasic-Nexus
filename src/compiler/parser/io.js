@@ -37,7 +37,7 @@ _parsePrint() {
           addNewline = false;
         }
       } else if (this._matchPunc(',')) {
-        parts.push('"\\t"');
+        parts.push('"\\x01Z\\x01"');
       } else {
         parts.push(this._parseExpr());
       }
@@ -482,23 +482,22 @@ _parseFileVariableTarget() {
   },
 
 _parsePrintUsing() {
-    // PRINT USING format$; expressions
+    // PRINT USING format$; expr [; expr ...] [;]
     const format = this._parseExpr();
-    this._matchPunc(';');
-    
+    let addNewline = true;
+    if (this._matchPunc(';')) {
+      if (this._isStmtEnd()) addNewline = false;
+    }
     const parts = [];
     while (!this._isStmtEnd()) {
       if (this._matchPunc(';')) {
-        // No newline
-      } else if (this._matchPunc(',')) {
-        parts.push('"\\t"');
-      } else {
+        if (this._isStmtEnd()) addNewline = false;
+      } else if (!this._matchPunc(',')) {
         parts.push(this._parseExpr());
       }
     }
-    
-    const content = parts.length > 0 ? parts.join(' + ') : '""';
-    this._emit(`_printusing(${format}, ${content});`);
+    const argsStr = parts.length > 0 ? `, ${parts.join(', ')}` : '';
+    this._emit(`_print(_PRINTUSING(${format}${argsStr}), ${addNewline});`);
   },
 
 _parsePrintUsingFile() {
@@ -508,20 +507,14 @@ _parsePrintUsingFile() {
     this._matchKw('USING');
     const format = this._parseExpr();
     this._matchPunc(';');
-    
     const parts = [];
     while (!this._isStmtEnd()) {
-      if (this._matchPunc(';')) {
-        // No newline
-      } else if (this._matchPunc(',')) {
-        parts.push('"\\t"');
-      } else {
+      if (!this._matchPunc(';') && !this._matchPunc(',')) {
         parts.push(this._parseExpr());
       }
     }
-    
-    const content = parts.length > 0 ? parts.join(' + ') : '""';
-    this._emit(`_printusingfile(${filenum}, ${format}, ${content});`);
+    const argsStr = parts.length > 0 ? `, ${parts.join(', ')}` : '';
+    this._emit(`await _printFile(${filenum}, _PRINTUSING(${format}${argsStr}) + '\\n');`);
   },
 
 _parseInputDollar() {

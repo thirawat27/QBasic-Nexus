@@ -258,6 +258,9 @@ _parseStatement() {
     // ============ NEW: QB64 Resize Commands ============
     if (this._matchKw('_RESIZE')) return this._parseResize();
     
+    // Check for MID$ assignment
+    if (this._matchKw('MID$')) return this._parseMidAssignment();
+    
     // Check for label definition (identifier followed by colon)
     if (this._check(TokenType.IDENTIFIER)) {
       const next = this.tokens[this.pos + 1];
@@ -470,6 +473,26 @@ _parseExit() {
     this._emit(`${target.targetExpr} = ${val};`);
   },
 
+  _parseMidAssignment() {
+    this._matchPunc('(');
+    const target = this._parseAssignableTarget({
+      contextLabel: 'MID$ assignment target',
+    });
+    this._matchPunc(',');
+    const start = this._parseExpr();
+    let length = 'undefined';
+    if (this._matchPunc(',')) {
+      length = this._parseExpr();
+    }
+    this._matchPunc(')');
+    this._consumeOp('=');
+    const right = this._parseExpr();
+
+    this._emit(
+      `${target.targetExpr} = _midAssign(${target.targetExpr}, ${start}, ${length}, ${right});`
+    );
+  },
+
 _parseSwap() {
     const left = this._parseAssignableTarget({
       contextLabel: 'SWAP',
@@ -533,7 +556,21 @@ _parseSelect() {
         } else {
           const conditions = [];
           do {
-            conditions.push(`${tempVar} === ${this._parseExpr()}`);
+            if (this._matchKw('IS')) {
+              // CASE IS <op> expr
+              const op = this._advance().value;
+              const rhs = this._parseExpr();
+              conditions.push(`(${tempVar} ${op} ${rhs})`);
+            } else {
+              const lhs = this._parseExpr();
+              if (this._matchKw('TO')) {
+                // CASE lhs TO high
+                const high = this._parseExpr();
+                conditions.push(`(${tempVar} >= ${lhs} && ${tempVar} <= ${high})`);
+              } else {
+                conditions.push(`${tempVar} === ${lhs}`);
+              }
+            }
           } while (this._matchPunc(','));
 
           if (firstCase) {
@@ -820,22 +857,28 @@ _parseLprint() {
 
 _parseWrite() {
     // WRITE [#filenum,] expr, expr, ...
+    // QB64: strings are quoted, numbers are bare, comma-separated (CSV)
     if (this._matchPunc('#')) {
       const fileNum = this._parseExpr();
       this._matchPunc(',');
       const parts = [];
       while (!this._isStmtEnd()) {
-        parts.push(this._parseExpr());
+        const expr = this._parseExpr();
+        // Wrap strings in quotes, numbers bare — matches QB64 WRITE # format
+        parts.push(`_writeQuoted(${expr})`);
         this._matchPunc(',');
       }
-      this._emit(`await _writeFile(${fileNum}, ${parts.join(', ')});`);
+      const joined = parts.length > 0 ? `[${parts.join(', ')}].join(',')` : '""';
+      this._emit(`await _writeFileLine(${fileNum}, ${joined});`);
     } else {
       const parts = [];
       while (!this._isStmtEnd()) {
-        parts.push(this._parseExpr());
+        const expr = this._parseExpr();
+        parts.push(`_writeQuoted(${expr})`);
         this._matchPunc(',');
       }
-      this._emit(`_print([${parts.join(', ')}].join(','), true);`);
+      const line = parts.length > 0 ? `[${parts.join(', ')}].join(',')` : '""';
+      this._emit(`_print(${line}, true);`);
     }
   },
 
@@ -959,7 +1002,7 @@ _parseSource() {
     this._emit(`_source(${handle});`);
   },
 
-_parseFont() {
+  _parseFont() {
     // _FONT fontHandle [, imageHandle]
     const font = this._parseExpr();
     let img = 'undefined';

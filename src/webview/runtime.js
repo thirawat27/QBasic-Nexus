@@ -272,7 +272,7 @@
   };
 
   // =========================================================================
-  // AUDIO ENGINE (Adapted from qbjs-main)
+  // AUDIO ENGINE
   // =========================================================================
 
   // Pre-computed constants for audio
@@ -539,7 +539,7 @@
       if (!commandString) return;
       commandString = String(commandString).replace(/ /g, '').toUpperCase();
 
-      // QBJS Compatible Regex
+      // Compatible Regex
       const reg =
         /(?<octave>O\d+)|(?<octaveUp>>)|(?<octaveDown><)|(?<note>[A-G][#+-]?\d*\.?[,]?)|(?<noteN>N\d+\.?)|(?<length>L\d+)|(?<legato>ML)|(?<normal>MN)|(?<staccato>MS)|(?<pause>P\d+\.?)|(?<tempo>T\d+)|(?<foreground>MF)|(?<background>MB)/gi;
 
@@ -712,8 +712,49 @@
   const _outputMessage = { type: 'check_output', content: '' };
 
   function print(text, newline = true) {
-    const content = String(text);
-    const span = createSpan(newline ? content + '\n' : content);
+    const rawContent = String(text);
+    let content = '';
+    const parts = rawContent.split('\\x01');
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) { // It's a marker
+        const marker = parts[i];
+        const type = marker[0];
+        const val = parseInt(marker.substring(1), 10);
+        if (type === 'S') {
+          const spaces = Math.max(0, val);
+          content += ' '.repeat(spaces);
+          cursorCol += spaces;
+        } else if (type === 'T') {
+          if (val >= cursorCol) {
+            const spaces = val - cursorCol;
+            content += ' '.repeat(spaces);
+            cursorCol += spaces;
+          }
+        } else if (type === 'Z') {
+          const nextZone = Math.floor((cursorCol - 1) / 14) * 14 + 14 + 1;
+          const spaces = nextZone - cursorCol;
+          content += ' '.repeat(spaces);
+          cursorCol += spaces;
+        } else {
+          content += marker;
+        }
+      } else {
+        const str = parts[i];
+        content += str;
+        const lines = str.split('\\n');
+        if (lines.length > 1) {
+          cursorCol = lines[lines.length - 1].length + 1;
+        } else {
+          cursorCol += str.length;
+        }
+      }
+    }
+
+    if (newline) {
+      cursorCol = 1;
+    }
+    const spanContent = newline ? content + '\\n' : content;
+    const span = createSpan(spanContent);
 
     // Batch DOM operations
     if (!printBatch) {
@@ -727,7 +768,7 @@
     }
 
     // Reuse message object to reduce GC
-    _outputMessage.content = content;
+    _outputMessage.content = spanContent;
     vscode.postMessage(_outputMessage);
   }
 
@@ -1595,7 +1636,7 @@
   }
 
   // =========================================================================
-  // STRING FUNCTIONS (from qbjs-main)
+  // STRING FUNCTIONS
   // =========================================================================
 
   function _left$(str, n) {
@@ -1712,7 +1753,7 @@
   }
 
   // =========================================================================
-  // EXTENDED MATH FUNCTIONS (from qbjs-main)
+  // EXTENDED MATH FUNCTIONS
   // =========================================================================
 
   function _acos(x) {
@@ -1796,7 +1837,7 @@
   }
 
   // =========================================================================
-  // SYSTEM FUNCTIONS (from qbjs-main)
+  // SYSTEM FUNCTIONS
   // =========================================================================
 
   function _desktopWidth() {
@@ -1970,6 +2011,151 @@
 
   function _hexToRgb(hex) {
     return _hexToRgbFast(hex);
+  }
+
+  // =========================================================================
+  // PRINT USING — QB64-compatible format string handler
+  // =========================================================================
+
+  function _printusing(format, ...values) {
+    let result = '';
+    let valueIdx = 0;
+    let i = 0;
+    const fmt = String(format);
+    while (i < fmt.length) {
+      const ch = fmt[i];
+      if (ch === '&') {
+        result += valueIdx < values.length ? String(values[valueIdx++]) : '';
+        i++;
+      } else if (ch === '!') {
+        result += (valueIdx < values.length ? String(values[valueIdx++]) : '').charAt(0);
+        i++;
+      } else if (ch === '\\') {
+        const end = fmt.indexOf('\\', i + 1);
+        if (end < 0) { result += ch; i++; continue; }
+        const width = (end - i) + 1;
+        const val = valueIdx < values.length ? String(values[valueIdx++]) : '';
+        result += val.substring(0, width).padEnd(width);
+        i = end + 1;
+      } else if (ch === '#' || (ch === '+' && i + 1 < fmt.length && (fmt[i + 1] === '#' || fmt[i + 1] === '.'))) {
+        let leadingSign = false;
+        let trailingMinus = false;
+        let scientific = false;
+        if (fmt[i] === '+') { leadingSign = true; i++; }
+        let intDigs = 0;
+        let hasComma = false;
+        while (i < fmt.length && (fmt[i] === '#' || fmt[i] === ',')) {
+          if (fmt[i] === ',') hasComma = true; else intDigs++;
+          i++;
+        }
+        if (intDigs === 0) intDigs = 1;
+        let decimalPlaces = 0;
+        if (i < fmt.length && fmt[i] === '.') {
+          i++;
+          while (i < fmt.length && fmt[i] === '#') { decimalPlaces++; i++; }
+        }
+        if (i + 3 < fmt.length && fmt.substring(i, i + 4) === '^^^^') { scientific = true; i += 4; }
+        if (i < fmt.length && fmt[i] === '+') { leadingSign = true; i++; }
+        else if (i < fmt.length && fmt[i] === '-') { trailingMinus = true; i++; }
+        const rawVal = valueIdx < values.length ? Number(values[valueIdx++]) : 0;
+        const absVal = Math.abs(rawVal);
+        const isNeg = rawVal < 0;
+        let formatted = scientific
+          ? absVal.toExponential(Math.max(decimalPlaces, 2))
+          : absVal.toFixed(decimalPlaces);
+        const fp = formatted.split('.');
+        let intStr = fp[0].padStart(intDigs, ' ');
+        if (hasComma) intStr = intStr.trimStart().replace(/\B(?=(\d{3})+(?!\d))/g, ',').padStart(intDigs, ' ');
+        formatted = decimalPlaces > 0 ? intStr + '.' + fp[1] : intStr;
+        if (leadingSign) formatted = (isNeg ? '-' : '+') + formatted;
+        else if (isNeg) formatted = '-' + formatted;
+        else formatted = ' ' + formatted;
+        if (trailingMinus) formatted += isNeg ? '-' : ' ';
+        result += formatted;
+      } else {
+        result += ch;
+        i++;
+      }
+    }
+    return result;
+  }
+
+  // =========================================================================
+  // WRITE # helpers — QB64 CSV quoting
+  // =========================================================================
+
+  function _writeQuoted(val) {
+    if (typeof val === 'string') return '"' + val.replace(/"/g, '""') + '"';
+    return String(val);
+  }
+
+  async function _writeFileLine(fileNum, line) {
+    const fh = fileHandles[fileNum];
+    if (!fh) throw new Error('File not open (#' + fileNum + ')');
+    assertFileWritable(fh);
+    fh.content += line + '\n';
+    setVfsFile(fh.filename, fh.content);
+    fh.position = fh.content.length;
+  }
+
+  // =========================================================================
+  // FONT SYSTEM — _LOADFONT / _FREEFONT / _FONT / _FONTWIDTH / _FONTHEIGHT
+  // =========================================================================
+
+  const _fontHandles = new Map();
+  let _nextFontHandle = 1;
+  let _currentFontHandle = 0;
+
+  async function _loadFont(filename, size, opts) {
+    const name = String(filename || '');
+    const sizePx = isNaN(Number(size)) ? String(size) : Number(size) + 'px';
+    const id = _nextFontHandle++;
+    try {
+      const nl = name.toLowerCase();
+      let fontName;
+      if (nl.startsWith('http://') || nl.startsWith('https://') || nl.startsWith('data:')) {
+        fontName = 'QBFont_' + id;
+        const ff = new window.FontFace(fontName, 'url(' + name + ')');
+        document.fonts.add(ff);
+        await ff.load();
+      } else if (hasVfsFile(name)) {
+        fontName = 'QBFont_' + id;
+        const ff = new window.FontFace(fontName, 'url(data:font/truetype;base64,' + btoa(getVfsFile(name)) + ')');
+        document.fonts.add(ff);
+        await ff.load();
+      } else {
+        fontName = name;
+      }
+      const mc = ctx || document.createElement('canvas').getContext('2d');
+      mc.font = sizePx + ' ' + fontName;
+      const tm = mc.measureText('M');
+      const h = tm.fontBoundingBoxAscent !== undefined
+        ? tm.fontBoundingBoxAscent + tm.fontBoundingBoxDescent
+        : (tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent) + 2;
+      const w = mc.measureText('W').width !== mc.measureText('i').width ? 0 : tm.width;
+      _fontHandles.set(id, { name: fontName, size: sizePx, style: String(opts || ''), width: w, height: Math.ceil(h) });
+      return id;
+    } catch (_e) {
+      console.warn('[Font] Failed to load:', name, _e);
+      return 0;
+    }
+  }
+
+  function _freeFont(handle) {
+    _fontHandles.delete(handle);
+    if (_currentFontHandle === handle) _currentFontHandle = 0;
+  }
+
+  function _setFont(handle, _imgHandle) {
+    _currentFontHandle = handle;
+  }
+
+  function _fontWidthFn(handle) {
+    return (_fontHandles.get(handle || _currentFontHandle) || {}).width || 8;
+  }
+
+  function _fontHeightFn(handle) {
+    return (_fontHandles.get(handle || _currentFontHandle) || {}).height || 16;
   }
 
   // =========================================================================
@@ -2148,11 +2334,7 @@
     console.log('VIEW PRINT', top || 1, 'TO', bottom || 25);
   }
 
-  // WINDOW - set logical coordinate system
-  function _window(x1, y1, x2, y2, screenCoords) {
-    // Transform coordinates based on logical window
-    console.log('WINDOW', x1, y1, '-', x2, y2, screenCoords ? 'SCREEN' : '');
-  }
+  // WINDOW - set logical coordinate system (placeholder - real implementation below)
 
   // PALETTE - set color palette
   function _palette(attr, color) {
@@ -2388,6 +2570,527 @@
   }
 
   // =========================================================================
+  // COMPATIBILITY LAYER
+  // =========================================================================
+
+  // Type Map for custom TYPE definitions
+  let _typeMap = {};
+
+  // Data statements support (QBJS compatibility)
+  let _dataBulk = [];
+  let _dataLabelMap = {};
+  let _readCursorPosition = 0;
+
+  // Halted flag for program control
+  let _haltedFlag = false;
+  let _runningFlag = false;
+
+  // QB.start() - Initialize runtime (QBJS compatibility)
+  function _start() {
+    _haltedFlag = false;
+    _runningFlag = true;
+    _readCursorPosition = 0;
+    _typeMap = {};
+    _dataBulk = [];
+    _dataLabelMap = {};
+  }
+
+  // QB.end() - End program (QBJS compatibility)
+  function _end() {
+    _runningFlag = false;
+  }
+
+  // QB.halt() - Halt execution (QBJS compatibility)
+  function _halt() {
+    _haltedFlag = true;
+    _runningFlag = false;
+  }
+
+  // QB.halted() - Check if halted (QBJS compatibility)
+  function _halted() {
+    return _haltedFlag;
+  }
+
+  // QB.setData() - Set DATA statement values (QBJS compatibility)
+  function _setData(data) {
+    _dataBulk = Array.isArray(data) ? data : [];
+    _readCursorPosition = 0;
+  }
+
+  // QB.setDataLabel() - Set DATA label position (QBJS compatibility)
+  function _setDataLabel(label, index) {
+    _dataLabelMap[String(label).toUpperCase()] = index;
+  }
+
+  // QB.setTypeMap() - Set type definitions (QBJS compatibility)
+  function _setTypeMap(typeMap) {
+    _typeMap = typeMap || {};
+  }
+
+  // QB.getTypeMap() - Get type definitions
+  function _getTypeMap() {
+    return _typeMap;
+  }
+
+  // Array helpers (QBJS compatibility)
+  function _initArray(dimensions, defaultValue) {
+    const result = { _dimensions: dimensions, _newObj: { value: defaultValue } };
+    return result;
+  }
+
+  function _resizeArray(arr, dimensions, defaultValue, preserve) {
+    if (!arr) return _initArray(dimensions, defaultValue);
+    arr._dimensions = dimensions;
+    if (!preserve) {
+      // Clear existing values
+      for (const key of Object.keys(arr)) {
+        if (key !== '_dimensions' && key !== '_newObj') {
+          delete arr[key];
+        }
+      }
+    }
+    return arr;
+  }
+
+  function _arrayValue(arr, indexes) {
+    let value = arr;
+    for (let i = 0; i < indexes.length; i++) {
+      if (value[indexes[i]] === undefined) {
+        if (i === indexes.length - 1) {
+          value[indexes[i]] = JSON.parse(JSON.stringify(arr._newObj));
+        } else {
+          value[indexes[i]] = {};
+        }
+      }
+      value = value[indexes[i]];
+    }
+    return value;
+  }
+
+  // Auto-limit for infinite loop prevention (QBJS compatibility)
+  let _lastAutoLimit = Date.now();
+  async function _autoLimit() {
+    const now = Date.now();
+    if (now - _lastAutoLimit > 1000) {
+      await new Promise(r => setTimeout(r, 0));
+      _lastAutoLimit = now;
+    }
+  }
+
+  // READ statement implementation (QBJS compatibility)
+  function _read(values) {
+    for (let i = 0; i < values.length; i++) {
+      if (_readCursorPosition < _dataBulk.length) {
+        values[i] = _dataBulk[_readCursorPosition];
+        _readCursorPosition++;
+      }
+    }
+  }
+
+  // RESTORE statement implementation (QBJS compatibility)
+  function _restore(label) {
+    if (label === undefined || label === '') {
+      _readCursorPosition = 0;
+    } else {
+      const pos = _dataLabelMap[String(label).toUpperCase()];
+      if (pos !== undefined) {
+        _readCursorPosition = pos;
+      }
+    }
+  }
+
+  // Define type helper (QBJS compatibility)
+  function _defineType(typeName, fields) {
+    const result = function() {
+      const obj = {};
+      for (const [name, spec] of Object.entries(fields)) {
+        if (spec.kind === 'string') {
+          obj[name] = '';
+        } else if (spec.kind === 'fixedString') {
+          obj[name] = ' '.repeat(spec.length || 0);
+        } else if (spec.kind === 'type') {
+          obj[name] = (_typeMap[spec.typeName] || function(){ return {}; })();
+        } else {
+          obj[name] = 0;
+        }
+      }
+      return obj;
+    };
+    _typeMap[typeName] = result;
+    return result;
+  }
+
+  // Make array helper
+  function _makeArray(initializer, ...dimensions) {
+    const arr = [];
+    if (dimensions.length === 1) {
+      for (let i = 0; i <= dimensions[0]; i++) {
+        arr.push(typeof initializer === 'function' ? initializer() : initializer);
+      }
+    } else if (dimensions.length === 2) {
+      for (let i = 0; i <= dimensions[0]; i++) {
+        arr[i] = [];
+        for (let j = 0; j <= dimensions[1]; j++) {
+          arr[i][j] = typeof initializer === 'function' ? initializer() : initializer;
+        }
+      }
+    }
+    return arr;
+  }
+
+  // Fixed string helper
+  function _fixedString(value, length) {
+    return String(value).padEnd(length).substring(0, length);
+  }
+
+  // UBound/LBound helpers (QBJS compatibility)
+  function _ubound(arr, dimension) {
+    if (!arr || !arr._dimensions) return 0;
+    const dim = dimension === undefined ? 0 : dimension - 1;
+    return arr._dimensions[dim] ? arr._dimensions[dim].u : 0;
+  }
+
+  function _lbound(arr, dimension) {
+    if (!arr || !arr._dimensions) return 0;
+    const dim = dimension === undefined ? 0 : dimension - 1;
+    return arr._dimensions[dim] ? arr._dimensions[dim].l : 0;
+  }
+
+  // =========================================================================
+  // EXTENDED MATH FUNCTIONS (QBJS/QB64 Compatibility)
+  // =========================================================================
+
+  function _pi(multiplier) {
+    const m = multiplier === undefined ? 1 : Number(multiplier);
+    return Math.PI * m;
+  }
+
+  function _acosh(x) {
+    return Math.acosh(x);
+  }
+
+  function _asinh(x) {
+    return Math.asinh(x);
+  }
+
+  function _atanh(x) {
+    return Math.atanh(x);
+  }
+
+  function _sec(x) {
+    const c = Math.cos(x);
+    if (c === 0) return Infinity;
+    return 1 / c;
+  }
+
+  function _csc(x) {
+    const s = Math.sin(x);
+    if (s === 0) return Infinity;
+    return 1 / s;
+  }
+
+  function _cot(x) {
+    const t = Math.tan(x);
+    if (t === 0) return Infinity;
+    return 1 / t;
+  }
+
+  function _sech(x) {
+    return 1 / Math.cosh(x);
+  }
+
+  function _csch(x) {
+    return 1 / Math.sinh(x);
+  }
+
+  function _coth(x) {
+    return 1 / Math.tanh(x);
+  }
+
+  function _arccot(x) {
+    return Math.atan(1 / x);
+  }
+
+  function _arcsec(x) {
+    return Math.acos(1 / x);
+  }
+
+  function _arccsc(x) {
+    return Math.asin(1 / x);
+  }
+
+  // =========================================================================
+  // BIT OPERATIONS (QBJS/QB64 Compatibility)
+  // =========================================================================
+
+  function _readbit(value, bit) {
+    const mask = 1 << bit;
+    return (value & mask) !== 0 ? -1 : 0;
+  }
+
+  function _setbit(value, bit) {
+    const mask = 1 << bit;
+    return value | mask;
+  }
+
+  function _resetbit(value, bit) {
+    const mask = 1 << bit;
+    return value & ~mask;
+  }
+
+  function _togglebit(value, bit) {
+    const mask = 1 << bit;
+    return value ^ mask;
+  }
+
+  function _shl(value, shift) {
+    return value << shift;
+  }
+
+  function _shr(value, shift) {
+    return value >>> shift;
+  }
+
+  // =========================================================================
+  // STRING FUNCTIONS (QBJS/QB64 Compatibility)
+  // =========================================================================
+
+  function _hex$(value) {
+    return Math.floor(value).toString(16).toUpperCase();
+  }
+
+  function _oct$(value) {
+    return Math.floor(value).toString(8).toUpperCase();
+  }
+
+  function _strcmp(str1, str2) {
+    if (str1 === str2) return 0;
+    return str1 > str2 ? 1 : -1;
+  }
+
+  function _stricmp(str1, str2) {
+    const s1 = String(str1).toLowerCase();
+    const s2 = String(str2).toLowerCase();
+    if (s1 === s2) return 0;
+    return s1 > s2 ? 1 : -1;
+  }
+
+  function _trimFull(value) {
+    return String(value).trim();
+  }
+
+  // =========================================================================
+  // TYPE CONVERSION FUNCTIONS (QBJS/QB64 Compatibility)
+  // =========================================================================
+
+  function _cvi(str) {
+    const s = String(str);
+    if (s.length < 2) return 0;
+    return s.charCodeAt(0) | (s.charCodeAt(1) << 8);
+  }
+
+  function _cvl(str) {
+    const s = String(str);
+    if (s.length < 4) return 0;
+    return s.charCodeAt(0) | (s.charCodeAt(1) << 8) | 
+           (s.charCodeAt(2) << 16) | (s.charCodeAt(3) << 24);
+  }
+
+  function _mki$(num) {
+    const n = Math.floor(num);
+    return String.fromCharCode(n & 0xFF, (n >> 8) & 0xFF);
+  }
+
+  function _mkl$(num) {
+    const n = Math.floor(num);
+    return String.fromCharCode(n & 0xFF, (n >> 8) & 0xFF, 
+                               (n >> 16) & 0xFF, (n >> 24) & 0xFF);
+  }
+
+  function _cdbl(value) {
+    return Number(value);
+  }
+
+  function _cint(value) {
+    const n = Number(value);
+    if (n >= 0) return Math.floor(n + 0.5);
+    return Math.ceil(n - 0.5);
+  }
+
+  function _clng(value) {
+    return _cint(value);
+  }
+
+  function _csng(value) {
+    return Number(value);
+  }
+
+  // =========================================================================
+  // WINDOW COORDINATE SYSTEM (QBJS/QB64 Compatibility)
+  // =========================================================================
+
+  let _windowAspect = [false, 1, 1]; // [active, factorX, orientY*factorY]
+  let _windowDef = [0, 0, 0, 0]; // [x0, y0, x1, y1]
+
+  function _window(screenCoords, x0, y0, x1, y1) {
+    if (screenCoords === undefined && x0 === undefined) {
+      _windowAspect[0] = false;
+      return;
+    }
+    const canvasW = canvas ? canvas.width : 640;
+    const canvasH = canvas ? canvas.height : 400;
+    const factorX = Math.abs(x1 - x0) / canvasW;
+    const factorY = Math.abs(y1 - y0) / canvasH;
+    const orientY = screenCoords ? 1 : -1;
+    _windowAspect[0] = factorY / factorX;
+    _windowAspect[1] = factorX;
+    _windowAspect[2] = orientY * factorY;
+    _windowDef[0] = x0;
+    _windowDef[1] = y0;
+    _windowDef[2] = x1;
+    _windowDef[3] = y1;
+  }
+
+  function _windowContendX(u, w) {
+    return w * (u - _windowDef[0]) / (_windowDef[2] - _windowDef[0]);
+  }
+
+  function _windowContendY(v, h) {
+    if (_windowAspect[2] < 0) {
+      return h - h * (v - _windowDef[1]) / (_windowDef[3] - _windowDef[1]);
+    }
+    return h * (v - _windowDef[1]) / (_windowDef[3] - _windowDef[1]);
+  }
+
+  function _windowUnContendX(u, w) {
+    return _windowDef[0] + u * (_windowDef[2] - _windowDef[0]) / w;
+  }
+
+  function _windowUnContendY(v, h) {
+    if (_windowAspect[2] < 0) {
+      return _windowDef[3] - (v / h) * (_windowDef[3] - _windowDef[1]);
+    }
+    return _windowDef[1] + (v / h) * (_windowDef[3] - _windowDef[1]);
+  }
+
+  // =========================================================================
+  // DEGREE/RADIAN/GRADIAN CONVERSIONS (QBJS/QB64 Compatibility)
+  // =========================================================================
+
+  function _d2g(degrees) {
+    return degrees * (10 / 9);
+  }
+
+  function _d2r(degrees) {
+    return degrees * (Math.PI / 180);
+  }
+
+  function _g2d(gradians) {
+    return gradians * (9 / 10);
+  }
+
+  function _g2r(gradians) {
+    return gradians * (9 / 10) * (Math.PI / 180);
+  }
+
+  function _r2d(radians) {
+    return radians * (180 / Math.PI);
+  }
+
+  function _r2g(radians) {
+    return radians * (180 / Math.PI) * (10 / 9);
+  }
+
+  // =========================================================================
+  // SWAP STATEMENT (QBJS/QB64 Compatibility)
+  // =========================================================================
+
+  function _swap(values) {
+    if (!Array.isArray(values) || values.length < 2) return;
+    const temp = values[0];
+    values[0] = values[1];
+    values[1] = temp;
+  }
+
+  // =========================================================================
+  // CHARACTER MAPPING - DOS CP437 to Unicode (QBJS Compatibility)
+  // =========================================================================
+
+  const _ucharMap = {};
+  const _ccharMap = {};
+
+  function _initCharMap() {
+    _mapChar(1, 0x263A); _mapChar(2, 0x263B); _mapChar(3, 0x2665); _mapChar(4, 0x2666);
+    _mapChar(5, 0x2663); _mapChar(6, 0x2660); _mapChar(7, 0x2022); _mapChar(8, 0x25D8);
+    _mapChar(9, 0x25CB); _mapChar(11, 0x2642); _mapChar(12, 0x2640); _mapChar(13, 0x266A);
+    _mapChar(14, 0x266B); _mapChar(15, 0x263C); _mapChar(16, 0x25BA); _mapChar(17, 0x25C4);
+    _mapChar(18, 0x2195); _mapChar(19, 0x203C); _mapChar(20, 0x00B6); _mapChar(21, 0x00A7);
+    _mapChar(22, 0x25AC); _mapChar(23, 0x21A8); _mapChar(24, 0x2191); _mapChar(25, 0x2193);
+    _mapChar(26, 0x2192); _mapChar(27, 0x2190); _mapChar(28, 0x221F); _mapChar(29, 0x2194);
+    _mapChar(30, 0x25B2); _mapChar(31, 0x25BC); _mapChar(127, 0x2302);
+    _mapChar(128, 0x00C7); _mapChar(129, 0x00FC); _mapChar(130, 0x00E9); _mapChar(131, 0x00E2);
+    _mapChar(132, 0x00E4); _mapChar(133, 0x00E0); _mapChar(134, 0x00E5); _mapChar(135, 0x00E7);
+    _mapChar(136, 0x00EA); _mapChar(137, 0x00EB); _mapChar(138, 0x00E8); _mapChar(139, 0x00EF);
+    _mapChar(140, 0x00EE); _mapChar(141, 0x00EC); _mapChar(142, 0x00C4); _mapChar(143, 0x00C5);
+    _mapChar(144, 0x00C9); _mapChar(145, 0x00E6); _mapChar(146, 0x00C6); _mapChar(147, 0x00F4);
+    _mapChar(148, 0x00F6); _mapChar(149, 0x00F2); _mapChar(150, 0x00FB); _mapChar(151, 0x00F9);
+    _mapChar(152, 0x00FF); _mapChar(153, 0x00D6); _mapChar(154, 0x00DC); _mapChar(155, 0x00A2);
+    _mapChar(156, 0x00A3); _mapChar(157, 0x00A5); _mapChar(158, 0x20A7); _mapChar(159, 0x0192);
+    _mapChar(160, 0x00E1); _mapChar(161, 0x00ED); _mapChar(162, 0x00F3); _mapChar(163, 0x00FA);
+    _mapChar(164, 0x00F1); _mapChar(165, 0x00D1); _mapChar(166, 0x00AA); _mapChar(167, 0x00BA);
+    _mapChar(168, 0x00BF); _mapChar(169, 0x2310); _mapChar(170, 0x00AC); _mapChar(171, 0x00BD);
+    _mapChar(172, 0x00BC); _mapChar(173, 0x00A1); _mapChar(174, 0x00AB); _mapChar(175, 0x00BB);
+    _mapChar(176, 0x2591); _mapChar(177, 0x2592); _mapChar(178, 0x2593); _mapChar(179, 0x2502);
+    _mapChar(180, 0x2524); _mapChar(181, 0x2561); _mapChar(182, 0x2562); _mapChar(183, 0x2556);
+    _mapChar(184, 0x2555); _mapChar(185, 0x2563); _mapChar(186, 0x2551); _mapChar(187, 0x2557);
+    _mapChar(188, 0x255D); _mapChar(189, 0x255C); _mapChar(190, 0x255B); _mapChar(191, 0x2510);
+    _mapChar(192, 0x2514); _mapChar(193, 0x2534); _mapChar(194, 0x252C); _mapChar(195, 0x251C);
+    _mapChar(196, 0x2500); _mapChar(197, 0x253C); _mapChar(198, 0x255E); _mapChar(199, 0x255F);
+    _mapChar(200, 0x255A); _mapChar(201, 0x2554); _mapChar(202, 0x2569); _mapChar(203, 0x2566);
+    _mapChar(204, 0x2560); _mapChar(205, 0x2550); _mapChar(206, 0x256C); _mapChar(207, 0x2567);
+    _mapChar(208, 0x2568); _mapChar(209, 0x2564); _mapChar(210, 0x2565); _mapChar(211, 0x2559);
+    _mapChar(212, 0x2558); _mapChar(213, 0x2552); _mapChar(214, 0x2553); _mapChar(215, 0x256B);
+    _mapChar(216, 0x256A); _mapChar(217, 0x2518); _mapChar(218, 0x250C); _mapChar(219, 0x2588);
+    _mapChar(220, 0x2584); _mapChar(221, 0x258C); _mapChar(222, 0x2590); _mapChar(223, 0x2580);
+    _mapChar(224, 0x03B1); _mapChar(225, 0x00DF); _mapChar(226, 0x0393); _mapChar(227, 0x03C0);
+    _mapChar(228, 0x03A3); _mapChar(229, 0x03C3); _mapChar(230, 0x00B5); _mapChar(231, 0x03C4);
+    _mapChar(232, 0x03A6); _mapChar(233, 0x0398); _mapChar(234, 0x03A9); _mapChar(235, 0x03B4);
+    _mapChar(236, 0x221E); _mapChar(237, 0x03C6); _mapChar(238, 0x03B5); _mapChar(239, 0x2229);
+    _mapChar(240, 0x2261); _mapChar(241, 0x00B1); _mapChar(242, 0x2265); _mapChar(243, 0x2264);
+    _mapChar(244, 0x2320); _mapChar(245, 0x2321); _mapChar(246, 0x00F7); _mapChar(247, 0x2248);
+    _mapChar(248, 0x00B0); _mapChar(249, 0x2219); _mapChar(250, 0x00B7); _mapChar(251, 0x221A);
+    _mapChar(252, 0x207F); _mapChar(253, 0x00B2); _mapChar(254, 0x25A0); _mapChar(255, 0x00A0);
+  }
+
+  function _mapChar(ccode, ucode) {
+    _ucharMap[ccode] = ucode;
+    _ccharMap[ucode] = ccode;
+  }
+
+  function _convertToUTF(str) {
+    let result = '';
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      const uc = _ucharMap[c];
+      result += String.fromCharCode(uc !== undefined ? uc : c);
+    }
+    return result;
+  }
+
+  function _convertTo437(str) {
+    let result = '';
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      const cc = _ccharMap[c];
+      result += String.fromCharCode(cc !== undefined ? cc : c);
+    }
+    return result;
+  }
+
+  // Initialize character mapping
+  _initCharMap();
+
+  // =========================================================================
   // EXPOSE RUNTIME API
   // =========================================================================
 
@@ -2491,7 +3194,7 @@
     d2r: _d2r,
     r2d: _r2d,
 
-    // Extended Math (new from qbjs-main)
+    // Extended Math
     acos: _acos,
     asin: _asin,
     atan2: _atan2,
@@ -2508,7 +3211,7 @@
     atn: _atn,
     rnd: _rnd,
 
-    // String Functions (new from qbjs-main)
+    // String Functions
     left$: _left$,
     right$: _right$,
     mid$: _mid$,
@@ -2527,13 +3230,13 @@
     str$: _str$,
     val: _val,
 
-    // System Functions (new from qbjs-main)
+    // System Functions
     desktopwidth: _desktopWidth,
     desktopheight: _desktopHeight,
     clipboard$: _clipboard$,
     clipboard: _setClipboard,
 
-    // Graphics - PAINT (new from qbjs-main)
+    // Graphics - PAINT
     paint: _paint,
 
     // NEW: DRAW command
@@ -2580,7 +3283,18 @@
     // NEW: Image destinations
     dest: _dest,
     source: _source,
-    font: _font,
+    font: _setFont,
+    loadfont: _loadFont,
+    freefont: _freeFont,
+    fontwidth: _fontWidthFn,
+    fontheight: _fontHeightFn,
+
+    // NEW: PRINT USING
+    printusing: _printusing,
+
+    // NEW: WRITE # helpers
+    writeQuoted: _writeQuoted,
+    writeFileLine: _writeFileLine,
 
     // NEW: Memory operations
     memfree: _memfree,
@@ -2590,6 +3304,103 @@
     // NEW: Alpha/Transparency
     setAlpha: _setAlpha,
     clearColor: _clearColor,
+
+  // QBJS Compatibility Layer
+  start: _start,
+  end: _end,
+  halt: _halt,
+  halted: _halted,
+  setData: _setData,
+  setDataLabel: _setDataLabel,
+  setTypeMap: _setTypeMap,
+  getTypeMap: _getTypeMap,
+  initArray: _initArray,
+  resizeArray: _resizeArray,
+  arrayValue: _arrayValue,
+  autoLimit: _autoLimit,
+  read: _read,
+  restore: _restore,
+  defineType: _defineType,
+  makeArray: _makeArray,
+  fixedString: _fixedString,
+  ubound: _ubound,
+  lbound: _lbound,
+  
+  // Extended Math
+  func__PI: _pi,
+  func__Acos: _acos,
+  func__Asin: _asin,
+  func__Atan2: _atan2,
+  func__Acosh: _acosh,
+  func__Asinh: _asinh,
+  func__Atanh: _atanh,
+  func__Sec: _sec,
+  func__Csc: _csc,
+  func__Cot: _cot,
+  func__Sech: _sech,
+  func__Csch: _csch,
+  func__Coth: _coth,
+  func__Arccot: _arccot,
+  func__Arcsec: _arcsec,
+  func__Arccsc: _arccsc,
+  
+  // Bit Operations
+  func__ReadBit: _readbit,
+  func__SetBit: _setbit,
+  func__ResetBit: _resetbit,
+  func__ToggleBit: _togglebit,
+  func__Shl: _shl,
+  func__Shr: _shr,
+  
+  // Angle Conversions
+  func__D2G: _d2g,
+  func__D2R: _d2r,
+  func__G2D: _g2d,
+  func__G2R: _g2r,
+  func__R2D: _r2d,
+  func__R2G: _r2g,
+  
+  // String Functions
+  func__Hex: _hex$,
+  func__Oct: _oct$,
+  func__Strcmp: _strcmp,
+  func__Stricmp: _stricmp,
+  func__Trim: _trimFull,
+  
+  // Type Conversion
+  func_Cvi: _cvi,
+  func_Cvl: _cvl,
+  func_Mki: _mki$,
+  func_Mkl: _mkl$,
+  func_Cdbl: _cdbl,
+  func_Cint: _cint,
+  func_Clng: _clng,
+  func_Csng: _csng,
+  
+  // Window Coordinate System
+  sub_Window: _window,
+  windowContendX: _windowContendX,
+  windowContendY: _windowContendY,
+  windowUnContendX: _windowUnContendX,
+  windowUnContendY: _windowUnContendY,
+  
+  // Character Mapping
+  convertToUTF: _convertToUTF,
+  convertTo437: _convertTo437,
+  
+  // Utility
+  sub_Swap: _swap,
+  toInteger: (v) => { const r = parseInt(v); return isNaN(r) ? 0 : r; },
+  toFloat: (v) => { const r = parseFloat(v); return isNaN(r) ? 0 : r; },
+  toBoolean: (v) => v ? -1 : 0,
+  
+  // Graphics
+  sub_Circle: _circle,
+  sub_Line: _line,
+  sub_PSet: _pset,
+  sub_PReset: _preset,
+  sub_Paint: _paint,
+  func_Point: _point,
 
     // Time
     timer,
@@ -2972,11 +3783,13 @@
     );
   }
 
-  function _printString(x, y, text) {
+  function _printString(x, y, text, fontHandle) {
     if (!ctx) return;
+    const fh = _fontHandles.get(fontHandle != null ? fontHandle : _currentFontHandle);
+    ctx.font = fh ? fh.size + ' ' + fh.name : '16px monospace';
     ctx.fillStyle = COLORS[fgColor % 16];
-    ctx.font = '16px monospace';
-    ctx.fillText(text, x, y + 16); // +16 for baseline
+    const lineH = fh ? fh.height : 16;
+    ctx.fillText(String(text), x, y + lineH);
   }
 
   // =========================================================================
@@ -3133,13 +3946,7 @@
     return Math.hypot(x, y);
   }
 
-  function _d2r(degrees) {
-    return degrees * (Math.PI / 180);
-  }
-
-  function _r2d(radians) {
-    return radians * (180 / Math.PI);
-  }
+  // d2r and r2d are defined in QBJS Compatibility section below
 
   // =========================================================================
   // QUEST HUD
@@ -3254,6 +4061,11 @@
     lastX = 0;
     lastY = 0;
     nextImageId = -1000;
+
+    // Reset font system
+    _fontHandles.clear();
+    _nextFontHandle = 1;
+    _currentFontHandle = 0;
 
     for (let i = 0; i < DEFAULT_COLORS.length; i++) {
       COLORS[i] = DEFAULT_COLORS[i];
@@ -3377,7 +4189,7 @@
   // INITIALIZATION
   // =========================================================================
 
-  console.log('[QBasic Nexus] Runtime v1.1.1 loaded (Extended Edition)');
+  console.log('[QBasic Nexus] Runtime loaded (Extended Edition)');
   vscode.postMessage({ type: 'ready' });
 
   // UX Hint for Audio Context

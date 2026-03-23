@@ -2,7 +2,7 @@
  * QBasic Nexus - High-Performance Compiler Wrapper
  * Unified compiler interface with caching and error recovery
  *
- * v1.5.2 optimisations:
+ * optimisations:
  *  - Cache fast-path: skips DiagnosticCollector construction for clean hits
  *  - Module-level compile() uses a shared singleton (avoids repeated ctor cost)
  */
@@ -338,7 +338,7 @@ Cache Statistics:
 /**
  * Quick compile function for simple use cases.
  *
- * v1.5.2: Uses a lazily-created module-level Compiler singleton when no
+ * Uses a lazily-created module-level Compiler singleton when no
  * custom options are provided. This avoids paying the constructor + LRU-cache
  * init cost on every call (relevant for scripts that call compile() in loops).
  */

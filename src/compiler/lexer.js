@@ -101,14 +101,14 @@ class Token {
 
 const TokenPool = {
   _pool: [],
-  _maxSize: 15000, // v1.5.3: Increased for larger files
+  _maxSize: 15000, // Increased for larger files
 
   // Pre-allocate a batch to warm the pool
   _preallocated: false,
   _preallocate() {
     if (this._preallocated) return;
     this._preallocated = true;
-    // v1.5.3: Reduced initial allocation to save memory
+    // Reduced initial allocation to save memory
     for (let i = 0; i < 1500; i++) {
       this._pool.push(new Token('', '', 0, 0));
     }

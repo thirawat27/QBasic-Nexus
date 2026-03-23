@@ -1,5 +1,5 @@
 /**
- * Test script for QBasic Nexus Transpiler v1.1.0
+ * Test script for QBasic Nexus Transpiler
  */
 
 'use strict';

@@ -221,8 +221,8 @@ const BUILTIN_FUNCS = Object.freeze({
     
     'SPACE$': '(n => " ".repeat(Math.max(0, Math.floor(n))))',
     'STRING$': '((n, c) => { const ch = typeof c === "string" ? c : String.fromCharCode(c); return ch.repeat(Math.max(0, Math.floor(n))); })',
-    'SPC': '(n => " ".repeat(Math.max(0, Math.floor(n))))',
-    'TAB': '(n => " ".repeat(Math.max(0, Math.floor(n) - 1)))',
+    'SPC': '(n => "\\x01S" + Math.max(0, Math.floor(n)) + "\\x01")',
+    'TAB': '(n => "\\x01T" + Math.max(1, Math.floor(n)) + "\\x01")',
     
     // ========== Date/Time ==========
     'TIMER': '(() => { const d = new Date(); return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000; })',
@@ -321,8 +321,8 @@ const BUILTIN_FUNCS = Object.freeze({
     // ========== Screen Info (QB64) ==========
     '_WIDTH': '((img) => typeof window !== "undefined" && window.runtime ? window.runtime.screenWidth() : 80)',
     '_HEIGHT': '((img) => typeof window !== "undefined" && window.runtime ? window.runtime.screenHeight() : 25)',
-    '_FONTHEIGHT': '(() => 16)',
-    '_FONTWIDTH': '(() => 8)',
+    '_FONTHEIGHT': '_FONTHEIGHT',
+    '_FONTWIDTH': '_FONTWIDTH',
     
     // ========== Additional String Functions ==========
     'INPUT$': '_input$',
@@ -408,8 +408,8 @@ const BUILTIN_FUNCS = Object.freeze({
     // _PRINTWIDTH - (already defined above)
     
     // ========== QB64 Font Functions ==========
-    '_LOADFONT': '_loadfont',
-    '_FREEFONT': '_freefont',
+    '_LOADFONT': '_LOADFONT',
+    '_FREEFONT': '_FREEFONT',
     // _FONTWIDTH - (already defined above)
     // _FONTHEIGHT - (already defined above)
     
