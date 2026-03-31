@@ -204,7 +204,7 @@ class TrampolineBuilder {
           currentState = this._pushState({
             id: this._newStateId('select'),
             kind: 'branch',
-            line: statement.line,
+            line: typeof caseClause.line === 'number' ? caseClause.line : statement.line,
             condition: joinConditions(caseClause.conditions),
             trueState,
             falseState: currentState || nextState,
@@ -231,7 +231,7 @@ class TrampolineBuilder {
         this._pushState({
           id: incrementState,
           kind: 'raw',
-          code: [`${statement.variable} += ${statement.step};`],
+          code: [`${statement.storageName || statement.variable} += ${statement.step};`],
           line: statement.line,
           nextState: conditionState,
           errorResumeState: nextState,
@@ -241,7 +241,7 @@ class TrampolineBuilder {
           id: conditionState,
           kind: 'branch',
           line: statement.line,
-          condition: `(${statement.step} >= 0) ? ${statement.variable} <= ${statement.end} : ${statement.variable} >= ${statement.end}`,
+          condition: `(${statement.step} >= 0) ? ${statement.storageName || statement.variable} <= ${statement.end} : ${statement.storageName || statement.variable} >= ${statement.end}`,
           trueState: bodyEntry,
           falseState: nextState,
           errorResumeState: nextState,
@@ -250,7 +250,7 @@ class TrampolineBuilder {
         return this._pushState({
           id: this._newStateId('for_init'),
           kind: 'raw',
-          code: [`var ${statement.variable} = ${statement.start};`],
+          code: [`var ${statement.storageName || statement.variable} = ${statement.start};`],
           line: statement.line,
           nextState: conditionState,
           errorResumeState: nextState,
@@ -300,7 +300,7 @@ class TrampolineBuilder {
             kind: 'branch',
             line: statement.line,
             condition: statement.negateCondition
-              ? `!(${statement.condition})`
+              ? `_qbEq(${statement.condition}, 0)`
               : statement.condition,
             trueState: bodyEntry,
             falseState: nextState,
@@ -327,7 +327,7 @@ class TrampolineBuilder {
           line: statement.line,
           condition: statement.condition
             ? (statement.negateCondition
-              ? `!(${statement.condition})`
+              ? `_qbEq(${statement.condition}, 0)`
               : statement.condition)
             : 'true',
           trueState: bodyEntry,
@@ -709,6 +709,7 @@ module.exports = {
     if (this._matchKw('_DISPLAY')) return this._parseAstEmitLines(['_runtime.display?.();']);
     if (this._matchKw('PRINT')) return this._parseAstEmitStatement('_parsePrint');
     if (this._matchKw('INPUT')) return this._parseAstEmitStatement('_parseInput');
+    if (this._matchKw('OPTION')) return this._parseAstEmitStatement('_parseOption');
     if (this._matchKw('GET')) {
       return this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === '#'
         ? this._parseAstEmitStatement('_parseGetFile')
@@ -763,6 +764,7 @@ module.exports = {
   },
 
   _parseAstIf(context = {}) {
+    const location = this._astLoc(this._prev());
     const prelude = [];
     const condStart = this.output.length;
     const condition = this._parseExpr();
@@ -781,6 +783,7 @@ module.exports = {
         ...prelude,
         {
           kind: 'If',
+          line: location.line,
           condition,
           thenBody,
           elseBody,
@@ -818,6 +821,7 @@ module.exports = {
       ...prelude,
       {
         kind: 'If',
+        line: location.line,
         condition,
         thenBody,
         elseBody,
@@ -826,6 +830,7 @@ module.exports = {
   },
 
   _parseAstElseIf(context = {}) {
+    const location = this._astLoc(this._prev());
     const prelude = [];
     const condStart = this.output.length;
     const condition = this._parseExpr();
@@ -856,6 +861,7 @@ module.exports = {
       ...prelude,
       {
         kind: 'If',
+        line: location.line,
         condition,
         thenBody,
         elseBody,
@@ -864,6 +870,7 @@ module.exports = {
   },
 
   _parseAstFor(context = {}) {
+    const location = this._astLoc(this._prev());
     const id = this._consume(TokenType.IDENTIFIER);
     if (!id) {
       this._raiseSyntaxError('Expected variable after FOR');
@@ -871,6 +878,8 @@ module.exports = {
 
     const name = id.value;
     this._addVar(name);
+    const storageName = this._resolveStorageName(name);
+    this._setStorageOverride(name, storageName);
 
     this._consumeOp('=');
     const prelude = [];
@@ -929,7 +938,9 @@ module.exports = {
       ...prelude,
       {
         kind: 'For',
+        line: location.line,
         variable: name,
+        storageName,
         start,
         end,
         step,
@@ -967,6 +978,7 @@ module.exports = {
   },
 
   _parseAstWhile(context = {}) {
+    const location = this._astLoc(this._prev());
     const prelude = [];
     const condStart = this.output.length;
     const condition = this._parseExpr();
@@ -988,6 +1000,7 @@ module.exports = {
       ...prelude,
       {
         kind: 'While',
+        line: location.line,
         condition,
         body,
       },
@@ -995,6 +1008,7 @@ module.exports = {
   },
 
   _parseAstSelect(context = {}) {
+    const location = this._astLoc(this._prev());
     if (!this._matchKw('CASE')) {
       this._raiseSyntaxError('Expected CASE after SELECT');
     }
@@ -1028,6 +1042,7 @@ module.exports = {
         this._skipToEndOfLine();
         continue;
       }
+      const caseLocation = this._astLoc(this._prev());
 
       if (this._matchKw('ELSE')) {
         this._skipNewlines();
@@ -1054,6 +1069,7 @@ module.exports = {
       }).statements;
 
       cases.push({
+        line: caseLocation.line,
         conditions,
         body,
       });
@@ -1069,6 +1085,7 @@ module.exports = {
       ...prelude,
       {
         kind: 'Select',
+        line: location.line,
         selectorVar,
         cases,
         elseBody,
@@ -1090,35 +1107,20 @@ module.exports = {
 
       this._advance();
       const right = this._parseExpr();
-      return `(${selectorVar} ${this._mapAstComparisonOperator(operator)} ${right})`;
+      return this._buildComparisonExpression(selectorVar, operator, right);
     }
 
     const rangeStart = this._parseExpr();
     if (this._matchKw('TO')) {
       const rangeEnd = this._parseExpr();
-      return `((${selectorVar} >= ${rangeStart}) && (${selectorVar} <= ${rangeEnd}))`;
+      return this._buildRangeCondition(selectorVar, rangeStart, rangeEnd);
     }
 
-    return `(${selectorVar} === ${rangeStart})`;
-  },
-
-  _mapAstComparisonOperator(operator) {
-    switch (operator) {
-      case '=':
-        return '===';
-      case '<>':
-        return '!==';
-      case '<':
-      case '<=':
-      case '>':
-      case '>=':
-        return operator;
-      default:
-        return '===';
-    }
+    return this._buildComparisonExpression(selectorVar, '=', rangeStart);
   },
 
   _parseAstDo(context = {}) {
+    const location = this._astLoc(this._prev());
     let condition = null;
     let negateCondition = false;
     let mode = 'POSTTEST';
@@ -1169,6 +1171,7 @@ module.exports = {
       ...prelude,
       {
         kind: 'DoLoop',
+        line: location.line,
         mode,
         condition,
         negateCondition,
@@ -1182,7 +1185,10 @@ module.exports = {
     if (!id) return null;
 
     const name = id.value;
+    const storageName = this._resolveStorageName(name);
     const args = [];
+    const argStorageNames = [];
+    const argMetadataLiterals = [];
 
     if (this._matchPunc('(')) {
       if (!this._matchPunc(')')) {
@@ -1199,21 +1205,39 @@ module.exports = {
 
     const savedProcedure = this.currentProcedure;
     const savedFunction = this.currentFunction;
-    const staticStore = `_static_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
-    const resultVar = `_result_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
+    const staticStore = this._encodeStorageName(`static_${name}`);
+    const resultVar = this._encodeStorageName(`result_${name}`);
 
-    this.currentProcedure = { name, staticStore, kind: procedureType };
+    this.currentProcedure = { name, storageName, staticStore, kind: procedureType };
     if (procedureType === 'FUNCTION') {
       this.currentFunction = { name, resultVar };
     }
 
-    args.forEach((arg) => this._addVar(arg));
+    args.forEach((arg) => {
+      const argStorageName = this._resolveStorageName(arg);
+      const argMetadata =
+        typeof this._defaultMetadataForName === 'function'
+          ? this._defaultMetadataForName(arg, false)
+          : null;
+      argStorageNames.push(argStorageName);
+      argMetadataLiterals.push(
+        argMetadata ? this._metadataToRuntimeLiteral(argMetadata) : null,
+      );
+      this._addVar(arg);
+      this._setStorageOverride(arg, argStorageName);
+      if (argMetadata) {
+        this._setVarMetadata(arg, argMetadata);
+      }
+    });
 
     const body = this._parseAstBody({
       bodyType: 'PROCEDURE',
       procedureType,
       name,
+      storageName,
       args,
+      argStorageNames,
+      argMetadataLiterals,
       resultVar: procedureType === 'FUNCTION' ? resultVar : null,
       terminator: () => this._isAstEndProcedure(procedureType),
     });
@@ -1232,7 +1256,10 @@ module.exports = {
       kind: 'Procedure',
       procedureType,
       name,
+      storageName,
       args,
+      argStorageNames,
+      argMetadataLiterals,
       staticStore,
       resultVar: procedureType === 'FUNCTION' ? resultVar : null,
       body,
@@ -1908,12 +1935,25 @@ module.exports = {
 
   _generateAstProcedure(procedure) {
     this._emit(`const ${procedure.staticStore} = Object.create(null);`);
-    this._emit(`async function ${procedure.name}(${procedure.args.join(', ')}) {`);
+    this._emit(
+      `async function ${procedure.storageName || procedure.name}(${(procedure.argStorageNames || procedure.args).join(', ')}) {`,
+    );
     this.indent++;
+
+    (procedure.argStorageNames || []).forEach((argStorageName, index) => {
+      const metadataLiteral = procedure.argMetadataLiterals?.[index];
+      if (metadataLiteral) {
+        this._emit(
+          `${argStorageName} = _coerceTypedValue(${metadataLiteral}, ${argStorageName});`,
+        );
+      }
+    });
 
     if (procedure.procedureType === 'FUNCTION') {
       this._emit(
-        `let ${procedure.resultVar} = ${procedure.name.endsWith('$') ? '""' : '0'};`,
+        `let ${procedure.resultVar} = ${typeof this._defaultInitializerForName === 'function'
+          ? this._defaultInitializerForName(procedure.name)
+          : (procedure.name.endsWith('$') ? '""' : '0')};`,
       );
     }
 
@@ -1951,7 +1991,7 @@ module.exports = {
           break;
 
         case 'If':
-          this._emitTracked(`if (${statement.condition}) {`, statement.line);
+          this._emitTracked(`if (${this._buildConditionTest(statement.condition)}) {`, statement.line);
           this.indent++;
           this._generateStructuredStatements(statement.thenBody, context);
           this.indent--;
@@ -1969,10 +2009,12 @@ module.exports = {
 
           for (const caseClause of statement.cases || []) {
             const condition = joinConditions(caseClause.conditions);
+            const caseLine = typeof caseClause.line === 'number' ? caseClause.line : statement.line;
             if (hasBranches) {
-              this._emit(`} else if (${condition}) {`);
+              this._emitSourceTrace(caseLine);
+              this._emit(`} else if (${this._buildConditionTest(condition)}) {`);
             } else {
-              this._emitTracked(`if (${condition}) {`, statement.line);
+              this._emitTracked(`if (${this._buildConditionTest(condition)}) {`, caseLine);
             }
             this.indent++;
             this._generateStructuredStatements(caseClause.body, context);
@@ -2000,7 +2042,7 @@ module.exports = {
 
         case 'For':
           this._emitTracked(
-            `for (var ${statement.variable} = ${statement.start}; (${statement.step} >= 0) ? ${statement.variable} <= ${statement.end} : ${statement.variable} >= ${statement.end}; ${statement.variable} += ${statement.step}) {`,
+            `for (var ${statement.storageName || statement.variable} = ${statement.start}; (${statement.step} >= 0) ? ${statement.storageName || statement.variable} <= ${statement.end} : ${statement.storageName || statement.variable} >= ${statement.end}; ${statement.storageName || statement.variable} += ${statement.step}) {`,
             statement.line,
           );
           this.indent++;
@@ -2010,7 +2052,7 @@ module.exports = {
           break;
 
         case 'While':
-          this._emitTracked(`while (${statement.condition}) {`, statement.line);
+          this._emitTracked(`while (${this._buildConditionTest(statement.condition)}) {`, statement.line);
           this.indent++;
           this._generateStructuredStatements(statement.body, context);
           this.indent--;
@@ -2020,7 +2062,7 @@ module.exports = {
         case 'DoLoop':
           if (statement.mode === 'PRETEST') {
             this._emitTracked(
-              `while (${statement.negateCondition ? `!(${statement.condition})` : statement.condition}) {`,
+              `while (${statement.negateCondition ? `!(${this._buildConditionTest(statement.condition)})` : this._buildConditionTest(statement.condition)}) {`,
               statement.line,
             );
             this.indent++;
@@ -2033,7 +2075,7 @@ module.exports = {
             this._generateStructuredStatements(statement.body, context);
             this.indent--;
             this._emit(
-              `} while (${statement.negateCondition ? `!(${statement.condition})` : statement.condition});`,
+              `} while (${statement.negateCondition ? `!(${this._buildConditionTest(statement.condition)})` : this._buildConditionTest(statement.condition)});`,
             );
           }
           break;
@@ -2340,7 +2382,7 @@ module.exports = {
 
     if (state.kind === 'branch') {
       this._emit(
-        `if (${state.condition}) { _pc = ${stateLiteral(resolveState(state.trueState))}; } else { _pc = ${stateLiteral(resolveState(state.falseState))}; }`,
+        `if (${this._buildConditionTest(state.condition)}) { _pc = ${stateLiteral(resolveState(state.trueState))}; } else { _pc = ${stateLiteral(resolveState(state.falseState))}; }`,
       );
       this._emit(`continue ${loopLabel};`);
     }

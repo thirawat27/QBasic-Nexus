@@ -45,6 +45,7 @@ _parseStatement() {
 
     // Variables & Data
     if (this._matchKw('COMMON')) return this._parseCommon();
+    if (this._matchKw('OPTION')) return this._parseOption();
     if (this._matchKw('DIM')) return this._parseDim();
     if (this._matchKw('REDIM')) return this._parseRedim();
     if (this._matchKw('STATIC')) return this._parseStatic();
@@ -280,10 +281,11 @@ _parseLabel() {
     const label = this._consume(TokenType.IDENTIFIER);
     this._matchPunc(':');
     if (label) {
+      const labelName = this._resolveLabelName(label.value);
       // Generate an async function for this label that can be called by GOSUB
       // and set a state variable for GOTO state machine
       this._emit(`// Label: ${label.value}`);
-      this._emit(`async function ${label.value}() {`);
+      this._emit(`async function ${labelName}() {`);
       this.indent++;
       this._enterScope('label');
 
@@ -323,9 +325,10 @@ _parseLabel() {
 _parseIf() {
     const cond = this._parseExpr();
     this._consumeKw('THEN');
+    const conditionTest = this._buildConditionTest(cond);
 
     if (!this._isStmtEnd()) {
-      this._emit(`if (${cond}) {`);
+      this._emit(`if (${conditionTest}) {`);
       this.indent++;
       this._parseStatement();
 
@@ -339,7 +342,7 @@ _parseIf() {
       this.indent--;
       this._emit('} // Single Line IF');
     } else {
-      this._emit(`if (${cond}) {`);
+      this._emit(`if (${conditionTest}) {`);
       this.indent++;
     }
   },
@@ -348,7 +351,7 @@ _parseElseIf() {
     this._decIndent();
     const cond = this._parseExpr();
     this._consumeKw('THEN');
-    this._emit(`} else if (${cond}) {`);
+    this._emit(`} else if (${this._buildConditionTest(cond)}) {`);
     this.indent++;
   },
 
@@ -387,6 +390,7 @@ _parseFor() {
 
     const name = id.value;
     this._addVar(name);
+    const storageName = this._resolveStorageName(name);
 
     this._consumeOp('=');
     const start = this._parseExpr();
@@ -401,7 +405,7 @@ _parseFor() {
 
     // Robust loop condition for dynamic step sign
     this._emit(
-      `for (var ${name} = ${start}; (${step} >= 0) ? ${name} <= ${end} : ${name} >= ${end}; ${name} += ${step}) {`,
+      `for (var ${storageName} = ${start}; (${step} >= 0) ? ${storageName} <= ${end} : ${storageName} >= ${end}; ${storageName} += ${step}) {`,
     );
     this.indent++;
   },
@@ -415,25 +419,25 @@ _parseNext() {
 _parseDo() {
     if (this._matchKw('WHILE')) {
       const cond = this._parseExpr();
-      this._emit(`while (${cond}) {`);
+      this._emit(`while (${this._buildConditionTest(cond)}) {`);
     } else if (this._matchKw('UNTIL')) {
       const cond = this._parseExpr();
-      this._emit(`while (!(${cond})) {`);
+      this._emit(`while (!(${this._buildConditionTest(cond)})) {`);
     } else {
       this._emit('do {');
     }
     this.indent++;
   },
 
-_parseLoop() {
+  _parseLoop() {
     this._decIndent();
 
     if (this._matchKw('WHILE')) {
       const cond = this._parseExpr();
-      this._emit(`} while (${cond});`);
+      this._emit(`} while (${this._buildConditionTest(cond)});`);
     } else if (this._matchKw('UNTIL')) {
       const cond = this._parseExpr();
-      this._emit(`} while (!(${cond}));`);
+      this._emit(`} while (!(${this._buildConditionTest(cond)}));`);
     } else {
       this._emit('} while (true);');
     }
@@ -441,7 +445,7 @@ _parseLoop() {
 
 _parseWhile() {
     const cond = this._parseExpr();
-    this._emit(`while (${cond}) {`);
+    this._emit(`while (${this._buildConditionTest(cond)}) {`);
     this.indent++;
   },
 
@@ -560,24 +564,25 @@ _parseSelect() {
               // CASE IS <op> expr
               const op = this._advance().value;
               const rhs = this._parseExpr();
-              conditions.push(`(${tempVar} ${op} ${rhs})`);
+              conditions.push(this._buildComparisonExpression(tempVar, op, rhs));
             } else {
               const lhs = this._parseExpr();
               if (this._matchKw('TO')) {
                 // CASE lhs TO high
                 const high = this._parseExpr();
-                conditions.push(`(${tempVar} >= ${lhs} && ${tempVar} <= ${high})`);
+                conditions.push(this._buildRangeCondition(tempVar, lhs, high));
               } else {
-                conditions.push(`${tempVar} === ${lhs}`);
+                conditions.push(this._buildComparisonExpression(tempVar, '=', lhs));
               }
             }
           } while (this._matchPunc(','));
 
+          const branchCondition = this._buildConditionTest(conditions.join(' || '));
           if (firstCase) {
-            this._emit(`if (${conditions.join(' || ')}) {`);
+            this._emit(`if (${branchCondition}) {`);
             firstCase = false;
           } else {
-            this._emit(`else if (${conditions.join(' || ')}) {`);
+            this._emit(`else if (${branchCondition}) {`);
           }
         }
 
@@ -614,6 +619,7 @@ _parseSub() {
     const id = this._consume(TokenType.IDENTIFIER);
     if (!id) return;
     const name = id.value;
+    const storageName = this._resolveStorageName(name);
 
     let args = [];
     if (this._matchPunc('(')) {
@@ -625,20 +631,35 @@ _parseSub() {
         this._matchPunc(')');
       }
     }
+    const argStorageNames = args.map((argName) => this._resolveStorageName(argName));
 
-    const staticStore = `_static_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
+    const staticStore = this._encodeStorageName(`static_${name}`);
     this._emit(`const ${staticStore} = Object.create(null);`);
-    this._emit(`async function ${name}(${args.join(', ')}) {`);
+    this._emit(`async function ${storageName}(${argStorageNames.join(', ')}) {`);
     this.indent++;
     this._enterScope();
-    this.currentProcedure = { name, staticStore, kind: 'SUB' };
-    args.forEach((a) => this._addVar(a));
+    this.currentProcedure = { name, storageName, staticStore, kind: 'SUB' };
+    args.forEach((a, index) => {
+      this._addVar(a);
+      this._setStorageOverride(a, argStorageNames[index]);
+      const metadata =
+        typeof this._defaultMetadataForName === 'function'
+          ? this._defaultMetadataForName(a, false)
+          : null;
+      if (metadata) {
+        this._setVarMetadata(a, metadata);
+        this._emit(
+          `${argStorageNames[index]} = _coerceTypedValue(${this._metadataToRuntimeLiteral(metadata)}, ${argStorageNames[index]});`,
+        );
+      }
+    });
   },
 
 _parseFunction() {
     const id = this._consume(TokenType.IDENTIFIER);
     if (!id) return;
     const name = id.value;
+    const storageName = this._resolveStorageName(name);
 
     let args = [];
     if (this._matchPunc('(')) {
@@ -650,17 +671,35 @@ _parseFunction() {
         this._matchPunc(')');
       }
     }
+    const argStorageNames = args.map((argName) => this._resolveStorageName(argName));
 
-    const staticStore = `_static_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
+    const staticStore = this._encodeStorageName(`static_${name}`);
     this._emit(`const ${staticStore} = Object.create(null);`);
-    this._emit(`async function ${name}(${args.join(', ')}) {`);
+    this._emit(`async function ${storageName}(${argStorageNames.join(', ')}) {`);
     this.indent++;
     this._enterScope();
-    this.currentProcedure = { name, staticStore, kind: 'FUNCTION' };
-    args.forEach((a) => this._addVar(a));
+    this.currentProcedure = { name, storageName, staticStore, kind: 'FUNCTION' };
+    args.forEach((a, index) => {
+      this._addVar(a);
+      this._setStorageOverride(a, argStorageNames[index]);
+      const metadata =
+        typeof this._defaultMetadataForName === 'function'
+          ? this._defaultMetadataForName(a, false)
+          : null;
+      if (metadata) {
+        this._setVarMetadata(a, metadata);
+        this._emit(
+          `${argStorageNames[index]} = _coerceTypedValue(${this._metadataToRuntimeLiteral(metadata)}, ${argStorageNames[index]});`,
+        );
+      }
+    });
 
-    const resultVar = `_result_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`;
-    this._emit(`let ${resultVar} = ${name.endsWith('$') ? '""' : '0'};`);
+    const resultVar = this._encodeStorageName(`result_${name}`);
+    this._emit(
+      `let ${resultVar} = ${typeof this._defaultInitializerForName === 'function'
+        ? this._defaultInitializerForName(name)
+        : (name.endsWith('$') ? '""' : '0')};`,
+    );
     this.currentFunction = { name, resultVar };
   },
 
@@ -670,10 +709,11 @@ _parseGoto() {
     }
     const label = this._consume(TokenType.IDENTIFIER);
     if (label) {
+      const labelName = this._resolveLabelName(label.value);
       // Check if label exists in collected labels
       if (this.labels.has(label.value)) {
         // Use label as function call and throw to break execution flow
-        this._emit(`await ${label.value}(); throw "GOTO_${label.value}";`);
+        this._emit(`await ${labelName}(); throw "GOTO_${label.value}";`);
       } else {
         // Label not found - emit warning comment
         this._emit(`// GOTO ${label.value} - label not found`);
@@ -690,12 +730,13 @@ _parseGosub() {
     }
     const label = this._consume(TokenType.IDENTIFIER);
     if (label) {
+      const labelName = this._resolveLabelName(label.value);
       // Check if label exists
       if (this.labels.has(label.value)) {
-        this._emit(`await ${label.value}(); // GOSUB ${label.value}`);
+        this._emit(`await ${labelName}(); // GOSUB ${label.value}`);
       } else {
         this._emit(
-          `await ${label.value}(); // GOSUB ${label.value} (label may be undefined)`,
+          `await ${labelName}(); // GOSUB ${label.value} (label may be undefined)`,
         );
       }
     }
@@ -763,6 +804,7 @@ _parseDefFn() {
     if (!id) return;
 
     const name = `FN${id.value}`;
+    const storageName = this._resolveStorageName(name);
     let args = [];
 
     if (this._matchPunc('(')) {
@@ -774,11 +816,12 @@ _parseDefFn() {
         this._matchPunc(')');
       }
     }
+    const argStorageNames = args.map((argName) => this._resolveStorageName(argName));
 
     this._consumeOp('=');
     const expr = this._parseExpr();
 
-    this._emit(`const ${name} = async (${args.join(', ')}) => ${expr};`);
+    this._emit(`const ${storageName} = async (${argStorageNames.join(', ')}) => ${expr};`);
   },
 
 _parseDefSeg() {
@@ -821,7 +864,7 @@ _parseStatic() {
       const dimensions = this._parseOptionalDimensions();
       const typeSpec = this._parseDeclaredTypeSpec(name);
       const metadata = this._getTypeMetadata(typeSpec, dimensions.length > 0);
-      const storageName = `${this.currentProcedure.staticStore}.${name}`;
+      const storageName = `${this.currentProcedure.staticStore}[${JSON.stringify(name)}]`;
 
       this._addVar(name);
       this._setStorageOverride(name, storageName);
@@ -829,7 +872,7 @@ _parseStatic() {
 
       const initializer =
         dimensions.length > 0
-          ? `_makeArray(${this._getTypeInitializer(typeSpec, true)}, ${dimensions.join(', ')})`
+          ? this._makeArrayExpression(typeSpec, dimensions)
           : this._getTypeInitializer(typeSpec, false);
 
       this._emit(

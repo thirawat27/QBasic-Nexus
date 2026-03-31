@@ -30,6 +30,7 @@ _parseDim(options = {}) {
       if (!id) break;
 
       const name = id.value;
+      const storageName = this._resolveStorageName(name);
       this._addVar(name);
       if (isShared) this.sharedVars.add(name);
 
@@ -50,9 +51,9 @@ _parseDim(options = {}) {
       );
 
       if (dimensions.length > 0) {
-        this._emit(`var ${name} = _makeArray(${initializer}, ${dimensions.join(', ')});`);
+        this._emit(`var ${storageName} = ${this._makeArrayExpression(typeSpec, dimensions)};`);
       } else {
-        this._emit(`var ${name} = ${initializer};`);
+        this._emit(`var ${storageName} = ${initializer};`);
       }
     } while (this._matchPunc(','));
   },
@@ -60,9 +61,10 @@ _parseDim(options = {}) {
 _parseConst() {
     const id = this._consume(TokenType.IDENTIFIER);
     if (!id) return;
+    const storageName = this._resolveStorageName(id.value);
     this._consumeOp('=');
     const val = this._parseExpr();
-    this._emit(`const ${id.value} = ${val};`);
+    this._emit(`const ${storageName} = ${val};`);
   },
 
 _parseRedim() {
@@ -79,6 +81,7 @@ _parseRedim() {
       if (!id) break;
 
       const name = id.value;
+      const storageName = this._resolveStorageName(name);
       const isRedeclaring = this.currentVars.has(name);
       const dimensions = this._parseOptionalDimensions();
       const typeSpec = this._parseDeclaredTypeSpec(name);
@@ -94,26 +97,24 @@ _parseRedim() {
       }
 
       if (dimensions.length > 0) {
-        const initializer = this._getTypeInitializer(typeSpec, true);
-
-        if (preserve && this._hasVar(name) && dimensions.length === 1) {
+        if (preserve && this._hasVar(name)) {
           this._emit(
-            `${name} = [...${name}, ...Array.from({ length: Math.max(0, ${dimensions[0]} + 1 - ${name}.length) }, () => { const _init = ${initializer}; return typeof _init === 'function' ? _init() : _init; })];`,
+            `${storageName} = ${this._makePreservedArrayExpression(storageName, typeSpec, dimensions)};`,
           );
         } else if (isRedeclaring) {
-          this._emit(`${name} = _makeArray(${initializer}, ${dimensions.join(', ')});`);
+          this._emit(`${storageName} = ${this._makeArrayExpression(typeSpec, dimensions)};`);
         } else {
           this._addVar(name);
-          this._emit(`var ${name} = _makeArray(${initializer}, ${dimensions.join(', ')});`);
+          this._emit(`var ${storageName} = ${this._makeArrayExpression(typeSpec, dimensions)};`);
         }
       } else {
         const initializer = this._getTypeInitializer(typeSpec, false);
 
         if (isRedeclaring) {
-          this._emit(`${name} = ${initializer};`);
+          this._emit(`${storageName} = ${initializer};`);
         } else {
           this._addVar(name);
-          this._emit(`var ${name} = ${initializer};`);
+          this._emit(`var ${storageName} = ${initializer};`);
         }
       }
     } while (this._matchPunc(','));
@@ -160,7 +161,7 @@ _parseType() {
     this._matchKw('TYPE');
 
     const fieldSpec = fields
-      .map((field) => `${field.name}: ${this._typeSpecToRuntimeLiteral(field.spec)}`)
+      .map((field) => `${JSON.stringify(field.name)}: ${this._typeSpecToRuntimeLiteral(field.spec)}`)
       .join(', ');
     const typeDefinition = Object.create(null);
 
@@ -179,19 +180,129 @@ _parseErase() {
     do {
       const id = this._consume(TokenType.IDENTIFIER);
       if (!id) break;
-      this._emit(`${id.value} = [];`);
+      this._emit(`${this._resolveStorageName(id.value)} = _eraseArray(${this._resolveStorageName(id.value)});`);
     } while (this._matchPunc(','));
   },
 
-_parseDefType(_type) {
-    // DEFINT A-Z, DEFLNG A-M, etc.
-    // These affect default variable types - emit comment for now
-    while (!this._isStmtEnd()) {
-      this._advance();
+  _parseOption() {
+    if (!this._matchKw('BASE')) {
+      this._recordError('Only OPTION BASE is currently supported.');
+      return this._skipToEndOfLine();
     }
+
+    const baseExpr = this._parseExpr();
+    if (baseExpr !== '0' && baseExpr !== '1') {
+      this._recordError('OPTION BASE only supports literal values 0 or 1.');
+    }
+
+    this.optionBase = baseExpr === '1' ? 1 : 0;
+    this._emit(`// OPTION BASE ${this.optionBase}`);
+  },
+
+_parseDefType(_type) {
+    const appliedRanges = [];
+
+    while (!this._isStmtEnd() && !this._isEnd()) {
+      const startLetter = this._consumeDefTypeLetter();
+      if (!startLetter) {
+        this._advance();
+        continue;
+      }
+
+      let endLetter = startLetter;
+      if (this._matchOp('-') || this._matchPunc('-')) {
+        const explicitEnd = this._consumeDefTypeLetter();
+        if (explicitEnd) {
+          endLetter = explicitEnd;
+        }
+      }
+
+      this._setDefaultTypeLetterRange(_type, startLetter, endLetter);
+      appliedRanges.push(
+        startLetter === endLetter ? startLetter : `${startLetter}-${endLetter}`,
+      );
+      this._matchPunc(',');
+    }
+
     this._emit(
-      `// DEF${_type} - variable type hints (JavaScript uses dynamic types)`,
+      `// DEF${_type} applied to ${appliedRanges.join(', ') || 'no ranges'}`,
     );
+  },
+
+  _consumeDefTypeLetter() {
+    if (!(this._check(TokenType.IDENTIFIER) || this._check(TokenType.KEYWORD))) {
+      return '';
+    }
+
+    const letter = String(this._peek()?.value || '')
+      .trim()
+      .charAt(0)
+      .toUpperCase();
+    if (!/^[A-Z]$/.test(letter)) {
+      return '';
+    }
+
+    this._advance();
+    return letter;
+  },
+
+  _setDefaultTypeLetterRange(typeName, startLetter, endLetter) {
+    const normalizedType = String(typeName || 'SINGLE').toUpperCase();
+    const start = startLetter.charCodeAt(0);
+    const end = endLetter.charCodeAt(0);
+    const lower = Math.min(start, end);
+    const upper = Math.max(start, end);
+
+    if (!this.defaultTypeMap) {
+      this.defaultTypeMap = Object.create(null);
+    }
+
+    for (let code = lower; code <= upper; code++) {
+      this.defaultTypeMap[String.fromCharCode(code)] = normalizedType;
+    }
+  },
+
+  _arrayDescriptorArgs(dimensions) {
+    return dimensions.map(
+      (dimension) => `{ lower: ${dimension.lower}, upper: ${dimension.upper} }`,
+    );
+  },
+
+  _makeArrayExpression(typeSpec, dimensions) {
+    return `_makeArray(${[
+      this._getTypeInitializer(typeSpec, true),
+      ...this._arrayDescriptorArgs(dimensions),
+    ].join(', ')})`;
+  },
+
+  _makePreservedArrayExpression(storageName, typeSpec, dimensions) {
+    return `_redimArrayPreserve(${[
+      storageName,
+      this._getTypeInitializer(typeSpec, true),
+      ...this._arrayDescriptorArgs(dimensions),
+    ].join(', ')})`;
+  },
+
+  _parseLiteralDimensionValue(expression) {
+    const text = String(expression || '').trim();
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) {
+      return null;
+    }
+
+    const numeric = Number(text);
+    return Number.isFinite(numeric) ? Math.trunc(numeric) : null;
+  },
+
+  _validateDimensionDescriptor(lowerExpr, upperExpr) {
+    const lower = this._parseLiteralDimensionValue(lowerExpr);
+    const upper = this._parseLiteralDimensionValue(upperExpr);
+    if (lower === null || upper === null) {
+      return;
+    }
+
+    if (upper < lower) {
+      this._recordError('Array lower bound cannot exceed upper bound.');
+    }
   },
 
 _parseOptionalDimensions() {
@@ -202,7 +313,20 @@ _parseOptionalDimensions() {
     }
 
     do {
-      dimensions.push(this._parseExpr());
+      const firstBound = this._parseExpr();
+      if (this._matchKw('TO')) {
+        const upperBound = this._parseExpr();
+        this._validateDimensionDescriptor(firstBound, upperBound);
+        dimensions.push({
+          lower: firstBound,
+          upper: upperBound,
+        });
+      } else {
+        dimensions.push({
+          lower: String(this.optionBase || 0),
+          upper: firstBound,
+        });
+      }
     } while (this._matchPunc(','));
     this._matchPunc(')');
 
@@ -251,7 +375,44 @@ _parseDeclaredTypeSpec(name) {
   },
 
 _defaultTypeSpec(name) {
-    if (name.endsWith('$')) {
+    const variableName = String(name || '').trim();
+    if (variableName.endsWith('$')) {
+      return {
+        kind: 'string',
+        typeName: 'STRING',
+      };
+    }
+    if (variableName.endsWith('%')) {
+      return {
+        kind: 'scalar',
+        typeName: 'INTEGER',
+      };
+    }
+    if (variableName.endsWith('&')) {
+      return {
+        kind: 'scalar',
+        typeName: 'LONG',
+      };
+    }
+    if (variableName.endsWith('!')) {
+      return {
+        kind: 'scalar',
+        typeName: 'SINGLE',
+      };
+    }
+    if (variableName.endsWith('#')) {
+      return {
+        kind: 'scalar',
+        typeName: 'DOUBLE',
+      };
+    }
+
+    const firstLetter = variableName.charAt(0).toUpperCase();
+    const mappedType =
+      /^[A-Z]$/.test(firstLetter) && this.defaultTypeMap
+        ? this.defaultTypeMap[firstLetter]
+        : null;
+    if (mappedType === 'STRING') {
       return {
         kind: 'string',
         typeName: 'STRING',
@@ -260,8 +421,16 @@ _defaultTypeSpec(name) {
 
     return {
       kind: 'scalar',
-      typeName: 'SINGLE',
+      typeName: mappedType || 'SINGLE',
     };
+  },
+
+  _defaultInitializerForName(name) {
+    return this._getTypeInitializer(this._defaultTypeSpec(name), false);
+  },
+
+  _defaultMetadataForName(name, isArray = false) {
+    return this._getTypeMetadata(this._defaultTypeSpec(name), isArray);
   },
 
 _getTypeInitializer(typeSpec, forArray = false) {

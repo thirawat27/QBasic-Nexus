@@ -28,6 +28,8 @@ module.exports = {
     this.scopeKinds = ['global'];
     this.sharedVars = new Set();
     this.typeDefinitions = new Map();
+    this.defaultTypeMap = Object.create(null);
+    this.optionBase = 0;
 
     /** @type {string[]} DATA statement values */
     this.dataValues = [];
@@ -116,13 +118,56 @@ module.exports = {
     return this.currentFunction?.name === name;
   },
 
+  _isSafeJavaScriptIdentifier(name) {
+    return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(name || ''));
+  },
+
+  _encodeStorageName(name) {
+    const source = String(name || '');
+    const suffixMap = {
+      '%': '_pct',
+      '!': '_sgl',
+      '#': '_dbl',
+      '&': '_lng',
+      '$': '$',
+    };
+
+    let encoded = '';
+    for (const ch of source) {
+      if (/[A-Za-z0-9_$]/.test(ch)) {
+        encoded += ch;
+      } else if (suffixMap[ch]) {
+        encoded += suffixMap[ch];
+      } else {
+        encoded += `_x${ch.charCodeAt(0).toString(16)}`;
+      }
+    }
+
+    if (!encoded || !/^[A-Za-z_$]/.test(encoded)) {
+      encoded = `_${encoded}`;
+    }
+
+    return `__qb_${encoded}`;
+  },
+
+  _memberAccessFragment(member) {
+    const name = String(member || '');
+    return this._isSafeJavaScriptIdentifier(name)
+      ? `.${name}`
+      : `[${JSON.stringify(name)}]`;
+  },
+
+  _resolveLabelName(label) {
+    return this._encodeStorageName(`label_${String(label || '')}`);
+  },
+
   _resolveStorageName(name) {
     const storageOverride = this._getStorageOverride(name);
     if (storageOverride) return storageOverride;
 
     return this._isCurrentFunctionName(name)
       ? this.currentFunction.resultVar
-      : name;
+      : (this._isSafeJavaScriptIdentifier(name) ? name : this._encodeStorageName(name));
   },
 
   _hasVar(name) {
@@ -308,15 +353,50 @@ module.exports = {
     if (isArrayElement) wrapOptions.arrayElement = true;
     if (members.length > 0) wrapOptions.members = members.slice();
 
+    const inferredMetadata =
+      !baseMetadata &&
+      members.length === 0 &&
+      typeof this._defaultMetadataForName === 'function'
+        ? this._defaultMetadataForName(name, isArrayElement)
+        : null;
+    if (isArrayElement && inferredMetadata?.kind === 'array') {
+      inferredMetadata.autoArray = true;
+    }
+
+    const resolvedMetadata = baseMetadata || inferredMetadata;
+    const arrayElementMetadata =
+      resolvedMetadata?.kind === 'array' ? resolvedMetadata.element : null;
+    const arrayElementInitializer = this._initializerForMetadata(
+      arrayElementMetadata,
+      typeof this._defaultInitializerForName === 'function'
+        ? this._defaultInitializerForName(name)
+        : (name.endsWith('$') ? '""' : '0'),
+    );
+
     if (!this._hasVar(name) && !this._isCurrentFunctionName(name)) {
       this._addVar(name);
+      if (inferredMetadata) {
+        this._setVarMetadata(name, inferredMetadata);
+      }
       const initializer = isArrayElement
-        ? '[]'
+        ? `_autodimArray(${arrayElementInitializer}, ${this.optionBase}, ${indices.join(', ')})`
         : this._initializerForMetadata(
-          baseMetadata,
-          members.length > 0 ? '{}' : (name.endsWith('$') ? '""' : '0'),
+          resolvedMetadata,
+          members.length > 0
+            ? '{}'
+            : (typeof this._defaultInitializerForName === 'function'
+              ? this._defaultInitializerForName(name)
+              : (name.endsWith('$') ? '""' : '0')),
         );
-      this._emit(`var ${name} = ${initializer};`);
+      this._emit(`var ${storageName} = ${initializer};`);
+    } else if (isArrayElement) {
+      if (resolvedMetadata?.kind === 'array' && resolvedMetadata.autoArray) {
+        this._emit(
+          `${storageName} = _ensureAutoArrayBounds(${storageName}, ${arrayElementInitializer}, ${this.optionBase}, ${indices.join(', ')});`,
+        );
+      } else {
+        this._emit(`_qbAssertArrayPath(${storageName}, ${indices.join(', ')});`);
+      }
     }
 
     let targetExpr = storageName;
@@ -343,7 +423,7 @@ module.exports = {
 
       let ownerPath = targetExpr;
       for (let i = 0; i < members.length - 1; i++) {
-        ownerPath = `${ownerPath}.${members[i]}`;
+        ownerPath = `${ownerPath}${this._memberAccessFragment(members[i])}`;
         const memberMetadata = this._getTargetMetadata(name, {
           arrayElement: isArrayElement,
           members: members.slice(0, i + 1),
@@ -354,7 +434,7 @@ module.exports = {
         );
       }
 
-      targetExpr = `${ownerPath}.${members[members.length - 1]}`;
+      targetExpr = `${ownerPath}${this._memberAccessFragment(members[members.length - 1])}`;
     }
 
     return {
@@ -363,6 +443,7 @@ module.exports = {
       metadata: this._getTargetMetadata(name, wrapOptions),
       isStringLike: this._isStringLike(name, wrapOptions),
       wrapOptions,
+      indices,
     };
   },
 
@@ -399,7 +480,10 @@ module.exports = {
 
     return {
       name,
-      expr: `${storageName}${indices.map((index) => `[${index}]`).join('')}${members.map((member) => `.${member}`).join('')}`,
+      expr:
+        indices.length > 0
+          ? `(_qbArrayGet(${storageName}, ${indices.join(', ')}))${members.map((member) => this._memberAccessFragment(member)).join('')}`
+          : `${storageName}${members.map((member) => this._memberAccessFragment(member)).join('')}`,
       metadata: this._getTargetMetadata(name, wrapOptions),
       wrapOptions,
     };
@@ -408,6 +492,13 @@ module.exports = {
   _wrapAssignmentValue(name, valueExpression, options = {}) {
     const targetMetadata = this._getTargetMetadata(name, options);
     if (!targetMetadata) {
+      const defaultTypeSpec =
+        typeof this._defaultTypeSpec === 'function'
+          ? this._defaultTypeSpec(name)
+          : null;
+      if (defaultTypeSpec && typeof this._typeSpecToRuntimeLiteral === 'function') {
+        return `_coerceTypedValue(${this._typeSpecToRuntimeLiteral(defaultTypeSpec)}, ${valueExpression})`;
+      }
       return name.endsWith('$') ? `String(${valueExpression})` : valueExpression;
     }
 
@@ -418,10 +509,15 @@ module.exports = {
     if (name.endsWith('$')) return true;
 
     const targetMetadata = this._getTargetMetadata(name, options);
+    const defaultTypeSpec =
+      !targetMetadata && typeof this._defaultTypeSpec === 'function'
+        ? this._defaultTypeSpec(name)
+        : null;
 
     return (
       targetMetadata?.kind === 'string' ||
-      targetMetadata?.kind === 'fixedString'
+      targetMetadata?.kind === 'fixedString' ||
+      defaultTypeSpec?.kind === 'string'
     );
   },
 
@@ -1294,12 +1390,213 @@ function _cv(typeName, data) {
   }
 }
 
-// Helper for multi-dimensional arrays
+const _QB_ARRAY_BOUNDS = Symbol('qbArrayBounds');
+
+function _normalizeArrayDescriptor(descriptor, fallbackLower = 0) {
+  if (descriptor && typeof descriptor === 'object' && !Array.isArray(descriptor)) {
+    return {
+      lower: Math.trunc(Number(descriptor.lower ?? fallbackLower) || 0),
+      upper: Math.trunc(Number(descriptor.upper ?? 0) || 0),
+    };
+  }
+
+  return {
+    lower: Math.trunc(Number(fallbackLower) || 0),
+    upper: Math.trunc(Number(descriptor) || 0),
+  };
+}
+
+function _setArrayBounds(target, bounds) {
+  Object.defineProperty(target, _QB_ARRAY_BOUNDS, {
+    value: bounds,
+    writable: true,
+    configurable: true,
+  });
+  return target;
+}
+
+function _arrayBounds(arr) {
+  if (!Array.isArray(arr)) return null;
+  const bounds = arr[_QB_ARRAY_BOUNDS];
+  if (Array.isArray(bounds) && bounds.length > 0) {
+    return bounds;
+  }
+
+  if ((arr.length || 0) === 0) {
+    return null;
+  }
+
+  return [{
+    lower: 0,
+    upper: Math.max(-1, (arr.length || 0) - 1),
+  }];
+}
+
+function _arrayBoundsForDimension(arr, dim) {
+  const bounds = _arrayBounds(arr);
+  if (!bounds) {
+    throw _qbMakeRuntimeError(Array.isArray(arr) ? 9 : 13, undefined, _currentSourceLine);
+  }
+
+  const dimension = dim === undefined ? 1 : Math.trunc(Number(dim) || 0);
+  if (dimension < 1 || dimension > bounds.length) {
+    throw _qbMakeRuntimeError(9, undefined, _currentSourceLine);
+  }
+
+  return bounds[dimension - 1];
+}
+
+function _coerceArrayIndex(index) {
+  const numeric = Number(index);
+  if (!Number.isFinite(numeric)) {
+    throw _qbMakeRuntimeError(9, undefined, _currentSourceLine);
+  }
+  return Math.trunc(numeric);
+}
+
+function _autoArrayDescriptor(optionBase, index) {
+  const base = _coerceArrayIndex(optionBase);
+  const target = _coerceArrayIndex(index);
+  return {
+    lower: Math.min(base, target),
+    upper: Math.max(base, target),
+  };
+}
+
+function _makeArrayRecursive(init, dims, depth) {
+  if (depth >= dims.length) {
+    return typeof init === 'function' ? init() : init;
+  }
+
+  const descriptor = dims[depth];
+  if (descriptor.upper < descriptor.lower) {
+    throw _qbMakeRuntimeError(9, undefined, _currentSourceLine);
+  }
+
+  const arrayValue = _setArrayBounds(
+    [],
+    dims.slice(depth).map((bound) => ({ lower: bound.lower, upper: bound.upper })),
+  );
+
+  for (let index = descriptor.lower; index <= descriptor.upper; index++) {
+    arrayValue[index] = _makeArrayRecursive(init, dims, depth + 1);
+  }
+
+  return arrayValue;
+}
+
+// Helper for QB-style multi-dimensional arrays with preserved lower/upper bounds
 function _makeArray(init, ...dims) {
-   if (dims.length === 0) return typeof init === 'function' ? init() : init;
-   const size = dims[0];
-   const rest = dims.slice(1);
-   return Array.from({length: size + 1}, () => _makeArray(init, ...rest));
+  if (dims.length === 0) return typeof init === 'function' ? init() : init;
+  return _makeArrayRecursive(
+    init,
+    dims.map((descriptor) => _normalizeArrayDescriptor(descriptor)),
+    0,
+  );
+}
+
+function _mergeArrayDescriptors(bounds, optionBase, indices) {
+  return indices.map((index, depth) => {
+    const fallback = _autoArrayDescriptor(optionBase, index);
+    const current = Array.isArray(bounds) ? bounds[depth] : null;
+    if (!current) {
+      return fallback;
+    }
+    return {
+      lower: Math.min(current.lower, fallback.lower),
+      upper: Math.max(current.upper, fallback.upper),
+    };
+  });
+}
+
+function _copyArrayOverlap(source, target) {
+  const sourceBounds = _arrayBounds(source);
+  const targetBounds = _arrayBounds(target);
+  if (!sourceBounds || !targetBounds) return;
+
+  const sourceHead = sourceBounds[0];
+  const targetHead = targetBounds[0];
+  const overlapLower = Math.max(sourceHead.lower, targetHead.lower);
+  const overlapUpper = Math.min(sourceHead.upper, targetHead.upper);
+  if (overlapUpper < overlapLower) return;
+
+  for (let index = overlapLower; index <= overlapUpper; index++) {
+    if (
+      sourceBounds.length > 1 &&
+      targetBounds.length > 1 &&
+      Array.isArray(source[index]) &&
+      Array.isArray(target[index])
+    ) {
+      _copyArrayOverlap(source[index], target[index]);
+    } else if (Object.prototype.hasOwnProperty.call(source, index)) {
+      target[index] = source[index];
+    }
+  }
+}
+
+function _resizeArrayToBounds(source, init, ...dims) {
+  const next = _makeArray(init, ...dims);
+  if (Array.isArray(source)) {
+    _copyArrayOverlap(source, next);
+  }
+  return next;
+}
+
+function _redimArrayPreserve(source, init, ...dims) {
+  return _resizeArrayToBounds(source, init, ...dims);
+}
+
+function _autodimArray(init, optionBase, ...indices) {
+  return _resizeArrayToBounds(
+    null,
+    init,
+    ..._mergeArrayDescriptors(null, optionBase, indices),
+  );
+}
+
+function _ensureAutoArrayBounds(source, init, optionBase, ...indices) {
+  return _resizeArrayToBounds(
+    source,
+    init,
+    ..._mergeArrayDescriptors(_arrayBounds(source), optionBase, indices),
+  );
+}
+
+function _qbAssertArrayPath(root, ...indices) {
+  if (!Array.isArray(root)) {
+    throw _qbMakeRuntimeError(9, undefined, _currentSourceLine);
+  }
+
+  let current = root;
+  for (let depth = 0; depth < indices.length; depth++) {
+    const index = _coerceArrayIndex(indices[depth]);
+    const bounds = _arrayBoundsForDimension(current, 1);
+    if (index < bounds.lower || index > bounds.upper) {
+      throw _qbMakeRuntimeError(9, undefined, _currentSourceLine);
+    }
+    current = current[index];
+  }
+
+  return current;
+}
+
+function _qbArrayGet(root, ...indices) {
+  return _qbAssertArrayPath(root, ...indices);
+}
+
+function _eraseArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return [];
+}
+
+function _lbound(arr, dim) {
+  return _arrayBoundsForDimension(arr, dim).lower;
+}
+
+function _ubound(arr, dim) {
+  return _arrayBoundsForDimension(arr, dim).upper;
 }
 
 // Screen position tracking (for LOCATE)
@@ -2964,6 +3261,70 @@ function _qbNumber(value) {
   }
   return numeric;
 }
+function _qbBooleanValue(value) {
+  return value ? -1 : 0;
+}
+function _qbCond(value) {
+  return _qbNumber(value) !== 0;
+}
+function _qbBitwiseOperand(value) {
+  return _qbBankersRound(_qbNumber(value)) | 0;
+}
+function _qbPrepareComparison(left, right) {
+  const leftIsString = typeof left === 'string';
+  const rightIsString = typeof right === 'string';
+
+  if (leftIsString || rightIsString) {
+    if (!leftIsString || !rightIsString) {
+      throw _qbMakeRuntimeError(13, undefined, _currentSourceLine);
+    }
+
+    return {
+      kind: 'string',
+      left,
+      right,
+    };
+  }
+
+  return {
+    kind: 'number',
+    left: _qbNumber(left),
+    right: _qbNumber(right),
+  };
+}
+function _qbStringEq(left, right) {
+  return left.length === right.length && left === right;
+}
+function _qbStringLt(left, right) {
+  for (let index = 0; index < left.length; index++) {
+    const leftCode = left.charCodeAt(index);
+    if (index >= right.length) {
+      return false;
+    }
+    const rightCode = right.charCodeAt(index);
+    if (leftCode < rightCode) return true;
+    if (leftCode > rightCode) return false;
+  }
+  return false;
+}
+function _qbStringGt(left, right) {
+  for (let index = 0; index < left.length; index++) {
+    const leftCode = left.charCodeAt(index);
+    if (index >= right.length) {
+      return true;
+    }
+    const rightCode = right.charCodeAt(index);
+    if (leftCode > rightCode) return true;
+    if (leftCode < rightCode) return false;
+  }
+  return false;
+}
+function _qbFinite(value) {
+  if (!Number.isFinite(value)) {
+    throw _qbMakeRuntimeError(6, undefined, _currentSourceLine);
+  }
+  return value;
+}
 function _qbBankersRound(value) {
   const numeric = _qbNumber(value);
   const sign = numeric < 0 ? -1 : 1;
@@ -3044,6 +3405,66 @@ function _csng(value) {
 }
 function _cdbl(value) {
   return _qbNumber(value);
+}
+function _qbEq(left, right) {
+  const comparison = _qbPrepareComparison(left, right);
+  return comparison.kind === 'string'
+    ? _qbBooleanValue(_qbStringEq(comparison.left, comparison.right))
+    : _qbBooleanValue(comparison.left === comparison.right);
+}
+function _qbNe(left, right) {
+  return _qbBooleanValue(_qbEq(left, right) === 0);
+}
+function _qbLt(left, right) {
+  const comparison = _qbPrepareComparison(left, right);
+  return comparison.kind === 'string'
+    ? _qbBooleanValue(_qbStringLt(comparison.left, comparison.right))
+    : _qbBooleanValue(comparison.left < comparison.right);
+}
+function _qbLe(left, right) {
+  return _qbBooleanValue(_qbLt(left, right) !== 0 || _qbEq(left, right) !== 0);
+}
+function _qbGt(left, right) {
+  const comparison = _qbPrepareComparison(left, right);
+  return comparison.kind === 'string'
+    ? _qbBooleanValue(_qbStringGt(comparison.left, comparison.right))
+    : _qbBooleanValue(comparison.left > comparison.right);
+}
+function _qbGe(left, right) {
+  return _qbBooleanValue(_qbGt(left, right) !== 0 || _qbEq(left, right) !== 0);
+}
+function _qbNot(value) {
+  return ~_qbBitwiseOperand(value);
+}
+function _qbAnd(left, right) {
+  return _qbBitwiseOperand(left) & _qbBitwiseOperand(right);
+}
+function _qbOr(left, right) {
+  return _qbBitwiseOperand(left) | _qbBitwiseOperand(right);
+}
+function _qbXor(left, right) {
+  return _qbBitwiseOperand(left) ^ _qbBitwiseOperand(right);
+}
+function _qbEqv(left, right) {
+  return ~(_qbBitwiseOperand(left) ^ _qbBitwiseOperand(right));
+}
+function _qbImp(left, right) {
+  return (~_qbBitwiseOperand(left)) | _qbBitwiseOperand(right);
+}
+function _qbAdd(left, right) {
+  if (typeof left === 'string' || typeof right === 'string') {
+    return String(left ?? '') + String(right ?? '');
+  }
+  return _qbFinite(_qbNumber(left) + _qbNumber(right));
+}
+function _qbSub(left, right) {
+  return _qbFinite(_qbNumber(left) - _qbNumber(right));
+}
+function _qbMul(left, right) {
+  return _qbFinite(_qbNumber(left) * _qbNumber(right));
+}
+function _qbPow(left, right) {
+  return _qbFinite(Math.pow(_qbNumber(left), _qbNumber(right)));
 }
 function _val(value) {
   const source = String(value ?? '').trimStart();

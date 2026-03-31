@@ -1152,7 +1152,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
 QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions natively for testing within the editor.
 
-The CRT runtime in `1.5.6` also keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, routes conversion helpers such as `CINT` and `VAL` through QB-aware runtime logic, coerces typed assignments more like QB64, and surfaces file/runtime failures back in the editor with a direct jump to the most likely failing line.
+The CRT runtime in `1.5.6` also keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, routes conversion helpers such as `CINT` and `VAL` through QB-aware runtime logic, restores `DEFINT/DEFLNG/DEFSNG/DEFDBL/DEFSTR` defaults for implicit variables and function results, respects classic `% ! # & $` suffix typing with safe JavaScript code generation, preserves `OPTION BASE`, `LBOUND`, `UBOUND`, explicit lower array bounds, `ERASE`, auto-dimensioned arrays, and `REDIM PRESERVE` behavior more like QB64, routes mixed-type arithmetic plus relational/logical operators through QB-aware runtime helpers so overflow, type mismatches, `CASE IS`, and `-1/0` boolean results surface more like QB64, evaluates `IF/WHILE/DO` conditions through QB-aware numeric checks instead of raw JS truthiness, keeps `ERL` aligned when condition evaluation itself fails, coerces typed assignments more accurately, and surfaces file/runtime failures back in the editor with a direct jump to the most likely failing line.
 
 **Compatibility Overview**
 
@@ -1160,7 +1160,7 @@ The CRT runtime in `1.5.6` also keeps track of the active source line, preserves
 | ---------------- | ------------- | --------------------------------------------------------------------------------------------------- |
 | **Core I/O**     | ✅ 100%       | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`                                       |
 | **Control Flow** | ✅ 100%       | `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT`, `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`            |
-| **Math & Logic** | ✅ 95%        | `ABS`, `INT`, `FIX`, `SIN`, `SQR`, `LOG`, `EXP`, `RND`, `MOD`, `_PI`, `_ROUND`                      |
+| **Math & Logic** | ✅ 95%        | `ABS`, `INT`, `FIX`, `SIN`, `SQR`, `LOG`, `EXP`, `RND`, `MOD`, `AND`, `OR`, `XOR`, `EQV`, `IMP`     |
 | **Strings**      | ✅ 100%       | `LEFT$`, `MID$`, `RIGHT$`, `LEN`, `UCASE$`, `LTRIM$`, `INSTR`, `CHR$`, `STRING * N`                 |
 | **File I/O**     | ✅ 95%        | `OPEN`, `PRINT#`, `INPUT#`, `GET`, `PUT`, `FREEFILE`, `LOCK`, `UNLOCK`, `FILES`, `KILL`, `NAME`     |
 | **Mem / Bin**    | ✅ 90%        | `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `MKI$`, `CVI`  |

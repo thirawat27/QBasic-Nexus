@@ -992,6 +992,125 @@ recovery:
         expectedOutput: ['4.25']
     },
     {
+        name: 'DEFINT applies to implicit variables and DIM declarations without AS',
+        code:
+            'DEFINT A-Z\n' +
+            'answer = 2.5\n' +
+            'DIM total\n' +
+            'total = 3.5\n' +
+            'PRINT answer\n' +
+            'PRINT total\n',
+        shouldWork: true,
+        expectedOutput: ['2', '4']
+    },
+    {
+        name: 'DEFSTR coerces implicit string variables and DIM declarations without AS',
+        code:
+            'DEFSTR A-Z\n' +
+            'alpha = 42\n' +
+            'DIM beta\n' +
+            'beta = 7\n' +
+            'PRINT alpha + "!"\n' +
+            'PRINT beta + "?"\n',
+        shouldWork: true,
+        expectedOutput: ['42!', '7?']
+    },
+    {
+        name: 'Suffix variables % ! # & compile and coerce with QB semantics',
+        code:
+            'a% = 2.5\n' +
+            'b! = "3.25"\n' +
+            'c# = 4\n' +
+            'd& = 5.5\n' +
+            'PRINT a%\n' +
+            'PRINT b! + 1\n' +
+            'PRINT c# / 2\n' +
+            'PRINT d&\n',
+        shouldWork: true,
+        expectedOutput: ['2', '4.25', '2', '6']
+    },
+    {
+        name: 'Suffix function names compile and return through safe JS storage names',
+        code:
+            'FUNCTION Add%(a, b)\n' +
+            '    Add% = a + b\n' +
+            'END FUNCTION\n' +
+            'PRINT Add%(1.5, 2.5)\n',
+        shouldWork: true,
+        expectedOutput: ['4']
+    },
+    {
+        name: 'FUNCTION results respect default DEFINT coercion',
+        code:
+            'DEFINT A-Z\n' +
+            'FUNCTION Total\n' +
+            '    Total = 2.5\n' +
+            'END FUNCTION\n' +
+            'PRINT Total()\n',
+        shouldWork: true,
+        expectedOutput: ['2']
+    },
+    {
+        name: 'OPTION BASE 1 shifts default array lower bounds and keeps LBOUND UBOUND in sync',
+        code:
+            'OPTION BASE 1\n' +
+            'DIM values(3)\n' +
+            'values(1) = 7\n' +
+            'values(3) = 9\n' +
+            'PRINT LBOUND(values)\n' +
+            'PRINT UBOUND(values)\n' +
+            'PRINT values(1)\n' +
+            'PRINT values(3)\n',
+        shouldWork: true,
+        expectedOutput: ['1', '3', '7', '9']
+    },
+    {
+        name: 'Explicit array bounds support non-zero and negative lower indexes',
+        code:
+            'DIM offsets(-2 TO 1)\n' +
+            'offsets(-2) = 10\n' +
+            'offsets(1) = 20\n' +
+            'PRINT LBOUND(offsets)\n' +
+            'PRINT UBOUND(offsets)\n' +
+            'PRINT offsets(-2)\n' +
+            'PRINT offsets(1)\n',
+        shouldWork: true,
+        expectedOutput: ['-2', '1', '10', '20']
+    },
+    {
+        name: 'REDIM PRESERVE keeps overlapping values with OPTION BASE arrays',
+        code:
+            'OPTION BASE 1\n' +
+            'DIM items(3)\n' +
+            'FOR i = 1 TO 3\n' +
+            '    items(i) = i * 10\n' +
+            'NEXT i\n' +
+            'REDIM PRESERVE items(5)\n' +
+            'PRINT LBOUND(items)\n' +
+            'PRINT UBOUND(items)\n' +
+            'PRINT items(1)\n' +
+            'PRINT items(3)\n' +
+            'PRINT items(5)\n',
+        shouldWork: true,
+        expectedOutput: ['1', '5', '10', '30', '0']
+    },
+    {
+        name: 'Auto-declared arrays honor OPTION BASE and rebuild correctly after ERASE',
+        code:
+            'OPTION BASE 1\n' +
+            'scores(3) = 9\n' +
+            'PRINT LBOUND(scores)\n' +
+            'PRINT UBOUND(scores)\n' +
+            'PRINT scores(1)\n' +
+            'ERASE scores\n' +
+            'scores(4) = 11\n' +
+            'PRINT LBOUND(scores)\n' +
+            'PRINT UBOUND(scores)\n' +
+            'PRINT scores(4)\n',
+        shouldWork: true,
+        expectedOutput: ['1', '3', '0', '1', '4', '11']
+    },
+    {
         name: 'TYPE assignments copy coerced fields instead of aliasing the source object',
         code:
             'TYPE Counter\n' +
@@ -1012,6 +1131,104 @@ recovery:
         code: 'PRINT VAL("&HFF")\nPRINT VAL("1.5D2")\nPRINT VAL("ABC")',
         shouldWork: true,
         expectedOutput: ['255', '150', '0']
+    },
+    {
+        name: 'Invalid string arithmetic raises QB type mismatch',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'PRINT "ABC" - 1\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n',
+        shouldWork: true,
+        expectedOutput: ['13', '2']
+    },
+    {
+        name: 'Arithmetic overflow surfaces QB error 6 from the expression path',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'PRINT 10 ^ 1000\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n',
+        shouldWork: true,
+        expectedOutput: ['6', '2']
+    },
+    {
+        name: 'Relational operators return QB-style -1 and 0 for numeric and string comparisons',
+        code:
+            'PRINT 5 >= 5\n' +
+            'PRINT 5 < 5\n' +
+            'PRINT "abc" = "abc"\n' +
+            'PRINT "abc" = "abcd"\n' +
+            'PRINT "abc" < "abd"\n' +
+            'PRINT "abc" < "abcd"\n' +
+            'PRINT "abcd" > "abc"\n',
+        shouldWork: true,
+        expectedOutput: ['-1', '0', '-1', '0', '-1', '0', '-1']
+    },
+    {
+        name: 'Logical operators use QB bitwise semantics for boolean and numeric expressions',
+        code:
+            'PRINT NOT 0\n' +
+            'PRINT 5 AND 3\n' +
+            'PRINT 5 OR 2\n' +
+            'PRINT 5 XOR 3\n' +
+            'PRINT (2 < 3) AND (4 < 5)\n' +
+            'PRINT (2 < 1) OR (4 < 5)\n' +
+            'PRINT NOT (2 < 3)\n',
+        shouldWork: true,
+        expectedOutput: ['-1', '1', '7', '6', '-1', '-1', '0']
+    },
+    {
+        name: 'SELECT CASE uses QB-style comparisons for exact matches and string ranges',
+        code:
+            'SELECT CASE "abc"\n' +
+            'CASE IS < "abd"\n' +
+            '    PRINT "lt"\n' +
+            'CASE ELSE\n' +
+            '    PRINT "bad"\n' +
+            'END SELECT\n' +
+            'SELECT CASE "abc"\n' +
+            'CASE "abcd"\n' +
+            '    PRINT "bad"\n' +
+            'CASE ELSE\n' +
+            '    PRINT "fallback"\n' +
+            'END SELECT\n',
+        shouldWork: true,
+        expectedOutput: ['lt', 'fallback']
+    },
+    {
+        name: 'IF conditions reject string truthiness and raise QB type mismatch',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'IF "abc" THEN PRINT "bad"\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n',
+        shouldWork: true,
+        expectedOutput: ['13', '2']
+    },
+    {
+        name: 'DO UNTIL conditions reject string truthiness and raise QB type mismatch',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'DO UNTIL "abc"\n' +
+            '    PRINT "bad"\n' +
+            'LOOP\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n',
+        shouldWork: true,
+        expectedOutput: ['13', '2']
     },
     {
         name: 'OPEN rejects invalid file numbers with QB error 64',

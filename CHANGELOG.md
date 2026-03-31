@@ -14,14 +14,15 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 ### 🐛 Bug Fixes & Improvements
 
 - **QB64-Like Runtime Errors**: Unified runtime error handling so `ON ERROR`, `ERR`, `ERL`, `ERROR`, `RESUME`, divide-by-zero, and integer-division behavior align more closely with QB64 semantics.
-- **QB64-Like Numeric and File I/O Semantics**: Routed `CINT`, `CLNG`, `CSNG`, `CDBL`, `INT`, `FIX`, and `VAL` through QB-aware runtime helpers, added overflow checks, coerced typed assignments and TYPE copies more like QB64, and tightened file-number/mode/EOF handling to surface QB-style error codes earlier.
+- **QB64-Like Numeric, Array, and File I/O Semantics**: Routed `CINT`, `CLNG`, `CSNG`, `CDBL`, `INT`, `FIX`, and `VAL` through QB-aware runtime helpers, added overflow checks, made `DEFINT/DEFLNG/DEFSNG/DEFDBL/DEFSTR` affect implicit variables and function results again, restored `% ! # & $` suffix behavior for type inference and safe code generation, added `OPTION BASE`, `LBOUND`, `UBOUND`, explicit lower array bounds, `ERASE`, auto-dimensioned arrays, invalid-bound diagnostics, and `REDIM PRESERVE` metadata handling, routed mixed-type arithmetic, relational operators, logical operators, and control-flow condition checks through QB-aware helpers so `-1/0` boolean values, `CASE IS`, condition type mismatches, `ERL`, and overflow report QB-style behavior earlier, coerced typed assignments and TYPE copies more like QB64, and tightened file-number/mode/EOF handling to surface QB-style error codes earlier.
 - **Cross-Platform Executable Flow**: Normalized executable paths, permissions, and terminal launch behavior across Windows, macOS, and Linux for both QB64 and internal compiler builds.
 - **Safer Internal Packaging Config**: Internal target strings are now canonicalized and validated up front, common aliases are accepted automatically, output folders reject file-path mistakes early, and macOS arm64 builds surface a signing note before distribution.
 - **Extension Host Stability**: Reduced typing stalls and workspace rescans with worker-backed linting, versioned semantic-token caching, incremental TODO/decorator refresh, lazy analysis caches, and background workspace warmup.
+- **Tinybench Benchmark Harness**: Swapped the ad-hoc benchmark loops for a shared `tinybench`-powered harness so compiler and editor benchmarks now report consistent latency, throughput, and sample counts from the same measurement engine.
 
 ### ✅ Quality Assurance
 
-- Added regression coverage for runtime error propagation, cross-target packaging, output-directory resolution, TODO scanning, optimization managers, and workspace invalidation flows.
+- Added regression coverage for runtime error propagation, array bound semantics, auto-dimensioned arrays, invalid-bound diagnostics, relational/logical operator semantics, condition truthiness/ERL behavior, arithmetic overflow/type-mismatch paths, cross-target packaging, output-directory resolution, TODO scanning, optimization managers, and workspace invalidation flows.
 
 ### 📝 Documentation
 

@@ -376,7 +376,7 @@ _parseField() {
         });
 
         if (!this._isCurrentFunctionName(name)) {
-          this._emit(`if (typeof ${storageName} === "undefined") var ${name} = _fixedString("", ${length});`);
+          this._emit(`if (typeof ${storageName} === "undefined") var ${storageName} = _fixedString("", ${length});`);
         }
         this._emit(`${storageName} = _fixedString(${storageName}, ${length});`);
         fields.push(

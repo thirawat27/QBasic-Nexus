@@ -362,6 +362,162 @@ test('Typed assignments route through runtime coercion helpers', () => {
   }
 });
 
+test('DEFINT default types flow into implicit assignment coercion', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('DEFINT A-Z\nanswer = 2.5', 'web');
+
+  if (!code.includes('_coerceTypedValue({ kind: "scalar", typeName: "INTEGER" }, 2.5)')) {
+    throw new Error('Expected DEFINT implicit variables to reuse integer assignment coercion');
+  }
+});
+
+test('Suffix identifiers use safe storage names in generated code', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('a% = 2.5\nFUNCTION Add%(x)\nAdd% = x\nEND FUNCTION\nPRINT Add%(a%)', 'web');
+
+  if (!code.includes('var __qb_a_pct = 0;')) {
+    throw new Error('Expected suffix variables to compile through encoded JS storage names');
+  }
+
+  if (!code.includes('async function __qb_Add_pct(')) {
+    throw new Error('Expected suffix function names to compile through encoded JS storage names');
+  }
+});
+
+test('OPTION BASE and explicit bounds emit descriptor-aware array helpers', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    'OPTION BASE 1\nDIM values(3)\nDIM offsets(-2 TO 1)\nPRINT LBOUND(values)\nPRINT UBOUND(offsets)',
+    'web',
+  );
+
+  if (!code.includes('_makeArray(0, { lower: 1, upper: 3 })')) {
+    throw new Error('Expected OPTION BASE arrays to emit lower and upper bound descriptors');
+  }
+
+  if (!code.includes('_makeArray(0, { lower: (-2), upper: 1 })')) {
+    throw new Error('Expected explicit array bounds to preserve custom lower indexes');
+  }
+
+  if (!code.includes('(_lbound)(values)') || !code.includes('(_ubound)(offsets)')) {
+    throw new Error('Expected LBOUND and UBOUND to route through runtime bound helpers');
+  }
+});
+
+test('REDIM PRESERVE emits the shared array-preserve runtime helper', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('OPTION BASE 1\nDIM items(3)\nREDIM PRESERVE items(5)', 'web');
+
+  if (!code.includes('_redimArrayPreserve(items, 0, { lower: 1, upper: 5 })')) {
+    throw new Error('Expected REDIM PRESERVE to route through the runtime preserve helper');
+  }
+});
+
+test('Auto-declared arrays route through dynamic bound helpers and ERASE reset helper', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('OPTION BASE 1\nscores(3) = 9\nERASE scores\nscores(4) = 11', 'web');
+
+  if (!code.includes('_autodimArray(0, 1, 3)')) {
+    throw new Error('Expected undeclared array assignments to auto-dimension with the active OPTION BASE');
+  }
+
+  if (!code.includes('scores = _eraseArray(scores);')) {
+    throw new Error('Expected ERASE to route through the shared array reset helper');
+  }
+
+  if (!code.includes('_ensureAutoArrayBounds(scores, 0, 1, 4)')) {
+    throw new Error('Expected rebuilt auto-arrays to reuse the shared bound-expansion helper');
+  }
+});
+
+test('Arithmetic operators route through QB-aware runtime helpers', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    'a = 1\nb = 2\nPRINT a + b\nPRINT a - b\nPRINT a * b\nPRINT a ^ b\nPRINT a AND b\nPRINT a XOR b\nPRINT NOT a\nPRINT a = b',
+    'web',
+  );
+
+  if (!code.includes('_qbAdd(')) {
+    throw new Error('Expected addition to route through the QB-aware addition helper');
+  }
+
+  if (!code.includes('_qbSub(')) {
+    throw new Error('Expected subtraction to route through the QB-aware subtraction helper');
+  }
+
+  if (!code.includes('_qbMul(')) {
+    throw new Error('Expected multiplication to route through the QB-aware multiplication helper');
+  }
+
+  if (!code.includes('_qbPow(')) {
+    throw new Error('Expected exponentiation to route through the QB-aware power helper');
+  }
+
+  if (!code.includes('_qbAnd(') || !code.includes('_qbXor(') || !code.includes('_qbNot(')) {
+    throw new Error('Expected logical operators to route through QB-aware bitwise helpers');
+  }
+
+  if (!code.includes('_qbEq(')) {
+    throw new Error('Expected relational operators to route through QB-aware comparison helpers');
+  }
+});
+
+test('SELECT CASE routes comparisons through QB-aware helper expressions', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    'SELECT CASE score\nCASE 1 TO 5\nPRINT "range"\nCASE IS >= 10\nPRINT "high"\nCASE 7\nPRINT "exact"\nEND SELECT',
+    'web',
+  );
+
+  if (!code.includes('_qbAnd(_qbGe(_select_')) {
+    throw new Error('Expected SELECT CASE ranges to use the shared QB comparison helpers');
+  }
+
+  if (!code.includes('_qbGe(_select_')) {
+    throw new Error('Expected CASE IS comparisons to use the shared QB comparison helpers');
+  }
+
+  if (!code.includes('_qbEq(_select_')) {
+    throw new Error('Expected exact CASE matches to use the shared QB comparison helpers');
+  }
+});
+
+test('Control-flow conditions route through QB-aware condition checks', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    'IF flag THEN PRINT 1\nWHILE flag\nWEND\nDO UNTIL flag\nLOOP',
+    'web',
+  );
+
+  if (!code.includes('_qbCond(flag)')) {
+    throw new Error('Expected IF and WHILE conditions to route through QB-aware condition checks');
+  }
+
+  if (!code.includes('!(_qbCond(flag))')) {
+    throw new Error('Expected UNTIL conditions to negate the shared QB-aware condition check');
+  }
+});
+
+test('Invalid literal array bounds are rejected during transpilation', () => {
+  const t = new InternalTranspiler();
+  let threw = false;
+
+  try {
+    t.transpile('DIM bad(3 TO 1)', 'web');
+  } catch (error) {
+    threw = true;
+    if (!String(error.message).includes('lower bound cannot exceed upper bound')) {
+      throw new Error(`Unexpected invalid-bound error: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  if (!threw) {
+    throw new Error('Expected invalid literal array bounds to fail transpilation');
+  }
+});
+
 test('Transpile expands $INCLUDE relative to sourcePath', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbnx-preprocess-'));
 

@@ -13,6 +13,7 @@ const {
   makeDimRegex,
   makeIdentifierRegex,
 } = require('../src/providers/patterns');
+const { printStats, runBenchmarkTasks } = require('./benchmarkHarness');
 
 const testPrograms = {
   small: `
@@ -69,34 +70,6 @@ const testPrograms = {
     `;
   }).join('\n'),
 };
-
-function summarize(values) {
-  const sorted = [...values].sort((a, b) => a - b);
-  return {
-    min: sorted[0],
-    max: sorted[sorted.length - 1],
-    median: sorted[Math.floor(sorted.length / 2)],
-    mean: values.reduce((sum, value) => sum + value, 0) / values.length,
-    p95: sorted[Math.floor(sorted.length * 0.95)],
-  };
-}
-
-function benchmark(fn, iterations = 75) {
-  const timings = [];
-  let checksum = 0;
-
-  for (let i = 0; i < iterations; i++) {
-    const start = process.hrtime.bigint();
-    checksum += fn();
-    const elapsedMs = Number(process.hrtime.bigint() - start) / 1_000_000;
-    timings.push(elapsedMs);
-  }
-
-  return {
-    ...summarize(timings),
-    checksum,
-  };
-}
 
 function legacyStatusBar(text) {
   const codeLines = text.split('\n').filter((line) => {
@@ -258,16 +231,39 @@ function createMockDocument(name, source) {
   };
 }
 
-function printStats(label, stats) {
-  console.log(label);
-  console.log(`  Mean:   ${stats.mean.toFixed(3)} ms`);
-  console.log(`  Median: ${stats.median.toFixed(3)} ms`);
-  console.log(`  Min:    ${stats.min.toFixed(3)} ms`);
-  console.log(`  Max:    ${stats.max.toFixed(3)} ms`);
-  console.log(`  P95:    ${stats.p95.toFixed(3)} ms`);
+async function benchmarkScenario(source, identifier, time = 150) {
+  const document = createMockDocument('bench', source);
+  invalidateDocumentAnalysis(document.uri);
+  cachedDocumentCycle(document, identifier);
+
+  const tasks = await runBenchmarkTasks(
+    'editor',
+    [
+      {
+        name: 'Legacy rescans',
+        fn: () => legacyEditorCycle(source, identifier),
+      },
+      {
+        name: 'Shared analysis (cold)',
+        fn: () => sharedAnalysisCycle(source, identifier),
+      },
+      {
+        name: 'Shared analysis cache (warm)',
+        fn: () => cachedDocumentCycle(document, identifier),
+      },
+    ],
+    { time },
+  );
+
+  invalidateDocumentAnalysis(document.uri);
+  return {
+    legacy: tasks.find((task) => task.name === 'Legacy rescans'),
+    shared: tasks.find((task) => task.name === 'Shared analysis (cold)'),
+    cached: tasks.find((task) => task.name === 'Shared analysis cache (warm)'),
+  };
 }
 
-function runBenchmarks() {
+async function runBenchmarks() {
   console.log('🚀 QBasic Nexus Editor Performance Benchmark\n');
   console.log('='.repeat(70));
 
@@ -277,30 +273,14 @@ function runBenchmarks() {
     console.log(`\n📊 Testing ${name.toUpperCase()} editor workload (${source.length} chars)`);
     console.log('-'.repeat(70));
 
-    const legacyStats = benchmark(
-      () => legacyEditorCycle(source, targetIdentifier),
-      75,
-    );
-    const sharedStats = benchmark(
-      () => sharedAnalysisCycle(source, targetIdentifier),
-      75,
-    );
+    const stats = await benchmarkScenario(source, targetIdentifier, 150);
 
-    const document = createMockDocument(name, source);
-    invalidateDocumentAnalysis(document.uri);
-    cachedDocumentCycle(document, targetIdentifier);
-    const cachedStats = benchmark(
-      () => cachedDocumentCycle(document, targetIdentifier),
-      150,
-    );
-    invalidateDocumentAnalysis(document.uri);
+    printStats('\nLegacy Rescans:', stats.legacy);
+    printStats('\nShared Analysis (cold):', stats.shared);
+    printStats('\nShared Analysis Cache (warm):', stats.cached);
 
-    printStats('\nLegacy Rescans:', legacyStats);
-    printStats('\nShared Analysis (cold):', sharedStats);
-    printStats('\nShared Analysis Cache (warm):', cachedStats);
-
-    const coldSpeedup = legacyStats.mean / sharedStats.mean;
-    const warmSpeedup = legacyStats.mean / cachedStats.mean;
+    const coldSpeedup = stats.legacy.mean / stats.shared.mean;
+    const warmSpeedup = stats.legacy.mean / stats.cached.mean;
     console.log(`\n⚡ Cold-path speedup: ${coldSpeedup.toFixed(2)}x`);
     console.log(`⚡ Warm-path speedup: ${warmSpeedup.toFixed(2)}x`);
   }
@@ -310,7 +290,10 @@ function runBenchmarks() {
 }
 
 if (require.main === module) {
-  runBenchmarks();
+  runBenchmarks().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
 
-module.exports = { benchmark, runBenchmarks };
+module.exports = { benchmarkScenario, runBenchmarks };

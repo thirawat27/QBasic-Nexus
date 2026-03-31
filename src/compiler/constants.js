@@ -36,7 +36,7 @@ const KEYWORDS = new Set([
     // Control Flow
     'IF', 'THEN', 'ELSE', 'ELSEIF', 'END', 'SELECT', 'CASE',
     'FOR', 'TO', 'STEP', 'NEXT', 'DO', 'LOOP', 'WHILE', 'WEND', 'UNTIL',
-    'EXIT', 'GOTO', 'GOSUB', 'RETURN', 'ON', 'STOP', 'SYSTEM', 'RUN',
+    'EXIT', 'GOTO', 'GOSUB', 'RETURN', 'ON', 'STOP', 'SYSTEM', 'RUN', 'IS',
     'CHAIN', 'COMMON', 'SLEEP', 'CONTINUE',
     
     // Procedures
@@ -266,8 +266,8 @@ const BUILTIN_FUNCS = Object.freeze({
     '_ARCCOT': '(x => Math.PI / 2 - Math.atan(x))',
     
     // ========== Array Functions ==========
-    'LBOUND': '((arr, dim) => 0)',
-    'UBOUND': '((arr, dim) => arr.length - 1)',
+    'LBOUND': '_lbound',
+    'UBOUND': '_ubound',
     
     // ========== System Functions ==========
     'ENVIRON$': '_environ$',
