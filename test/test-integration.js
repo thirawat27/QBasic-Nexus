@@ -327,8 +327,16 @@ test('Web transpile injects source-line tracking for CRT runtime errors', () => 
     throw new Error('Expected generated code to track later source lines');
   }
 
-  if (!code.includes('_runtime.error(e.message, { line: _currentSourceLine });')) {
-    throw new Error('Expected CRT runtime errors to include the current source line');
+  if (!code.includes('const _runtimeError = _qbNormalizeRuntimeError(e, _currentSourceLine);')) {
+    throw new Error('Expected CRT runtime errors to normalize QB metadata before reporting');
+  }
+
+  if (!code.includes('line: _runtimeLine')) {
+    throw new Error('Expected CRT runtime errors to report the normalized source line');
+  }
+
+  if (!code.includes('throw _qbMakeRuntimeError(5, undefined, _currentSourceLine);')) {
+    throw new Error('Expected ERROR n statements to emit QB-aware runtime errors');
   }
 });
 

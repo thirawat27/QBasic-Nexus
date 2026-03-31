@@ -8,7 +8,7 @@
  *  - Pending-version guard: skips re-scheduling for the same version
  *  - Lint result is compared against previous to avoid redundant VS Code
  *    diagnostic updates (reduces UI repaint pressure)
- *  - Singleton transpiler reused across all lint cycles (avoids re-creation)
+ *  - Lint execution can run inside a shared worker thread with safe fallback
  *  - Uses IncrementalTracker from cache.js for future incremental expansion
  *  - Cancel-all on deactivate() via dispose()
  */
@@ -16,7 +16,7 @@
 'use strict';
 
 const vscode = require('vscode');
-const InternalTranspiler = require('../compiler/parser');
+const { getLintWorkerClient } = require('./LintWorkerClient');
 
 /**
  * Per-document linting state.
@@ -36,9 +36,6 @@ class IncrementalLinter {
 
     /** @type {Map<string, NodeJS.Timeout>} */
     this._pendingTimers = new Map();
-
-    // Singleton transpiler reused across lint cycles (avoids object creation overhead)
-    this._transpiler = new InternalTranspiler();
   }
 
   /**
@@ -53,7 +50,7 @@ class IncrementalLinter {
     const key = document.uri.toString();
     const existing = this._pendingTimers.get(key);
     const state = this._getOrCreateState(key);
-    const newLength = document.getText().length;
+    const newLength = getDocumentLength(document);
     const lengthDiff = Math.abs((state.lastLength || 0) - newLength);
     state.lastLength = newLength;
 
@@ -88,7 +85,7 @@ class IncrementalLinter {
     const timerId = setTimeout(() => {
       this._pendingTimers.delete(key);
       if (state.pendingVersion !== scheduledVersion) return;
-      this._runLint(document, diagnosticCollection, state);
+      void this._runLint(document, diagnosticCollection, state, scheduledVersion);
     }, adaptiveDelay);
 
     this._pendingTimers.set(key, timerId);
@@ -111,6 +108,7 @@ class IncrementalLinter {
     for (const t of this._pendingTimers.values()) clearTimeout(t);
     this._pendingTimers.clear();
     this._docStates.clear();
+    getLintWorkerClient().dispose();
   }
 
   // ── Private ──────────────────────────────────────────────────────────────
@@ -129,20 +127,27 @@ class IncrementalLinter {
   }
 
   /**
-   * Run the actual lint using the shared transpiler singleton.
+   * Run the actual lint request for the scheduled document version.
    * @param {import('vscode').TextDocument} document
    * @param {import('vscode').DiagnosticCollection} collection
    * @param {DocState} state
    */
-  _runLint(document, collection, state) {
+  async _runLint(document, collection, state, scheduledVersion) {
     try {
       const source = document.getText();
       const lineCount = document.lineCount;
 
-      // Reuse transpiler instance (avoids object creation overhead)
-      const errors = this._transpiler.lint(source, {
+      const errors = await getLintWorkerClient().lint(source, {
         sourcePath: document.uri.fsPath,
       });
+
+      if (
+        document.version !== scheduledVersion ||
+        (state.pendingVersion !== null &&
+          state.pendingVersion !== scheduledVersion)
+      ) {
+        return;
+      }
 
       const diagnostics = errors.map((err) => {
         const line = Math.max(0, Math.min(err.line, lineCount - 1));
@@ -176,14 +181,39 @@ class IncrementalLinter {
         collection.set(document.uri, diagnostics);
       }
 
-      state.lastLintVersion = document.version;
-      state.pendingVersion = null;
+      state.lastLintVersion = scheduledVersion;
+      if (state.pendingVersion === scheduledVersion) {
+        state.pendingVersion = null;
+      }
     } catch (err) {
       // Never let linting crash the extension
       console.error('[IncrementalLinter] Error:', err.message);
-      state.pendingVersion = null;
+      if (state.pendingVersion === scheduledVersion) {
+        state.pendingVersion = null;
+      }
     }
   }
+}
+
+function getDocumentLength(document) {
+  if (
+    document &&
+    typeof document.offsetAt === 'function' &&
+    typeof document.lineAt === 'function' &&
+    document.lineCount > 0
+  ) {
+    const lastLineNumber = document.lineCount - 1;
+    const lastLine = document.lineAt(lastLineNumber);
+    return document.offsetAt(
+      new vscode.Position(lastLineNumber, lastLine.text.length),
+    );
+  }
+
+  if (!document || typeof document.getText !== 'function') {
+    return 0;
+  }
+
+  return document.getText().length;
 }
 
 // Severity lookup — maps directly to vscode enum

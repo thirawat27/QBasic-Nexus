@@ -87,8 +87,9 @@ function createVscodeMock() {
     'alpha.bas': 'REM TODO: write docs',
     'beta.bas': 'REM FIXME: broken path',
   };
+  let readCount = 0;
 
-  return {
+  const vscodeMock = {
     TreeItem,
     ThemeIcon,
     ThemeColor,
@@ -109,6 +110,7 @@ function createVscodeMock() {
       },
       fs: {
         async readFile(file) {
+          readCount++;
           return Buffer.from(fileContents[file.fsPath] || '', 'utf8');
         },
       },
@@ -117,6 +119,15 @@ function createVscodeMock() {
       },
     },
   };
+
+  vscodeMock.__fileContents = fileContents;
+  vscodeMock.__stats = {
+    get readCount() {
+      return readCount;
+    },
+  };
+
+  return vscodeMock;
 }
 
 function loadTodoProvider() {
@@ -132,14 +143,17 @@ function loadTodoProvider() {
   delete require.cache[modulePath];
 
   try {
-    return require(modulePath);
+    return {
+      exports: require(modulePath),
+      vscodeMock,
+    };
   } finally {
     Module._load = originalLoad;
   }
 }
 
 test('TodoProvider scans all workspace folders without duplicate files', async () => {
-  const { QBasicTodoProvider } = loadTodoProvider();
+  const { exports: { QBasicTodoProvider } } = loadTodoProvider();
   const provider = new QBasicTodoProvider();
 
   await provider.scanWorkspace();
@@ -150,13 +164,39 @@ test('TodoProvider scans all workspace folders without duplicate files', async (
 });
 
 test('TodoProvider includes HACK entries and keeps priority ordering', async () => {
-  const { QBasicTodoProvider } = loadTodoProvider();
+  const { exports: { QBasicTodoProvider } } = loadTodoProvider();
   const provider = new QBasicTodoProvider();
 
   await provider.scanWorkspace();
 
   assert(provider.todos.some((todo) => todo.keyword === 'HACK'), 'HACK entries should be included');
   assert(provider.todos[0].keyword === 'FIXME' || provider.todos[0].keyword === 'HACK', 'Critical todo types should sort before TODO');
+});
+
+test('TodoProvider reuses cached todo results between tree expansions', async () => {
+  const { exports: { QBasicTodoProvider }, vscodeMock } = loadTodoProvider();
+  const provider = new QBasicTodoProvider();
+
+  await provider.getChildren();
+  const initialReads = vscodeMock.__stats.readCount;
+  await provider.getChildren();
+
+  assert(vscodeMock.__stats.readCount === initialReads, 'Expected cached getChildren() to avoid re-reading files');
+});
+
+test('TodoProvider refreshes only the changed file after initial scan', async () => {
+  const { exports: { QBasicTodoProvider }, vscodeMock } = loadTodoProvider();
+  const provider = new QBasicTodoProvider();
+
+  await provider.getChildren();
+  const initialReads = vscodeMock.__stats.readCount;
+
+  vscodeMock.__fileContents['alpha.bas'] = 'REM TODO: rewritten docs';
+  provider.refresh({ fsPath: 'alpha.bas', toString: () => 'alpha.bas' });
+  await provider.getChildren();
+
+  assert(vscodeMock.__stats.readCount === initialReads + 1, 'Expected refresh(target) to rescan only one file');
+  assert(provider.todos.some((todo) => todo.label.includes('rewritten docs')), 'Updated file contents should be reflected in TODO items');
 });
 
 async function run() {

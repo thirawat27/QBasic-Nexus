@@ -34,11 +34,11 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 
 3. **Verify Setup**
    ```bash
-   npm run lint           # Should pass with 0 errors
-   npm run test:compiler  # Should pass 10/10 tests
-   npm run test:variables # Should pass 52/52 tests
-   npm run test:features  # Should pass 21/21 tests
-   npm test              # Should pass all 134 tests
+   npm run lint           # Lint the project
+   npm run test:compiler  # Compiler smoke suite
+   npm run test:variables # Runtime behavior suite
+   npm run test:features  # Editor feature suite
+   npm test               # Full CI-equivalent suite (includes pretest lint)
    ```
 
 4. **Open in VS Code**
@@ -74,13 +74,17 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 
 3. **Test Your Changes**
    ```bash
-   npm run lint              # Check code style (0 errors expected)
-   npm run test:compiler     # Run transpiler tests (10/10)
-   npm run test:variables    # Run variable tests (52/52)
-   npm run test:features     # Run feature tests (21/21)
-   npm run test:integration  # Run integration tests (47/47)
-   npm run test:autodetect   # Run autodetect tests (4/4)
-   npm test                  # Run all tests (134/134)
+   npm run lint              # Check code style
+   npm run test:compiler     # Run transpiler tests
+   npm run test:run          # Run compile-and-run smoke tests
+   npm run test:variables    # Run runtime behavior tests
+   npm run test:features     # Run editor feature tests
+   npm run test:integration  # Run compiler integration tests
+   npm run test:autodetect   # Run QB64 autodetect tests
+   npm run test:workspace    # Run multi-workspace analysis tests
+   npm run test:webview      # Run webview manager tests
+   npm run test:todo         # Run TODO provider tests
+   npm test                  # Run full suite (same command used in CI)
    npm run benchmark         # Run performance benchmarks (optional)
    ```
 
@@ -162,12 +166,16 @@ function testTranspiler() {
 
 ### Running Tests
 ```bash
-npm test                    # All tests (134 total)
-npm run test:compiler       # Transpiler tests (10 tests)
-npm run test:variables      # Variable tests (52 tests)
-npm run test:features       # Feature tests (21 tests)
-npm run test:integration    # Integration tests (47 tests)
-npm run test:autodetect     # Autodetect tests (4 tests)
+npm test                    # Full suite (includes lint via pretest)
+npm run test:compiler       # Transpiler tests
+npm run test:run            # Compile-and-run smoke tests
+npm run test:variables      # Runtime behavior tests
+npm run test:features       # Editor feature tests
+npm run test:integration    # Integration tests
+npm run test:autodetect     # Autodetect tests
+npm run test:workspace      # Workspace analysis tests
+npm run test:webview        # Webview manager tests
+npm run test:todo           # TODO provider tests
 npm run benchmark           # Performance benchmarks
 npm run test:all            # All tests + benchmarks
 ```
@@ -228,7 +236,7 @@ Brief description of changes
 ## Areas for Contribution
 
 ### High Priority
-- [ ] Increase test coverage (currently 134 tests)
+- [ ] Increase test coverage across compiler/runtime/editor suites
 - [ ] Add more interactive tutorials (currently 150 lessons)
 - [ ] Improve error messages and diagnostics
 - [ ] Performance optimizations (cache, linting)

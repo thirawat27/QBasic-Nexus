@@ -70,7 +70,9 @@ class QBasicHoverProvider {
 
     if (!range) return null;
 
-    const analysis = await workspaceAnalyzer.getWorkspaceAnalysis(document);
+    const analysis = await workspaceAnalyzer.getWorkspaceAnalysis(document, {
+      awaitWorkspace: false,
+    });
     const definition = findDefinitionInAnalysis(analysis, originalWord);
     if (!definition) {
       return null;

@@ -33,8 +33,16 @@ const QBasicSemanticTokensLegend = new vscode.SemanticTokensLegend(
   [...TOKEN_MODIFIERS],
 );
 
+const semanticTokenCache = new Map();
+
 class QBasicDocumentSemanticTokenProvider {
   provideDocumentSemanticTokens(document) {
+    const cacheKey = document.uri.toString();
+    const cached = semanticTokenCache.get(cacheKey);
+    if (cached && cached.version === document.version) {
+      return cached.tokens;
+    }
+
     const builder = new vscode.SemanticTokensBuilder(
       QBasicSemanticTokensLegend,
     );
@@ -57,11 +65,25 @@ class QBasicDocumentSemanticTokenProvider {
       );
     }
 
-    return builder.build();
+    const tokens = builder.build();
+    semanticTokenCache.set(cacheKey, {
+      version: document.version,
+      tokens,
+    });
+    return tokens;
   }
+}
+
+function invalidateSemanticTokenCache(uri) {
+  if (!uri) {
+    return;
+  }
+
+  semanticTokenCache.delete(typeof uri === 'string' ? uri : uri.toString());
 }
 
 module.exports = {
   QBasicDocumentSemanticTokenProvider,
   QBasicSemanticTokensLegend,
+  invalidateSemanticTokenCache,
 };

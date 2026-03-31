@@ -2,6 +2,27 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.6] - 2026-03-31
+
+### ✨ Features
+
+- **Cross-Target Internal Packaging**: Expanded the internal compiler so it can package `host`, `win-x64`, `linux-x64`, `macos-arm64`, or multi-target builds through `qbasic-nexus.internalTargets`, while skipping auto-run for non-host or multi-target outputs.
+- **Configurable Internal Output Folders**: Added `qbasic-nexus.internalOutputDir` so internal builds can emit packaged binaries into a dedicated folder instead of always writing beside the source file.
+
+### 🐛 Bug Fixes & Improvements
+
+- **QB64-Like Runtime Errors**: Unified runtime error handling so `ON ERROR`, `ERR`, `ERL`, `ERROR`, `RESUME`, divide-by-zero, and integer-division behavior align more closely with QB64 semantics.
+- **Cross-Platform Executable Flow**: Normalized executable paths, permissions, and terminal launch behavior across Windows, macOS, and Linux for both QB64 and internal compiler builds.
+- **Extension Host Stability**: Reduced typing stalls and workspace rescans with worker-backed linting, versioned semantic-token caching, incremental TODO/decorator refresh, lazy analysis caches, and background workspace warmup.
+
+### ✅ Quality Assurance
+
+- Added regression coverage for runtime error propagation, cross-target packaging, output-directory resolution, TODO scanning, optimization managers, and workspace invalidation flows.
+
+### 📝 Documentation
+
+- Refreshed `README.md` and `CONTRIBUTING.md` to document the new internal compiler targets/output settings and the current validation commands (`npm run lint`, `npm test`).
+
 ## [1.5.5] - 2026-03-20
 
 ### ✨ Features

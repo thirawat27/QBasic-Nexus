@@ -13,6 +13,7 @@ const state = {
   outputChannel: null,
   terminal: null,
   terminalCwd: null,
+  terminalKey: null,
   autoDetectedCompilerPath: null,
   diagnosticCollection: null,
   isCompiling: false,

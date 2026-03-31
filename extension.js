@@ -56,6 +56,7 @@ const {
   QBasicSignatureHelpProvider,
   QBasicDocumentSemanticTokenProvider,
   QBasicSemanticTokensLegend,
+  invalidateSemanticTokenCache,
   QBasicDocumentFormattingEditProvider,
   QBasicFoldingRangeProvider,
   QBasicDocumentHighlightProvider,
@@ -75,6 +76,11 @@ function getTutorialManager() {
   if (!_TutorialManager)
     _TutorialManager = require('./src/managers/TutorialManager');
   return _TutorialManager;
+}
+
+function isQBasicTarget(target) {
+  const fsPath = target?.fsPath || target?.uri?.fsPath || '';
+  return /\.(?:bas|bi|bm|inc)$/i.test(fsPath);
 }
 
 // ============================================================================
@@ -195,15 +201,16 @@ async function activate(context) {
     vscode.commands.registerCommand('qbasic-nexus.refreshTodo', () => todoProvider.refresh()),
     qbasicFileWatcher.onDidChange((uri) => {
       workspaceAnalyzer.invalidateFile(uri);
-      todoProvider.refresh();
+      void workspaceAnalyzer.warmFile(uri);
+      todoProvider.refresh(uri);
     }),
-    qbasicFileWatcher.onDidCreate(() => {
-      workspaceAnalyzer.clear();
-      todoProvider.refresh();
+    qbasicFileWatcher.onDidCreate((uri) => {
+      void workspaceAnalyzer.warmFile(uri);
+      todoProvider.refresh(uri);
     }),
     qbasicFileWatcher.onDidDelete((uri) => {
       workspaceAnalyzer.invalidateFile(uri);
-      todoProvider.refresh();
+      todoProvider.remove(uri);
     }),
   );
 
@@ -246,6 +253,9 @@ async function activate(context) {
       debouncedStatusUpdate();
       if (editor) {
         void maybeAutoConfigureQB64(editor);
+        if (editor.document.languageId === CONFIG.LANGUAGE_ID) {
+          void workspaceAnalyzer.prepareWorkspace(editor.document);
+        }
         lintDocument(editor.document);
         throttledStatsUpdate(editor.document);
       } else {
@@ -255,6 +265,7 @@ async function activate(context) {
     vscode.workspace.onDidChangeTextDocument((e) => {
       // Invalidate cache
       invalidateCache(e.document.uri);
+      invalidateSemanticTokenCache(e.document.uri);
 
       // Lint and update stats
       lintDocument(e.document);
@@ -290,7 +301,12 @@ async function activate(context) {
       }
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      workspaceAnalyzer.invalidateFile(doc);
+      if (doc.languageId === CONFIG.LANGUAGE_ID) {
+        workspaceAnalyzer.invalidateFile(doc);
+        void workspaceAnalyzer.warmFile(doc);
+        todoProvider.refresh(doc.uri);
+        invalidateSemanticTokenCache(doc.uri);
+      }
       lintDocument(doc);
       updateCodeStats(doc);
     }),
@@ -303,14 +319,34 @@ async function activate(context) {
       workspaceAnalyzer.clear();
       todoProvider.refresh();
     }),
-    vscode.workspace.onDidCreateFiles(() => {
-      workspaceAnalyzer.clear();
+    vscode.workspace.onDidCreateFiles((event) => {
+      for (const file of event.files) {
+        if (!isQBasicTarget(file)) continue;
+        void workspaceAnalyzer.warmFile(file);
+        todoProvider.refresh(file);
+      }
     }),
-    vscode.workspace.onDidDeleteFiles(() => {
-      workspaceAnalyzer.clear();
+    vscode.workspace.onDidDeleteFiles((event) => {
+      for (const file of event.files) {
+        if (!isQBasicTarget(file)) continue;
+        workspaceAnalyzer.invalidateFile(file);
+        todoProvider.remove(file);
+        invalidateSemanticTokenCache(file);
+      }
     }),
-    vscode.workspace.onDidRenameFiles(() => {
-      workspaceAnalyzer.clear();
+    vscode.workspace.onDidRenameFiles((event) => {
+      for (const { oldUri, newUri } of event.files) {
+        if (isQBasicTarget(oldUri)) {
+          workspaceAnalyzer.invalidateFile(oldUri);
+          todoProvider.remove(oldUri);
+          invalidateSemanticTokenCache(oldUri);
+        }
+        if (isQBasicTarget(newUri)) {
+          void workspaceAnalyzer.warmFile(newUri);
+          todoProvider.refresh(newUri);
+          invalidateSemanticTokenCache(newUri);
+        }
+      }
     }),
     vscode.window.onDidCloseTerminal((t) => {
       if (t === state.terminal) {
@@ -322,6 +358,7 @@ async function activate(context) {
     vscode.workspace.onDidCloseTextDocument((doc) => {
       getIncrementalLinter().removeDocument(doc.uri.toString());
       invalidateCache(doc.uri);
+      invalidateSemanticTokenCache(doc.uri);
     }),
   );
 
@@ -330,6 +367,9 @@ async function activate(context) {
   if (vscode.window.activeTextEditor) {
     const doc = vscode.window.activeTextEditor.document;
     void maybeAutoConfigureQB64(vscode.window.activeTextEditor);
+    if (doc.languageId === CONFIG.LANGUAGE_ID) {
+      void workspaceAnalyzer.prepareWorkspace(doc);
+    }
     lintDocument(doc);
     updateCodeStats(doc);
   }

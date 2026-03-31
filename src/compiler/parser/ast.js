@@ -2061,7 +2061,7 @@ module.exports = {
 
         case 'RaiseError':
           this._emitTracked(
-            `throw new Error("Error " + ${statement.expression});`,
+            `throw _qbMakeRuntimeError(${statement.expression}, undefined, _currentSourceLine);`,
             statement.line,
           );
           break;
@@ -2125,7 +2125,9 @@ module.exports = {
 
     this._emit('default: {');
     this.indent++;
-    this._emit('throw new Error("Invalid program counter: " + _pc);');
+    this._emit(
+      'throw _qbMakeRuntimeError(57, "Internal error: invalid program counter " + _pc, _currentSourceLine);',
+    );
     this.indent--;
     this._emit('}');
 
@@ -2152,14 +2154,15 @@ module.exports = {
     this._emit('throw _stateError;');
     this.indent--;
     this._emit('}');
+    this._emit('const _normalizedStateError = _qbNormalizeRuntimeError(_stateError, _currentSourceLine);');
     this._emit('if (_handlingRuntimeError) {');
     this.indent++;
-    this._emit('throw _stateError;');
+    this._emit('throw _normalizedStateError;');
     this.indent--;
     this._emit('}');
     this._emit(`_errorFaultState = ${stateLiteral(state.id)};`);
     this._emit(`_errorResumeState = ${resumeState};`);
-    this._emit('_lastRuntimeError = _stateError;');
+    this._emit('_lastRuntimeError = _normalizedStateError;');
     this._emit('if (_errorHandlerMode === "RESUME_NEXT") {');
     this.indent++;
     this._emit(`_pc = ${resumeState};`);
@@ -2173,7 +2176,7 @@ module.exports = {
     this._emit(`continue ${loopLabel};`);
     this.indent--;
     this._emit('}');
-    this._emit('throw _stateError;');
+    this._emit('throw _normalizedStateError;');
   },
 
   _emitTrampolineState(state, machine, loopLabel) {
@@ -2241,7 +2244,7 @@ module.exports = {
 
     if (state.kind === 'return') {
       this._emit(
-        'if (_gosubStack.length === 0) throw new Error("RETURN without GOSUB");',
+        'if (_gosubStack.length === 0) throw _qbMakeRuntimeError(3, undefined, _currentSourceLine);',
       );
       this._emit('_pc = _gosubStack.pop();');
       this._emit(`continue ${loopLabel};`);
@@ -2254,7 +2257,9 @@ module.exports = {
     }
 
     if (state.kind === 'raiseError') {
-      this._emit(`throw new Error("Error " + ${state.expression});`);
+      this._emit(
+        `throw _qbMakeRuntimeError(${state.expression}, undefined, _currentSourceLine);`,
+      );
       return;
     }
 
@@ -2312,7 +2317,7 @@ module.exports = {
 
       this._emit('if (!_lastRuntimeError) {');
       this.indent++;
-      this._emit('throw new Error("RESUME without active error");');
+      this._emit('throw _qbMakeRuntimeError(20, undefined, _currentSourceLine);');
       this.indent--;
       this._emit('}');
       this._emit('_handlingRuntimeError = false;');

@@ -1147,7 +1147,7 @@ _parseResume() {
 
 _parseError() {
     const errNum = this._parseExpr();
-    this._emit(`throw new Error("Error " + ${errNum});`);
+    this._emit(`throw _qbMakeRuntimeError(${errNum}, undefined, _currentSourceLine);`);
   },
 
 _parseClear() {

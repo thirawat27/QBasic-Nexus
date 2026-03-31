@@ -14,6 +14,7 @@ const { QBasicSignatureHelpProvider } = require('./signatureHelpProvider');
 const {
   QBasicDocumentSemanticTokenProvider,
   QBasicSemanticTokensLegend,
+  invalidateSemanticTokenCache,
 } = require('./semanticTokenProvider');
 const { QBasicDocumentFormattingEditProvider } = require('./formattingProvider');
 const { QBasicFoldingRangeProvider } = require('./foldingProvider');
@@ -39,6 +40,7 @@ module.exports = {
   QBasicSignatureHelpProvider,
   QBasicDocumentSemanticTokenProvider,
   QBasicSemanticTokensLegend,
+  invalidateSemanticTokenCache,
   QBasicDocumentFormattingEditProvider,
   QBasicFoldingRangeProvider,
   QBasicDocumentHighlightProvider,

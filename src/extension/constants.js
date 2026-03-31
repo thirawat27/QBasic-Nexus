@@ -10,6 +10,8 @@ const CONFIG = Object.freeze({
   COMPILER_PATH: 'compilerPath',
   COMPILER_MODE: 'compilerMode',
   COMPILER_ARGS: 'compilerArgs',
+  INTERNAL_TARGETS: 'internalTargets',
+  INTERNAL_OUTPUT_DIR: 'internalOutputDir',
   ENABLE_LINT: 'enableLinting',
   LINT_DELAY: 'lintDelay',
   AUTO_FORMAT: 'autoFormatOnSave',

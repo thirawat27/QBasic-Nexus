@@ -68,21 +68,21 @@ QBasic Nexus offers two compilation modes, each with different requirements.
 The internal transpiler works out of the box with zero setup. You can write QBasic code and immediately
 
 - Run it in the beautiful Retro CRT viewer inside VS Code
-- Compile it into a standalone Node.js-based native executable for your current platform
+- Compile it into one or more standalone Node.js-based native executables for the host or configured pkg targets
 - Test and debug without any external dependencies
 
 This mode is perfect for learning, prototyping, and quick testing.
 
 **How QBasic Nexus Internal Works**
 
-The internal compiler transpiles your QBasic code to JavaScript, then packages it with the Node.js runtime using `@yao-pkg/pkg` to create a standalone executable for the current platform.
+The internal compiler transpiles your QBasic code to JavaScript, then packages it with the Node.js runtime using `@yao-pkg/pkg` to create one or more standalone executables for the selected targets.
 
 **Key Characteristics**
 
 - **File Size** - Executables are typically 40-50MB (includes Node.js runtime)
 - **Performance** - Slightly slower than native QB64 compilation, but excellent for most use cases
 - **Compatibility** - Supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions
-- **Platform** - Generates a native executable for the host platform (`.exe` on Windows, extensionless binary on macOS/Linux)
+- **Platform** - Generates native executables for `host` or explicit `pkg` targets such as `win-x64`, `linux-x64`, and `macos-arm64`
 
 **Limitations Compared to QB64**
 
@@ -569,7 +569,7 @@ These settings control how your QBasic code is compiled and executed.
 - **Default** - `QB64 (Recommended)`
 - **Options**
   - `QB64 (Recommended)` - Compile with external QB64 for native executables with full system access and best performance
-  - `Qbasic Nexus` - Use the internal transpiler to convert QBasic to JavaScript, then package a standalone executable for the current platform
+  - `Qbasic Nexus` - Use the internal transpiler to convert QBasic to JavaScript, then package one or more standalone executables for the selected internal targets
 
 **When to use QB64 mode**
 
@@ -648,6 +648,52 @@ Linux    /home/yourname/qb64/qb64
 ```
 
 **Note** - Most users can leave this empty. Only modify if you know what specific QB64 flags you need.
+
+---
+
+**Internal Targets**
+
+- **Setting Name** - `qbasic-nexus.internalTargets`
+- **Type** - String
+- **Default** - `"host"`
+- **Required For** - QBasic Nexus internal mode
+
+**What this does**
+
+- Selects which `@yao-pkg/pkg` target or targets the internal compiler should build
+- Accepts `host` or comma-separated targets such as `win-x64`, `linux-x64`, `macos-arm64`, or `host,linux-x64`
+- `Compile & Run` only auto-runs when the result is a single host-compatible target
+
+**Examples**
+
+```
+host
+linux-x64
+host,linux-x64
+```
+
+---
+
+**Internal Output Directory**
+
+- **Setting Name** - `qbasic-nexus.internalOutputDir`
+- **Type** - String
+- **Default** - `""` (writes beside the source file)
+- **Required For** - QBasic Nexus internal mode
+
+**What this does**
+
+- Sends all internally packaged binaries to a dedicated folder
+- Relative paths resolve from the workspace folder when one exists
+- Absolute paths are also accepted
+
+**Examples**
+
+```
+dist
+build/artifacts
+C:\QBasicNexus\out
+```
 
 ### Editor Settings
 
@@ -832,8 +878,9 @@ Structured sections   Start 1000, Step 1000
 
 ```json
 {
-  "qbasic-nexus.compilerMode": "QB64 (Recommended)",
-  "qbasic-nexus.compilerPath": "C:\\QB64\\qb64.exe",
+  "qbasic-nexus.compilerMode": "Qbasic Nexus",
+  "qbasic-nexus.internalTargets": "host,linux-x64",
+  "qbasic-nexus.internalOutputDir": "dist",
   "qbasic-nexus.enableLinting": true,
   "qbasic-nexus.lintDelay": 500,
   "qbasic-nexus.autoFormatOnSave": true,
@@ -863,7 +910,7 @@ QBasic Nexus provides full language support, syntax highlighting, and dedicated 
 
 QBasic Nexus doesn't just parse text—it deeply analyzes it using an enterprise-grade compiler pipeline that dramatically outpaces legacy tools.
 
-- **Zero-Setup Native Executables Across Platforms** - Instantly compile QBasic code directly to standalone executables on Windows, macOS, Linux, and Alpine using the internal backend powered by `@yao-pkg/pkg`. No QB64 installation required for prototyping and distribution!
+- **Zero-Setup Native Executables Across Platforms** - Instantly compile QBasic code directly to standalone executables on Windows, macOS, Linux, Alpine, or any configured internal target list using the internal backend powered by `@yao-pkg/pkg`. No QB64 installation required for prototyping and distribution!
 - **High-Performance Lexer** - Powered by `moo`, achieving over **1,200 KB/s+ throughput** during compilation with zero-copy token passing to eliminate redundant processing.
 - **AST-First Control Flow & Semantics** - Deep semantic analysis and AST-based state-machine execution for `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`. This trampoline execution guarantees rock-solid stability (zero call-stack overflow crashes) and precise warnings for missing labels or unreachable code.
 - **Robust Legacy Memory & Data Scope** - Run legacy syntax seamlessly! Full internal support for `STATIC` procedure variables, `COMMON SHARED` globals across modules, Fixed-Length Strings (`STRING * N`), structured/nested `TYPE` records, and legacy memory safety operations (`PEEK`, `POKE`, `OUT`, `_MEMCOPY`, `MKI$`, `CVI`, `LSET`).
@@ -1097,7 +1144,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
 QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions natively for testing within the editor.
 
-The CRT runtime in `1.5.5` also keeps track of the active source line so runtime failures can be surfaced back in the editor with a direct jump to the most likely failing line.
+The CRT runtime in `1.5.6` also keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, and surfaces runtime failures back in the editor with a direct jump to the most likely failing line.
 
 **Compatibility Overview**
 
@@ -2500,13 +2547,16 @@ chmod -R 755 ~/qb64
 
 ## 🤝 Contributing
 
-We welcome retro-enthusiasts, optimization junkies, and modern developers!
+We welcome retro-enthusiasts, optimization junkies, and modern developers.
 
-1. Fork the Repository.
-2. Create a Feature Branch (`git checkout -b feature/NeonGlowUpdate`).
-3. Commit your changes.
-4. Push to the Branch (`git push origin feature/NeonGlowUpdate`).
-5. Open a Pull Request!
+Please follow the full contributor workflow in [CONTRIBUTING.md](./CONTRIBUTING.md), including coding standards, PR checklist, and test expectations.
+
+Quick pre-PR checklist:
+
+```bash
+npm run lint
+npm test
+```
 
 ---
 

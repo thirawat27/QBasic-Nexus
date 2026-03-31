@@ -11,8 +11,21 @@ const fs = require('fs').promises;
 const os = require('os');
 const { spawn } = require('child_process');
 const MagicString = require('magic-string');
+const { CONFIG } = require('./constants');
+const {
+  buildPackagerArgs,
+  ensureExecutableReady,
+  getExecutableOutputPath,
+  isHostCompatibleTarget,
+  getPackagerTarget,
+  getTerminalLaunchSpec,
+  normalizePackagerTargets,
+  parsePackagerTarget,
+  resolveExecutableOutputDir,
+  shouldUsePortablePackaging,
+} = require('./executableUtils');
 const { state } = require('./state');
-const { getOutputChannel, getTerminal, log } = require('./utils');
+const { getConfig, getOutputChannel, getTerminal, log } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
 
 const PACKAGER_MODULE = '@yao-pkg/pkg';
@@ -24,18 +37,6 @@ const PACKAGER_COMPRESSION = 'GZip';
 const PACKAGER_HEADER = `#!/usr/bin/env node
 // Built by QBasic Nexus — https://github.com/thirawat27/QBasic-Nexus
 `;
-
-function getOutputExtension() {
-  return process.platform === 'win32' ? '.exe' : '';
-}
-
-function getPackagerTarget() {
-  return 'host';
-}
-
-function quoteForShell(value) {
-  return "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
-}
 
 function getPackagerCliInvocation(args) {
   const packageJsonPath = require.resolve(`${PACKAGER_MODULE}/package.json`);
@@ -92,6 +93,59 @@ async function runPackager(args, channel) {
   });
 }
 
+function isPackagedExecutableCandidate(fileName, baseName) {
+  const extension = path.extname(fileName).toLowerCase();
+  if (['.bas', '.bi', '.bm', '.inc', '.js', '.json'].includes(extension)) {
+    return false;
+  }
+
+  const stem = extension ? path.basename(fileName, extension) : fileName;
+  return stem === baseName || stem.startsWith(`${baseName}-`);
+}
+
+async function snapshotPackagedOutputs(outputDir, baseName) {
+  const entries = await fs.readdir(outputDir, { withFileTypes: true });
+  const snapshot = new Map();
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !isPackagedExecutableCandidate(entry.name, baseName)) {
+      continue;
+    }
+
+    const filePath = path.join(outputDir, entry.name);
+    const stat = await fs.stat(filePath).catch(() => null);
+    if (!stat) continue;
+    snapshot.set(filePath, {
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+    });
+  }
+
+  return snapshot;
+}
+
+async function collectUpdatedPackagedOutputs(outputDir, baseName, previousSnapshot) {
+  const entries = await fs.readdir(outputDir, { withFileTypes: true });
+  const outputs = [];
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !isPackagedExecutableCandidate(entry.name, baseName)) {
+      continue;
+    }
+
+    const filePath = path.join(outputDir, entry.name);
+    const stat = await fs.stat(filePath).catch(() => null);
+    if (!stat) continue;
+
+    const previous = previousSnapshot.get(filePath);
+    if (!previous || previous.size !== stat.size || previous.mtimeMs !== stat.mtimeMs) {
+      outputs.push(filePath);
+    }
+  }
+
+  return outputs.sort((left, right) => left.localeCompare(right));
+}
+
 /**
  * Run the Internal Transpiler → packager pipeline to produce a native executable
  * @param {vscode.TextDocument} document
@@ -111,7 +165,24 @@ async function runInternalTranspiler(document, shouldRun) {
     document.uri.fsPath,
     path.extname(document.uri.fsPath),
   );
-  const sourceDir = path.dirname(document.uri.fsPath);
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+  const packagerTargets = normalizePackagerTargets(
+    getConfig(CONFIG.INTERNAL_TARGETS, getPackagerTarget()),
+  );
+  const outputDir = resolveExecutableOutputDir(
+    document.uri.fsPath,
+    getConfig(CONFIG.INTERNAL_OUTPUT_DIR, ''),
+    { workspaceDir: workspaceFolder?.uri.fsPath },
+  );
+  const multiTargetBuild = packagerTargets.length > 1;
+  const singleTargetPlatform = parsePackagerTarget(packagerTargets[0]).platform;
+  const outputExe = multiTargetBuild
+    ? null
+    : getExecutableOutputPath(
+        document.uri.fsPath,
+        singleTargetPlatform || process.platform,
+        outputDir,
+      );
 
   channel.appendLine('╔══════════════════════════════════════════════════╗');
   channel.appendLine('║            ⚡ QBasic Nexus Compiler               ║');
@@ -120,6 +191,7 @@ async function runInternalTranspiler(document, shouldRun) {
   channel.appendLine(`  📦 Source:   ${fileName}`);
   channel.appendLine(`  📍 Path:     ${document.uri.fsPath}`);
   channel.appendLine(`  📊 Stats:    ${lineCount} lines • ${fileSize} KB`);
+  channel.appendLine(`  📂 Output:   ${outputDir}`);
   channel.appendLine('');
   channel.appendLine('─────────────────────────────────────────────────────');
 
@@ -127,6 +199,7 @@ async function runInternalTranspiler(document, shouldRun) {
   updateStatusBar();
 
   let tempJs = null;
+  let generatedOutputs = [];
 
   // ── progress bar helper (printed to Output Channel) ──────────────────────
   const BAR_WIDTH = 24;
@@ -138,8 +211,6 @@ async function runInternalTranspiler(document, shouldRun) {
 
   try {
     const { compile } = require('../compiler/compiler');
-    const outputExt = getOutputExtension();
-    const outputExe = path.join(sourceDir, baseName + outputExt);
     tempJs = path.join(os.tmpdir(), `${baseName}_${Date.now()}._qbnx_.js`);
 
     await vscode.window.withProgress(
@@ -197,21 +268,45 @@ async function runInternalTranspiler(document, shouldRun) {
         channel.appendLine('');
         report(65, 'Packaging executable…');
 
-        const target = getPackagerTarget();
-        const packagerArgs = [
+        await fs.mkdir(outputDir, { recursive: true });
+        const outputSnapshot = multiTargetBuild
+          ? await snapshotPackagedOutputs(outputDir, baseName)
+          : null;
+        const packagerArgs = buildPackagerArgs(
           tempJs,
-          '--target',
-          target,
-          '--compress',
-          PACKAGER_COMPRESSION,
-          '--output',
-          outputExe,
-        ];
+          multiTargetBuild ? outputDir : outputExe,
+          {
+            targets: packagerTargets,
+            platform: process.platform,
+            arch: process.arch,
+            compression: PACKAGER_COMPRESSION,
+          },
+        );
+        if (shouldUsePortablePackaging(packagerTargets)) {
+          channel.appendLine(
+            '  ℹ Cross-target packaging enabled: using portable pkg flags (--no-bytecode --public-packages "*" --public).',
+          );
+        }
+        channel.appendLine(`  🎯 Targets: ${packagerTargets.join(', ')}`);
 
         await runPackager(packagerArgs, channel);
 
-        if (process.platform !== 'win32') {
-          await fs.chmod(outputExe, 0o755).catch(() => {});
+        if (multiTargetBuild) {
+          generatedOutputs = await collectUpdatedPackagedOutputs(
+            outputDir,
+            baseName,
+            outputSnapshot,
+          );
+          if (generatedOutputs.length === 0) {
+            throw new Error(
+              'Packaging completed but no updated target binaries were detected in the output folder.',
+            );
+          }
+          for (const outputPath of generatedOutputs) {
+            await ensureExecutableReady(fs, outputPath);
+          }
+        } else {
+          generatedOutputs = [await ensureExecutableReady(fs, outputExe)];
         }
 
         // Clean up temp JS only AFTER packaging has fully finished
@@ -230,29 +325,50 @@ async function runInternalTranspiler(document, shouldRun) {
     channel.appendLine('─────────────────────────────────────────────────────');
     channel.appendLine('');
     channel.appendLine(`  ✅ BUILD SUCCESSFUL (${totalDuration}s)`);
-    channel.appendLine(`  📦 Output:  ${outputExe}`);
+    if (generatedOutputs.length === 1) {
+      channel.appendLine(`  📦 Output:  ${generatedOutputs[0]}`);
+    } else {
+      channel.appendLine(`  📦 Outputs: ${generatedOutputs.length} targets in ${outputDir}`);
+      for (const outputPath of generatedOutputs) {
+        channel.appendLine(`     • ${outputPath}`);
+      }
+    }
     channel.appendLine('');
 
     vscode.window
       .showInformationMessage(
-        `✅ Compiled: ${path.basename(outputExe)}`,
+        generatedOutputs.length === 1
+          ? `✅ Compiled: ${path.basename(generatedOutputs[0])}`
+          : `✅ Compiled: ${generatedOutputs.length} targets`,
         'Open Folder',
       )
       .then((choice) => {
         if (choice === 'Open Folder') {
           vscode.commands.executeCommand(
             'revealFileInOS',
-            vscode.Uri.file(outputExe),
+            vscode.Uri.file(
+              generatedOutputs.length === 1 ? generatedOutputs[0] : outputDir,
+            ),
           );
         }
       });
 
     if (shouldRun) {
-      channel.appendLine('  ➤ Running executable…');
-      channel.appendLine(
-        '─────────────────────────────────────────────────────',
-      );
-      runExecutable(outputExe);
+      if (generatedOutputs.length !== 1) {
+        channel.appendLine(
+          '  ℹ Multiple targets were generated; skipping auto-run. Select a single host target to run automatically.',
+        );
+      } else if (!isHostCompatibleTarget(packagerTargets[0])) {
+        channel.appendLine(
+          `  ℹ Skipping auto-run because target ${packagerTargets[0]} is not runnable on this host.`,
+        );
+      } else {
+        channel.appendLine('  ➤ Running executable…');
+        channel.appendLine(
+          '─────────────────────────────────────────────────────',
+        );
+        await runExecutable(generatedOutputs[0]);
+      }
     } else {
       channel.appendLine('═══════════════════════════════════════════════════');
     }
@@ -272,51 +388,30 @@ async function runInternalTranspiler(document, shouldRun) {
 }
 
 /**
- * Run compiled executable using Node.js native child_process
- * (no external packages — mirrors what the `open` npm package does internally)
+ * Run a compiled executable inside a deterministic integrated terminal shell
  * @param {string} exePath - Full path to the executable
  */
-function runExecutable(exePath) {
+async function runExecutable(exePath) {
   const channel = getOutputChannel();
-  const workingDirectory = path.dirname(exePath);
+  const launchSpec = getTerminalLaunchSpec(exePath);
 
-  if (process.platform !== 'win32') {
-    const term = getTerminal({ cwd: workingDirectory });
-    term.show(true);
-    term.sendText(quoteForShell(exePath), true);
-    channel.appendLine(
-      `  ➤ Running in integrated terminal: ${exePath} (cwd: ${workingDirectory})`,
-    );
-    return;
-  }
-
-  let child;
   try {
-    // `start ""` opens a new console window for the exe.
-    // We wrap inside cmd /c so Node doesn't need to find "start" itself.
-    child = spawn('cmd', ['/c', 'start', '', exePath], {
-      cwd: workingDirectory,
-      detached: true, // let the child outlive the extension host
-      stdio: 'ignore', // detach stdio so the process is truly independent
-      shell: false,
-    });
+    await ensureExecutableReady(fs, exePath);
   } catch (err) {
     channel.appendLine(`  ⚠ Could not launch executable: ${err.message}`);
-    const term = getTerminal({ cwd: workingDirectory });
-    term.show(true);
-    term.sendText(`& "${exePath.replace(/"/g, '""')}"`, true);
-    return;
+    throw err;
   }
 
-  // Detach the child so it runs independently after the parent closes
-  child.unref();
-
-  child.on('error', (err) => {
-    channel.appendLine(`  ⚠ Could not launch executable: ${err.message}`);
-    const term = getTerminal({ cwd: workingDirectory });
-    term.show(true);
-    term.sendText(`& "${exePath.replace(/"/g, '""')}"`, true);
+  const term = getTerminal({
+    cwd: launchSpec.cwd,
+    shellPath: launchSpec.shellPath,
+    shellArgs: launchSpec.shellArgs,
   });
+  term.show(true);
+  term.sendText(launchSpec.commandText, true);
+  channel.appendLine(
+    `  ➤ Running in integrated terminal: ${exePath} (cwd: ${launchSpec.cwd})`,
+  );
 }
 
 module.exports = { runInternalTranspiler, runExecutable };

@@ -17,6 +17,12 @@ const fs = require('fs');
 const path = require('path');
 const { getDocumentAnalysis, analyzeQBasicText, findIdentifierMatchesInAnalysis } = require('./documentAnalysis');
 
+const WORKSPACE_PARSE_YIELD_INTERVAL = 25;
+
+function yieldToEventLoop() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 class WorkspaceAnalysis {
   constructor(workspaceId) {
     this.workspaceId = workspaceId;
@@ -45,8 +51,13 @@ class WorkspaceAnalysis {
               '**/{node_modules,.git}/**',
               1000
             );
+            let processed = 0;
             for (const file of files) {
               await this.parseFileSymbols(file.fsPath);
+              processed++;
+              if (processed % WORKSPACE_PARSE_YIELD_INTERVAL === 0) {
+                await yieldToEventLoop();
+              }
             }
           }
         }
@@ -83,7 +94,24 @@ class WorkspaceAnalysis {
     }
   }
 
-  async getWorkspaceAnalysis(document) {
+  prepareWorkspace() {
+    if (!this._hasParsedWorkspace && !this._refreshPromise) {
+      void this.parseWorkspaceSymbols();
+    }
+
+    return this._refreshPromise || Promise.resolve();
+  }
+
+  async warmFile(filePath) {
+    if (!filePath) {
+      return null;
+    }
+
+    return this.parseFileSymbols(filePath);
+  }
+
+  async getWorkspaceAnalysis(document, options = {}) {
+    const awaitWorkspace = options.awaitWorkspace === true;
     const localAnalysis = getDocumentAnalysis(document);
     
     // Get include files
@@ -131,8 +159,10 @@ class WorkspaceAnalysis {
       }
     }
 
-    if (!this._hasParsedWorkspace) {
+    if (awaitWorkspace && !this._hasParsedWorkspace) {
       await this.parseWorkspaceSymbols();
+    } else if (!awaitWorkspace) {
+      this.prepareWorkspace();
     }
 
     // Merge workspace files after initial workspace parse completes
@@ -157,6 +187,7 @@ class WorkspaceAnalysis {
   }
 
   async findWorkspaceIdentifierMatches(document, identifier, options = {}) {
+    const awaitWorkspace = options.awaitWorkspace !== false;
     const allMatches = [];
     
     // Check the current document first
@@ -166,8 +197,10 @@ class WorkspaceAnalysis {
     }
 
     // Refresh workspace symbols to ensure cache is populated
-    if (!this._hasParsedWorkspace) {
+    if (awaitWorkspace && !this._hasParsedWorkspace) {
       await this.parseWorkspaceSymbols();
+    } else if (!awaitWorkspace) {
+      this.prepareWorkspace();
     }
 
     for (const [filePath, analysis] of this.symbolCache.entries()) {

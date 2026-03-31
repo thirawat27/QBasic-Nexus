@@ -1,6 +1,11 @@
 'use strict';
 
 const vscode = require('vscode');
+const {
+  KEYWORD_RANK,
+  scanTodoComments,
+} = require('../shared/todoComments');
+const UTF8_DECODER = new TextDecoder('utf-8');
 
 class TodoItem extends vscode.TreeItem {
   constructor(label, collapsibleState, range, uri, keyword) {
@@ -36,9 +41,35 @@ class QBasicTodoProvider {
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
     this.todos = [];
+    this._fileTodoCache = new Map();
+    this._initialScanComplete = false;
+    this._scanPromise = null;
+    this._pendingRefreshes = new Map();
   }
 
-  refresh() {
+  refresh(target) {
+    if (target) {
+      this._pendingRefreshes.set(target.toString(), target);
+    } else {
+      this._initialScanComplete = false;
+      this._fileTodoCache.clear();
+      this._pendingRefreshes.clear();
+      this.todos = [];
+    }
+
+    this._onDidChangeTreeData.fire();
+  }
+
+  remove(target) {
+    if (!target) {
+      this.refresh();
+      return;
+    }
+
+    const key = target.toString();
+    this._pendingRefreshes.delete(key);
+    this._fileTodoCache.delete(key);
+    this._rebuildTodos();
     this._onDidChangeTreeData.fire();
   }
 
@@ -50,86 +81,136 @@ class QBasicTodoProvider {
     if (element) {
       return Promise.resolve([]);
     } else {
-      await this.scanWorkspace();
+      await this._ensureTodos();
       return Promise.resolve(this.todos);
     }
   }
 
   async scanWorkspace() {
-    this.todos = [];
-    if (!vscode.workspace.workspaceFolders) {
+    if (this._scanPromise) {
+      return this._scanPromise;
+    }
+
+    this._scanPromise = (async () => {
+      const nextCache = new Map();
+
+      if (!vscode.workspace.workspaceFolders) {
+        this._fileTodoCache = nextCache;
+        this._initialScanComplete = true;
+        this._pendingRefreshes.clear();
+        this.todos = [];
+        return;
+      }
+
+      const files = new Map();
+      for (const folder of vscode.workspace.workspaceFolders) {
+        const folderFiles = await vscode.workspace.findFiles(
+          new vscode.RelativePattern(folder, '**/*.{bas,bi,bm,inc}'),
+          '**/{node_modules,.git}/**'
+        );
+        for (const file of folderFiles) {
+          files.set(file.toString(), file);
+        }
+      }
+
+      for (const file of files.values()) {
+        const fileTodos = await this._readTodosFromFile(file);
+        if (fileTodos.length > 0) {
+          nextCache.set(file.toString(), {
+            uri: file,
+            todos: fileTodos,
+          });
+        }
+      }
+
+      this._fileTodoCache = nextCache;
+      this._initialScanComplete = true;
+      this._pendingRefreshes.clear();
+      this._rebuildTodos();
+    })().finally(() => {
+      this._scanPromise = null;
+    });
+
+    return this._scanPromise;
+  }
+
+  async _ensureTodos() {
+    if (!this._initialScanComplete) {
+      await this.scanWorkspace();
       return;
     }
 
-    const files = new Map();
-    for (const folder of vscode.workspace.workspaceFolders) {
-      const folderFiles = await vscode.workspace.findFiles(
-        new vscode.RelativePattern(folder, '**/*.{bas,bi,bm,inc}'),
-        '**/{node_modules,.git}/**'
-      );
-      for (const file of folderFiles) {
-        files.set(file.toString(), file);
-      }
+    if (this._pendingRefreshes.size === 0) {
+      return;
     }
 
-    const regex = /(?:'|\bREM\b)[^\r\n]*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b[^\r\n]*/gi;
+    const pendingFiles = Array.from(this._pendingRefreshes.values());
+    this._pendingRefreshes.clear();
 
-    for (const file of files.values()) {
-      try {
-        const textStr = await vscode.workspace.fs.readFile(file);
-        const text = new TextDecoder('utf-8').decode(textStr);
-        const lines = text.split(/\r?\n/);
-        
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          
-          // Fast path to avoid regex execution on lines that don't have our keywords
-          const upperLine = line.toUpperCase();
-          if (!upperLine.includes('TODO') && !upperLine.includes('FIX') && 
-              !upperLine.includes('HACK') && !upperLine.includes('BUG') && 
-              !upperLine.includes('NOTE')) {
-            continue;
-          }
-
-          let match;
-          // Reset lastIndex because we're using /g flag on a per RegExp level but recreating it might be slow, so we just run it
-          regex.lastIndex = 0;
-          
-          while ((match = regex.exec(line)) !== null) {
-            const keyword = match[1].toUpperCase();
-            // Just display the comment without the ' characters if possible
-            let displayLabel = match[0].replace(/^('|REM)\s*/i, '').trim();
-            
-            const startPos = new vscode.Position(i, match.index);
-            const endPos = new vscode.Position(i, match.index + match[0].length);
-            const range = new vscode.Range(startPos, endPos);
-            
-            this.todos.push(new TodoItem(
-              displayLabel,
-              vscode.TreeItemCollapsibleState.None,
-              range,
-              file,
-              keyword
-            ));
-          }
-        }
-      } catch (e) {
-        console.error(`Error scanning file for TODOs: ${file.fsPath}`, e);
-      }
+    for (const file of pendingFiles) {
+      await this._refreshFile(file);
     }
-    
-    // Sort so FIXMEs are first, sorted by filename and line number
-    const keywordRank = { 'BUG': 1, 'FIXME': 1, 'FIXIT': 1, 'HACK': 1, 'TODO': 2, 'NOTE': 3 };
-    this.todos.sort((a, b) => {
-      const aRank = keywordRank[a.keyword] || 4;
-      const bRank = keywordRank[b.keyword] || 4;
+
+    this._rebuildTodos();
+  }
+
+  async _refreshFile(file) {
+    const key = file.toString();
+    const fileTodos = await this._readTodosFromFile(file);
+
+    if (fileTodos.length > 0) {
+      this._fileTodoCache.set(key, { uri: file, todos: fileTodos });
+    } else {
+      this._fileTodoCache.delete(key);
+    }
+  }
+
+  async _readTodosFromFile(file) {
+    try {
+      const textStr = await vscode.workspace.fs.readFile(file);
+      const text = UTF8_DECODER.decode(textStr);
+      return this._extractTodos(text, file);
+    } catch (e) {
+      console.error(`Error scanning file for TODOs: ${file.fsPath}`, e);
+      return [];
+    }
+  }
+
+  _extractTodos(text, file) {
+    return scanTodoComments(text).map((match) => {
+      const startPos = new vscode.Position(match.line, match.start);
+      const endPos = new vscode.Position(match.line, match.end);
+      const range = new vscode.Range(startPos, endPos);
+
+      return new TodoItem(
+          match.label,
+          vscode.TreeItemCollapsibleState.None,
+          range,
+          file,
+          match.keyword
+        );
+    });
+  }
+
+  _rebuildTodos() {
+    const todos = [];
+
+    for (const entry of this._fileTodoCache.values()) {
+      todos.push(...entry.todos);
+    }
+
+    todos.sort((a, b) => {
+      const aRank = KEYWORD_RANK[a.keyword] || 4;
+      const bRank = KEYWORD_RANK[b.keyword] || 4;
       if (aRank !== bRank) return aRank - bRank;
-      
+
       const fileCompare = a.uri.fsPath.localeCompare(b.uri.fsPath);
       if (fileCompare !== 0) return fileCompare;
-      
+
       return a.range.start.line - b.range.start.line;
     });
+
+    this.todos = todos;
   }
 }
 

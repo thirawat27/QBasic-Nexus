@@ -41,6 +41,30 @@ const SELECT_CASE_RE = /^\s*SELECT\s+CASE\b/i;
 const DECLARATION_CONTEXT_RE = /\b(?:DIM|SUB|FUNCTION|TYPE|CONST)\s*$/i;
 const DIM_PREFIX_RE = /^\s*DIM\s+(?:SHARED\s+)?/i;
 
+function getUppercaseLines(analysis) {
+  if (!Array.isArray(analysis?.lines)) {
+    return null;
+  }
+
+  if (!Array.isArray(analysis.linesUpper)) {
+    analysis.linesUpper = analysis.lines.map((line) => line.toUpperCase());
+  }
+
+  return analysis.linesUpper;
+}
+
+function getIdentifierMatchCache(analysis) {
+  if (!analysis || typeof analysis !== 'object') {
+    return null;
+  }
+
+  if (!(analysis.identifierMatchCache instanceof Map)) {
+    analysis.identifierMatchCache = new Map();
+  }
+
+  return analysis.identifierMatchCache;
+}
+
 /**
  * Register a definition in the definitions map
  * @param {Map<string, Definition>} definitions - Definitions map
@@ -349,7 +373,7 @@ function analyzeQBasicText(text = '') {
 
   return {
     lines,
-    linesUpper: lines.map(l => l.toUpperCase()), // pre-built for fast identifier search
+    linesUpper: null,
     totalLines: lines.length,
     codeLines,
     commentLines,
@@ -367,7 +391,7 @@ function analyzeQBasicText(text = '') {
     variables: Array.from(variables),
     symbols,
     definitions,
-    identifierMatchCache: new Map(),
+    identifierMatchCache: null,
   };
 }
 
@@ -440,9 +464,10 @@ function findIdentifierMatchesInAnalysis(analysis, identifier, options = {}) {
     ? null
     : findDefinitionInAnalysis(analysis, identifier);
   const cacheKey = `${identifier.toUpperCase()}\x00${includeDeclaration ? '1' : '0'}`;
+  const identifierMatchCache = getIdentifierMatchCache(analysis);
 
-  if (analysis.identifierMatchCache?.has(cacheKey)) {
-    return analysis.identifierMatchCache.get(cacheKey);
+  if (identifierMatchCache?.has(cacheKey)) {
+    return identifierMatchCache.get(cacheKey);
   }
 
   const matches = [];
@@ -450,7 +475,7 @@ function findIdentifierMatchesInAnalysis(analysis, identifier, options = {}) {
 
   const identifierUpper = identifier.toUpperCase();
   // Use precomputed uppercase lines if available for fast substring checks
-  const linesUpper = analysis.linesUpper;
+  const linesUpper = getUppercaseLines(analysis);
 
   for (let lineNumber = 0; lineNumber < analysis.lines.length; lineNumber++) {
     const line = analysis.lines[lineNumber];
@@ -491,7 +516,7 @@ function findIdentifierMatchesInAnalysis(analysis, identifier, options = {}) {
     }
   }
 
-  analysis.identifierMatchCache?.set(cacheKey, matches);
+  identifierMatchCache?.set(cacheKey, matches);
   return matches;
 }
 

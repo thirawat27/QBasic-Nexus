@@ -4,7 +4,10 @@
 
 'use strict';
 
-const { WorkspaceAnalysisManager } = require('../src/shared/workspaceAnalysisMulti');
+const {
+  WorkspaceAnalysis,
+  WorkspaceAnalysisManager,
+} = require('../src/shared/workspaceAnalysisMulti');
 
 console.log('\n📦 Multi-Workspace Analysis Tests\n');
 
@@ -115,6 +118,33 @@ test('Analyzer clear resets parsed-workspace state', () => {
   assert(analyzer._hasParsedWorkspace === false, 'Clear should reset parse state');
 
   manager.dispose();
+});
+
+// Test 7: Non-blocking workspace warmup returns local analysis immediately
+test('Analyzer can warm workspace in background without blocking local analysis', async () => {
+  const analyzer = new WorkspaceAnalysis('default');
+  let warmupCalls = 0;
+
+  analyzer.parseWorkspaceSymbols = async function patchedParseWorkspaceSymbols() {
+    warmupCalls++;
+    this._hasParsedWorkspace = true;
+  };
+
+  const document = {
+    uri: {
+      fsPath: 'demo.bas',
+      toString: () => 'demo.bas',
+    },
+    getText: () => 'SUB Demo\nEND SUB',
+  };
+
+  const analysis = await analyzer.getWorkspaceAnalysis(document, {
+    awaitWorkspace: false,
+  });
+
+  assert(warmupCalls === 1, 'Expected background warmup to be started');
+  assert(analysis.symbols.length === 1, 'Expected local analysis to be returned immediately');
+  analyzer.dispose();
 });
 
 async function run() {

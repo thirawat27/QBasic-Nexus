@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.5.5",
+    "version": "1.5.6",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -23,7 +23,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:todo",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:todo && npm run test:optimizations && npm run test:executables",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -36,7 +36,9 @@
         "test:workspace": "node test/test-workspace-multi.js",
         "test:webview": "node test/test-webview-manager.js",
         "test:todo": "node test/test-todo-provider.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:todo && npm run benchmark",
+        "test:optimizations": "node test/test-optimization-managers.js",
+        "test:executables": "node test/test-executable-utils.js",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish"
@@ -274,7 +276,7 @@
                     ],
                     "enumDescriptions": [
                         "Compile with QB64 for native executable (best performance)",
-                        "Transpile QBasic to JavaScript via the internal engine, then package a standalone executable for the current platform using @yao-pkg/pkg"
+                        "Transpile QBasic to JavaScript via the internal engine, then package one or more standalone executables using @yao-pkg/pkg"
                     ],
                     "default": "QB64 (Recommended)",
                     "markdownDescription": "Select the compilation mode.",
@@ -284,6 +286,18 @@
                     "type": "string",
                     "default": "",
                     "markdownDescription": "Additional arguments for the QB64 compiler.\n\n**Examples:** `-w` (warnings), `-g` (debug)",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.internalTargets": {
+                    "type": "string",
+                    "default": "host",
+                    "markdownDescription": "Packager target(s) for **Qbasic Nexus** internal builds.\n\nUse `host` for the current machine, or a comma-separated list such as `win-x64`, `linux-x64`, `macos-arm64`, or `host,linux-x64`.\n\nWhen multiple targets are specified, outputs are written into the configured internal output folder and **Compile & Run** skips auto-run unless you switch back to a single host target.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.internalOutputDir": {
+                    "type": "string",
+                    "default": "",
+                    "markdownDescription": "Output directory for **Qbasic Nexus** internal builds.\n\nLeave empty to write beside the source file. Relative paths resolve from the workspace folder when available; absolute paths are also supported.\n\nSingle-target builds write the executable into this folder. Multi-target builds write all generated binaries there.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.enableLinting": {

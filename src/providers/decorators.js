@@ -1,6 +1,10 @@
 'use strict';
 
 const vscode = require('vscode');
+const {
+  mightContainTodoKeyword,
+  scanTodoComments,
+} = require('../shared/todoComments');
 
 // Matches: _RGB32(r, g, b), _RGBA32(r, g, b, a), _RGB(r, g, b), _RGBA(r, g, b, a)
 const COLOR_PATTERN = /\b(_RGB32|_RGBA32|_RGB|_RGBA)\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+))?\s*\)/gi;
@@ -79,6 +83,7 @@ class QBasicColorProvider {
 // ── Inline TODO Highlighter ──────────────────────────────────────────────────
 
 let timeout = null;
+const decorationCache = new Map();
 
 const todoDecorationType = vscode.window.createTextEditorDecorationType({
   backgroundColor: 'rgba(255, 165, 0, 0.2)', // Orange background
@@ -101,63 +106,76 @@ const noteDecorationType = vscode.window.createTextEditorDecorationType({
   borderRadius: '2px'
 });
 
+function setDecorationGroups(editor, groups) {
+  editor.setDecorations(todoDecorationType, groups.todoOptions);
+  editor.setDecorations(fixmeDecorationType, groups.fixmeOptions);
+  editor.setDecorations(noteDecorationType, groups.noteOptions);
+}
+
+function buildDecorationGroups(matches) {
+  const groups = {
+    todoOptions: [],
+    fixmeOptions: [],
+    noteOptions: [],
+  };
+
+  for (const match of matches) {
+    const startPos = new vscode.Position(match.line, match.start);
+    const endPos = new vscode.Position(match.line, match.end);
+    const decoration = { range: new vscode.Range(startPos, endPos) };
+
+    if (match.keyword === 'TODO') {
+      groups.todoOptions.push(decoration);
+    } else if (
+      match.keyword === 'FIXME' ||
+      match.keyword === 'FIXIT' ||
+      match.keyword === 'HACK' ||
+      match.keyword === 'BUG'
+    ) {
+      groups.fixmeOptions.push(decoration);
+    } else if (match.keyword === 'NOTE') {
+      groups.noteOptions.push(decoration);
+    }
+  }
+
+  return groups;
+}
+
 function updateDecorations(editor) {
   if (!editor || editor.document.languageId !== 'qbasic') {
     return;
   }
 
-  const todoOptions = [];
-  const fixmeOptions = [];
-  const noteOptions = [];
-
-  const text = editor.document.getText();
-  const upperText = text.toUpperCase();
-
-  // Fast path to completely bypass regex testing if no matched words exist
-  if (!upperText.includes('TODO') && !upperText.includes('FIX') &&
-      !upperText.includes('HACK') && !upperText.includes('BUG') &&
-      !upperText.includes('NOTE')) {
-    editor.setDecorations(todoDecorationType, todoOptions);
-    editor.setDecorations(fixmeDecorationType, fixmeOptions);
-    editor.setDecorations(noteDecorationType, noteOptions);
+  const cacheKey = editor.document.uri.toString();
+  const cached = decorationCache.get(cacheKey);
+  if (cached && cached.version === editor.document.version) {
+    setDecorationGroups(editor, cached.groups);
     return;
   }
 
-  const extractRegex = /(?:'|\bREM\b)[^\r\n]*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b[^\r\n]*/gi;
-  const lines = text.split(/\r?\n/);
+  const text = editor.document.getText();
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const upperLine = line.toUpperCase();
-
-    // Secondary fast path for individual lines
-    if (!upperLine.includes('TODO') && !upperLine.includes('FIX') &&
-        !upperLine.includes('HACK') && !upperLine.includes('BUG') &&
-        !upperLine.includes('NOTE')) {
-      continue; // Skip this line
-    }
-
-    let match;
-    extractRegex.lastIndex = 0; // reset for new line execution
-    while ((match = extractRegex.exec(line))) {
-      const keyword = match[1].toUpperCase();
-      const startPos = new vscode.Position(i, match.index);
-      const endPos = new vscode.Position(i, match.index + match[0].length);
-      const decoration = { range: new vscode.Range(startPos, endPos) };
-
-      if (keyword === 'TODO') {
-        todoOptions.push(decoration);
-      } else if (keyword === 'FIXME' || keyword === 'FIXIT' || keyword === 'HACK' || keyword === 'BUG') {
-        fixmeOptions.push(decoration);
-      } else if (keyword === 'NOTE') {
-        noteOptions.push(decoration);
-      }
-    }
+  // Fast path to completely bypass regex testing if no matched words exist
+  if (!mightContainTodoKeyword(text)) {
+    const emptyGroups = {
+      todoOptions: [],
+      fixmeOptions: [],
+      noteOptions: [],
+    };
+    decorationCache.set(cacheKey, {
+      version: editor.document.version,
+      groups: emptyGroups,
+    });
+    setDecorationGroups(editor, emptyGroups);
+    return;
   }
 
-  editor.setDecorations(todoDecorationType, todoOptions);
-  editor.setDecorations(fixmeDecorationType, fixmeOptions);
-  editor.setDecorations(noteDecorationType, noteOptions);
+  const groups = buildDecorationGroups(scanTodoComments(text));
+  decorationCache.set(cacheKey, {
+    version: editor.document.version,
+    groups,
+  });
+  setDecorationGroups(editor, groups);
 }
 
 function triggerUpdateDecorations(editor) {
@@ -186,6 +204,10 @@ function activateDecorators(context) {
         if (activeEditor && event.document === activeEditor.document) {
             triggerUpdateDecorations(activeEditor);
         }
+    }, null, context.subscriptions);
+
+    vscode.workspace.onDidCloseTextDocument((document) => {
+        decorationCache.delete(document.uri.toString());
     }, null, context.subscriptions);
 }
 

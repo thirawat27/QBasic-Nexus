@@ -31,6 +31,7 @@ const {
 const { sanitizeSnippetBody } = require('../src/shared/snippetSanitizer');
 const { findActiveSignature } = require('../src/shared/signatureCatalog');
 const { buildSemanticTokenSpans } = require('../src/shared/semanticTokens');
+const { scanTodoComments } = require('../src/shared/todoComments');
 
 let passed = 0;
 let failed = 0;
@@ -481,6 +482,22 @@ test('semantic token helper distinguishes global, local, parameter, and array sy
   assertEqual(playerTypeDecl.modifiers.includes('declaration'), true, 'TYPE name should be marked declaration');
   assertEqual(paramUse.modifiers.includes('local'), true, 'Procedure parameter should be treated as local');
   assertEqual(localArrayUse.modifiers.includes('array'), true, 'Array usage should retain array modifier');
+});
+
+test('todo comment scanner extracts supported keywords and ignores plain strings', () => {
+  const matches = scanTodoComments(
+    [
+      'REM TODO: write docs',
+      '\' FIXME: patch runtime',
+      'PRINT "NOTE in string should not count"',
+      '\' NOTE: remember spacing',
+    ].join('\n'),
+  );
+
+  assertEqual(matches.length, 3, 'Expected only real TODO-style comments to be matched');
+  assertEqual(matches[0].keyword, 'TODO', 'Expected TODO keyword to be preserved');
+  assertEqual(matches[1].keyword, 'FIXME', 'Expected FIXME keyword to be preserved');
+  assertEqual(matches[2].label, 'NOTE: remember spacing', 'Expected comment label to be normalized');
 });
 
 console.log('\n════════════════════════════════════════');

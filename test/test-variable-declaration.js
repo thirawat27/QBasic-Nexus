@@ -881,6 +881,22 @@ handler:
         expectedOutput: ['before', 'handled', 'after']
     },
     {
+        name: 'ERR and ERL report the trapped error code and source line',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'PRINT "before"\n' +
+            'ERROR 9\n' +
+            'PRINT "after"\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n' +
+            'RESUME NEXT\n',
+        shouldWork: true,
+        expectedOutput: ['before', '9', '3', 'after']
+    },
+    {
         name: 'ON ERROR RESUME NEXT skips failing statements automatically',
         code: `
             ON ERROR RESUME NEXT
@@ -890,6 +906,22 @@ handler:
         `,
         shouldWork: true,
         expectedOutput: ['before', 'after']
+    },
+    {
+        name: 'Division by zero raises QB error 11 and preserves the fault line',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'PRINT "before"\n' +
+            'x = 10 / 0\n' +
+            'PRINT "after"\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n' +
+            'RESUME NEXT\n',
+        shouldWork: true,
+        expectedOutput: ['before', '11', '3', 'after']
     },
     {
         name: 'RESUME label transfers control to the requested label',
@@ -909,6 +941,12 @@ recovery:
         `,
         shouldWork: true,
         expectedOutput: ['before', 'handled', 'recover']
+    },
+    {
+        name: 'Integer division truncates toward zero like QB64',
+        code: 'PRINT -5 \\ 2',
+        shouldWork: true,
+        expectedOutput: ['-2']
     },
     {
         name: 'Procedure-local ON ERROR handlers stay isolated inside SUB bodies',

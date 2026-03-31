@@ -18,6 +18,8 @@ const CONFIG_DEFAULTS = Object.freeze({
   [CONFIG.COMPILER_PATH]: null,
   [CONFIG.COMPILER_MODE]: CONFIG.MODE_QB64,
   [CONFIG.COMPILER_ARGS]: '',
+  [CONFIG.INTERNAL_TARGETS]: 'host',
+  [CONFIG.INTERNAL_OUTPUT_DIR]: '',
   [CONFIG.ENABLE_LINT]: true,
   [CONFIG.LINT_DELAY]: 500,
   [CONFIG.AUTO_FORMAT]: true,
@@ -99,18 +101,28 @@ function getOutputChannel() {
  */
 function getTerminal(options = {}) {
   const cwd = options.cwd || null;
+  const shellPath = options.shellPath || null;
+  const shellArgs = Array.isArray(options.shellArgs) ? options.shellArgs : [];
+  const terminalKey = JSON.stringify({
+    cwd,
+    shellPath,
+    shellArgs,
+  });
   const needsNewTerminal =
     !state.terminal ||
     state.terminal.exitStatus !== undefined ||
-    state.terminalCwd !== cwd;
+    state.terminalKey !== terminalKey;
 
   if (needsNewTerminal) {
     state.terminal = vscode.window.createTerminal({
       name: CONFIG.TERMINAL_NAME,
       iconPath: new vscode.ThemeIcon('terminal'),
       cwd: cwd || undefined,
+      shellPath: shellPath || undefined,
+      shellArgs: shellArgs.length > 0 ? shellArgs : undefined,
     });
     state.terminalCwd = cwd;
+    state.terminalKey = terminalKey;
   }
   return state.terminal;
 }

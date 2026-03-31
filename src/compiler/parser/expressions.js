@@ -55,7 +55,7 @@ _parseCompare() {
   },
 
 
-_optimizeBinOp(left, right, op) {
+  _optimizeBinOp(left, right, op) {
     if (typeof left === 'string' && left.startsWith('"') && op === '+') {
       if (typeof right === 'string' && right.startsWith('"')) {
         return '"' + left.slice(1, -1) + right.slice(1, -1) + '"';
@@ -67,14 +67,21 @@ _optimizeBinOp(left, right, op) {
       if (op === '+') return String(l + r);
       if (op === '-') return String(l - r);
       if (op === '*') return String(l * r);
-      if (op === '/') return String(l / r);
-      if (op === '\\') return String(Math.floor(l / r));
+      if (op === '/') return r === 0 ? `_qbDiv(${left}, ${right})` : String(l / r);
+      if (op === '\\') {
+        return r === 0 ? `_qbIntDiv(${left}, ${right})` : String(Math.trunc(l / r));
+      }
       if (op === '^') return String(Math.pow(l, r));
-      if (op === 'MOD') return String(l % r);
+      if (op === 'MOD') {
+        return r === 0
+          ? `_qbMod(${left}, ${right})`
+          : String(Math.trunc(l) % Math.trunc(r));
+      }
     }
-    if (op === '\\') return `Math.floor(${left} / ${right})`;
+    if (op === '/') return `_qbDiv(${left}, ${right})`;
+    if (op === '\\') return `_qbIntDiv(${left}, ${right})`;
     if (op === '^') return `Math.pow(${left}, ${right})`;
-    if (op === 'MOD') return `(${left} % ${right})`;
+    if (op === 'MOD') return `_qbMod(${left}, ${right})`;
     return `(${left} ${op} ${right})`;
   },
 

@@ -2790,22 +2790,151 @@ function _fre(expr) {
 
 // _err - returns last error number
 let _lastError = 0;
+let _lastErrorLine = 0;
+let _currentSourceLine = 0;
 function _err() {
   return _lastError;
 }
 
 // _erl - returns last error line
-let _lastErrorLine = 0;
-let _currentSourceLine = 0;
 function _erl() {
   return _lastErrorLine;
+}
+function _qbNormalizeSourceLine(sourceLine) {
+  const numericLine = Number(sourceLine);
+  if (Number.isFinite(numericLine) && numericLine > 0) {
+    return Math.max(1, Math.trunc(numericLine));
+  }
+
+  const currentLine = Number(_currentSourceLine);
+  if (Number.isFinite(currentLine) && currentLine > 0) {
+    return Math.max(1, Math.trunc(currentLine));
+  }
+
+  return 0;
+}
+function _qbRememberRuntimeError(errorCode, sourceLine) {
+  const numericCode = Math.max(0, Math.trunc(Number(errorCode) || 0));
+  const normalizedLine = _qbNormalizeSourceLine(sourceLine);
+  _lastError = numericCode;
+  _lastErrorLine = normalizedLine;
+  return { numericCode, normalizedLine };
+}
+function _qbInferRuntimeErrorCode(error) {
+  const directCode = Number(error?.qbasicErrorCode);
+  if (Number.isFinite(directCode)) {
+    return Math.max(0, Math.trunc(directCode));
+  }
+
+  const rawText =
+    error instanceof Error
+      ? error.message
+      : error === undefined || error === null
+        ? ''
+        : String(error);
+
+  const explicitCode = rawText.match(/\\bError\\s+(\\d+)\\b/i);
+  if (explicitCode) {
+    return Math.max(0, Math.trunc(Number(explicitCode[1]) || 0));
+  }
+
+  const patterns = [
+    [/NEXT without FOR/i, 1],
+    [/syntax error/i, 2],
+    [/RETURN without GOSUB/i, 3],
+    [/(READ without DATA|Out of DATA)/i, 4],
+    [/illegal function call/i, 5],
+    [/overflow/i, 6],
+    [/out of memory/i, 7],
+    [/subscript out of range/i, 9],
+    [/duplicate definition/i, 10],
+    [/division by zero/i, 11],
+    [/type mismatch/i, 13],
+    [/RESUME without (?:active )?error/i, 20],
+    [/(bad file (?:name\\/number|number)|file (?:is )?not open)/i, 52],
+    [/file already open/i, 55],
+    [/input past end of file/i, 61],
+    [/(directory not found|path not found)/i, 66],
+  ];
+
+  for (const [pattern, code] of patterns) {
+    if (pattern.test(rawText)) {
+      return code;
+    }
+  }
+
+  return 0;
+}
+function _qbMakeRuntimeError(errorCode, message, sourceLine) {
+  const { numericCode, normalizedLine } = _qbRememberRuntimeError(
+    errorCode,
+    sourceLine,
+  );
+  const text =
+    message !== undefined && message !== null && String(message).length > 0
+      ? String(message)
+      : numericCode > 0
+        ? _errormessage$(numericCode)
+        : 'Unknown runtime error';
+
+  const runtimeError = new Error(text);
+  runtimeError.isQBasicRuntimeError = true;
+  runtimeError.qbasicErrorCode = numericCode;
+  runtimeError.qbasicSourceLine = normalizedLine;
+  runtimeError.qbasicMessage = text;
+  return runtimeError;
+}
+function _qbNormalizeRuntimeError(error, fallbackLine) {
+  if (error === "__END__" || error === "STOP") {
+    return error;
+  }
+
+  const normalizedError =
+    error instanceof Error
+      ? error
+      : new Error(
+          error === undefined || error === null
+            ? 'Unknown runtime error'
+            : String(error),
+        );
+  const numericCode = _qbInferRuntimeErrorCode(error);
+  const message =
+    normalizedError.message ||
+    (numericCode > 0 ? _errormessage$(numericCode) : 'Unknown runtime error');
+  const sourceLine = _qbNormalizeSourceLine(
+    error?.qbasicSourceLine ?? fallbackLine,
+  );
+
+  normalizedError.message = message;
+  normalizedError.isQBasicRuntimeError = true;
+  normalizedError.qbasicErrorCode = numericCode;
+  normalizedError.qbasicSourceLine = sourceLine;
+  normalizedError.qbasicMessage = message;
+  _qbRememberRuntimeError(numericCode, sourceLine);
+  return normalizedError;
+}
+function _qbDiv(left, right) {
+  const divisor = Number(right);
+  if (divisor === 0) {
+    throw _qbMakeRuntimeError(11, undefined, _currentSourceLine);
+  }
+  return Number(left) / divisor;
+}
+function _qbIntDiv(left, right) {
+  return Math.trunc(_qbDiv(Math.trunc(Number(left)), Math.trunc(Number(right))));
+}
+function _qbMod(left, right) {
+  const divisor = Math.trunc(Number(right));
+  if (divisor === 0) {
+    throw _qbMakeRuntimeError(11, undefined, _currentSourceLine);
+  }
+  return Math.trunc(Number(left)) % divisor;
 }
 function _qbTrackSourceLine(sourceLine) {
   const numericLine = Number(sourceLine);
   if (!Number.isFinite(numericLine)) return;
   const editorLine = Math.max(1, Math.trunc(numericLine) + 1);
   _currentSourceLine = editorLine;
-  _lastErrorLine = editorLine;
   if (typeof _runtime !== 'undefined' && typeof _runtime.setSourceLine === 'function') {
     _runtime.setSourceLine(editorLine);
   }
@@ -3020,6 +3149,7 @@ function _errormessage$(errnum) {
     12: 'Illegal in direct mode',
     13: 'Type mismatch',
     14: 'Out of string space',
+    20: 'RESUME without error',
     24: 'Device timeout',
     25: 'Device fault',
     26: 'FOR without NEXT',
@@ -3247,13 +3377,18 @@ break _qbRestart;
   } else if (typeof e === 'string' && e.startsWith('GOTO_')) {
     // GOTO jumped out of main body — normal for top-level GOTOs
   } else if (e && e.message) {
+    const _runtimeError = _qbNormalizeRuntimeError(e, _currentSourceLine);
+    const _runtimeLine = _runtimeError.qbasicSourceLine || _currentSourceLine;
     if (typeof process !== 'undefined' && process.stderr?.write) {
-      process.stderr.write('\\nRuntime Error: ' + e.message + '\\n');
+      process.stderr.write('\\nRuntime Error: ' + _runtimeError.message + '\\n');
     } else {
-      console.error('Runtime Error:', e.message);
+      console.error('Runtime Error:', _runtimeError.message);
     }
     if (typeof _runtime !== 'undefined' && typeof _runtime.error === 'function') {
-      _runtime.error(e.message, { line: _currentSourceLine });
+      _runtime.error(_runtimeError.message, {
+        line: _runtimeLine,
+        code: _runtimeError.qbasicErrorCode,
+      });
     }
   } else if (e !== undefined && e !== null) {
     if (typeof process !== 'undefined' && process.stderr?.write) {

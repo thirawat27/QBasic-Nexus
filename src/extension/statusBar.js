@@ -8,13 +8,16 @@
 const vscode = require('vscode');
 const { CONFIG, COMMANDS } = require('./constants');
 const { getDocumentAnalysis } = require('../shared/documentAnalysis');
+const {
+  getNativeExecutableLabel,
+  normalizePackagerTargets,
+} = require('./executableUtils');
 const { state } = require('./state');
 const { getConfig } = require('./utils');
 
 function updateStatusBar() {
   const editor = vscode.window.activeTextEditor;
-  const internalBuildLabel =
-    process.platform === 'win32' ? 'native .exe' : 'native binary';
+  const internalBuildLabel = getNativeExecutableLabel();
 
   if (!state.statusBarItem) return; // Guard: disposed during deactivation
 
@@ -25,6 +28,9 @@ function updateStatusBar() {
 
   const mode = getConfig(CONFIG.COMPILER_MODE);
   const compilerPath = getConfig(CONFIG.COMPILER_PATH);
+  const internalTargets = normalizePackagerTargets(
+    getConfig(CONFIG.INTERNAL_TARGETS),
+  );
   const autoDetectedCompilerPath = state.autoDetectedCompilerPath;
 
   if (state.isCompiling) {
@@ -33,8 +39,12 @@ function updateStatusBar() {
     state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
   } else if (mode === CONFIG.MODE_INTERNAL) {
-    state.statusBarItem.text = `$(package) Build ${internalBuildLabel} ⚡`;
-    state.statusBarItem.tooltip = `Compile with QBasic Nexus (@yao-pkg/pkg -> ${internalBuildLabel})`;
+    const targetLabel =
+      internalTargets.length === 1
+        ? internalTargets[0]
+        : `${internalTargets.length} targets`;
+    state.statusBarItem.text = `$(package) Build ${targetLabel} ⚡`;
+    state.statusBarItem.tooltip = `Compile with QBasic Nexus (@yao-pkg/pkg -> ${internalBuildLabel}; targets: ${internalTargets.join(', ')})`;
     state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
   } else if (!compilerPath && autoDetectedCompilerPath) {
