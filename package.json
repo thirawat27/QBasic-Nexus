@@ -23,7 +23,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:todo && npm run test:optimizations && npm run test:executables",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -38,7 +38,8 @@
         "test:todo": "node test/test-todo-provider.js",
         "test:optimizations": "node test/test-optimization-managers.js",
         "test:executables": "node test/test-executable-utils.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run benchmark",
+        "test:buildsettings": "node test/test-internal-build-settings.js",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish"
@@ -146,6 +147,21 @@
                 "command": "qbasic-nexus.refreshTodo",
                 "title": "Refresh TODOs 🔄",
                 "icon": "$(refresh)"
+            },
+            {
+                "command": "qbasic-nexus.showInternalBuildQuickActions",
+                "title": "QBasic Internal Build Quick Actions ⚙️",
+                "icon": "$(settings-gear)"
+            },
+            {
+                "command": "qbasic-nexus.selectInternalTargets",
+                "title": "QBasic Select Internal Build Targets 🎯",
+                "icon": "$(package)"
+            },
+            {
+                "command": "qbasic-nexus.selectInternalOutputDir",
+                "title": "QBasic Select Internal Output Folder 📂",
+                "icon": "$(folder-opened)"
             }
         ],
         "menus": {
@@ -291,13 +307,13 @@
                 "qbasic-nexus.internalTargets": {
                     "type": "string",
                     "default": "host",
-                    "markdownDescription": "Packager target(s) for **Qbasic Nexus** internal builds.\n\nUse `host` for the current machine, or a comma-separated list such as `win-x64`, `linux-x64`, `macos-arm64`, or `host,linux-x64`.\n\nWhen multiple targets are specified, outputs are written into the configured internal output folder and **Compile & Run** skips auto-run unless you switch back to a single host target.",
+                    "markdownDescription": "Packager target(s) for **Qbasic Nexus** internal builds.\n\nUse `host` for the current machine, or a comma-separated list such as `win-x64`, `linux-x64`, `macos-arm64`, or `host,linux-x64`.\n\nCommon aliases like `windows-x64`, `darwin-arm64`, `osx-arm64`, `amd64`, `aarch64`, and `current` are normalized automatically.\n\nWhen multiple targets are specified, outputs are written into the configured internal output folder and **Compile & Run** skips auto-run unless you switch back to a single host target.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.internalOutputDir": {
                     "type": "string",
                     "default": "",
-                    "markdownDescription": "Output directory for **Qbasic Nexus** internal builds.\n\nLeave empty to write beside the source file. Relative paths resolve from the workspace folder when available; absolute paths are also supported.\n\nSingle-target builds write the executable into this folder. Multi-target builds write all generated binaries there.",
+                    "markdownDescription": "Output directory for **Qbasic Nexus** internal builds.\n\nLeave empty to write beside the source file. Relative paths resolve from the workspace folder when available; absolute paths and `~/...` home-relative paths are also supported.\n\nSingle-target builds write the executable into this folder. Multi-target builds write all generated binaries there.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.enableLinting": {

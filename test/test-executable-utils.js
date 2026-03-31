@@ -6,14 +6,18 @@ const path = require('path');
 const {
   buildPackagerArgs,
   ensureExecutableReady,
+  ensureOutputDirectoryReady,
   getExecutableExtension,
   getExecutableOutputPath,
   getNativeExecutableLabel,
+  hasExperimentalMacosArm64Target,
   getTerminalLaunchSpec,
   isHostCompatibleTarget,
   normalizePackagerTargets,
+  parsePackagerTarget,
   resolveExecutableOutputDir,
   shouldUsePortablePackaging,
+  validatePackagerTargets,
 } = require('../src/extension/executableUtils');
 
 console.log('\n📦 Native Executable Tests\n');
@@ -80,6 +84,52 @@ test('Packager target normalization trims, lowercases, and deduplicates', () => 
   );
 });
 
+test('Packager target normalization canonicalizes aliases and token order', () => {
+  const targets = normalizePackagerTargets('windows-amd64, node20-darwin-aarch64, current');
+  assert(
+    JSON.stringify(targets) === JSON.stringify(['win-x64', 'node20-macos-arm64', 'host']),
+    'Expected aliases to normalize to canonical pkg targets',
+  );
+});
+
+test('Packager target parser extracts canonical target parts', () => {
+  const parsed = parsePackagerTarget('node20-darwin-aarch64');
+  assert(parsed.nodeRange === 'node20', 'Expected node range to be parsed');
+  assert(parsed.platform === 'macos', 'Expected macOS platform alias to normalize');
+  assert(parsed.arch === 'arm64', 'Expected arm64 alias to normalize');
+  assert(parsed.canonical === 'node20-macos-arm64', 'Expected canonical target ordering');
+});
+
+test('Packager target validation rejects unknown tokens', () => {
+  let error = null;
+  try {
+    validatePackagerTargets('linux-quantum');
+  } catch (err) {
+    error = err;
+  }
+
+  assert(error, 'Expected invalid target to throw');
+  assert(
+    error.message.includes('unknown token(s): quantum'),
+    'Expected unknown token details in the validation error',
+  );
+});
+
+test('Packager target validation rejects conflicting target categories', () => {
+  let error = null;
+  try {
+    validatePackagerTargets('win-linux');
+  } catch (err) {
+    error = err;
+  }
+
+  assert(error, 'Expected conflicting target to throw');
+  assert(
+    error.message.includes('multiple platform tokens'),
+    'Expected duplicate platform details in the validation error',
+  );
+});
+
 test('Host compatibility detection distinguishes local and foreign targets', () => {
   assert(
     isHostCompatibleTarget('win-x64', { platform: 'win32', arch: 'x64' }),
@@ -135,6 +185,81 @@ test('Absolute internal output directory is preserved', () => {
   assert(
     resolveExecutableOutputDir(sourcePath, outputDir) === path.normalize(outputDir),
     'Absolute output dir should be preserved',
+  );
+});
+
+test('Home-relative internal output directory expands to the user home directory', () => {
+  const sourcePath = path.join(os.tmpdir(), 'workspace', 'src', 'demo.bas');
+  const resolved = resolveExecutableOutputDir(sourcePath, '~/qbnx-out');
+  assert(
+    resolved === path.join(os.homedir(), 'qbnx-out'),
+    'Expected ~/ paths to expand to the user home directory',
+  );
+});
+
+test('ensureOutputDirectoryReady creates a missing directory', async () => {
+  const calls = [];
+  const targetDir = path.join(os.tmpdir(), 'qbnx-new-dir');
+
+  await ensureOutputDirectoryReady(
+    {
+      stat: async () => {
+        const error = new Error('Not found');
+        error.code = 'ENOENT';
+        throw error;
+      },
+      mkdir: async (dirPath, options) => {
+        calls.push(['mkdir', dirPath, options]);
+      },
+    },
+    targetDir,
+  );
+
+  assert(
+    JSON.stringify(calls) === JSON.stringify([
+      ['mkdir', targetDir, { recursive: true }],
+    ]),
+    'Expected mkdir to be called for missing output directories',
+  );
+});
+
+test('ensureOutputDirectoryReady rejects file paths', async () => {
+  let error = null;
+  const targetPath = path.join(os.tmpdir(), 'qbnx-file-target');
+
+  try {
+    await ensureOutputDirectoryReady(
+      {
+        stat: async () => ({
+          isDirectory: () => false,
+        }),
+        mkdir: async () => {},
+      },
+      targetPath,
+    );
+  } catch (err) {
+    error = err;
+  }
+
+  assert(error, 'Expected file-backed output path to throw');
+  assert(
+    error.message.includes('is not a directory'),
+    'Expected a clear directory validation error',
+  );
+});
+
+test('Experimental macOS arm64 targets surface a signing note', () => {
+  assert(
+    hasExperimentalMacosArm64Target('macos-arm64'),
+    'Expected macOS arm64 target to require a signing note',
+  );
+  assert(
+    hasExperimentalMacosArm64Target('host', { platform: 'darwin', arch: 'arm64' }),
+    'Expected arm64 macOS host builds to require a signing note',
+  );
+  assert(
+    !hasExperimentalMacosArm64Target('linux-x64'),
+    'Non-macOS targets should not require a signing note',
   );
 });
 

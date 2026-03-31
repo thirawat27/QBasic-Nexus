@@ -8,11 +8,15 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 
 - **Cross-Target Internal Packaging**: Expanded the internal compiler so it can package `host`, `win-x64`, `linux-x64`, `macos-arm64`, or multi-target builds through `qbasic-nexus.internalTargets`, while skipping auto-run for non-host or multi-target outputs.
 - **Configurable Internal Output Folders**: Added `qbasic-nexus.internalOutputDir` so internal builds can emit packaged binaries into a dedicated folder instead of always writing beside the source file.
+- **Internal Build Setting Commands**: Added command-palette actions to pick internal build targets and output folders without editing JSON settings by hand.
+- **Internal Build Quick Actions**: Added a status-bar quick action in internal mode so target and output settings can be changed directly from the editor chrome.
 
 ### 🐛 Bug Fixes & Improvements
 
 - **QB64-Like Runtime Errors**: Unified runtime error handling so `ON ERROR`, `ERR`, `ERL`, `ERROR`, `RESUME`, divide-by-zero, and integer-division behavior align more closely with QB64 semantics.
+- **QB64-Like Numeric and File I/O Semantics**: Routed `CINT`, `CLNG`, `CSNG`, `CDBL`, `INT`, `FIX`, and `VAL` through QB-aware runtime helpers, added overflow checks, coerced typed assignments and TYPE copies more like QB64, and tightened file-number/mode/EOF handling to surface QB-style error codes earlier.
 - **Cross-Platform Executable Flow**: Normalized executable paths, permissions, and terminal launch behavior across Windows, macOS, and Linux for both QB64 and internal compiler builds.
+- **Safer Internal Packaging Config**: Internal target strings are now canonicalized and validated up front, common aliases are accepted automatically, output folders reject file-path mistakes early, and macOS arm64 builds surface a signing note before distribution.
 - **Extension Host Stability**: Reduced typing stalls and workspace rescans with worker-backed linting, versioned semantic-token caching, incremental TODO/decorator refresh, lazy analysis caches, and background workspace warmup.
 
 ### ✅ Quality Assurance

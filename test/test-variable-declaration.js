@@ -203,7 +203,7 @@ function createTestRuntime(options, output) {
         }
 
         if (handle.position >= handle.content.length) {
-            return '';
+            throw new Error('Input past end of file');
         }
 
         if (handle.content[handle.position] === '"') {
@@ -239,6 +239,9 @@ function createTestRuntime(options, output) {
     function inputLine(fileNum) {
         const handle = ensureHandle(fileNum);
         if (!handle) return '';
+        if (handle.position >= handle.content.length) {
+            throw new Error('Input past end of file');
+        }
 
         const newlineIndex = handle.content.indexOf('\n', handle.position);
         const end = newlineIndex === -1 ? handle.content.length : newlineIndex;
@@ -947,6 +950,113 @@ recovery:
         code: 'PRINT -5 \\ 2',
         shouldWork: true,
         expectedOutput: ['-2']
+    },
+    {
+        name: 'CINT uses banker\'s rounding like QB64',
+        code: 'PRINT CINT(2.5)\nPRINT CINT(3.5)\nPRINT CINT(-2.5)\nPRINT CINT(-3.5)',
+        shouldWork: true,
+        expectedOutput: ['2', '4', '-2', '-4']
+    },
+    {
+        name: 'CINT overflow raises QB error 6 with the fault line',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'PRINT "before"\n' +
+            'PRINT CINT(40000)\n' +
+            'PRINT "after"\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n' +
+            'RESUME NEXT\n',
+        shouldWork: true,
+        expectedOutput: ['before', '6', '3', 'after']
+    },
+    {
+        name: 'Typed INTEGER assignments coerce array elements with QB-style rounding',
+        code:
+            'DIM values(1) AS INTEGER\n' +
+            'values(1) = 3.5\n' +
+            'PRINT values(1)\n',
+        shouldWork: true,
+        expectedOutput: ['4']
+    },
+    {
+        name: 'Typed SINGLE assignments coerce string inputs to numeric values',
+        code:
+            'DIM ratio AS SINGLE\n' +
+            'ratio = "3.25"\n' +
+            'PRINT ratio + 1\n',
+        shouldWork: true,
+        expectedOutput: ['4.25']
+    },
+    {
+        name: 'TYPE assignments copy coerced fields instead of aliasing the source object',
+        code:
+            'TYPE Counter\n' +
+            '    Value AS INTEGER\n' +
+            'END TYPE\n' +
+            'DIM src AS Counter\n' +
+            'DIM dst AS Counter\n' +
+            'src.Value = 2.5\n' +
+            'dst = src\n' +
+            'src.Value = 9\n' +
+            'PRINT dst.Value\n' +
+            'PRINT src.Value\n',
+        shouldWork: true,
+        expectedOutput: ['2', '9']
+    },
+    {
+        name: 'VAL parses QB-style hexadecimal and D-exponent prefixes',
+        code: 'PRINT VAL("&HFF")\nPRINT VAL("1.5D2")\nPRINT VAL("ABC")',
+        shouldWork: true,
+        expectedOutput: ['255', '150', '0']
+    },
+    {
+        name: 'OPEN rejects invalid file numbers with QB error 64',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'OPEN "demo.txt" FOR OUTPUT AS #0\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n',
+        shouldWork: true,
+        expectedOutput: ['64', '2']
+    },
+    {
+        name: 'INPUT # reports bad file mode on write-only handles',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'OPEN "demo.txt" FOR OUTPUT AS #1\n' +
+            'INPUT #1, x\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n',
+        shouldWork: true,
+        expectedOutput: ['54', '3']
+    },
+    {
+        name: 'INPUT # reports QB error 61 when reading past EOF',
+        code:
+            'ON ERROR GOTO handler\n' +
+            'OPEN "demo.txt" FOR OUTPUT AS #1\n' +
+            'WRITE #1, 42\n' +
+            'CLOSE #1\n' +
+            'OPEN "demo.txt" FOR INPUT AS #1\n' +
+            'INPUT #1, x\n' +
+            'INPUT #1, y\n' +
+            'END\n' +
+            '\n' +
+            'handler:\n' +
+            'PRINT ERR\n' +
+            'PRINT ERL\n',
+        shouldWork: true,
+        expectedOutput: ['61', '7']
     },
     {
         name: 'Procedure-local ON ERROR handlers stay isolated inside SUB bodies',

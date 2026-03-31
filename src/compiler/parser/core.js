@@ -407,17 +407,11 @@ module.exports = {
 
   _wrapAssignmentValue(name, valueExpression, options = {}) {
     const targetMetadata = this._getTargetMetadata(name, options);
-    if (!targetMetadata) return valueExpression;
-
-    if (targetMetadata.kind === 'fixedString') {
-      return `_fixedString(${valueExpression}, ${targetMetadata.length})`;
+    if (!targetMetadata) {
+      return name.endsWith('$') ? `String(${valueExpression})` : valueExpression;
     }
 
-    if (targetMetadata.kind === 'string') {
-      return `String(${valueExpression})`;
-    }
-
-    return valueExpression;
+    return `_coerceTypedValue(${this._metadataToRuntimeLiteral(targetMetadata)}, ${valueExpression})`;
   },
 
   _isStringLike(name, options = {}) {
@@ -938,28 +932,7 @@ function _defaultTypeFieldValue(spec) {
 }
 
 function _normalizeTypeFieldValue(spec, value) {
-  if (!spec || typeof spec !== 'object') return value;
-
-  if (spec.kind === 'fixedString') {
-    return _fixedString(value, spec.length);
-  }
-
-  if (spec.kind === 'string') {
-    return String(value ?? '');
-  }
-
-  if (spec.kind === 'type') {
-    if (value && typeof value === 'object') {
-      return _createTypeInstance(spec.typeName, value);
-    }
-    return _createTypeInstance(spec.typeName);
-  }
-
-  if (value === undefined || value === null || value === '') {
-    return 0;
-  }
-
-  return value;
+  return _coerceTypedValue(spec, value);
 }
 
 function _createTypeInstance(typeName, initialValues) {
@@ -1105,7 +1078,7 @@ function _serializeScalarValue(typeName, value) {
   const width = _typedValueByteLength({ kind: 'scalar', typeName: normalizedType }) || 8;
   const buffer = new ArrayBuffer(width);
   const view = new DataView(buffer);
-  const numericValue = Number(value) || 0;
+  const numericValue = Number(_coerceScalarValue(normalizedType, value)) || 0;
 
   switch (normalizedType) {
     case 'BIT':
@@ -1635,7 +1608,11 @@ function _rset(value, length) {
 }
 
 function _coerceFileNumber(filenum) {
-  return Math.max(1, Math.floor(Number(filenum) || 0));
+  const numeric = Math.floor(Number(filenum));
+  if (!Number.isFinite(numeric) || numeric < 1) {
+    throw _qbMakeRuntimeError(64, undefined, _currentSourceLine);
+  }
+  return numeric;
 }
 
 function _normalizeBasicPath(filename) {
@@ -1805,8 +1782,9 @@ function _freefile() {
   let candidate = 1;
   while (_fileHandles[candidate]) {
     candidate++;
-    // Safety limit to prevent infinite loop
-    if (candidate > 999) break;
+    if (candidate > 255) {
+      throw _qbMakeRuntimeError(67, undefined, _currentSourceLine);
+    }
   }
   _nextFileNum = Math.max(_nextFileNum, candidate + 1);
   return candidate;
@@ -1941,21 +1919,21 @@ function _normalizeFileAccess(mode, access) {
 
 function _assertFileReadable(handle) {
   if (!handle) {
-    throw new Error('File is not open.');
+    throw _qbMakeRuntimeError(52, undefined, _currentSourceLine);
   }
 
   if (handle.access === 'WRITE') {
-    throw new Error('File is not open for reading.');
+    throw _qbMakeRuntimeError(54, undefined, _currentSourceLine);
   }
 }
 
 function _assertFileWritable(handle) {
   if (!handle) {
-    throw new Error('File is not open.');
+    throw _qbMakeRuntimeError(52, undefined, _currentSourceLine);
   }
 
   if (handle.access === 'READ') {
-    throw new Error('File is not open for writing.');
+    throw _qbMakeRuntimeError(54, undefined, _currentSourceLine);
   }
 }
 
@@ -2027,7 +2005,7 @@ function _assertSharedOpenAllowed(handle) {
   if (!handle) return;
 
   if (_fileHandles[handle.fileNum]) {
-    throw new Error('File number is already open.');
+    throw _qbMakeRuntimeError(55, undefined, _currentSourceLine);
   }
 
   for (const currentHandle of Object.values(_fileHandles)) {
@@ -2036,7 +2014,7 @@ function _assertSharedOpenAllowed(handle) {
     }
 
     if (!currentHandle.shared || !handle.shared) {
-      throw new Error('File is already open without SHARED access.');
+      throw _qbMakeRuntimeError(55, undefined, _currentSourceLine);
     }
   }
 }
@@ -2240,6 +2218,13 @@ function _buildFieldRecord(handle) {
     .join('');
 }
 
+function _assertInputPastEndAllowed(handle) {
+  if (!handle) return;
+  if (handle.eof || handle.pos >= String(handle.data ?? '').length) {
+    throw _qbMakeRuntimeError(61, undefined, _currentSourceLine);
+  }
+}
+
 function _applyFieldRecord(handle, data) {
   if (!handle?.fields || handle.fields.length === 0) {
     return;
@@ -2258,7 +2243,12 @@ function _applyFieldRecord(handle, data) {
 function _field(filenum, definitions) {
   const fileNum = _coerceFileNumber(filenum);
   const handle = _getFileHandle(fileNum);
-  if (!handle) return;
+  if (!handle) {
+    throw _qbMakeRuntimeError(52, undefined, _currentSourceLine);
+  }
+  if (handle.mode !== 'RANDOM') {
+    throw _qbMakeRuntimeError(54, undefined, _currentSourceLine);
+  }
 
   handle.fields = Array.isArray(definitions) ? definitions : [];
   const fieldLength = _fieldRecordLength(handle);
@@ -2275,6 +2265,16 @@ async function _open(filename, mode, filenum, recordLength, options) {
   const fileNum = filenum === undefined ? _freefile() : _coerceFileNumber(filenum);
   const openMode = String(mode || 'INPUT').toUpperCase();
   const normalized = _normalizeBasicPath(filename);
+  if (!normalized) {
+    throw _qbMakeRuntimeError(63, undefined, _currentSourceLine);
+  }
+  if (!['INPUT', 'OUTPUT', 'APPEND', 'RANDOM', 'BINARY'].includes(openMode)) {
+    throw _qbMakeRuntimeError(54, undefined, _currentSourceLine);
+  }
+  const normalizedRecordLength = Math.floor(Number(recordLength) || 0);
+  if (openMode === 'RANDOM' && normalizedRecordLength < 1) {
+    throw _qbMakeRuntimeError(59, undefined, _currentSourceLine);
+  }
   const handle = {
     fileNum,
     filename: normalized,
@@ -2282,7 +2282,7 @@ async function _open(filename, mode, filenum, recordLength, options) {
     data: '',
     pos: 0,
     eof: true,
-    recordLength: Math.max(0, Math.floor(Number(recordLength) || 0)),
+    recordLength: Math.max(0, normalizedRecordLength),
     fields: null,
     access: _normalizeFileAccess(openMode, options?.access),
     shared: Boolean(options?.shared),
@@ -2301,6 +2301,9 @@ async function _open(filename, mode, filenum, recordLength, options) {
       lockMode: handle.lockMode,
     });
   } else {
+    if (openMode === 'INPUT' && !_fallbackFileExists(normalized)) {
+      throw _qbMakeRuntimeError(53, undefined, _currentSourceLine);
+    }
     if (openMode === 'OUTPUT') {
       handle.data = '';
     } else {
@@ -2424,8 +2427,8 @@ async function _inputFileLine(filenum) {
   }
 
   const handle = _getFileHandle(filenum);
-  if (!handle) return '';
   _assertFileReadable(handle);
+  _assertInputPastEndAllowed(handle);
   _assertFileLockAllowed(handle, 'read', handle.pos, Number.POSITIVE_INFINITY);
 
   const data = String(handle.data ?? '');
@@ -2448,7 +2451,6 @@ async function _inputFileToken(filenum) {
   }
 
   const handle = _getFileHandle(filenum);
-  if (!handle) return '';
   _assertFileReadable(handle);
   _assertFileLockAllowed(handle, 'read', handle.pos, Number.POSITIVE_INFINITY);
 
@@ -2456,7 +2458,7 @@ async function _inputFileToken(filenum) {
   _skipInputSeparators(handle);
   if (handle.pos >= data.length) {
     _syncFileHandle(handle);
-    return '';
+    throw _qbMakeRuntimeError(61, undefined, _currentSourceLine);
   }
 
   let value = '';
@@ -2606,16 +2608,31 @@ async function _getFileFields(filenum, position) {
 }
 
 function _seek(filenum, pos) {
-  if (_seekFunc) {
-    _seekFunc(_coerceFileNumber(filenum), pos);
+  const fileNum = _coerceFileNumber(filenum);
+  const numericPos = Math.floor(Number(pos));
+  if (!Number.isFinite(numericPos) || numericPos < 1) {
+    throw _qbMakeRuntimeError(62, undefined, _currentSourceLine);
   }
-  const handle = _getFileHandle(filenum);
-  if (!handle) return;
-  handle.pos = Math.max(0, (Math.floor(Number(pos) || 1)) - 1);
+  if (_seekFunc) {
+    _seekFunc(fileNum, pos);
+  }
+  const handle = _getFileHandle(fileNum);
+  if (!handle) {
+    throw _qbMakeRuntimeError(52, undefined, _currentSourceLine);
+  }
+  handle.pos = numericPos - 1;
   _syncFileHandle(handle);
 }
 
 async function _rename(oldName, newName) {
+  const currentName = _normalizeBasicPath(oldName);
+  const nextName = _normalizeBasicPath(newName);
+  if (!currentName || !nextName) {
+    throw _qbMakeRuntimeError(63, undefined, _currentSourceLine);
+  }
+  if (!_fileexists(oldName)) {
+    throw _qbMakeRuntimeError(53, undefined, _currentSourceLine);
+  }
   if (_renameFunc) {
     await _renameFunc(oldName, newName);
   } else {
@@ -2625,6 +2642,13 @@ async function _rename(oldName, newName) {
 }
 
 async function _kill(filename) {
+  const normalized = _normalizeBasicPath(filename);
+  if (!normalized) {
+    throw _qbMakeRuntimeError(63, undefined, _currentSourceLine);
+  }
+  if (!_fileexists(filename)) {
+    throw _qbMakeRuntimeError(53, undefined, _currentSourceLine);
+  }
   if (_killFunc) {
     await _killFunc(filename);
   } else {
@@ -2634,18 +2658,26 @@ async function _kill(filename) {
 }
 
 async function _mkdir(dirname) {
+  const normalized = _normalizeBasicPath(dirname);
+  if (!normalized) {
+    throw _qbMakeRuntimeError(63, undefined, _currentSourceLine);
+  }
   if (_mkdirFunc) {
     await _mkdirFunc(dirname);
   } else {
-    _fallbackMkdir(dirname);
+    _fallbackMkdir(normalized);
   }
 }
 
 async function _rmdir(dirname) {
+  const normalized = _normalizeBasicPath(dirname);
+  if (!normalized) {
+    throw _qbMakeRuntimeError(63, undefined, _currentSourceLine);
+  }
   if (_rmdirFunc) {
     await _rmdirFunc(dirname);
   } else {
-    _fallbackRmdir(dirname);
+    _fallbackRmdir(normalized);
   }
 }
 
@@ -2660,9 +2692,11 @@ async function _chdir(dirname) {
   }
 
   const nextDir = _normalizeBasicPath(dirname);
-  if (!nextDir) return;
+  if (!nextDir) {
+    throw _qbMakeRuntimeError(63, undefined, _currentSourceLine);
+  }
   if (!_fallbackDirExists(nextDir)) {
-    throw new Error('Directory not found: ' + String(dirname));
+    throw _qbMakeRuntimeError(66, undefined, _currentSourceLine);
   }
   _currentDir = nextDir;
 }
@@ -2687,7 +2721,9 @@ async function _files(spec) {
 function _lock(filenum, start, end) {
   const fileNum = _coerceFileNumber(filenum);
   const handle = _getFileHandle(fileNum);
-  if (!handle) return;
+  if (!handle) {
+    throw _qbMakeRuntimeError(52, undefined, _currentSourceLine);
+  }
 
   _registerFileLock(handle, start, end, 'READ WRITE');
   if (_lockFunc) {
@@ -2698,7 +2734,9 @@ function _lock(filenum, start, end) {
 function _unlock(filenum, start, end) {
   const fileNum = _coerceFileNumber(filenum);
   const handle = _getFileHandle(fileNum);
-  if (!handle) return;
+  if (!handle) {
+    throw _qbMakeRuntimeError(52, undefined, _currentSourceLine);
+  }
 
   _unregisterFileLock(handle, start, end);
   if (_unlockFunc) {
@@ -2913,22 +2951,141 @@ function _qbNormalizeRuntimeError(error, fallbackLine) {
   _qbRememberRuntimeError(numericCode, sourceLine);
   return normalizedError;
 }
+function _qbNumber(value) {
+  if (typeof value === 'boolean') {
+    return value ? -1 : 0;
+  }
+  if (value === undefined || value === null) {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    throw _qbMakeRuntimeError(13, undefined, _currentSourceLine);
+  }
+  return numeric;
+}
+function _qbBankersRound(value) {
+  const numeric = _qbNumber(value);
+  const sign = numeric < 0 ? -1 : 1;
+  const absolute = Math.abs(numeric);
+  const rounded = Math.round(absolute);
+  return (absolute % 1 === 0.5 ? rounded - (rounded % 2) : rounded) * sign;
+}
+function _qbOverflowIfOutside(value, min, max) {
+  if (value < min || value > max) {
+    throw _qbMakeRuntimeError(6, undefined, _currentSourceLine);
+  }
+  return value;
+}
+function _coerceScalarValue(typeName, value) {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  switch (_normalizeConversionType(typeName)) {
+    case 'INTEGER':
+      return _cint(value);
+    case 'LONG':
+      return _clng(value);
+    case 'SINGLE':
+      return _csng(value);
+    case 'DOUBLE':
+      return _cdbl(value);
+    default: {
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? numericValue : 0;
+    }
+  }
+}
+function _coerceTypedValue(spec, value) {
+  if (!spec || typeof spec !== 'object') {
+    return value;
+  }
+
+  if (spec.kind === 'fixedString') {
+    return _fixedString(value, spec.length);
+  }
+
+  if (spec.kind === 'string') {
+    return String(value ?? '');
+  }
+
+  if (spec.kind === 'scalar') {
+    return _coerceScalarValue(spec.typeName, value);
+  }
+
+  if (spec.kind === 'type') {
+    if (value && typeof value === 'object') {
+      return _createTypeInstance(spec.typeName, value);
+    }
+    return _createTypeInstance(spec.typeName);
+  }
+
+  return value;
+}
+function _fix(value) {
+  return Math.trunc(_qbNumber(value));
+}
+function _int(value) {
+  return Math.floor(_qbNumber(value));
+}
+function _cint(value) {
+  return _qbOverflowIfOutside(_qbBankersRound(value), -32768, 32767);
+}
+function _clng(value) {
+  return _qbOverflowIfOutside(_qbBankersRound(value), -2147483648, 2147483647);
+}
+function _csng(value) {
+  const numeric = _qbNumber(value);
+  if (numeric !== 0 && Math.abs(numeric) > 3.402823466e38) {
+    throw _qbMakeRuntimeError(6, undefined, _currentSourceLine);
+  }
+  return Number(numeric);
+}
+function _cdbl(value) {
+  return _qbNumber(value);
+}
+function _val(value) {
+  const source = String(value ?? '').trimStart();
+  if (!source) {
+    return 0;
+  }
+
+  const hexMatch = source.match(/^&H([0-9A-F]+)/i);
+  if (hexMatch) {
+    return parseInt(hexMatch[1], 16);
+  }
+
+  const octalMatch = source.match(/^&O([0-7]+)/i);
+  if (octalMatch) {
+    return parseInt(octalMatch[1], 8);
+  }
+
+  const decimalMatch = source.match(
+    /^[+-]?(?:(?:\\d+\\.\\d*)|(?:\\d+)|(?:\\.\\d+))(?:[ED][+-]?\\d+)?/i,
+  );
+  if (!decimalMatch) {
+    return 0;
+  }
+
+  return Number(decimalMatch[0].replace(/d/i, 'e'));
+}
 function _qbDiv(left, right) {
-  const divisor = Number(right);
+  const divisor = _qbNumber(right);
   if (divisor === 0) {
     throw _qbMakeRuntimeError(11, undefined, _currentSourceLine);
   }
-  return Number(left) / divisor;
+  return _qbNumber(left) / divisor;
 }
 function _qbIntDiv(left, right) {
-  return Math.trunc(_qbDiv(Math.trunc(Number(left)), Math.trunc(Number(right))));
+  return Math.trunc(_qbDiv(_fix(left), _fix(right)));
 }
 function _qbMod(left, right) {
-  const divisor = Math.trunc(Number(right));
+  const divisor = _fix(right);
   if (divisor === 0) {
     throw _qbMakeRuntimeError(11, undefined, _currentSourceLine);
   }
-  return Math.trunc(Number(left)) % divisor;
+  return _fix(left) % divisor;
 }
 function _qbTrackSourceLine(sourceLine) {
   const numericLine = Number(sourceLine);

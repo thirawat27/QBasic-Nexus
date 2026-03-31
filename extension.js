@@ -35,6 +35,11 @@ const { executeCompile } = require('./src/extension/compileCommand');
 const { runInCrt } = require('./src/extension/crtRunner');
 const { maybeAutoConfigureQB64 } = require('./src/extension/qb64Compiler');
 const {
+  selectInternalOutputDir,
+  selectInternalTargets,
+  showInternalBuildQuickActions,
+} = require('./src/extension/internalBuildSettings');
+const {
   removeLineNumbers,
   renumberLines,
 } = require('./src/commands/lineNumbers');
@@ -105,6 +110,13 @@ async function activate(context) {
   );
   state.statusBarItem.command = COMMANDS.COMPILE_RUN;
   context.subscriptions.push(state.statusBarItem);
+
+  state.internalBuildBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    99,
+  );
+  state.internalBuildBarItem.command = COMMANDS.SHOW_INTERNAL_BUILD_QUICK_ACTIONS;
+  context.subscriptions.push(state.internalBuildBarItem);
 
   state.statsBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
@@ -241,6 +253,18 @@ async function activate(context) {
     vscode.commands.registerCommand(
       COMMANDS.INSERT_CHR_FROM_ASCII,
       insertChrFromAsciiChart,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SHOW_INTERNAL_BUILD_QUICK_ACTIONS,
+      showInternalBuildQuickActions,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_INTERNAL_TARGETS,
+      selectInternalTargets,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_INTERNAL_OUTPUT_DIR,
+      selectInternalOutputDir,
     ),
   );
 
@@ -391,6 +415,7 @@ function deactivate() {
 
   // Dispose VS Code resources
   state.statusBarItem?.dispose();
+  state.internalBuildBarItem?.dispose();
   state.statsBarItem?.dispose();
   state.outputChannel?.dispose();
   state.diagnosticCollection?.dispose();
@@ -398,6 +423,7 @@ function deactivate() {
 
   // Clear references
   state.statusBarItem = null;
+  state.internalBuildBarItem = null;
   state.statsBarItem = null;
   state.outputChannel = null;
   state.diagnosticCollection = null;

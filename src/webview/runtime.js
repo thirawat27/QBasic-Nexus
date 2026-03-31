@@ -1039,7 +1039,7 @@
 
     skipVfsInputSeparators(fh);
     if (fh.position >= fh.content.length) {
-      return '';
+      throw new Error('Input past end of file');
     }
 
     if (fh.content[fh.position] === '"') {
@@ -1080,6 +1080,9 @@
     const fh = fileHandles[filenum];
     if (!fh) return '';
     assertFileReadable(fh);
+    if (fh.position >= fh.content.length) {
+      throw new Error('Input past end of file');
+    }
 
     const newlineIndex = fh.content.indexOf('\n', fh.position);
     const end = newlineIndex === -1 ? fh.content.length : newlineIndex;

@@ -11,7 +11,9 @@ const { getDocumentAnalysis } = require('../shared/documentAnalysis');
 const {
   getNativeExecutableLabel,
   normalizePackagerTargets,
+  validatePackagerTargets,
 } = require('./executableUtils');
+const { formatInternalOutputDirLabel } = require('./internalBuildSettings');
 const { state } = require('./state');
 const { getConfig } = require('./utils');
 
@@ -23,21 +25,71 @@ function updateStatusBar() {
 
   if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) {
     state.statusBarItem.hide();
+    state.internalBuildBarItem?.hide();
     return;
   }
 
   const mode = getConfig(CONFIG.COMPILER_MODE);
   const compilerPath = getConfig(CONFIG.COMPILER_PATH);
-  const internalTargets = normalizePackagerTargets(
-    getConfig(CONFIG.INTERNAL_TARGETS),
-  );
+  const internalOutputDir = getConfig(CONFIG.INTERNAL_OUTPUT_DIR, '');
   const autoDetectedCompilerPath = state.autoDetectedCompilerPath;
+  const workspaceFolder =
+    vscode.workspace.getWorkspaceFolder(editor.document.uri) ||
+    vscode.workspace.workspaceFolders?.[0] ||
+    null;
+  const workspacePath = workspaceFolder?.uri.fsPath || '';
+  let internalTargets = [];
+  let internalTargetError = null;
+
+  if (mode === CONFIG.MODE_INTERNAL) {
+    try {
+      internalTargets = validatePackagerTargets(getConfig(CONFIG.INTERNAL_TARGETS));
+    } catch (error) {
+      internalTargets = normalizePackagerTargets(getConfig(CONFIG.INTERNAL_TARGETS));
+      internalTargetError = error;
+    }
+  }
+
+  if (state.internalBuildBarItem) {
+    if (mode === CONFIG.MODE_INTERNAL) {
+      const targetSummary = internalTargets.length > 0
+        ? internalTargets.join(', ')
+        : 'host';
+      const outputSummary = formatInternalOutputDirLabel(
+        internalOutputDir,
+        workspacePath,
+      );
+      state.internalBuildBarItem.text = internalTargetError
+        ? '$(warning) Fix Build'
+        : '$(settings-gear) Targets/Out';
+      state.internalBuildBarItem.tooltip = internalTargetError
+        ? `${internalTargetError.message}\nClick to update internal build targets or output folder.`
+        : `Internal build quick actions\nTargets: ${targetSummary}\nOutput: ${outputSummary}`;
+      state.internalBuildBarItem.command = COMMANDS.SHOW_INTERNAL_BUILD_QUICK_ACTIONS;
+      state.internalBuildBarItem.backgroundColor = internalTargetError
+        ? new vscode.ThemeColor('statusBarItem.warningBackground')
+        : undefined;
+      state.internalBuildBarItem.show();
+    } else {
+      state.internalBuildBarItem.hide();
+    }
+  }
 
   if (state.isCompiling) {
     state.statusBarItem.text = '$(sync~spin) Compiling...';
     state.statusBarItem.tooltip = 'Compilation in progress';
     state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
+  } else if (mode === CONFIG.MODE_INTERNAL && internalTargetError) {
+    state.statusBarItem.text = '$(warning) Internal Target Error';
+    state.statusBarItem.tooltip = `${internalTargetError.message}\nClick to open the internal target setting.`;
+    state.statusBarItem.command = {
+      command: 'workbench.action.openSettings',
+      arguments: [`${CONFIG.SECTION}.${CONFIG.INTERNAL_TARGETS}`],
+    };
+    state.statusBarItem.backgroundColor = new vscode.ThemeColor(
+      'statusBarItem.warningBackground',
+    );
   } else if (mode === CONFIG.MODE_INTERNAL) {
     const targetLabel =
       internalTargets.length === 1

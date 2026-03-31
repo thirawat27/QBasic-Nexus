@@ -340,6 +340,28 @@ test('Web transpile injects source-line tracking for CRT runtime errors', () => 
   }
 });
 
+test('Builtin numeric conversions route through QB-aware runtime helpers', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('PRINT CINT(2.5)\nPRINT VAL("&HFF")', 'web');
+
+  if (!code.includes('(_cint)(2.5)')) {
+    throw new Error('Expected CINT to route through the runtime conversion helper');
+  }
+
+  if (!code.includes('(_val)("&HFF")')) {
+    throw new Error('Expected VAL to route through the runtime parser helper');
+  }
+});
+
+test('Typed assignments route through runtime coercion helpers', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile('DIM total AS INTEGER\ntotal = 3.5', 'web');
+
+  if (!code.includes('_coerceTypedValue({ kind: "scalar", typeName: "INTEGER" }, 3.5)')) {
+    throw new Error('Expected typed assignments to emit the shared coercion helper');
+  }
+});
+
 test('Transpile expands $INCLUDE relative to sourcePath', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbnx-preprocess-'));
 

@@ -37,6 +37,9 @@ const COMMANDS = Object.freeze({
   SHOW_ASCII_CHART: 'qbasic-nexus.showAsciiChart',
   INSERT_CHR_FROM_ASCII: 'qbasic-nexus.insertChrFromAsciiChart',
   REFRESH_TODO: 'qbasic-nexus.refreshTodo',
+  SHOW_INTERNAL_BUILD_QUICK_ACTIONS: 'qbasic-nexus.showInternalBuildQuickActions',
+  SELECT_INTERNAL_TARGETS: 'qbasic-nexus.selectInternalTargets',
+  SELECT_INTERNAL_OUTPUT_DIR: 'qbasic-nexus.selectInternalOutputDir',
 });
 
 module.exports = { CONFIG, COMMANDS };

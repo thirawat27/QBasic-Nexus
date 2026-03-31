@@ -15,14 +15,16 @@ const { CONFIG } = require('./constants');
 const {
   buildPackagerArgs,
   ensureExecutableReady,
+  ensureOutputDirectoryReady,
   getExecutableOutputPath,
+  hasExperimentalMacosArm64Target,
   isHostCompatibleTarget,
   getPackagerTarget,
   getTerminalLaunchSpec,
-  normalizePackagerTargets,
   parsePackagerTarget,
   resolveExecutableOutputDir,
   shouldUsePortablePackaging,
+  validatePackagerTargets,
 } = require('./executableUtils');
 const { state } = require('./state');
 const { getConfig, getOutputChannel, getTerminal, log } = require('./utils');
@@ -166,40 +168,15 @@ async function runInternalTranspiler(document, shouldRun) {
     path.extname(document.uri.fsPath),
   );
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
-  const packagerTargets = normalizePackagerTargets(
-    getConfig(CONFIG.INTERNAL_TARGETS, getPackagerTarget()),
-  );
-  const outputDir = resolveExecutableOutputDir(
-    document.uri.fsPath,
-    getConfig(CONFIG.INTERNAL_OUTPUT_DIR, ''),
-    { workspaceDir: workspaceFolder?.uri.fsPath },
-  );
-  const multiTargetBuild = packagerTargets.length > 1;
-  const singleTargetPlatform = parsePackagerTarget(packagerTargets[0]).platform;
-  const outputExe = multiTargetBuild
-    ? null
-    : getExecutableOutputPath(
-        document.uri.fsPath,
-        singleTargetPlatform || process.platform,
-        outputDir,
-      );
 
-  channel.appendLine('╔══════════════════════════════════════════════════╗');
-  channel.appendLine('║            ⚡ QBasic Nexus Compiler               ║');
-  channel.appendLine('╚══════════════════════════════════════════════════╝');
-  channel.appendLine('');
-  channel.appendLine(`  📦 Source:   ${fileName}`);
-  channel.appendLine(`  📍 Path:     ${document.uri.fsPath}`);
-  channel.appendLine(`  📊 Stats:    ${lineCount} lines • ${fileSize} KB`);
-  channel.appendLine(`  📂 Output:   ${outputDir}`);
-  channel.appendLine('');
-  channel.appendLine('─────────────────────────────────────────────────────');
-
-  state.isCompiling = true;
-  updateStatusBar();
-
+  let packagerTargets = [];
+  let outputDir = '';
+  let multiTargetBuild = false;
+  let outputExe = null;
   let tempJs = null;
   let generatedOutputs = [];
+  state.isCompiling = true;
+  updateStatusBar();
 
   // ── progress bar helper (printed to Output Channel) ──────────────────────
   const BAR_WIDTH = 24;
@@ -210,6 +187,35 @@ async function runInternalTranspiler(document, shouldRun) {
   }
 
   try {
+    packagerTargets = validatePackagerTargets(
+      getConfig(CONFIG.INTERNAL_TARGETS, getPackagerTarget()),
+    );
+    outputDir = resolveExecutableOutputDir(
+      document.uri.fsPath,
+      getConfig(CONFIG.INTERNAL_OUTPUT_DIR, ''),
+      { workspaceDir: workspaceFolder?.uri.fsPath },
+    );
+    multiTargetBuild = packagerTargets.length > 1;
+    const singleTargetPlatform = parsePackagerTarget(packagerTargets[0]).platform;
+    outputExe = multiTargetBuild
+      ? null
+      : getExecutableOutputPath(
+          document.uri.fsPath,
+          singleTargetPlatform || process.platform,
+          outputDir,
+        );
+
+    channel.appendLine('╔══════════════════════════════════════════════════╗');
+    channel.appendLine('║            ⚡ QBasic Nexus Compiler               ║');
+    channel.appendLine('╚══════════════════════════════════════════════════╝');
+    channel.appendLine('');
+    channel.appendLine(`  📦 Source:   ${fileName}`);
+    channel.appendLine(`  📍 Path:     ${document.uri.fsPath}`);
+    channel.appendLine(`  📊 Stats:    ${lineCount} lines • ${fileSize} KB`);
+    channel.appendLine(`  📂 Output:   ${outputDir}`);
+    channel.appendLine('');
+    channel.appendLine('─────────────────────────────────────────────────────');
+
     const { compile } = require('../compiler/compiler');
     tempJs = path.join(os.tmpdir(), `${baseName}_${Date.now()}._qbnx_.js`);
 
@@ -268,7 +274,7 @@ async function runInternalTranspiler(document, shouldRun) {
         channel.appendLine('');
         report(65, 'Packaging executable…');
 
-        await fs.mkdir(outputDir, { recursive: true });
+        await ensureOutputDirectoryReady(fs, outputDir);
         const outputSnapshot = multiTargetBuild
           ? await snapshotPackagedOutputs(outputDir, baseName)
           : null;
@@ -285,6 +291,14 @@ async function runInternalTranspiler(document, shouldRun) {
         if (shouldUsePortablePackaging(packagerTargets)) {
           channel.appendLine(
             '  ℹ Cross-target packaging enabled: using portable pkg flags (--no-bytecode --public-packages "*" --public).',
+          );
+        }
+        if (hasExperimentalMacosArm64Target(packagerTargets, {
+          platform: process.platform,
+          arch: process.arch,
+        })) {
+          channel.appendLine(
+            '  ℹ macOS arm64 targets may require ad-hoc or Developer ID code signing on macOS before distribution.',
           );
         }
         channel.appendLine(`  🎯 Targets: ${packagerTargets.join(', ')}`);

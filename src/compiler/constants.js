@@ -181,8 +181,8 @@ const BUILTIN_FUNCS = Object.freeze({
     'ATN': 'Math.atan',
     'COS': 'Math.cos',
     'EXP': 'Math.exp',
-    'INT': 'Math.floor',
-    'FIX': 'Math.trunc',
+    'INT': '_int',
+    'FIX': '_fix',
     'LOG': 'Math.log',
     'RND': '_rnd',
     'SGN': 'Math.sign',
@@ -191,17 +191,17 @@ const BUILTIN_FUNCS = Object.freeze({
     'TAN': 'Math.tan',
     
     // ========== Type Conversion ==========
-    'CINT': '(v => { const s = v < 0 ? -1 : 1; const x = Math.abs(v); const r = Math.round(x); return (x % 1 === 0.5 ? r - (r % 2) : r) * s; })',
-    'CLNG': '(v => { const s = v < 0 ? -1 : 1; const x = Math.abs(v); const r = Math.round(x); return (x % 1 === 0.5 ? r - (r % 2) : r) * s; })',
-    'CSNG': 'Number',
-    'CDBL': 'Number',
+    'CINT': '_cint',
+    'CLNG': '_clng',
+    'CSNG': '_csng',
+    'CDBL': '_cdbl',
     'CBOOL': '(v => v ? -1 : 0)',
     
     // ========== String Functions ==========
     'LEN': '(s => String(s).length)',
     'ASC': '(s => s.charCodeAt(0) || 0)',
     'CHR$': 'String.fromCharCode',
-    'VAL': '(s => { const n = parseFloat(String(s).trim()); return isNaN(n) ? 0 : n; })',
+    'VAL': '_val',
     'STR$': '(n => n >= 0 ? " " + String(n) : String(n))',
     'HEX$': '(n => Math.abs(Math.floor(n)).toString(16).toUpperCase())',
     'OCT$': '(n => Math.abs(Math.floor(n)).toString(8))',

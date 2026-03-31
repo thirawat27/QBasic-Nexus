@@ -9,6 +9,7 @@
 // across all modules that import this.
 const state = {
   statusBarItem: null,
+  internalBuildBarItem: null,
   statsBarItem: null,
   outputChannel: null,
   terminal: null,

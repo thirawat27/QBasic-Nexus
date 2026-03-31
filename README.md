@@ -662,7 +662,10 @@ Linux    /home/yourname/qb64/qb64
 
 - Selects which `@yao-pkg/pkg` target or targets the internal compiler should build
 - Accepts `host` or comma-separated targets such as `win-x64`, `linux-x64`, `macos-arm64`, or `host,linux-x64`
+- Common aliases like `windows-x64`, `darwin-arm64`, `osx-arm64`, `amd64`, `aarch64`, and `current` are normalized automatically
 - `Compile & Run` only auto-runs when the result is a single host-compatible target
+- You can also change this from the Command Palette via **QBasic Select Internal Build Targets 🎯**
+- In internal mode, the Status Bar now exposes a **Targets/Out** quick action that opens both target and output pickers directly
 
 **Examples**
 
@@ -685,7 +688,9 @@ host,linux-x64
 
 - Sends all internally packaged binaries to a dedicated folder
 - Relative paths resolve from the workspace folder when one exists
-- Absolute paths are also accepted
+- Absolute paths and `~/...` home-relative paths are also accepted
+- You can also change this from the Command Palette via **QBasic Select Internal Output Folder 📂**
+- The same Status Bar quick action can jump straight to this picker without opening settings JSON
 
 **Examples**
 
@@ -1137,6 +1142,9 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 | **QBasic Show ASCII Chart 📋**           | `Ctrl+Alt+A`   | Opens an interactive ASCII reference table.                            |
 | **QBasic Insert CHR$() at Cursor ✍️**    | -              | Inserts a CHR$() code at the current cursor position from ASCII chart. |
 | **Refresh TODOs 🔄**                     | -              | Scans workspace and refreshes the QBasic TODOs panel.                  |
+| **QBasic Internal Build Quick Actions ⚙️** | -          | Opens a quick picker for internal build targets and output folders.    |
+| **QBasic Select Internal Build Targets 🎯** | -           | Picks internal compiler target presets or a custom pkg target list.    |
+| **QBasic Select Internal Output Folder 📂** | -           | Picks or enters the output folder used by internal executable builds.  |
 
 ---
 
@@ -1144,7 +1152,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
 QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions natively for testing within the editor.
 
-The CRT runtime in `1.5.6` also keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, and surfaces runtime failures back in the editor with a direct jump to the most likely failing line.
+The CRT runtime in `1.5.6` also keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, routes conversion helpers such as `CINT` and `VAL` through QB-aware runtime logic, coerces typed assignments more like QB64, and surfaces file/runtime failures back in the editor with a direct jump to the most likely failing line.
 
 **Compatibility Overview**
 
