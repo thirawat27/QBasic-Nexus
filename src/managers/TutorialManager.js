@@ -7,6 +7,10 @@
 
 const vscode = require('vscode');
 const lessons = require('../tutorials/data');
+const { normalizeCrtText } = require('../webview/crtText');
+const { eventToText } = require('../webview/crtTranscript');
+
+const MAX_OUTPUT_HISTORY = 200000;
 
 /**
  * Manages interactive QBasic tutorials.
@@ -130,10 +134,16 @@ class TutorialManager {
     const lesson = TutorialManager.currentLesson;
 
     // Accumulate output
-    TutorialManager._outputHistory += output;
+    const normalizedOutput = normalizeCrtText(output);
+    TutorialManager._outputHistory += normalizedOutput;
+    if (TutorialManager._outputHistory.length > MAX_OUTPUT_HISTORY) {
+      TutorialManager._outputHistory =
+        TutorialManager._outputHistory.slice(-MAX_OUTPUT_HISTORY);
+    }
 
     try {
       // Check against full history
+      lesson.matchRegex.lastIndex = 0;
       const passed = lesson.matchRegex.test(TutorialManager._outputHistory);
 
       if (passed) {
@@ -147,6 +157,30 @@ class TutorialManager {
     }
 
     return false;
+  }
+
+  /**
+   * Checks a structured CRT runtime event against the active lesson.
+   * @param {object} event
+   * @param {{text?: string}=} transcript
+   * @returns {boolean}
+   */
+  static checkRuntimeEvent(event, transcript = null) {
+    const textChunk = eventToText(event);
+    if (!textChunk) {
+      return false;
+    }
+
+    if (transcript && typeof transcript.text === 'string') {
+      TutorialManager._outputHistory = normalizeCrtText(transcript.text);
+      if (TutorialManager._outputHistory.length > MAX_OUTPUT_HISTORY) {
+        TutorialManager._outputHistory =
+          TutorialManager._outputHistory.slice(-MAX_OUTPUT_HISTORY);
+      }
+      return TutorialManager.checkResult('');
+    }
+
+    return TutorialManager.checkResult(textChunk);
   }
 
   /**

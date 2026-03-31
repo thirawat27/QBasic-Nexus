@@ -37,6 +37,37 @@
   const vscode = acquireVsCodeApi();
   const screen = document.getElementById('screen');
   const canvas = document.getElementById('gfx-layer');
+  const crtText = globalThis.QBasicCrtText || {};
+  const crtTranscript = globalThis.QBasicCrtTranscript || {};
+  const CRT_NEWLINE = typeof crtText.CRT_NEWLINE === 'string'
+    ? crtText.CRT_NEWLINE
+    : '\n';
+  const appendCrtNewline = typeof crtText.appendCrtNewline === 'function'
+    ? crtText.appendCrtNewline
+    : (value) => String(value ?? '') + CRT_NEWLINE;
+  const normalizeCrtText = typeof crtText.normalizeCrtText === 'function'
+    ? crtText.normalizeCrtText
+    : (value) => String(value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const splitRenderedLines = typeof crtText.splitRenderedLines === 'function'
+    ? crtText.splitRenderedLines
+    : (value) => normalizeCrtText(value).split(CRT_NEWLINE);
+  const splitPromptText = typeof crtText.splitPromptText === 'function'
+    ? crtText.splitPromptText
+    : (value) => {
+        const text = normalizeCrtText(value);
+        const lastBreakIndex = text.lastIndexOf(CRT_NEWLINE);
+        if (lastBreakIndex === -1) {
+          return { leadingText: '', inlineText: text };
+        }
+        return {
+          leadingText: text.slice(0, lastBreakIndex + 1),
+          inlineText: text.slice(lastBreakIndex + 1),
+        };
+      };
+  const createTranscriptEvent =
+    typeof crtTranscript.createTranscriptEvent === 'function'
+      ? crtTranscript.createTranscriptEvent
+      : (kind, payload = {}) => ({ kind, ...payload });
 
   // Global directives for linters
   // =========================================================================
@@ -49,6 +80,7 @@
   let bgColor = 0; // Black
   let keyBuffer = '';
   let currentSourceLine = 0;
+  let nextPromptId = 1;
 
   // Virtual File System (VFS) - localStorage based
   const VFS_KEY = 'qbasic_nexus_vfs';
@@ -708,8 +740,29 @@
     return span;
   }
 
-  // Cached message object to reduce object creation
-  const _outputMessage = { type: 'check_output', content: '' };
+  function emitRuntimeEvent(kind, payload = {}) {
+    const event = createTranscriptEvent(kind, {
+      ...payload,
+      sourceLine:
+        payload.sourceLine === undefined ? currentSourceLine : payload.sourceLine,
+      fg: payload.fg === undefined ? fgColor : payload.fg,
+      bg: payload.bg === undefined ? bgColor : payload.bg,
+    });
+    vscode.postMessage({
+      type: 'crt_event',
+      event,
+    });
+    return event;
+  }
+
+  function emitOutputChunk(content, metadata = {}) {
+    return emitRuntimeEvent(metadata.kind || 'output', {
+      ...metadata,
+      text: normalizeCrtText(content, {
+        decodeEscapedControls: false,
+      }),
+    });
+  }
 
   function print(text, newline = true) {
     const rawContent = String(text);
@@ -739,9 +792,9 @@
           content += marker;
         }
       } else {
-        const str = parts[i];
+        const str = normalizeCrtText(parts[i]);
         content += str;
-        const lines = str.split('\\n');
+        const lines = splitRenderedLines(str, { decodeEscapedControls: false });
         if (lines.length > 1) {
           cursorCol = lines[lines.length - 1].length + 1;
         } else {
@@ -753,7 +806,7 @@
     if (newline) {
       cursorCol = 1;
     }
-    const spanContent = newline ? content + '\\n' : content;
+    const spanContent = newline ? appendCrtNewline(content, { decodeEscapedControls: false }) : content;
     const span = createSpan(spanContent);
 
     // Batch DOM operations
@@ -767,9 +820,7 @@
       printBatchTimer = requestAnimationFrame(flushPrintBatch);
     }
 
-    // Reuse message object to reduce GC
-    _outputMessage.content = spanContent;
-    vscode.postMessage(_outputMessage);
+    emitOutputChunk(spanContent, { newline });
   }
 
   function cls() {
@@ -794,6 +845,10 @@
 
     cursorRow = 1;
     cursorCol = 1;
+    emitRuntimeEvent('clear', {
+      reason: 'cls',
+      sourceLine: 0,
+    });
 
     if (ctx && canvas.style.display !== 'none') {
       ctx.fillStyle = '#000000';
@@ -1486,19 +1541,29 @@
     console.log('WIDTH', cols, rows);
   }
 
+  function formatRuntimeErrorText(msg) {
+    const linePrefix =
+      currentSourceLine > 0 ? `Line ${currentSourceLine}: ` : '';
+    return `${CRT_NEWLINE}❌ Runtime Error: ${linePrefix}${normalizeCrtText(msg)}${CRT_NEWLINE}`;
+  }
+
   function showError(msg) {
     flushPrintBatch(); // Ensure previous output is visible
     const span = document.createElement('span');
-    const linePrefix =
-      currentSourceLine > 0 ? `Line ${currentSourceLine}: ` : '';
-    span.textContent = '\n❌ Runtime Error: ' + linePrefix + msg + '\n';
+    span.textContent = formatRuntimeErrorText(msg);
     span.style.color = '#FF5555';
     screen.appendChild(span);
   }
 
   function reportRuntimeError(msg, error = null) {
-    const message = String(error?.message || msg || 'Unknown runtime error');
+    const message = normalizeCrtText(
+      String(error?.message || msg || 'Unknown runtime error'),
+    );
     showError(message);
+    emitOutputChunk(formatRuntimeErrorText(message), {
+      kind: 'runtime_error',
+      newline: true,
+    });
     if (error) {
       console.error('[QBasic Runtime]', error);
     }
@@ -1523,16 +1588,31 @@
   async function input(prompt = '') {
     return new Promise((resolve) => {
       flushPrintBatch(); // Force flush so prompt appears before input box
+      const promptParts = splitPromptText(prompt);
+      const promptId = nextPromptId++;
+      const fullPromptText =
+        String(promptParts.leadingText || '') + String(promptParts.inlineText || '');
+
+      emitRuntimeEvent('prompt_open', {
+        promptId,
+        prompt: fullPromptText,
+        sourceLine: currentSourceLine,
+      });
+
+      if (promptParts.leadingText) {
+        print(promptParts.leadingText, false);
+        flushPrintBatch();
+      }
 
       // Create input line container (inline to stay on same line)
       const inputLine = document.createElement('span');
       inputLine.className = 'input-line';
 
       // Add prompt if provided
-      if (prompt) {
+      if (promptParts.inlineText) {
         const promptSpan = document.createElement('span');
         promptSpan.className = 'prompt';
-        promptSpan.textContent = prompt;
+        promptSpan.textContent = promptParts.inlineText;
         promptSpan.style.color = COLORS[fgColor];
         // Apply color-matched glow
         if (fgColor > 0 && fgColor !== 8) {
@@ -1562,13 +1642,30 @@
       function handleKeydown(e) {
         if (e.key === 'Enter') {
           const value = inputEl.value;
+          const echoedContent = appendCrtNewline(
+            (promptParts.inlineText || '') + value,
+            { decodeEscapedControls: false },
+          );
 
           // Remove event listener to prevent memory leak
           inputEl.removeEventListener('keydown', handleKeydown);
 
           // Replace input line with static text (prompt + value + newline)
-          const resultSpan = createSpan((prompt || '') + value + '\n');
+          const resultSpan = createSpan(echoedContent);
           inputLine.replaceWith(resultSpan);
+          cursorCol = 1;
+          screen.scrollTop = screen.scrollHeight;
+          emitOutputChunk(echoedContent, {
+            kind: 'input_echo',
+            newline: true,
+            promptId,
+            prompt: promptParts.inlineText || '',
+            value,
+          });
+          emitRuntimeEvent('prompt_close', {
+            promptId,
+            value,
+          });
 
           resolve(value);
         }
@@ -3964,8 +4061,8 @@
 
     hud.style.display = visible ? 'block' : 'none';
     if (quest) {
-      title.textContent = quest.title || 'OBJECTIVE';
-      desc.textContent = quest.objective || '';
+      title.textContent = normalizeCrtText(quest.title || 'OBJECTIVE');
+      desc.textContent = normalizeCrtText(quest.objective || '');
     }
   }
 
@@ -4060,6 +4157,7 @@
     bgColor = 0;
     keyBuffer = '';
     currentSourceLine = 0;
+    nextPromptId = 1;
     lastFrameTime = 0;
     lastX = 0;
     lastY = 0;
@@ -4085,9 +4183,18 @@
       _tempCanvas.width = 0;
       _tempCanvas.height = 0;
     }
+
+    emitRuntimeEvent('clear', {
+      reason: 'runtime_reset',
+      sourceLine: 0,
+    });
   }
 
   function executeProgram(code, filename) {
+    emitRuntimeEvent('run_start', {
+      filename: filename || 'Program',
+      sourceLine: 0,
+    });
     print('▶ RUNNING: ' + (filename || 'Program'), true);
     print('', true);
 

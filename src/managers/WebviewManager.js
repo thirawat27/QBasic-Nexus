@@ -13,12 +13,18 @@
 
 const vscode = require('vscode');
 const mitt = require('mitt');
+const {
+  appendTranscriptState,
+  createTranscriptEvent,
+  eventHasRenderableText,
+  eventToText,
+} = require('../webview/crtTranscript');
 
 /** Chunk size for large code payloads (64 KB) */
 const CHUNK_SIZE = 64 * 1024;
 
 /**
- * @typedef {'panelOpened' | 'panelClosed' | 'codeExecuted' | 'questComplete' | 'runtimeError'} WebviewEvent
+ * @typedef {'panelOpened' | 'panelClosed' | 'codeExecuted' | 'questComplete' | 'runtimeError' | 'runtimeEvent' | 'transcriptReset'} WebviewEvent
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,6 +85,94 @@ class WebviewManager {
   /** @type {any | null} Cached TutorialManager module */
   static _tutorialManagerCache = null;
 
+  /** @type {{entries: object[], text: string, lastEvent?: object}} */
+  static _transcriptState = {
+    entries: [],
+    text: '',
+  };
+
+  static _resetTranscriptState(reason = 'manual') {
+    WebviewManager._transcriptState = {
+      entries: [],
+      text: '',
+      lastEvent: createTranscriptEvent('clear', { reason }),
+    };
+    emitter.emit('transcriptReset', {
+      reason,
+      transcript: WebviewManager.getTranscriptSnapshot(),
+    });
+  }
+
+  static getTranscriptSnapshot() {
+    return {
+      entries: Array.isArray(WebviewManager._transcriptState.entries)
+        ? WebviewManager._transcriptState.entries.slice()
+        : [],
+      text: String(WebviewManager._transcriptState.text || ''),
+      lastEvent: WebviewManager._transcriptState.lastEvent || null,
+    };
+  }
+
+  static getTranscriptText() {
+    return String(WebviewManager._transcriptState.text || '');
+  }
+
+  static _ingestRuntimeEvent(rawEvent, panel) {
+    const event = createTranscriptEvent(rawEvent?.kind || 'output', rawEvent || {});
+    WebviewManager._transcriptState = appendTranscriptState(
+      WebviewManager._transcriptState,
+      event,
+    );
+    const transcript = WebviewManager.getTranscriptSnapshot();
+
+    emitter.emit('runtimeEvent', {
+      event,
+      transcript,
+    });
+
+    if (event.kind === 'clear') {
+      if (!WebviewManager._tutorialManagerCache) {
+        try {
+          WebviewManager._tutorialManagerCache = require('./TutorialManager');
+        } catch {
+          WebviewManager._tutorialManagerCache = null;
+        }
+      }
+      if (
+        WebviewManager._tutorialManagerCache &&
+        typeof WebviewManager._tutorialManagerCache.clearHistory === 'function'
+      ) {
+        WebviewManager._tutorialManagerCache.clearHistory();
+      }
+      emitter.emit('transcriptReset', {
+        reason: event.reason || 'runtime_clear',
+        transcript,
+      });
+      return;
+    }
+
+    if (!eventHasRenderableText(event)) {
+      return;
+    }
+
+    if (!WebviewManager._tutorialManagerCache) {
+      WebviewManager._tutorialManagerCache = require('./TutorialManager');
+    }
+
+    const completed =
+      typeof WebviewManager._tutorialManagerCache.checkRuntimeEvent === 'function'
+        ? WebviewManager._tutorialManagerCache.checkRuntimeEvent(
+            event,
+            transcript,
+          )
+        : WebviewManager._tutorialManagerCache.checkResult(eventToText(event));
+
+    if (completed && panel?.webview) {
+      panel.webview.postMessage({ type: 'quest_complete' });
+      emitter.emit('questComplete', eventToText(event));
+    }
+  }
+
   static _resetReadyState() {
     WebviewManager._isReady = false;
     WebviewManager._readyPromise = new Promise((resolve, reject) => {
@@ -122,6 +216,7 @@ class WebviewManager {
     WebviewManager.currentPanel = undefined;
     WebviewManager._clearReadyState();
     WebviewManager._tutorialManagerCache = null;
+    WebviewManager._resetTranscriptState('panel_closed');
 
     const disposables = WebviewManager._disposables;
     WebviewManager._disposables = [];
@@ -202,16 +297,13 @@ class WebviewManager {
         try {
           if (message.type === 'ready') {
             WebviewManager._markReady();
+          } else if (message.type === 'crt_event') {
+            WebviewManager._ingestRuntimeEvent(message.event, panel);
           } else if (message.type === 'check_output') {
-            // Cache TutorialManager to prevent memory leak from repeated requires
-            if (!WebviewManager._tutorialManagerCache) {
-              WebviewManager._tutorialManagerCache = require('./TutorialManager');
-            }
-            const completed = WebviewManager._tutorialManagerCache.checkResult(message.content);
-            if (completed && panel.webview) {
-              panel.webview.postMessage({ type: 'quest_complete' });
-              emitter.emit('questComplete', message.content);
-            }
+            WebviewManager._ingestRuntimeEvent({
+              kind: 'legacy_output',
+              text: message.content,
+            }, panel);
           } else if (message.type === 'error') {
             console.error('[QBasic CRT] Runtime error:', message.content);
             void WebviewManager._revealRuntimeError(
@@ -273,6 +365,7 @@ class WebviewManager {
     }
 
     WebviewManager._lastSourcePath = sourcePath;
+    WebviewManager._resetTranscriptState('run_start');
     WebviewManager.currentPanel.reveal();
     await WebviewManager._waitUntilReady();
 
@@ -357,6 +450,12 @@ class WebviewManager {
     const cssUri = webview.asWebviewUri(
       vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'crt.css'),
     );
+    const crtTextUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'crtText.js'),
+    );
+    const crtTranscriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'crtTranscript.js'),
+    );
     const jsUri = webview.asWebviewUri(
       vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'runtime.js'),
     );
@@ -384,6 +483,8 @@ class WebviewManager {
       )
       .replace(/\{\{cspSource\}\}/g, webview.cspSource)
       .replace('{{cssUri}}', cssUri.toString())
+      .replace('{{crtTextUri}}', crtTextUri.toString())
+      .replace('{{crtTranscriptUri}}', crtTranscriptUri.toString())
       .replace('{{jsUri}}', jsUri.toString());
   }
 

@@ -505,6 +505,7 @@ Each compilation mode produces different results. Here's a detailed comparison t
 - No executable file is created
 - Perfect for testing and demonstrations
 - Instant feedback - no compilation wait time
+- Multiline `PRINT`/`INPUT` prompts now render with real line breaks even when older runtime paths emit escaped `\n` or `\n\n`
 - Limited to SCREEN 13 graphics mode
 - Virtual file system persists in browser storage
 - Great for learning and experimenting
@@ -1152,7 +1153,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
 QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions natively for testing within the editor.
 
-The CRT runtime in `1.5.6` also keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, routes conversion helpers such as `CINT` and `VAL` through QB-aware runtime logic, restores `DEFINT/DEFLNG/DEFSNG/DEFDBL/DEFSTR` defaults for implicit variables and function results, respects classic `% ! # & $` suffix typing with safe JavaScript code generation, preserves `OPTION BASE`, `LBOUND`, `UBOUND`, explicit lower array bounds, `ERASE`, auto-dimensioned arrays, and `REDIM PRESERVE` behavior more like QB64, routes mixed-type arithmetic plus relational/logical operators through QB-aware runtime helpers so overflow, type mismatches, `CASE IS`, and `-1/0` boolean results surface more like QB64, evaluates `IF/WHILE/DO` conditions through QB-aware numeric checks instead of raw JS truthiness, keeps `ERL` aligned when condition evaluation itself fails, coerces typed assignments more accurately, and surfaces file/runtime failures back in the editor with a direct jump to the most likely failing line.
+The CRT runtime in `1.5.6` also keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, routes conversion helpers such as `CINT` and `VAL` through QB-aware runtime logic, restores `DEFINT/DEFLNG/DEFSNG/DEFDBL/DEFSTR` defaults for implicit variables and function results, respects classic `% ! # & $` suffix typing with safe JavaScript code generation, preserves `OPTION BASE`, `LBOUND`, `UBOUND`, explicit lower array bounds, `ERASE`, auto-dimensioned arrays, and `REDIM PRESERVE` behavior more like QB64, routes mixed-type arithmetic plus relational/logical operators through QB-aware runtime helpers so overflow, type mismatches, `CASE IS`, and `-1/0` boolean results surface more like QB64, evaluates `IF/WHILE/DO` conditions through QB-aware numeric checks instead of raw JS truthiness, keeps `ERL` aligned when condition evaluation itself fails, surfaces file/runtime failures back in the editor with a direct jump to the most likely failing line, and now uses a structured CRT transcript/event pipeline so output, input echo, prompt flow, and runtime errors stay synchronized without leaking literal `\n` / `\n\n` sequences into the rendered screen.
 
 **Compatibility Overview**
 

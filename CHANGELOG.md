@@ -18,11 +18,12 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 - **Cross-Platform Executable Flow**: Normalized executable paths, permissions, and terminal launch behavior across Windows, macOS, and Linux for both QB64 and internal compiler builds.
 - **Safer Internal Packaging Config**: Internal target strings are now canonicalized and validated up front, common aliases are accepted automatically, output folders reject file-path mistakes early, and macOS arm64 builds surface a signing note before distribution.
 - **Extension Host Stability**: Reduced typing stalls and workspace rescans with worker-backed linting, versioned semantic-token caching, incremental TODO/decorator refresh, lazy analysis caches, and background workspace warmup.
+- **Structured CRT Transcript and Multiline Prompting**: The Retro CRT runtime now routes output, input echo, runtime errors, and screen clears through a structured transcript/event flow, normalizes escaped `\n` and `\n\n` into real line breaks without breaking Windows-style paths, and keeps tutorial/result checking aligned with the actual rendered screen state.
 - **Tinybench Benchmark Harness**: Swapped the ad-hoc benchmark loops for a shared `tinybench`-powered harness so compiler and editor benchmarks now report consistent latency, throughput, and sample counts from the same measurement engine.
 
 ### ✅ Quality Assurance
 
-- Added regression coverage for runtime error propagation, array bound semantics, auto-dimensioned arrays, invalid-bound diagnostics, relational/logical operator semantics, condition truthiness/ERL behavior, arithmetic overflow/type-mismatch paths, cross-target packaging, output-directory resolution, TODO scanning, optimization managers, and workspace invalidation flows.
+- Added regression coverage for runtime error propagation, array bound semantics, auto-dimensioned arrays, invalid-bound diagnostics, relational/logical operator semantics, condition truthiness/ERL behavior, arithmetic overflow/type-mismatch paths, structured CRT transcript/reset flows, multiline prompt normalization, cross-target packaging, output-directory resolution, TODO scanning, optimization managers, and workspace invalidation flows.
 
 ### 📝 Documentation
 
