@@ -26,6 +26,13 @@
 
 **QBasic Nexus** transforms VS Code into an immensely powerful retro-coding station. Engineered from the ground up for raw performance, it features a blazingly fast custom transpiler, multi-tiered caching, and out-of-the-box native executable packaging for Windows, macOS, and Linux. Whether you're a veteran developer reviving classic code or a newcomer learning the roots of programming, QBasic Nexus provides an unmatched, modern experience for **QBasic** and **QB64**.
 
+### What's New in 1.5.7
+
+- Broader internal compiler + CRT coverage for `PRINT USING`, advanced `_SND*` helpers, `_SCREENMOVE`, `_ICON`, `_SCREENICON`, dropped-file helpers, resize helpers, console helpers, and connection-state helpers.
+- Working virtual memory and memory-block paths for `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `_MEMNEW`, `_MEM`, `_OFFSET`, `_MEMIMAGE`, `_MEMGET`, and `_MEMPUT`.
+- Shared worker-thread infrastructure for linting and compilation with pooling, warmup, priority scheduling, stale-job cancellation, queue aging, and internal telemetry.
+- Full validation refreshed with `npm run lint` and `npm test`.
+
 ---
 
 ## 📖 Table of Contents
@@ -81,7 +88,7 @@ The internal compiler transpiles your QBasic code to JavaScript, then packages i
 
 - **File Size** - Executables are typically 40-50MB (includes Node.js runtime)
 - **Performance** - Slightly slower than native QB64 compilation, but excellent for most use cases
-- **Compatibility** - Supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions
+- **Compatibility** - Supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords/functions with broader helper coverage for sound, memory, screen, console, and file/runtime compatibility paths
 - **Platform** - Generates native executables for `host` or explicit `pkg` targets such as `win-x64`, `linux-x64`, and `macos-arm64`
 
 **Limitations Compared to QB64**
@@ -90,7 +97,7 @@ The internal compiler transpiles your QBasic code to JavaScript, then packages i
 - Memory access (`PEEK`, `POKE`, `OUT`, `INP`) is sandboxed to the internal runtime memory space
 - No inline assembly (ASM blocks)
 - Virtual File System is limited to 10MB per workspace
-- Certain advanced QB64-specific libraries (like OpenGL or networking) may not be available
+- Certain advanced QB64-specific libraries (especially full OpenGL, raw sockets, and host-level networking) remain limited or partially emulated
 - Graphics limited to SCREEN 13 (320x200, 256 colors) / limited Point tracking internally
 - External program execution via `RUN` / `CHAIN` without internal targets will fail explicitly
 
@@ -920,8 +927,10 @@ QBasic Nexus doesn't just parse text—it deeply analyzes it using an enterprise
 - **High-Performance Lexer** - Powered by `moo`, achieving over **1,200 KB/s+ throughput** during compilation with zero-copy token passing to eliminate redundant processing.
 - **AST-First Control Flow & Semantics** - Deep semantic analysis and AST-based state-machine execution for `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`. This trampoline execution guarantees rock-solid stability (zero call-stack overflow crashes) and precise warnings for missing labels or unreachable code.
 - **Robust Legacy Memory & Data Scope** - Run legacy syntax seamlessly! Full internal support for `STATIC` procedure variables, `COMMON SHARED` globals across modules, Fixed-Length Strings (`STRING * N`), structured/nested `TYPE` records, and legacy memory safety operations (`PEEK`, `POKE`, `OUT`, `_MEMCOPY`, `MKI$`, `CVI`, `LSET`).
+- **Expanded QB64 Compatibility Paths** - The internal compiler now routes more QB64-heavy commands through real helper/runtime paths, including `PRINT USING`, `_SETALPHA`, `_CLEARCOLOR`, `_SCREENMOVE`, `_ICON`, `_SCREENICON`, `_SCREENEXISTS`, dropped-file helpers, resize helpers, console helpers, advanced `_SND*` queries/controls, and multiple `_MEM*` object/block flows.
 - **Tiered Cache Architecture** - L1 cache with 32 entries and L2 cache with 300 entries for better multi-file support. Powered by lightning-fast FNV-1a hashing, achieving ~85% cache hit rate. Re-compiling unchanged or slightly modified code is virtually instantaneous (0.03ms cache hits) with ~20% less RAM usage.
 - **Adaptive Performance** - Smart 3-tier adaptive linting (100ms for tiny edits, 250ms for medium, full delay for large changes) reduces CPU usage by ~30% during active typing while maintaining instant feedback.
+- **Worker-Backed Compile + Lint Pipeline** - Compile and lint tasks can now run through shared worker threads with prewarm, adaptive scale-out, stale lint cancellation, queue priorities, and queue aging so interactive work stays responsive under heavier load.
 - **Optimized Memory Management** - Token pool optimized with 15,000 max capacity and reduced initial allocation (1,500 tokens) saves memory on startup while handling larger files efficiently.
 - **Dual Pipeline Integration** - Run your code natively via the local **QB64** compiler for heavy-duty system access, or use the **QBasic Nexus Internal** engine for instant logic tests, complete with preprocessor directives (`$INCLUDE`), typed binary/random files, and virtualized sandboxing.
 
@@ -1004,6 +1013,7 @@ The internal web runtime is a fully featured emulation layer powered by HTML5 Ca
 - **Retro CRT Aesthetic** - Authentic scanlines, adjustable neon glow effects, and phosphor persistence.
 - **Rich Graphics** - Full support for `SCREEN 13`, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`, `PUT`, `DRAW` (Macro language), `POINT`, and seamless color manipulation.
 - **High-Fidelity Audio** - Complete `PLAY` command parsing (octaves, tempo, legato/staccato), along with precise `SOUND` frequency generation.
+- **Expanded QB64 Runtime Hooks** - The CRT runtime now exposes more QB64-style helpers for sound playback state, screen/icon movement, resize queries, console input/title flows, dropped-file queues, and partial connection-state inspection without leaving the internal runtime path.
 - **Virtual File System** - Fully emulated local file I/O operations (`OPEN`, `WRITE`, `INPUT#`, `MKDIR`, `CHDIR`, `FILES`) allowing your QBasic scripts to read/write persistent data and traverse directory trees right inside the VS Code environment (up to 10MB).
 - **Modern Interactions (QB64 Extensions)** - Native support for `_MOUSEINPUT`, `_KEYHIT`, and `INKEY$` for building responsive interactive applications.
 
@@ -1153,20 +1163,23 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
 QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions natively for testing within the editor.
 
-The CRT runtime in `1.5.6` also keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, routes conversion helpers such as `CINT` and `VAL` through QB-aware runtime logic, restores `DEFINT/DEFLNG/DEFSNG/DEFDBL/DEFSTR` defaults for implicit variables and function results, respects classic `% ! # & $` suffix typing with safe JavaScript code generation, preserves `OPTION BASE`, `LBOUND`, `UBOUND`, explicit lower array bounds, `ERASE`, auto-dimensioned arrays, and `REDIM PRESERVE` behavior more like QB64, routes mixed-type arithmetic plus relational/logical operators through QB-aware runtime helpers so overflow, type mismatches, `CASE IS`, and `-1/0` boolean results surface more like QB64, evaluates `IF/WHILE/DO` conditions through QB-aware numeric checks instead of raw JS truthiness, keeps `ERL` aligned when condition evaluation itself fails, surfaces file/runtime failures back in the editor with a direct jump to the most likely failing line, and now uses a structured CRT transcript/event pipeline so output, input echo, prompt flow, and runtime errors stay synchronized without leaking literal `\n` / `\n\n` sequences into the rendered screen.
+The CRT/runtime path in `1.5.7` keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, routes conversion helpers such as `CINT` and `VAL` through QB-aware runtime logic, restores `DEFINT/DEFLNG/DEFSNG/DEFDBL/DEFSTR` defaults for implicit variables and function results, respects classic `% ! # & $` suffix typing with safe JavaScript code generation, preserves `OPTION BASE`, `LBOUND`, `UBOUND`, explicit lower array bounds, `ERASE`, auto-dimensioned arrays, and `REDIM PRESERVE` behavior more like QB64, routes mixed-type arithmetic plus relational/logical operators through QB-aware runtime helpers so overflow, type mismatches, `CASE IS`, and `-1/0` boolean results surface more like QB64, evaluates `IF/WHILE/DO` conditions through QB-aware numeric checks instead of raw JS truthiness, keeps `ERL` aligned when condition evaluation itself fails, surfaces file/runtime failures back in the editor with a direct jump to the most likely failing line, and uses a structured CRT transcript/event pipeline so output, input echo, prompt flow, and runtime errors stay synchronized without leaking literal `\n` / `\n\n` sequences into the rendered screen.
+
+Recent compatibility work also added real helper/runtime routing for `PRINT USING`, `PRINT #..., USING`, `_SETALPHA`, `_CLEARCOLOR`, `_SCREENMOVE`, `_ICON`, `_SCREENICON`, `_SCREENEXISTS`, `_RESIZEWIDTH`, `_RESIZEHEIGHT`, `_TOTALDROPPEDFILES`, `_DROPPEDFILE$`, `_FINISHDROP`, `_CONNECTED`, `_CONNECTIONADDRESS$`, `_CONSOLEINPUT`, and a larger `_SND*` / `_MEM*` surface, including `_MEMNEW`, `_MEM`, `_OFFSET`, `_MEMIMAGE`, `_MEMGET`, and `_MEMPUT`.
 
 **Compatibility Overview**
 
 | Feature Category | Compatibility | Supported Commands Examples                                                                         |
 | ---------------- | ------------- | --------------------------------------------------------------------------------------------------- |
-| **Core I/O**     | ✅ 100%       | `PRINT`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`                                       |
+| **Core I/O**     | ✅ 100%       | `PRINT`, `PRINT USING`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`                        |
 | **Control Flow** | ✅ 100%       | `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT`, `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`            |
 | **Math & Logic** | ✅ 95%        | `ABS`, `INT`, `FIX`, `SIN`, `SQR`, `LOG`, `EXP`, `RND`, `MOD`, `AND`, `OR`, `XOR`, `EQV`, `IMP`     |
 | **Strings**      | ✅ 100%       | `LEFT$`, `MID$`, `RIGHT$`, `LEN`, `UCASE$`, `LTRIM$`, `INSTR`, `CHR$`, `STRING * N`                 |
 | **File I/O**     | ✅ 95%        | `OPEN`, `PRINT#`, `INPUT#`, `GET`, `PUT`, `FREEFILE`, `LOCK`, `UNLOCK`, `FILES`, `KILL`, `NAME`     |
-| **Mem / Bin**    | ✅ 90%        | `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `MKI$`, `CVI`  |
-| **Graphics**     | ✅ 85%        | `LINE`, `CIRCLE`, `PSET`, `POINT`, `DRAW`, `PAINT`, `_RGB32`, `_CLEARCOLOR`                         |
+| **Mem / Bin**    | ✅ 92%        | `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `_MEMNEW`, `_MEMGET`, `_MEMPUT`, `MKI$`, `CVI` |
+| **Graphics**     | ✅ 87%        | `LINE`, `CIRCLE`, `PSET`, `POINT`, `DRAW`, `PAINT`, `_RGB32`, `_CLEARCOLOR`, `_SETALPHA`, `_SCREENMOVE` |
 | **Input/Inter.** | ✅ 90%        | `INKEY$`, `TIMER`, `SLEEP`, `_LIMIT`, `_MOUSEINPUT`, `_MOUSEX`, `_KEYHIT`, `_KEYDOWN`               |
+| **QB64 Helpers** | ✅ 80%        | `_SNDPLAYFILE`, `_SNDSTOP`, `_SNDVOL`, `_SNDPAUSE`, `_SNDBAL`, `_SNDSETPOS`, `_SNDGETPOS`, `_SNDLEN`, `_SNDPLAYING`, `_SCREENICON` |
 | **Arrays**       | ✅ 100%       | `DIM`, `REDIM`, `ERASE`, `LBOUND`, `UBOUND`, multi-dimensional arrays                               |
 | **SUB/FUNCTION** | ✅ 100%       | `SUB`, `FUNCTION`, `CALL`, `SHARED`, `COMMON SHARED`, `STATIC`, param passing                       |
 | **Data Types**   | ✅ 95%        | `INTEGER`, `LONG`, `SINGLE`, `DOUBLE`, `STRING`, `TYPE`, nested `TYPE`s                             |
@@ -1191,8 +1204,8 @@ The CRT runtime in `1.5.6` also keeps track of the active source line, preserves
 
 - `PLAY` command fully supported
 - `SOUND` command fully supported
-- `_SNDOPEN`, `_SNDPLAY` (QB64 sound files) not supported
-- No MP3/WAV file playback
+- Multiple runtime helpers now exist for `_SNDPLAYFILE`, `_SNDSTOP`, `_SNDVOL`, `_SNDPAUSE`, `_SNDBAL`, `_SNDSETPOS`, `_SNDGETPOS`, `_SNDLEN`, and `_SNDPLAYING`
+- Full QB64 file-audio parity is still not guaranteed for every browser/runtime edge case
 
 **Hardware & Memory Access**
 
@@ -1204,9 +1217,9 @@ The CRT runtime in `1.5.6` also keeps track of the active source line, preserves
 **Advanced QB64 Features**
 
 - Limited OpenGL support
-- No networking commands (`_OPENCLIENT`, `_OPENHOST`)
-- No clipboard access (`_CLIPBOARD$`)
-- Some `_MEM` operations not supported
+- Connection-state/network helpers are partially emulated, but full `_OPENCLIENT` / `_OPENHOST` socket behavior is not available
+- Clipboard write paths are available internally, but broad host clipboard parity is still limited
+- `_MEM*` coverage is much broader, though not every QB64 low-level memory object behavior is fully replicated yet
 
 **Full Compatibility List**
 

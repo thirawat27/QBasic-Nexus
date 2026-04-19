@@ -2,6 +2,29 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.7] - 2026-04-19
+
+### ✨ Internal Compiler and CRT Expansion
+
+- **Broader QB64 Helper Coverage**: Expanded the internal compiler and CRT/runtime bridge so more QB64-style commands now route through real helper/runtime paths instead of comments or static stubs, including `PRINT USING`, `PRINT #..., USING`, advanced sound queries/controls, screen/icon movement helpers, console helpers, resize helpers, dropped-file helpers, and connection-state helpers.
+- **Deeper Memory Runtime Support**: Added working internal runtime support for virtual memory and memory-block workflows including `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `_MEMNEW`, `_MEM`, `_OFFSET`, `_MEMIMAGE`, `_MEMGET`, and `_MEMPUT`, plus image-backed alpha/color operations such as `_SETALPHA` and `_CLEARCOLOR`.
+- **QB64 Runtime Compatibility Improvements**: Improved Retro CRT behavior for `_SCREENMOVE`, `_SCREENICON`, `_ICON`, `_SCREENEXISTS`, `_RESIZEWIDTH`, `_RESIZEHEIGHT`, `_TOTALDROPPEDFILES`, `_DROPPEDFILE$`, `_FINISHDROP`, `_CONNECTED`, `_CONNECTIONADDRESS$`, and `_CONSOLEINPUT`.
+
+### 🚀 Worker Thread Performance
+
+- **Shared Worker Pool Infrastructure**: Unified compile and lint worker logic behind a shared pooled-worker client with adaptive scaling, queue-based dispatch, warmup handling, and local fallback behavior.
+- **Priority and Cancellation**: Added priority-aware scheduling for compile and lint work, plus superseded-document cancellation for lint jobs so stale work is terminated instead of consuming CPU in the background.
+- **Queue Aging and Telemetry**: Added queue aging so long-waiting jobs can eventually overtake newer medium-priority work, and exposed pooled-worker metrics such as dispatched/completed/canceled/fallback counts plus queue/run timing statistics.
+
+### ✅ Quality Assurance
+
+- Extended regression coverage for `_MEM*` helpers, CRT helper routing, sound/screen/file-drop/network hooks, compile/lint worker pooling, queued priority dispatch, queue aging, and superseded-job cancellation.
+- Verified the full project with `npm run lint` and `npm test`.
+
+### 📝 Documentation
+
+- Updated `README.md` to reflect the expanded internal compiler/runtime compatibility, worker-thread scheduling improvements, and current validation workflow.
+
 ## [1.5.6] - 2026-03-31
 
 ### ✨ Features
