@@ -48,7 +48,7 @@
     "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@types/node": "25.x",
-        "@types/vscode": "^1.116.0",
+        "@types/vscode": "^1.107.0",
         "eslint": "^10.2.1",
         "globals": "^17.5.0",
         "tinybench": "6.0.0"
