@@ -36,6 +36,16 @@ class IncrementalLinter {
 
     /** @type {Map<string, NodeJS.Timeout>} */
     this._pendingTimers = new Map();
+
+    // Prewarm the lint worker pool so the first interactive lint does not
+    // pay the entire worker startup cost on the hot path.
+    setTimeout(() => {
+      try {
+        getLintWorkerClient().prepare?.();
+      } catch {
+        // Ignore warmup failures and keep the safe fallback path.
+      }
+    }, 0);
   }
 
   /**
@@ -139,6 +149,8 @@ class IncrementalLinter {
 
       const errors = await getLintWorkerClient().lint(source, {
         sourcePath: document.uri.fsPath,
+        cancelKey: document.uri.toString(),
+        priority: 100,
       });
 
       if (

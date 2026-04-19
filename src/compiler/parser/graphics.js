@@ -1,5 +1,6 @@
 // Auto-extracted Mixin
 'use strict';
+const { TokenType } = require('../constants');
 module.exports = {
 _parseLocate() {
     const row = this._parseExpr();
@@ -343,13 +344,17 @@ _parsePcopy() {
 
 _parseScreenMove() {
     // _SCREENMOVE x, y or _SCREENMOVE _MIDDLE
-    if (this._matchKw('_MIDDLE')) {
-      this._emit('// _SCREENMOVE _MIDDLE - not supported in web');
+    if (
+      (this._check(TokenType.IDENTIFIER) || this._check(TokenType.KEYWORD)) &&
+      String(this._peek()?.value || '').toUpperCase() === '_MIDDLE'
+    ) {
+      this._advance();
+      this._emit('_runtime.screenmove?.(\'_MIDDLE\');');
     } else {
       const x = this._parseExpr();
       this._matchPunc(',');
       const y = this._parseExpr();
-      this._emit(`// _SCREENMOVE ${x}, ${y} - not supported in web`);
+      this._emit(`_runtime.screenmove?.(${x}, ${y});`);
     }
   },
 

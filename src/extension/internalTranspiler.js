@@ -29,6 +29,7 @@ const {
 const { state } = require('./state');
 const { getConfig, getOutputChannel, getTerminal, log } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
+const { getCompileWorkerClient } = require('../managers/CompileWorkerClient');
 
 const PACKAGER_MODULE = '@yao-pkg/pkg';
 const PACKAGER_COMPRESSION = 'GZip';
@@ -216,7 +217,6 @@ async function runInternalTranspiler(document, shouldRun) {
     channel.appendLine('');
     channel.appendLine('─────────────────────────────────────────────────────');
 
-    const { compile } = require('../compiler/compiler');
     tempJs = path.join(os.tmpdir(), `${baseName}_${Date.now()}._qbnx_.js`);
 
     await vscode.window.withProgress(
@@ -239,10 +239,18 @@ async function runInternalTranspiler(document, shouldRun) {
         // ── 1: Lexical & Syntax Analysis (0 → 30%) ─────────────────────
         channel.appendLine('');
         report(0, 'Lexical & Syntax Analysis…');
-        const result = compile(sourceCode, {
-          target: 'node',
-          sourcePath: document.uri.fsPath,
-        });
+        const result = await getCompileWorkerClient().compile(
+          sourceCode,
+          {
+            sourcePath: document.uri.fsPath,
+            priority: 80,
+          },
+          {
+            target: 'node',
+            cache: true,
+            optimizationLevel: 2,
+          },
+        );
 
         if (!result.isSuccess()) {
           const msg = result.getErrors().map((e) => e.message).join('; ');

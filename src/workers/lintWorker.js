@@ -9,7 +9,14 @@ if (!parentPort) {
   throw new Error('Lint worker requires a parent port');
 }
 
+parentPort.postMessage({ type: 'ready' });
+
 parentPort.on('message', (message = {}) => {
+  if (message.type === 'warmup') {
+    parentPort.postMessage({ type: 'ready' });
+    return;
+  }
+
   const { id, source, options } = message;
 
   try {

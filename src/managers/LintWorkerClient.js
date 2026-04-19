@@ -2,137 +2,66 @@
 
 const path = require('path');
 
-let Worker = null;
-try {
-  ({ Worker } = require('worker_threads'));
-} catch {
-  Worker = null;
-}
-
 const InternalTranspiler = require('../compiler/parser');
+const {
+  PooledWorkerClient,
+  detectDefaultWorkerCount,
+} = require('./PooledWorkerClient');
 
-class LintWorkerClient {
-  constructor() {
-    this._worker = null;
-    this._nextRequestId = 1;
-    this._pending = new Map();
-    this._fallbackTranspiler = null;
-    this._disposed = false;
-  }
-
-  async lint(source, options = {}) {
-    if (this._disposed) {
-      return this._runFallback(source, options);
-    }
-
-    if (!Worker) {
-      return this._runFallback(source, options);
-    }
-
-    try {
-      this._ensureWorker();
-    } catch (_error) {
-      return this._runFallback(source, options);
-    }
-
-    const requestId = this._nextRequestId++;
-
-    return new Promise((resolve) => {
-      this._pending.set(requestId, {
-        resolve,
-        source,
-        options,
-      });
-
-      this._worker.postMessage({
-        id: requestId,
-        source,
-        options,
-      });
+class LintWorkerClient extends PooledWorkerClient {
+  constructor(options = {}) {
+    super({
+      ...options,
+      workerPath:
+        options.workerPath ||
+        path.join(__dirname, '..', 'workers', 'lintWorker.js'),
+      maxWorkers: Math.max(
+        1,
+        Math.trunc(Number(options.maxWorkers) || detectDefaultWorkerCount(6)),
+      ),
     });
+
+    this._fallbackTranspiler = options.fallbackTranspiler || null;
   }
 
-  dispose() {
-    if (this._disposed) {
+  lint(source, options = {}) {
+    const cancelKey =
+      options.cancelKey || options.sourcePath || null;
+    const priority = Number(options.priority) || 0;
+    return this._dispatch(
+      { source, options },
+      { source, options, cancelKey, priority },
+    );
+  }
+
+  _beforeDispatch(pendingData) {
+    if (!pendingData?.cancelKey) {
       return;
     }
 
-    this._disposed = true;
-
-    if (this._worker) {
-      void this._worker.terminate().catch(() => {});
-      this._worker = null;
-    }
-
-    for (const pending of this._pending.values()) {
-      pending.resolve([]);
-    }
-
-    this._pending.clear();
+    this._restartWorkersForPending(
+      (pending) => pending.cancelKey === pendingData.cancelKey,
+      (pending, isDirectMatch) =>
+        isDirectMatch ? [] : this._runFallbackForPending(pending),
+    );
   }
 
-  _ensureWorker() {
-    if (this._worker || !Worker) {
-      return;
+  _resolveWorkerMessage(pending, message) {
+    if (message.error) {
+      return { useFallback: true, pending };
     }
 
-    const workerPath = path.join(__dirname, '..', 'workers', 'lintWorker.js');
-    const worker = new Worker(workerPath);
-
-    worker.on('message', (message = {}) => {
-      const pending = this._pending.get(message.id);
-      if (!pending) {
-        return;
-      }
-
-      this._pending.delete(message.id);
-
-      if (message.error) {
-        pending.resolve(this._runFallback(pending.source, pending.options));
-        return;
-      }
-
-      pending.resolve(Array.isArray(message.errors) ? message.errors : []);
-    });
-
-    worker.on('error', () => {
-      this._handleWorkerFailure();
-    });
-
-    worker.on('exit', (code) => {
-      if (code !== 0 && !this._disposed) {
-        this._handleWorkerFailure();
-      } else {
-        this._worker = null;
-      }
-    });
-
-    this._worker = worker;
+    return {
+      value: Array.isArray(message.errors) ? message.errors : [],
+    };
   }
 
-  _handleWorkerFailure() {
-    const worker = this._worker;
-    this._worker = null;
-
-    if (worker) {
-      worker.removeAllListeners();
-      void worker.terminate().catch(() => {});
-    }
-
-    const pendingEntries = Array.from(this._pending.values());
-    this._pending.clear();
-
-    for (const pending of pendingEntries) {
-      pending.resolve(this._runFallback(pending.source, pending.options));
-    }
-  }
-
-  _runFallback(source, options) {
+  _runFallbackForPending(pending) {
     if (!this._fallbackTranspiler) {
       this._fallbackTranspiler = new InternalTranspiler();
     }
 
-    return this._fallbackTranspiler.lint(source, options);
+    return this._fallbackTranspiler.lint(pending.source, pending.options);
   }
 }
 
@@ -148,5 +77,6 @@ function getLintWorkerClient() {
 
 module.exports = {
   LintWorkerClient,
+  detectDefaultWorkerCount,
   getLintWorkerClient,
 };

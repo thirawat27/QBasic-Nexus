@@ -906,6 +906,10 @@ function _resolveMemoryAddress(addr) {
 }
 
 function _coerceMemoryView(target) {
+  if (target && target._qbasicMem) {
+    if (target.freed) return new Uint8Array(0);
+    if (target.view instanceof Uint8Array) return target.view;
+  }
   if (target === undefined || target === null || target === 0) {
     return _mainMemory;
   }
@@ -924,6 +928,26 @@ function _coerceMemoryView(target) {
     return new Uint8Array(target.buffer, byteOffset, byteLength);
   }
   return _mainMemory;
+}
+
+function _createMemBlock(view, metadata = {}) {
+  const memView = _coerceMemoryView(view);
+  return {
+    _qbasicMem: true,
+    view: memView,
+    byteOffset: Number(metadata.byteOffset) || memView.byteOffset || 0,
+    byteLength: Number(metadata.byteLength) || memView.length || 0,
+    type: metadata.type || '_MEM',
+    imageHandle: metadata.imageHandle ?? null,
+    sync: typeof metadata.sync === 'function' ? metadata.sync : null,
+    freed: false,
+  };
+}
+
+function _syncMemoryBlock(mem) {
+  if (mem && typeof mem.sync === 'function' && !mem.freed) {
+    mem.sync();
+  }
 }
 
 function _peek(addr) {
@@ -961,9 +985,89 @@ function _defSeg(segment) {
   _defSegBase = Math.max(0, Math.trunc(Number(segment) || 0) << 4);
 }
 
+function _memnew(bytes) {
+  const byteLength = Math.max(0, Math.trunc(Number(bytes) || 0));
+  return _createMemBlock(new Uint8Array(byteLength), {
+    byteLength,
+    type: '_MEMNEW',
+  });
+}
+
+function _memexists(mem) {
+  if (!mem || mem.freed) return 0;
+  return _coerceMemoryView(mem).length > 0 ? -1 : 0;
+}
+
+function _offset(value) {
+  if (value && value._qbasicMem) {
+    return Number(value.byteOffset) || 0;
+  }
+  if (ArrayBuffer.isView(value)) {
+    return Number(value.byteOffset) || 0;
+  }
+  if (value instanceof ArrayBuffer) {
+    return 0;
+  }
+  if (value && value.buffer instanceof ArrayBuffer) {
+    return Number(value.byteOffset) || 0;
+  }
+  return 0;
+}
+
+function _mem(value) {
+  if (value && value._qbasicMem) {
+    return value;
+  }
+  if (value === undefined || value === null || value === 0) {
+    return _createMemBlock(_mainMemory, {
+      byteLength: _mainMemory.length,
+      type: '_MAINMEM',
+    });
+  }
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer || value?.buffer instanceof ArrayBuffer) {
+    const view = _coerceMemoryView(value);
+    return _createMemBlock(view, {
+      byteOffset: view.byteOffset || 0,
+      byteLength: view.length || 0,
+    });
+  }
+  if (typeof value === 'string') {
+    const bytes = _binaryStringToBytes(value);
+    return _createMemBlock(bytes, {
+      byteLength: bytes.length,
+      type: 'STRING',
+    });
+  }
+  if (Array.isArray(value)) {
+    const bytes = Uint8Array.from(value.map(_normalizeByte));
+    return _createMemBlock(bytes, {
+      byteLength: bytes.length,
+      type: 'ARRAY',
+    });
+  }
+  return _createMemBlock(_mainMemory, {
+    byteLength: _mainMemory.length,
+    type: '_MAINMEM',
+  });
+}
+
+function _memimage(handle) {
+  if (typeof _runtime !== 'undefined' && typeof _runtime.memimage === 'function') {
+    const block = _runtime.memimage(handle);
+    if (block && block._qbasicMem) {
+      return block;
+    }
+  }
+  return _memnew(0);
+}
+
 function _memfree(mem) {
   if (mem && typeof mem === 'object') {
     mem.freed = true;
+    if (mem.view instanceof Uint8Array && mem.type === '_MEMNEW') {
+      mem.view = new Uint8Array(0);
+      mem.byteLength = 0;
+    }
   }
 }
 
@@ -985,6 +1089,7 @@ function _memcopy(src, srcOff, bytes, dst, dstOff) {
     sourceView.slice(sourceOffset, sourceOffset + safeCount),
     destinationOffset,
   );
+  _syncMemoryBlock(dst);
 }
 
 function _memfill(mem, off, bytes, val) {
@@ -996,6 +1101,55 @@ function _memfill(mem, off, bytes, val) {
   if (offset >= view.length || byteCount <= 0) return;
 
   view.fill(fillValue, offset, Math.min(view.length, offset + byteCount));
+  _syncMemoryBlock(mem);
+}
+
+function _memread(mem, off, bytes) {
+  const view = _coerceMemoryView(mem);
+  const offset = Math.max(0, Math.trunc(Number(off) || 0));
+  const byteCount = Math.max(0, Math.trunc(Number(bytes) || 0));
+  if (offset >= view.length || byteCount <= 0) return '';
+  return _bytesToBinaryString(
+    view.slice(offset, Math.min(view.length, offset + byteCount)),
+  );
+}
+
+function _memwrite(mem, off, data) {
+  const view = _coerceMemoryView(mem);
+  const offset = Math.max(0, Math.trunc(Number(off) || 0));
+  const payload = data instanceof Uint8Array ? data : _binaryStringToBytes(String(data ?? ''));
+  const safeCount = Math.min(
+    payload.length,
+    Math.max(0, view.length - offset),
+  );
+
+  if (offset >= view.length || safeCount <= 0) return;
+
+  view.set(payload.slice(0, safeCount), offset);
+  _syncMemoryBlock(mem);
+}
+
+function _memget(mem, off, spec, sampleValue) {
+  const fixedLength = _typedValueByteLength(spec);
+  const fallbackLength =
+    typeof sampleValue === 'string'
+      ? sampleValue.length
+      : Math.max(0, Math.trunc(Number(sampleValue?.byteLength) || 0));
+
+  if (spec?.kind === 'string' || fixedLength == null) {
+    return _memread(mem, off, fallbackLength);
+  }
+
+  return _deserializeTypedValue(_memread(mem, off, fixedLength), spec);
+}
+
+function _memput(mem, off, value, spec) {
+  if (spec?.kind === 'string' || !spec || typeof spec !== 'object') {
+    _memwrite(mem, off, String(value ?? ''));
+    return;
+  }
+
+  _memwrite(mem, off, _serializeTypedValue(value, spec));
 }
 
 const _TYPE_REGISTRY = Object.create(null);
@@ -3339,11 +3493,27 @@ function _qbOverflowIfOutside(value, min, max) {
   return value;
 }
 function _coerceScalarValue(typeName, value) {
+  const normalizedType = _normalizeConversionType(typeName);
+
+  if (normalizedType === '_MEM' || normalizedType === 'MEM') {
+    if (value === undefined || value === null || value === '') {
+      return 0;
+    }
+    return value && typeof value === 'object' ? value : _mem(value);
+  }
+
+  if (normalizedType === '_OFFSET' || normalizedType === 'OFFSET') {
+    if (value === undefined || value === null || value === '') {
+      return 0;
+    }
+    return _offset(value);
+  }
+
   if (value === undefined || value === null || value === '') {
     return 0;
   }
 
-  switch (_normalizeConversionType(typeName)) {
+  switch (normalizedType) {
     case 'INTEGER':
       return _cint(value);
     case 'LONG':
@@ -3632,6 +3802,14 @@ function _sndlen(handle) {
   return 0;
 }
 
+// _sndgetpos - get sound playback position
+function _sndgetpos(handle) {
+  if (typeof _runtime.sndgetpos === 'function') {
+    return _runtime.sndgetpos(handle);
+  }
+  return 0;
+}
+
 // _sndplaying - check if sound is playing
 function _sndplaying(handle) {
   if (typeof _runtime.sndplaying === 'function') {
@@ -3701,6 +3879,21 @@ function _screenexists() {
     return _runtime.screenexists();
   }
   return -1;
+}
+
+// _resizewidth / _resizeheight - current CRT viewport size
+function _resizewidth() {
+  if (typeof _runtime.resizewidth === 'function') {
+    return _runtime.resizewidth();
+  }
+  return 640;
+}
+
+function _resizeheight() {
+  if (typeof _runtime.resizeheight === 'function') {
+    return _runtime.resizeheight();
+  }
+  return 400;
 }
 
 // _os$ - get OS name
@@ -3871,6 +4064,34 @@ function _totaldroppedfiles() {
 function _droppedfile$(index) {
   if (typeof _runtime.droppedfile === 'function') {
     return _runtime.droppedfile(index);
+  }
+  return '';
+}
+
+function _finishdrop() {
+  if (typeof _runtime.finishdrop === 'function') {
+    _runtime.finishdrop();
+  }
+  return '';
+}
+
+function _consoleinput() {
+  if (typeof _runtime.consoleinput === 'function') {
+    return _runtime.consoleinput();
+  }
+  return '';
+}
+
+function _connected(handle) {
+  if (typeof _runtime.connected === 'function') {
+    return _runtime.connected(handle);
+  }
+  return 0;
+}
+
+function _connectionaddress$(handle) {
+  if (typeof _runtime.connectionaddress === 'function') {
+    return _runtime.connectionaddress(handle);
   }
   return '';
 }

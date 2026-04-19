@@ -35,6 +35,7 @@
   // =========================================================================
 
   const vscode = acquireVsCodeApi();
+  const monitor = document.getElementById('monitor');
   const screen = document.getElementById('screen');
   const canvas = document.getElementById('gfx-layer');
   const crtText = globalThis.QBasicCrtText || {};
@@ -81,6 +82,16 @@
   let keyBuffer = '';
   let currentSourceLine = 0;
   let nextPromptId = 1;
+  let consoleEnabled = true;
+  let acceptFileDropEnabled = false;
+  let droppedFiles = [];
+  let resizeMode = 'ON';
+  let nextNetworkHandle = 1;
+  const networkHandles = new Map();
+  const _MAIN_MEMORY_SIZE = 1024 * 1024;
+  const _mainMemory = new Uint8Array(_MAIN_MEMORY_SIZE);
+  const _ioPorts = new Uint8Array(65536);
+  let _defSegBase = 0;
 
   // Virtual File System (VFS) - localStorage based
   const VFS_KEY = 'qbasic_nexus_vfs';
@@ -2602,9 +2613,125 @@
     return '';
   }
 
-  // Memory stubs
+  function _normalizeByte(value) {
+    return Math.trunc(Number(value) || 0) & 0xff;
+  }
+
+  function _normalizeWord(value) {
+    return Math.trunc(Number(value) || 0) & 0xffff;
+  }
+
+  function _resolveMemoryAddress(addr) {
+    const numeric = Math.trunc(Number(addr) || 0);
+    const absolute = _defSegBase + numeric;
+    if (absolute < 0) return 0;
+    if (absolute >= _mainMemory.length) return _mainMemory.length - 1;
+    return absolute;
+  }
+
+  function _coerceMemoryView(target) {
+    if (target?.freed) {
+      return new Uint8Array(0);
+    }
+    if (target?._qbasicMem && target.view instanceof Uint8Array) {
+      return target.view;
+    }
+    if (target === undefined || target === null || target === 0) {
+      return _mainMemory;
+    }
+    if (target instanceof Uint8Array) return target;
+    if (ArrayBuffer.isView(target)) {
+      return new Uint8Array(target.buffer, target.byteOffset, target.byteLength);
+    }
+    if (target instanceof ArrayBuffer) return new Uint8Array(target);
+    if (target && target.buffer instanceof ArrayBuffer) {
+      const byteOffset = Number(target.byteOffset) || 0;
+      const byteLength = Number(target.byteLength) || target.buffer.byteLength;
+      return new Uint8Array(target.buffer, byteOffset, byteLength);
+    }
+    return _mainMemory;
+  }
+
+  function _peek(addr) {
+    return _mainMemory[_resolveMemoryAddress(addr)];
+  }
+
   function _poke(addr, value) {
-    console.log('POKE', addr, value, '- memory access not supported');
+    _mainMemory[_resolveMemoryAddress(addr)] = _normalizeByte(value);
+  }
+
+  function _inp(port) {
+    return _ioPorts[_normalizeWord(port)];
+  }
+
+  function _out(port, value) {
+    const normalizedPort = _normalizeWord(port);
+    _ioPorts[normalizedPort] = _normalizeByte(value);
+    return _ioPorts[normalizedPort];
+  }
+
+  async function _wait(port, andMask, xorMask) {
+    const normalizedPort = _normalizeWord(port);
+    const andValue = _normalizeByte(andMask);
+    const xorValue = _normalizeByte(xorMask);
+
+    while (((_ioPorts[normalizedPort] ^ xorValue) & andValue) === 0) {
+      await sleep(1);
+    }
+  }
+
+  function _defSeg(segment) {
+    if (segment === undefined || segment === null || segment === '') {
+      _defSegBase = 0;
+      return;
+    }
+    _defSegBase = Math.max(0, Math.trunc(Number(segment) || 0) << 4);
+  }
+
+  function _createMemBlock(view, metadata = {}) {
+    const memView = _coerceMemoryView(view);
+    return {
+      _qbasicMem: true,
+      view: memView,
+      byteOffset: Number(metadata.byteOffset) || memView.byteOffset || 0,
+      byteLength: Number(metadata.byteLength) || memView.length || 0,
+      type: metadata.type || '_MEM',
+      imageHandle: metadata.imageHandle ?? null,
+      sync: typeof metadata.sync === 'function' ? metadata.sync : null,
+      freed: false,
+    };
+  }
+
+  function _memimage(handle) {
+    const imageHandle = images.get(Number(handle));
+    if (!imageHandle?.ctx || !imageHandle?.canvas) {
+      return _createMemBlock(new Uint8Array(0), {
+        byteLength: 0,
+        type: '_MEMIMAGE',
+        imageHandle: Number(handle) || 0,
+      });
+    }
+
+    const imageData = imageHandle.ctx.getImageData(
+      0,
+      0,
+      imageHandle.canvas.width,
+      imageHandle.canvas.height,
+    );
+    const view = new Uint8Array(
+      imageData.data.buffer,
+      imageData.data.byteOffset,
+      imageData.data.byteLength,
+    );
+
+    return _createMemBlock(view, {
+      byteLength: view.length,
+      type: '_MEMIMAGE',
+      imageHandle: Number(handle) || 0,
+      sync() {
+        imageHandle.ctx.putImageData(imageData, 0, 0);
+      },
+    });
   }
 
   // Shell stub
@@ -2623,6 +2750,173 @@
       }
     } catch (_e) {
       console.warn('[Fullscreen] Not supported:', _e);
+    }
+  }
+
+  function _ensureRuntimeFavicon() {
+    let link = document.querySelector('link[rel="icon"][data-qbasic-runtime="true"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      link.setAttribute('data-qbasic-runtime', 'true');
+      document.head.appendChild(link);
+    }
+    return link;
+  }
+
+  function _applyIconFromHandle(handle) {
+    const numericHandle = Number(handle);
+    const imageHandle = images.get(numericHandle);
+    if (!imageHandle?.canvas) return false;
+    const link = _ensureRuntimeFavicon();
+    link.href = imageHandle.canvas.toDataURL('image/png');
+    return true;
+  }
+
+  function _screenMove(x, y) {
+    if (!monitor) return;
+
+    if (String(x).toUpperCase() === '_MIDDLE') {
+      monitor.style.left = '0px';
+      monitor.style.top = '0px';
+      monitor.style.transform = 'translate3d(0, 0, 0)';
+      monitor.dataset.screenMove = '_MIDDLE';
+      return;
+    }
+
+    const offsetX = Math.trunc(Number(x) || 0);
+    const offsetY = Math.trunc(Number(y) || 0);
+    monitor.style.left = '0px';
+    monitor.style.top = '0px';
+    monitor.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
+    monitor.dataset.screenMove = `${offsetX},${offsetY}`;
+  }
+
+  function _screenIcon(handle) {
+    if (handle === undefined) return false;
+    return _applyIconFromHandle(handle);
+  }
+
+  function _icon(handle) {
+    if (handle === undefined) return false;
+    return _applyIconFromHandle(handle);
+  }
+
+  function _getActiveDrawSurface(handle) {
+    const numericHandle = Number(handle);
+    if (Number.isFinite(numericHandle) && images.has(numericHandle)) {
+      return images.get(numericHandle);
+    }
+
+    if (_destImage && images.has(_destImage)) {
+      return images.get(_destImage);
+    }
+
+    if (!ctx || !canvas) return null;
+    return {
+      canvas,
+      ctx,
+      width: canvas.width,
+      height: canvas.height,
+    };
+  }
+
+  function _normalizeColorMatch(color) {
+    if (color === undefined || color === null || color === '') {
+      return null;
+    }
+
+    const numeric = Number(color);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+
+    if (Number.isInteger(numeric) && numeric >= 0 && numeric < COLORS.length) {
+      const [r, g, b] = _parsePaletteHex(COLORS[numeric & 15]);
+      return { r, g, b };
+    }
+
+    const packed = Math.trunc(numeric) >>> 0;
+    return {
+      r: (packed >>> 16) & 0xff,
+      g: (packed >>> 8) & 0xff,
+      b: packed & 0xff,
+    };
+  }
+
+  function _buildColorMatcher(color, start, end) {
+    const hasRange =
+      start !== undefined &&
+      start !== null &&
+      start !== 'undefined' &&
+      end !== undefined &&
+      end !== null &&
+      end !== 'undefined';
+
+    if (hasRange) {
+      const startIndex = Math.trunc(Number(start));
+      const endIndex = Math.trunc(Number(end));
+      const colors = new Set();
+
+      if (
+        Number.isFinite(startIndex) &&
+        Number.isFinite(endIndex) &&
+        startIndex >= 0 &&
+        endIndex >= 0 &&
+        startIndex < COLORS.length &&
+        endIndex < COLORS.length
+      ) {
+        const from = Math.min(startIndex, endIndex);
+        const to = Math.max(startIndex, endIndex);
+        for (let index = from; index <= to; index++) {
+          const rgb = _normalizeColorMatch(index);
+          if (rgb) colors.add(`${rgb.r},${rgb.g},${rgb.b}`);
+        }
+      } else {
+        const startColor = _normalizeColorMatch(start);
+        const endColor = _normalizeColorMatch(end);
+        if (startColor) colors.add(`${startColor.r},${startColor.g},${startColor.b}`);
+        if (endColor) colors.add(`${endColor.r},${endColor.g},${endColor.b}`);
+      }
+
+      return (r, g, b) => colors.has(`${r},${g},${b}`);
+    }
+
+    const target = _normalizeColorMatch(color);
+    if (!target) {
+      return () => true;
+    }
+
+    return (r, g, b) => r === target.r && g === target.g && b === target.b;
+  }
+
+  function _mutateSurfacePixels(handle, mutator) {
+    const surface = _getActiveDrawSurface(handle);
+    if (!surface?.ctx || !surface?.canvas) return false;
+    if (!surface.canvas.width || !surface.canvas.height) return false;
+
+    try {
+      const imageData = surface.ctx.getImageData(
+        0,
+        0,
+        surface.canvas.width,
+        surface.canvas.height,
+      );
+      const { data } = imageData;
+      let changed = false;
+
+      for (let index = 0; index < data.length; index += 4) {
+        changed = mutator(data, index) || changed;
+      }
+
+      if (changed) {
+        surface.ctx.putImageData(imageData, 0, 0);
+      }
+
+      return changed;
+    } catch (error) {
+      console.warn('[QBasic Runtime] Pixel mutation skipped:', error);
+      return false;
     }
   }
 
@@ -2647,26 +2941,74 @@
     );
   }
 
-  // Memory operations (stubs)
   function _memfree(mem) {
-    console.log('_MEMFREE', mem);
+    if (mem && typeof mem === 'object') {
+      mem.freed = true;
+    }
   }
 
   function _memcopy(src, srcOff, bytes, dst, dstOff) {
-    console.log('_MEMCOPY', src, srcOff, bytes, 'TO', dst, dstOff);
+    const sourceView = _coerceMemoryView(src);
+    const destinationView = _coerceMemoryView(dst);
+    const sourceOffset = Math.max(0, Math.trunc(Number(srcOff) || 0));
+    const destinationOffset = Math.max(0, Math.trunc(Number(dstOff) || 0));
+    const byteCount = Math.max(0, Math.trunc(Number(bytes) || 0));
+    const safeCount = Math.min(
+      byteCount,
+      Math.max(0, sourceView.length - sourceOffset),
+      Math.max(0, destinationView.length - destinationOffset),
+    );
+
+    if (safeCount <= 0) return;
+
+    destinationView.set(
+      sourceView.slice(sourceOffset, sourceOffset + safeCount),
+      destinationOffset,
+    );
   }
 
   function _memfill(mem, off, bytes, val) {
-    console.log('_MEMFILL', mem, off, bytes, val);
+    const view = _coerceMemoryView(mem);
+    const offset = Math.max(0, Math.trunc(Number(off) || 0));
+    const byteCount = Math.max(0, Math.trunc(Number(bytes) || 0));
+
+    if (offset >= view.length || byteCount <= 0) return;
+
+    view.fill(
+      _normalizeByte(val),
+      offset,
+      Math.min(view.length, offset + byteCount),
+    );
   }
 
   // Alpha/Transparency
   function _setAlpha(alpha, color, start, end, img) {
-    console.log('_SETALPHA', alpha, color, start, end, img);
+    const alphaValue = _normalizeByte(alpha);
+    const matchesColor = _buildColorMatcher(color, start, end);
+    return _mutateSurfacePixels(img, (data, index) => {
+      if (!matchesColor(data[index], data[index + 1], data[index + 2])) {
+        return false;
+      }
+      if (data[index + 3] === alphaValue) {
+        return false;
+      }
+      data[index + 3] = alphaValue;
+      return true;
+    });
   }
 
   function _clearColor(color, img) {
-    console.log('_CLEARCOLOR', color, img);
+    const matchesColor = _buildColorMatcher(color);
+    return _mutateSurfacePixels(img, (data, index) => {
+      if (!matchesColor(data[index], data[index + 1], data[index + 2])) {
+        return false;
+      }
+      if (data[index + 3] === 0) {
+        return false;
+      }
+      data[index + 3] = 0;
+      return true;
+    });
   }
 
   // =========================================================================
@@ -3273,6 +3615,15 @@
     sndopen: _sndOpen,
     sndplay: _sndPlay,
     sndloop: _sndLoop,
+    sndplayfile: _sndPlayFile,
+    sndstop: _sndStop,
+    sndvol: _sndVol,
+    sndpause: _sndPause,
+    sndbal: _sndBal,
+    sndsetpos: _sndSetPos,
+    sndgetpos: _sndGetPos,
+    sndlen: _sndLen,
+    sndplaying: _sndPlaying,
     sndclose: _sndClose,
 
     // RGB Color
@@ -3335,6 +3686,24 @@
     desktopheight: _desktopHeight,
     clipboard$: _clipboard$,
     clipboard: _setClipboard,
+    console: _console,
+    consoletitle: _consoletitle,
+    consoleinput: _consoleinput,
+    acceptfiledrop: _acceptFileDrop,
+    totaldroppedfiles: _totalDroppedFiles,
+    droppedfile: _droppedFile,
+    finishdrop: _finishDrop,
+    screenhide: _screenHide,
+    screenshow: _screenShow,
+    screenexists: _screenExists,
+    resize: _resize,
+    resizewidth: _resizeWidth,
+    resizeheight: _resizeHeight,
+    openhost: _openhost,
+    openclient: _openclient,
+    openconnection: _openconnection,
+    connected: _connected,
+    connectionaddress: _connectionaddress,
 
     // Graphics - PAINT
     paint: _paint,
@@ -3372,13 +3741,21 @@
     'environ$': _environ$,
 
     // NEW: Memory
+    peek: _peek,
     poke: _poke,
+    inp: _inp,
+    out: _out,
+    wait: _wait,
+    defseg: _defSeg,
 
     // NEW: Shell
     shell: _shell,
 
     // NEW: Fullscreen
     fullscreen: _fullscreen,
+    screenmove: _screenMove,
+    screenicon: _screenIcon,
+    icon: _icon,
 
     // NEW: Image destinations
     dest: _dest,
@@ -3400,6 +3777,7 @@
     memfree: _memfree,
     memcopy: _memcopy,
     memfill: _memfill,
+    memimage: _memimage,
 
     // NEW: Alpha/Transparency
     setAlpha: _setAlpha,
@@ -3643,6 +4021,19 @@
     if (activeInput) {
       activeInput.focus();
     }
+  });
+
+  window.addEventListener('dragover', (event) => {
+    if (!acceptFileDropEnabled) return;
+    event.preventDefault();
+  });
+
+  window.addEventListener('drop', (event) => {
+    if (!acceptFileDropEnabled) return;
+    event.preventDefault();
+    droppedFiles = Array.from(event.dataTransfer?.files || []).map(
+      (file) => file.path || file.name || '',
+    );
   });
 
   // =========================================================================
@@ -3920,11 +4311,32 @@
     }
   }
 
+  function _getSoundHandle(sid) {
+    return sounds.get(Number(sid));
+  }
+
+  function _normalizeSoundVolume(volume) {
+    const numeric = Number(volume);
+    if (!Number.isFinite(numeric)) return 1;
+    if (numeric > 1) return Math.max(0, Math.min(1, numeric / 100));
+    return Math.max(0, Math.min(1, numeric));
+  }
+
+  function _safePlayAudio(audio) {
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {});
+    }
+  }
+
   async function _sndOpen(filename) {
     return new Promise((resolve) => {
       _enforceSoundLimit(); // Ensure we don't exceed limit
 
       const audio = new Audio(filename);
+      audio.preload = 'auto';
+      audio.volume = 1;
+      audio.dataset.qbasicBalance = '0';
 
       // Use one-time event handlers
       const onReady = () => {
@@ -3948,30 +4360,221 @@
   }
 
   function _sndPlay(sid) {
-    const audio = sounds.get(sid);
+    const audio = _getSoundHandle(sid);
     if (audio) {
       audio.currentTime = 0;
       audio.loop = false;
-      audio.play();
+      _safePlayAudio(audio);
     }
   }
 
   function _sndLoop(sid) {
-    const audio = sounds.get(sid);
+    const audio = _getSoundHandle(sid);
     if (audio) {
       audio.currentTime = 0;
       audio.loop = true;
-      audio.play();
+      _safePlayAudio(audio);
     }
   }
 
+  async function _sndPlayFile(filename, volume) {
+    const soundId = await _sndOpen(filename);
+    if (soundId === -1) return -1;
+    _sndVol(soundId, volume);
+    _sndPlay(soundId);
+    return soundId;
+  }
+
+  function _sndStop(sid) {
+    const audio = _getSoundHandle(sid);
+    if (!audio) return;
+    audio.pause();
+    try {
+      audio.currentTime = 0;
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
+  function _sndVol(sid, volume) {
+    const audio = _getSoundHandle(sid);
+    if (!audio) return 0;
+    audio.volume = _normalizeSoundVolume(volume);
+    return audio.volume;
+  }
+
+  function _sndPause(sid) {
+    const audio = _getSoundHandle(sid);
+    if (!audio) return;
+    audio.pause();
+  }
+
+  function _sndBal(sid, balance) {
+    const audio = _getSoundHandle(sid);
+    if (!audio) return 0;
+    const pan = Math.max(-1, Math.min(1, Number(balance) || 0));
+    audio.dataset.qbasicBalance = String(pan);
+    return pan;
+  }
+
+  function _sndSetPos(sid, position) {
+    const audio = _getSoundHandle(sid);
+    if (!audio) return 0;
+    const seconds = Math.max(0, Number(position) || 0);
+    try {
+      audio.currentTime = seconds;
+    } catch (_e) {
+      /* ignore */
+    }
+    return Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+  }
+
+  function _sndGetPos(sid) {
+    const audio = _getSoundHandle(sid);
+    if (!audio) return 0;
+    return Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+  }
+
+  function _sndLen(sid) {
+    const audio = _getSoundHandle(sid);
+    if (!audio) return 0;
+    return Number.isFinite(audio.duration) ? audio.duration : 0;
+  }
+
+  function _sndPlaying(sid) {
+    const audio = _getSoundHandle(sid);
+    if (!audio) return 0;
+    return !audio.paused && !audio.ended ? -1 : 0;
+  }
+
   function _sndClose(sid) {
-    const audio = sounds.get(sid);
+    const audio = _getSoundHandle(sid);
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
       sounds.delete(sid);
     }
+  }
+
+  function _console(enabled) {
+    consoleEnabled = Boolean(enabled);
+    const visibility = consoleEnabled ? 'visible' : 'hidden';
+    if (screen) screen.style.visibility = visibility;
+    if (canvas) canvas.style.visibility = visibility;
+  }
+
+  function _consoletitle(title) {
+    const normalized = normalizeCrtText(title);
+    document.title = normalized || 'QBasic Nexus CRT';
+  }
+
+  function _consoleinput() {
+    return keyBuffer.length > 0 ? inkey() : '';
+  }
+
+  function _acceptFileDrop(enabled) {
+    acceptFileDropEnabled = Boolean(enabled);
+    if (monitor) {
+      monitor.dataset.acceptFileDrop = acceptFileDropEnabled ? 'true' : 'false';
+    }
+  }
+
+  function _totalDroppedFiles() {
+    return droppedFiles.length;
+  }
+
+  function _droppedFile(index) {
+    const idx = Math.max(0, Math.floor(Number(index) || 1) - 1);
+    return droppedFiles[idx] || '';
+  }
+
+  function _finishDrop() {
+    droppedFiles = [];
+    return '';
+  }
+
+  function _screenHide() {
+    if (monitor) {
+      monitor.style.visibility = 'hidden';
+    }
+  }
+
+  function _screenShow() {
+    if (monitor) {
+      monitor.style.visibility = 'visible';
+    }
+  }
+
+  function _screenExists() {
+    return monitor ? -1 : 0;
+  }
+
+  function _resize(mode) {
+    resizeMode = String(mode ?? 'ON').toUpperCase();
+    if (monitor) {
+      monitor.dataset.resizeMode = resizeMode;
+    }
+  }
+
+  function _resizeWidth() {
+    return Math.max(
+      1,
+      Math.round(
+        canvas?.clientWidth ||
+          screen?.clientWidth ||
+          monitor?.clientWidth ||
+          window.innerWidth ||
+          640,
+      ),
+    );
+  }
+
+  function _resizeHeight() {
+    return Math.max(
+      1,
+      Math.round(
+        canvas?.clientHeight ||
+          screen?.clientHeight ||
+          monitor?.clientHeight ||
+          window.innerHeight ||
+          400,
+      ),
+    );
+  }
+
+  function _openhost(protocol) {
+    const id = nextNetworkHandle++;
+    networkHandles.set(id, {
+      mode: 'host',
+      protocol: String(protocol ?? ''),
+      connected: true,
+      address: `host:${String(protocol ?? '').toLowerCase()}`,
+    });
+    return id;
+  }
+
+  function _openclient(protocol, address) {
+    const id = nextNetworkHandle++;
+    networkHandles.set(id, {
+      mode: 'client',
+      protocol: String(protocol ?? ''),
+      connected: true,
+      address: String(address ?? ''),
+    });
+    return id;
+  }
+
+  function _openconnection(handle) {
+    const numericHandle = Number(handle);
+    return networkHandles.has(numericHandle) ? numericHandle : -1;
+  }
+
+  function _connected(handle) {
+    return networkHandles.get(Number(handle))?.connected ? -1 : 0;
+  }
+
+  function _connectionaddress(handle) {
+    return networkHandles.get(Number(handle))?.address || '';
   }
 
   // =========================================================================
@@ -4162,6 +4765,22 @@
     lastX = 0;
     lastY = 0;
     nextImageId = -1000;
+    _defSegBase = 0;
+    _mainMemory.fill(0);
+    _ioPorts.fill(0);
+    consoleEnabled = true;
+    acceptFileDropEnabled = false;
+    droppedFiles = [];
+    resizeMode = 'ON';
+    nextNetworkHandle = 1;
+    networkHandles.clear();
+    if (monitor) {
+      monitor.style.visibility = 'visible';
+      monitor.dataset.acceptFileDrop = 'false';
+      monitor.dataset.resizeMode = 'ON';
+    }
+    if (screen) screen.style.visibility = 'visible';
+    if (canvas) canvas.style.visibility = 'visible';
 
     // Reset font system
     _fontHandles.clear();

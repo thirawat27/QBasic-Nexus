@@ -349,6 +349,11 @@ const BUILTIN_FUNCS = Object.freeze({
     'PEEK': '_peek',
     'INP': '_inp',
     'POINT': '_point',
+    '_MEMNEW': '_memnew',
+    '_MEMEXISTS': '_memexists',
+    '_MEMIMAGE': '_memimage',
+    '_MEM': '_mem',
+    '_OFFSET': '_offset',
     'VARPTR': '((v) => 0)',
     'VARSEG': '((v) => 0)',
     'SADD': '((s) => 0)',
@@ -356,10 +361,10 @@ const BUILTIN_FUNCS = Object.freeze({
     // ========== Timer Functions (QB64) ==========
     '_TIMER': '((accuracy) => { const d = new Date(); return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000; })',
     
-    // ========== Sound (stubs for web) ==========
-    '_SNDLEN': '((handle) => 0)',
-    '_SNDGETPOS': '((handle) => 0)',
-    '_SNDPLAYING': '((handle) => 0)',
+    // ========== Sound ==========
+    '_SNDLEN': '_sndlen',
+    '_SNDGETPOS': '_sndgetpos',
+    '_SNDPLAYING': '_sndplaying',
     
     // ========== Conversion Functions ==========
     '_CV': '_cv',
@@ -477,7 +482,8 @@ const BUILTIN_FUNCS = Object.freeze({
     // _STARTDIR$ - (already defined above)
     // _CWD$ - (already defined above)
     '_TOTALDROPPEDFILES': '_totaldroppedfiles',
-    '_DROPPEDFILE$': '_droppedfile$'
+    '_DROPPEDFILE$': '_droppedfile$',
+    '_FINISHDROP': '_finishdrop'
 });
 
 module.exports = {

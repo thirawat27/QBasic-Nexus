@@ -156,10 +156,8 @@ _parseStatement() {
     if (this._matchKw('_SCREENMOVE')) return this._parseScreenMove();
     if (this._matchKw('_SCREENICON'))
       return this._emit('// _SCREENICON - not supported in web');
-    if (this._matchKw('_SCREENHIDE'))
-      return this._emit('// _SCREENHIDE - not supported in web');
-    if (this._matchKw('_SCREENSHOW'))
-      return this._emit('// _SCREENSHOW - not supported in web');
+    if (this._matchKw('_SCREENHIDE')) return this._parseScreenHide();
+    if (this._matchKw('_SCREENSHOW')) return this._parseScreenShow();
     if (this._matchKw('_ICON')) return this._parseIcon();
     if (this._matchKw('_DEST')) return this._parseDest();
     if (this._matchKw('_SOURCE')) return this._parseSource();
@@ -175,6 +173,8 @@ _parseStatement() {
     if (this._matchKw('_SNDSETPOS')) return this._parseSndSetPos();
 
     // ============ NEW: QB64 Memory ============
+    if (this._matchKw('_MEMGET')) return this._parseMemGet();
+    if (this._matchKw('_MEMPUT')) return this._parseMemPut();
     if (this._matchKw('_MEMFREE')) return this._parseMemFree();
     if (this._matchKw('_MEMCOPY')) return this._parseMemCopy();
     if (this._matchKw('_MEMFILL')) return this._parseMemFill();
@@ -1027,9 +1027,19 @@ _parseIcon() {
     // _ICON [handle]
     if (!this._isStmtEnd()) {
       const handle = this._parseExpr();
-      this._emit(`// _ICON ${handle} - not supported in web`);
+      this._emit(`_runtime.icon?.(${handle});`);
     } else {
-      this._emit('// _ICON - not supported in web');
+      this._emit('_runtime.icon?.();');
+    }
+  },
+
+_parseScreenIcon() {
+    // _SCREENICON [handle]
+    if (!this._isStmtEnd()) {
+      const handle = this._parseExpr();
+      this._emit(`_runtime.screenicon?.(${handle});`);
+    } else {
+      this._emit('_runtime.screenicon?.();');
     }
   },
 
@@ -1095,6 +1105,45 @@ _parseMemFree() {
     // _MEMFREE memblock
     const mem = this._parseExpr();
     this._emit(`_memfree(${mem});`);
+  },
+
+_parseMemGet() {
+    // _MEMGET memblock, offset, target
+    const mem = this._parseExpr();
+    this._matchPunc(',');
+    const off = this._parseExpr();
+    this._matchPunc(',');
+    const target = this._parseAssignableTarget({
+      contextLabel: '_MEMGET target',
+    });
+    const spec =
+      typeof this._metadataToRuntimeLiteral === 'function' && target?.metadata
+        ? this._metadataToRuntimeLiteral(target.metadata)
+        : 'undefined';
+    const valueExpr = `_memget(${mem}, ${off}, ${spec}, ${target.targetExpr})`;
+    this._emit(
+      `${target.targetExpr} = ${this._wrapAssignmentValue(
+        target.name,
+        valueExpr,
+        target.wrapOptions,
+      )};`,
+    );
+  },
+
+_parseMemPut() {
+    // _MEMPUT memblock, offset, source
+    const mem = this._parseExpr();
+    this._matchPunc(',');
+    const off = this._parseExpr();
+    this._matchPunc(',');
+    const source = this._parseValueReference({
+      contextLabel: '_MEMPUT source',
+    });
+    const spec =
+      typeof this._metadataToRuntimeLiteral === 'function' && source?.metadata
+        ? this._metadataToRuntimeLiteral(source.metadata)
+        : 'undefined';
+    this._emit(`_memput(${mem}, ${off}, ${source.expr}, ${spec});`);
   },
 
 _parseMemCopy() {
@@ -1269,8 +1318,14 @@ _parseTime$() {
 _parseConsole() {
     // _CONSOLE ON/OFF
     let mode = 'ON';
-    if (this._matchKw('OFF')) mode = 'OFF';
-    this._emit(`_console(${mode});`);
+    if (this._check(TokenType.IDENTIFIER) || this._check(TokenType.KEYWORD)) {
+      const value = String(this._peek()?.value || '').toUpperCase();
+      if (value === 'OFF' || value === 'ON') {
+        mode = value;
+        this._advance();
+      }
+    }
+    this._emit(`_console(${JSON.stringify(mode)});`);
   },
 
 _parseConsoleTitle() {
@@ -1298,8 +1353,14 @@ _parseShellHide() {
 _parseAcceptFileDrop() {
     // _ACCEPTFILEDROP ON/OFF
     let mode = 'ON';
-    if (this._matchKw('OFF')) mode = 'OFF';
-    this._emit(`_acceptfiledrop(${mode});`);
+    if (this._check(TokenType.IDENTIFIER) || this._check(TokenType.KEYWORD)) {
+      const value = String(this._peek()?.value || '').toUpperCase();
+      if (value === 'OFF' || value === 'ON') {
+        mode = value;
+        this._advance();
+      }
+    }
+    this._emit(`_acceptfiledrop(${JSON.stringify(mode)});`);
   },
 
 _parseNewImage() {
@@ -1344,6 +1405,12 @@ _parseSndPlayFile() {
     this._matchPunc(',');
     const volume = this._parseExpr();
     this._emit(`_sndplayfile(${filename}, ${volume});`);
+  },
+
+_parseSndGetPos() {
+    // _SNDGETPOS(handle)
+    const handle = this._parseExpr();
+    this._emit(`_sndgetpos(${handle});`);
   },
 
 _parseSndLen() {
@@ -1402,10 +1469,18 @@ _parseKeyHit() {
 _parseResize() {
     // _RESIZE ON/OFF/STRETCH/SMOOTH
     let mode = 'ON';
-    if (this._matchKw('OFF') || this._matchKw('STRETCH') || this._matchKw('SMOOTH')) {
-      mode = this._prev().value;
+    if (this._matchKw('OFF')) {
+      mode = 'OFF';
+    } else if (this._matchKw('ON')) {
+      mode = 'ON';
+    } else if (this._check(TokenType.IDENTIFIER)) {
+      const value = String(this._peek()?.value || '').toUpperCase();
+      if (value === 'STRETCH' || value === 'SMOOTH' || value === 'ON') {
+        mode = value;
+        this._advance();
+      }
     }
-    this._emit(`_resize(${mode});`);
+    this._emit(`_resize(${JSON.stringify(mode)});`);
   },
 
 _parseOnStatement() {

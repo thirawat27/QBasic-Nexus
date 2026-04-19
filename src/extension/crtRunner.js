@@ -17,6 +17,7 @@ const { CONFIG } = require('./constants');
 const { state } = require('./state');
 const { log } = require('./utils');
 const { getInternalTranspiler, getWebviewManager } = require('./lazyModules');
+const { getCompileWorkerClient } = require('../managers/CompileWorkerClient');
 
 // Lazily required so we don't pay the require() cost on every activate()
 let _CompilerClass = null;
@@ -29,17 +30,6 @@ function _getCompilerClass() {
     _CompilerClass = undefined; // mark unavailable
   }
   return _CompilerClass || null;
-}
-
-// Module-level cached compiler instance (singleton per extension lifetime)
-let _crtCompiler = null;
-function _getCrtCompiler() {
-  const Compiler = _getCompilerClass();
-  if (!Compiler) return null;
-  if (!_crtCompiler) {
-    _crtCompiler = new Compiler({ target: 'web', cache: true, optimizationLevel: 2 });
-  }
-  return _crtCompiler;
 }
 
 async function runInCrt() {
@@ -61,12 +51,21 @@ async function runInCrt() {
 
     let jsCode;
 
-    // ── Fast path: use cached Compiler (L1/L2 hit for repeated runs) ─────────
-    const compiler = _getCrtCompiler();
-    if (compiler) {
-      const result = compiler.compile(sourceCode, {
-        sourcePath: document.uri.fsPath,
-      });
+    // ── Fast path: use persistent compile workers with per-worker caches ────
+    const Compiler = _getCompilerClass();
+    if (Compiler) {
+      const result = await getCompileWorkerClient().compile(
+        sourceCode,
+        {
+          sourcePath: document.uri.fsPath,
+          priority: 100,
+        },
+        {
+          target: 'web',
+          cache: true,
+          optimizationLevel: 2,
+        },
+      );
 
       if (!result.isSuccess()) {
         const msg = result.getErrors().map((e) => e.message).join('; ');

@@ -297,6 +297,81 @@ test('Web transpile binds advanced CRT screen helpers emitted by QB64 graphics s
   }
 });
 
+test('Web transpile preserves memory helpers and extended alpha variants on shared helper paths', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    [
+      'DEF SEG = 16',
+      'POKE 2, 255',
+      'OUT 123, 7',
+      'WAIT 123, 7',
+      '_MEMFILL 0, 4, 3, 65',
+      '_MEMCOPY 0, 4, 2 TO 0, 8',
+      '_MEMFREE 0',
+      '_SETALPHA 64, 1 TO 3, 9',
+      '_CLEARCOLOR _RGB32(255, 0, 0), 9',
+    ].join('\n'),
+    'web',
+  );
+
+  const expectedCalls = [
+    '_defSeg(16);',
+    '_poke(2, 255);',
+    '_out(123, 7);',
+    'await _wait(123, 7, 0);',
+    '_memfill(0, 4, 3, 65);',
+    '_memcopy(0, 4, 2, 0, 8);',
+    '_memfree(0);',
+    '_setAlpha(64, undefined, 1, 3, 9);',
+    '_clearColor((((r, g, b) => (255 << 24) | (r << 16) | (g << 8) | b))(255, 0, 0), 9);',
+  ];
+
+  for (const call of expectedCalls) {
+    if (!code.includes(call)) {
+      throw new Error(`Missing generated helper call: ${call}`);
+    }
+  }
+});
+
+test('QB64 memory block helpers bind through generated helper paths', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    [
+      'DIM block AS _MEM',
+      'DIM n AS INTEGER',
+      'DIM text AS STRING * 2',
+      'block = _MEMNEW(8)',
+      'PRINT _MEMEXISTS(block)',
+      'PRINT _OFFSET(block)',
+      '_MEMPUT block, 0, n',
+      '_MEMGET block, 0, n',
+      '_MEMFILL block, 2, 2, 65',
+      '_MEMGET block, 2, text',
+      'PRINT _MEMEXISTS(_MEM(block))',
+      'PRINT _MEMEXISTS(_MEMIMAGE(9))',
+    ].join('\n'),
+    'web',
+  );
+
+  const expectedCalls = [
+    '(_memnew)(8)',
+    '(_memexists)(block)',
+    '(_offset)(block)',
+    '_memput(block, 0, n, { kind: "scalar", typeName: "INTEGER" });',
+    'n = _coerceTypedValue({ kind: "scalar", typeName: "INTEGER" }, _memget(block, 0, { kind: "scalar", typeName: "INTEGER" }, n));',
+    '_memfill(block, 2, 2, 65);',
+    'text = _coerceTypedValue({ kind: "fixedString", length: 2 }, _memget(block, 2, { kind: "fixedString", length: 2 }, text));',
+    '(_memexists)((_mem)(block))',
+    '(_memexists)((_memimage)(9))',
+  ];
+
+  for (const call of expectedCalls) {
+    if (!code.includes(call)) {
+      throw new Error(`Missing generated memory helper call: ${call}`);
+    }
+  }
+});
+
 test('Node transpile guards browser-only title updates', () => {
   const t = new InternalTranspiler();
   const code = t.transpile('_TITLE "Hello"', 'node');
@@ -312,6 +387,104 @@ test('Web transpile keeps clipboard-write syntax on the runtime path', () => {
 
   if (!code.includes('await _runtime.clipboard?.("hi");')) {
     throw new Error('Expected _CLIPBOARD assignment to target the runtime clipboard hook');
+  }
+});
+
+test('PRINT USING routes through the shared formatter for console and file output', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    'PRINT USING "###"; 7\nOPEN "fmt.txt" FOR OUTPUT AS #1\nPRINT #1, USING "##"; 9',
+    'web',
+  );
+
+  if (!code.includes('_print(_PRINTUSING("###", 7), true);')) {
+    throw new Error('Expected PRINT USING to route through _PRINTUSING');
+  }
+
+  if (!code.includes("await _printFile(1, _PRINTUSING(\"##\", 9) + '\\n');")) {
+    throw new Error('Expected PRINT # USING to route through _PRINTUSING and file output');
+  }
+});
+
+test('QB64 sound query functions bind to runtime helpers instead of static stubs', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    'sid = _SNDOPEN("beat.wav")\nPRINT _SNDLEN(sid)\nPRINT _SNDGETPOS(sid)\nPRINT _SNDPLAYING(sid)',
+    'web',
+  );
+
+  if (!code.includes('(_sndlen)(sid)')) {
+    throw new Error('Expected _SNDLEN to route through the shared runtime helper');
+  }
+
+  if (!code.includes('(_sndgetpos)(sid)')) {
+    throw new Error('Expected _SNDGETPOS to route through the shared runtime helper');
+  }
+
+  if (!code.includes('(_sndplaying)(sid)')) {
+    throw new Error('Expected _SNDPLAYING to route through the shared runtime helper');
+  }
+});
+
+test('QB64 console, file-drop, resize, and network builtins bind through shared helpers', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    [
+      'PRINT _SCREENEXISTS',
+      'PRINT _RESIZEWIDTH',
+      'PRINT _RESIZEHEIGHT',
+      'PRINT _TOTALDROPPEDFILES',
+      'PRINT _DROPPEDFILE$(1)',
+      'PRINT _CONNECTED(1)',
+      'PRINT _CONNECTIONADDRESS$(1)',
+      'PRINT _CONSOLEINPUT',
+      'PRINT _FINISHDROP',
+    ].join('\n'),
+    'web',
+  );
+
+  const expectedCalls = [
+    '(_screenexists)()',
+    '(_resizewidth)()',
+    '(_resizeheight)()',
+    '(_totaldroppedfiles)()',
+    '(_droppedfile$)(1)',
+    '(_connected)(1)',
+    '(_connectionaddress$)(1)',
+    '(_consoleinput)()',
+    '(_finishdrop)()',
+  ];
+
+  for (const call of expectedCalls) {
+    if (!code.includes(call)) {
+      throw new Error(`Expected builtin to route through helper: ${call}`);
+    }
+  }
+});
+
+test('QB64 screen positioning and icon commands stay on the runtime hook path', () => {
+  const t = new InternalTranspiler();
+  const code = t.transpile(
+    [
+      '_SCREENMOVE 10, 20',
+      '_SCREENMOVE _MIDDLE',
+      '_ICON 5',
+      '_SCREENICON 6',
+    ].join('\n'),
+    'web',
+  );
+
+  const expectedCalls = [
+    '_runtime.screenmove?.(10, 20);',
+    "_runtime.screenmove?.('_MIDDLE');",
+    '_runtime.icon?.(5);',
+    '_runtime.screenicon?.(6);',
+  ];
+
+  for (const call of expectedCalls) {
+    if (!code.includes(call)) {
+      throw new Error(`Expected command to stay on runtime hook path: ${call}`);
+    }
   }
 });
 

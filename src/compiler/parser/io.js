@@ -3,10 +3,18 @@
 const { TokenType } = require('../constants');
 module.exports = {
 _parsePrint() {
+    if (this._checkKw('USING')) {
+      this._advance();
+      return this._parsePrintUsing();
+    }
+
     // Handle PRINT #1, ...
     if (this._matchPunc('#')) {
       const filenum = this._parseExpr();
       this._matchPunc(',');
+      if (this._matchKw('USING')) {
+        return this._parsePrintUsingFile(filenum);
+      }
       let line = '';
 
       // Collect all args into a string
@@ -500,11 +508,13 @@ _parsePrintUsing() {
     this._emit(`_print(_PRINTUSING(${format}${argsStr}), ${addNewline});`);
   },
 
-_parsePrintUsingFile() {
+  _parsePrintUsingFile(prefetchedFileNum = null) {
     // PRINT #filenum, USING format$; expressions
-    const filenum = this._parseExpr();
-    this._matchPunc(',');
-    this._matchKw('USING');
+    const filenum = prefetchedFileNum ?? this._parseExpr();
+    if (prefetchedFileNum === null) {
+      this._matchPunc(',');
+      this._matchKw('USING');
+    }
     const format = this._parseExpr();
     this._matchPunc(';');
     const parts = [];

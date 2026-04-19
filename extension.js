@@ -25,6 +25,7 @@ const {
   debounce,
   throttle,
 } = require('./src/extension/utils');
+const { getCompileWorkerClient } = require('./src/managers/CompileWorkerClient');
 const {
   updateStatusBar,
   updateCodeStats,
@@ -398,6 +399,14 @@ async function activate(context) {
     updateCodeStats(doc);
   }
 
+  setTimeout(() => {
+    try {
+      getCompileWorkerClient().prepare();
+    } catch {
+      // Safe fallback: compile commands still work on the main thread path.
+    }
+  }, 0);
+
   const activationTime = Date.now() - startTime;
   console.log(`[QBasic Nexus] ✅ Ready in ${activationTime}ms`);
 }
@@ -411,6 +420,7 @@ function deactivate() {
 
   // Dispose the incremental linter (cancels all pending timers)
   getIncrementalLinter().dispose();
+  getCompileWorkerClient().dispose();
   workspaceAnalyzer.dispose();
 
   // Dispose VS Code resources

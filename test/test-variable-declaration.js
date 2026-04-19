@@ -741,6 +741,37 @@ const testCases = [
         expectedOutput: ['255', '7']
     },
     {
+        name: 'QB64 memory block helpers support binary get put and fill semantics',
+        code: `
+            DIM block AS _MEM
+            DIM alias AS _MEM
+            DIM written AS INTEGER
+            DIM readBack AS INTEGER
+            DIM text AS STRING * 2
+
+            written = 513
+            block = _MEMNEW(8)
+
+            _MEMPUT block, 0, written
+            _MEMGET block, 0, readBack
+            _MEMFILL block, 2, 2, 65
+            _MEMGET block, 2, text
+
+            PRINT _MEMEXISTS(block)
+            PRINT _OFFSET(block)
+            PRINT readBack
+            PRINT text
+
+            alias = _MEM(block)
+            PRINT _MEMEXISTS(alias)
+
+            _MEMFREE block
+            PRINT _MEMEXISTS(block)
+        `,
+        shouldWork: true,
+        expectedOutput: ['-1', '0', '513', 'AA', '-1', '0']
+    },
+    {
         name: 'STATIC variables persist across SUB calls',
         code: `
             SUB CountHits
@@ -1407,6 +1438,65 @@ recovery:
         },
     },
     {
+        name: 'Advanced alpha helper variants preserve range and image arguments',
+        code: `
+            _SETALPHA 64, 1 TO 3, 9
+            _CLEARCOLOR _RGB32(255, 0, 0), 9
+            PRINT "alpha-extended"
+        `,
+        shouldWork: true,
+        expectedOutput: ['alpha-extended'],
+        setup() {
+            const calls = [];
+            const record = (name) => (...args) => {
+                calls.push([name, ...args.map((arg) => arg === undefined ? null : arg)]);
+            };
+
+            return {
+                calls,
+                runtimeOverrides: {
+                    setAlpha: record('setAlpha'),
+                    clearColor: record('clearColor'),
+                },
+            };
+        },
+        verify(_result, setupResult) {
+            const actual = JSON.stringify(setupResult.calls);
+            const expected = JSON.stringify([
+                ['setAlpha', 64, null, 1, 3, 9],
+                ['clearColor', -65536, 9],
+            ]);
+            if (actual !== expected) {
+                throw new Error(`Expected runtime calls ${expected}, got ${actual}`);
+            }
+        },
+    },
+    {
+        name: 'QB64 memimage helper routes through the CRT runtime hook',
+        code: `
+            PRINT _MEMEXISTS(_MEMIMAGE(9))
+        `,
+        shouldWork: true,
+        expectedOutput: ['-1'],
+        setup() {
+            return {
+                runtimeOverrides: {
+                    memimage(handle) {
+                        return {
+                            _qbasicMem: true,
+                            view: new Uint8Array([Number(handle) & 255, 0, 0, 255]),
+                            byteOffset: 0,
+                            byteLength: 4,
+                            type: '_MEMIMAGE',
+                            imageHandle: Number(handle),
+                            freed: false,
+                        };
+                    },
+                },
+            };
+        },
+    },
+    {
         name: 'Clipboard write statement routes through the web runtime clipboard hook',
         code: `
             _CLIPBOARD = "Copied"
@@ -1429,6 +1519,267 @@ recovery:
         verify(_result, setupResult) {
             const actual = JSON.stringify(setupResult.calls);
             const expected = JSON.stringify([['clipboard', 'Copied']]);
+            if (actual !== expected) {
+                throw new Error(`Expected runtime calls ${expected}, got ${actual}`);
+            }
+        },
+    },
+    {
+        name: 'PRINT USING routes through formatter hooks for CRT and file output',
+        code: `
+            f = FREEFILE
+            OPEN "format.txt" FOR OUTPUT AS #f
+            PRINT USING "###"; 7
+            PRINT #f, USING "##"; 9
+            CLOSE #f
+
+            OPEN "format.txt" FOR INPUT AS #f
+            LINE INPUT #f, line$
+            CLOSE #f
+
+            PRINT line$
+        `,
+        shouldWork: true,
+        expectedOutput: ['fmt<###|7>', 'fmt<##|9>'],
+        setup() {
+            return {
+                runtimeOverrides: {
+                    printusing(format, ...values) {
+                        return `fmt<${format}|${values.join('|')}>`;
+                    },
+                },
+            };
+        },
+    },
+    {
+        name: 'Advanced sound helpers route through the CRT runtime hooks',
+        code: `
+            sid = _SNDOPEN("beat.wav")
+            _SNDVOL sid, .5
+            _SNDBAL sid, -.25
+            _SNDSETPOS sid, 1.5
+            PRINT _SNDLEN(sid)
+            PRINT _SNDGETPOS(sid)
+            PRINT _SNDPLAYING(sid)
+            _SNDPLAY sid
+            PRINT _SNDPLAYING(sid)
+            _SNDPAUSE sid
+            PRINT _SNDPLAYING(sid)
+            _SNDSTOP sid
+            _SNDCLOSE sid
+        `,
+        shouldWork: true,
+        expectedOutput: ['12.5', '1.5', '0', '-1', '0'],
+        setup() {
+            const soundState = {
+                nextId: 1,
+                handles: new Map(),
+            };
+
+            return {
+                runtimeOverrides: {
+                    sndopen(filename) {
+                        const id = soundState.nextId++;
+                        soundState.handles.set(id, {
+                            filename,
+                            len: 12.5,
+                            pos: 0,
+                            playing: false,
+                            volume: 1,
+                            balance: 0,
+                        });
+                        return id;
+                    },
+                    sndvol(id, volume) {
+                        const handle = soundState.handles.get(id);
+                        if (handle) handle.volume = Number(volume);
+                    },
+                    sndbal(id, balance) {
+                        const handle = soundState.handles.get(id);
+                        if (handle) handle.balance = Number(balance);
+                    },
+                    sndsetpos(id, position) {
+                        const handle = soundState.handles.get(id);
+                        if (handle) handle.pos = Number(position);
+                        return handle ? handle.pos : 0;
+                    },
+                    sndgetpos(id) {
+                        return soundState.handles.get(id)?.pos ?? 0;
+                    },
+                    sndlen(id) {
+                        return soundState.handles.get(id)?.len ?? 0;
+                    },
+                    sndplaying(id) {
+                        return soundState.handles.get(id)?.playing ? -1 : 0;
+                    },
+                    sndplay(id) {
+                        const handle = soundState.handles.get(id);
+                        if (handle) handle.playing = true;
+                    },
+                    sndpause(id) {
+                        const handle = soundState.handles.get(id);
+                        if (handle) handle.playing = false;
+                    },
+                    sndstop(id) {
+                        const handle = soundState.handles.get(id);
+                        if (handle) {
+                            handle.playing = false;
+                            handle.pos = 0;
+                        }
+                    },
+                    sndclose(id) {
+                        soundState.handles.delete(id);
+                    },
+                },
+            };
+        },
+    },
+    {
+        name: 'Console, resize, file-drop, and network helpers route through CRT runtime hooks',
+        code: `
+            _CONSOLE OFF
+            _CONSOLETITLE "Session"
+            _SCREENHIDE
+            _SCREENSHOW
+            _ACCEPTFILEDROP ON
+            _RESIZE SMOOTH
+
+            host = _OPENHOST("TCP")
+            client = _OPENCLIENT("TCP", "127.0.0.1:9000")
+
+            PRINT _SCREENEXISTS
+            PRINT _RESIZEWIDTH
+            PRINT _RESIZEHEIGHT
+            PRINT _TOTALDROPPEDFILES
+            PRINT _DROPPEDFILE$(1)
+            PRINT _CONNECTED(client)
+            PRINT _CONNECTIONADDRESS$(client)
+            PRINT _CONSOLEINPUT
+            PRINT _FINISHDROP
+            PRINT _TOTALDROPPEDFILES
+        `,
+        shouldWork: true,
+        expectedOutput: ['-1', '1024', '768', '2', 'drop-a.bas', '-1', '127.0.0.1:9000', 'typed', '', '0'],
+        setup() {
+            const state = {
+                droppedFiles: ['drop-a.bas', 'drop-b.bas'],
+                nextHandle: 1,
+                handles: new Map(),
+                calls: [],
+            };
+
+            return {
+                state,
+                runtimeOverrides: {
+                    console(enabled) {
+                        state.calls.push(['console', Boolean(enabled)]);
+                    },
+                    consoletitle(title) {
+                        state.calls.push(['consoletitle', String(title)]);
+                    },
+                    screenhide() {
+                        state.calls.push(['screenhide']);
+                    },
+                    screenshow() {
+                        state.calls.push(['screenshow']);
+                    },
+                    acceptfiledrop(enabled) {
+                        state.calls.push(['acceptfiledrop', Boolean(enabled)]);
+                    },
+                    resize(mode) {
+                        state.calls.push(['resize', String(mode)]);
+                    },
+                    screenexists() {
+                        return -1;
+                    },
+                    resizewidth() {
+                        return 1024;
+                    },
+                    resizeheight() {
+                        return 768;
+                    },
+                    totaldroppedfiles() {
+                        return state.droppedFiles.length;
+                    },
+                    droppedfile(index) {
+                        return state.droppedFiles[Math.max(0, Number(index) - 1)] || '';
+                    },
+                    finishdrop() {
+                        state.droppedFiles = [];
+                    },
+                    consoleinput() {
+                        return 'typed';
+                    },
+                    openhost(protocol) {
+                        const id = state.nextHandle++;
+                        state.handles.set(id, { protocol, connected: true, address: `host:${protocol}` });
+                        return id;
+                    },
+                    openclient(protocol, address) {
+                        const id = state.nextHandle++;
+                        state.handles.set(id, { protocol, connected: true, address });
+                        return id;
+                    },
+                    connected(id) {
+                        return state.handles.get(Number(id))?.connected ? -1 : 0;
+                    },
+                    connectionaddress(id) {
+                        return state.handles.get(Number(id))?.address || '';
+                    },
+                },
+            };
+        },
+        verify(_result, setupResult) {
+            const actual = JSON.stringify(setupResult.state.calls);
+            const expected = JSON.stringify([
+                ['console', false],
+                ['consoletitle', 'Session'],
+                ['screenhide'],
+                ['screenshow'],
+                ['acceptfiledrop', true],
+                ['resize', 'SMOOTH'],
+            ]);
+            if (actual !== expected) {
+                throw new Error(`Expected runtime calls ${expected}, got ${actual}`);
+            }
+        },
+    },
+    {
+        name: 'Screen movement and icon helpers route through CRT runtime hooks',
+        code: `
+            _SCREENMOVE 10, 20
+            _SCREENMOVE _MIDDLE
+            _ICON 5
+            _SCREENICON 6
+            PRINT "ui-hooks"
+        `,
+        shouldWork: true,
+        expectedOutput: ['ui-hooks'],
+        setup() {
+            const calls = [];
+            return {
+                calls,
+                runtimeOverrides: {
+                    screenmove(...args) {
+                        calls.push(['screenmove', ...args]);
+                    },
+                    icon(handle) {
+                        calls.push(['icon', handle]);
+                    },
+                    screenicon(handle) {
+                        calls.push(['screenicon', handle]);
+                    },
+                },
+            };
+        },
+        verify(_result, setupResult) {
+            const actual = JSON.stringify(setupResult.calls);
+            const expected = JSON.stringify([
+                ['screenmove', 10, 20],
+                ['screenmove', '_MIDDLE'],
+                ['icon', 5],
+                ['screenicon', 6],
+            ]);
             if (actual !== expected) {
                 throw new Error(`Expected runtime calls ${expected}, got ${actual}`);
             }

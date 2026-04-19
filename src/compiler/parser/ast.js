@@ -685,11 +685,9 @@ module.exports = {
     if (this._matchKw('_TITLE')) return this._parseAstEmitStatement('_parseTitle');
     if (this._matchKw('_SCREENMOVE')) return this._parseAstEmitStatement('_parseScreenMove');
     if (this._matchKw('_SCREENICON'))
-      return this._parseAstEmitLines(['// _SCREENICON - not supported in web']);
-    if (this._matchKw('_SCREENHIDE'))
-      return this._parseAstEmitLines(['// _SCREENHIDE - not supported in web']);
-    if (this._matchKw('_SCREENSHOW'))
-      return this._parseAstEmitLines(['// _SCREENSHOW - not supported in web']);
+      return this._parseAstEmitStatement('_parseScreenIcon');
+    if (this._matchKw('_SCREENHIDE')) return this._parseAstEmitStatement('_parseScreenHide');
+    if (this._matchKw('_SCREENSHOW')) return this._parseAstEmitStatement('_parseScreenShow');
     if (this._matchKw('_ICON')) return this._parseAstEmitStatement('_parseIcon');
     if (this._matchKw('_DEST')) return this._parseAstEmitStatement('_parseDest');
     if (this._matchKw('_SOURCE')) return this._parseAstEmitStatement('_parseSource');
@@ -697,6 +695,11 @@ module.exports = {
     if (this._matchKw('_PUTIMAGE')) return this._parseAstEmitStatement('_parsePutImage');
     if (this._matchKw('_PRINTSTRING')) return this._parseAstEmitStatement('_parsePrintString');
     if (this._matchKw('_FREEIMAGE')) return this._parseAstEmitStatement('_parseFreeImage');
+    if (this._matchKw('_MEMGET')) return this._parseAstEmitStatement('_parseMemGet');
+    if (this._matchKw('_MEMPUT')) return this._parseAstEmitStatement('_parseMemPut');
+    if (this._matchKw('_MEMFREE')) return this._parseAstEmitStatement('_parseMemFree');
+    if (this._matchKw('_MEMCOPY')) return this._parseAstEmitStatement('_parseMemCopy');
+    if (this._matchKw('_MEMFILL')) return this._parseAstEmitStatement('_parseMemFill');
     if (this._matchKw('_SETALPHA')) return this._parseAstEmitStatement('_parseSetAlpha');
     if (this._matchKw('_CLEARCOLOR')) return this._parseAstEmitStatement('_parseClearColor');
     if (this._matchKw('_AUTODISPLAY'))
