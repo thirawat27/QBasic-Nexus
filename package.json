@@ -48,14 +48,14 @@
     "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@types/node": "25.x",
-        "@types/vscode": "^1.107.0",
-        "eslint": "^10.0.3",
-        "globals": "^17.4.0",
+        "@types/vscode": "^1.116.0",
+        "eslint": "^10.2.1",
+        "globals": "^17.5.0",
         "tinybench": "6.0.0"
     },
     "dependencies": {
-        "@yao-pkg/pkg": "6.14.1",
-        "defu": "^6.1.4",
+        "@yao-pkg/pkg": "6.17.0",
+        "defu": "^6.1.7",
         "flru": "^1.0.2",
         "magic-string": "^0.30.21",
         "mitt": "^3.0.1",
