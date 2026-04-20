@@ -9,6 +9,15 @@ try {
   Worker = null;
 }
 
+function normalizeInteger(value, fallback, minimum = 0) {
+  const normalized = Math.trunc(Number(value));
+  if (!Number.isFinite(normalized) || normalized < minimum) {
+    return fallback;
+  }
+
+  return normalized;
+}
+
 function detectDefaultWorkerCount(limit = 4) {
   const available =
     typeof os.availableParallelism === 'function'
@@ -26,14 +35,23 @@ class PooledWorkerClient {
         ? options.workerFactory
         : (workerPath) => new this._WorkerClass(workerPath);
     this._workerPath = options.workerPath || '';
-    this._maxWorkers = Math.max(
+    this._maxWorkers = normalizeInteger(options.maxWorkers, 1, 1);
+    this._maxQueueSize = normalizeInteger(
+      options.maxQueueSize,
+      Math.max(32, this._maxWorkers * 16),
       1,
-      Math.trunc(Number(options.maxWorkers) || 1),
     );
     this._now = typeof options.now === 'function' ? options.now : Date.now;
-    this._agingIntervalMs = Math.max(
-      1,
-      Math.trunc(Number(options.agingIntervalMs) || 250),
+    this._agingIntervalMs = normalizeInteger(options.agingIntervalMs, 250, 1);
+    this._requestTimeoutMs = normalizeInteger(
+      options.requestTimeoutMs,
+      30_000,
+      0,
+    );
+    this._maintenanceIntervalMs = normalizeInteger(
+      options.maintenanceIntervalMs,
+      250,
+      25,
     );
     this._agingBoostPerInterval = Math.max(
       0,
@@ -45,12 +63,15 @@ class PooledWorkerClient {
     this._dispatchSequence = 1;
     this._pending = new Map();
     this._queued = [];
+    this._maintenanceTimer = null;
     this._disposed = false;
     this._metrics = {
       dispatchedRequests: 0,
       completedRequests: 0,
       fallbackRequests: 0,
       canceledRequests: 0,
+      timedOutRequests: 0,
+      queueOverflowRequests: 0,
       totalQueueWaitMs: 0,
       totalRunTimeMs: 0,
       longestQueueWaitMs: 0,
@@ -77,6 +98,8 @@ class PooledWorkerClient {
     }
 
     this._disposed = true;
+
+    this._stopMaintenanceLoop();
 
     for (const entry of this._workers) {
       entry.worker.removeAllListeners();
@@ -112,6 +135,8 @@ class PooledWorkerClient {
         : 0;
     return {
       maxWorkers: this._maxWorkers,
+      maxQueueSize: this._maxQueueSize,
+      requestTimeoutMs: this._requestTimeoutMs,
       activeWorkers: this._workers.length,
       pendingRequests: this._pending.size,
       queuedRequests: this._queued.length,
@@ -130,7 +155,16 @@ class PooledWorkerClient {
       return this._resolveImmediatelyWithFallback(pendingData);
     }
 
+    this._expireTimedOutRequests();
     this._beforeDispatch(pendingData);
+
+    if (this._queued.length >= this._maxQueueSize) {
+      this._metrics.queueOverflowRequests++;
+      return this._resolveImmediatelyWithFallback({
+        ...pendingData,
+        overflowed: true,
+      });
+    }
 
     const requestId = this._nextRequestId++;
 
@@ -144,12 +178,15 @@ class PooledWorkerClient {
         priority: Number(pendingData?.priority) || 0,
         sequence: this._dispatchSequence++,
         queuedAt,
+        deadlineAt:
+          this._requestTimeoutMs > 0 ? queuedAt + this._requestTimeoutMs : 0,
         startedAt: 0,
         ...pendingData,
       };
 
       this._pending.set(requestId, pending);
       this._queued.push(pending);
+      this._syncMaintenanceLoop();
 
       try {
         this._ensureWorkerCapacity(this._pending.size);
@@ -221,7 +258,7 @@ class PooledWorkerClient {
     });
 
     worker.on('error', () => {
-      this._handleWorkerFailure(entry);
+      this._handleWorkerFailure(entry, { timedOut: false });
     });
 
     worker.on('exit', (code) => {
@@ -233,7 +270,7 @@ class PooledWorkerClient {
       const lostInFlightWork =
         entry.activeRequestId !== null || entry.pendingCount > 0;
       if (code !== 0 || lostInFlightWork) {
-        this._handleWorkerFailure(entry);
+        this._handleWorkerFailure(entry, { timedOut: false });
         return;
       }
 
@@ -245,7 +282,7 @@ class PooledWorkerClient {
     return entry;
   }
 
-  _handleWorkerFailure(entry) {
+  _handleWorkerFailure(entry, options = {}) {
     if (!entry) {
       return;
     }
@@ -270,6 +307,9 @@ class PooledWorkerClient {
 
     for (const pending of affected) {
       this._pending.delete(pending.id);
+      if (options.timedOut) {
+        this._metrics.timedOutRequests++;
+      }
       this._finalizePendingResolution(pending, { useFallback: true });
     }
 
@@ -351,6 +391,105 @@ class PooledWorkerClient {
     this._drainQueue();
   }
 
+  _expireTimedOutRequests() {
+    if (
+      this._disposed ||
+      this._requestTimeoutMs <= 0 ||
+      this._pending.size === 0
+    ) {
+      return;
+    }
+
+    const now = this._now();
+    const timedOutQueued = [];
+    const timedOutWorkerIds = new Set();
+
+    for (const pending of this._pending.values()) {
+      if (!pending.deadlineAt || pending.deadlineAt > now) {
+        continue;
+      }
+
+      if (pending.workerId) {
+        timedOutWorkerIds.add(pending.workerId);
+      } else {
+        timedOutQueued.push(pending);
+      }
+    }
+
+    for (const pending of timedOutQueued) {
+      if (!this._pending.has(pending.id)) {
+        continue;
+      }
+
+      this._pending.delete(pending.id);
+      this._removeQueuedPending(pending.id);
+      this._metrics.timedOutRequests++;
+      this._finalizePendingResolution(pending, { useFallback: true });
+    }
+
+    for (const workerId of timedOutWorkerIds) {
+      const entry = this._workers.find((candidate) => candidate.id === workerId);
+      if (entry) {
+        this._handleWorkerFailure(entry, { timedOut: true });
+        continue;
+      }
+
+      const orphaned = [];
+      for (const pending of this._pending.values()) {
+        if (pending.workerId === workerId) {
+          orphaned.push(pending);
+        }
+      }
+
+      for (const pending of orphaned) {
+        this._pending.delete(pending.id);
+        this._metrics.timedOutRequests++;
+        this._finalizePendingResolution(pending, { useFallback: true });
+      }
+    }
+  }
+
+  _ensureMaintenanceLoop() {
+    if (
+      this._maintenanceTimer ||
+      this._disposed ||
+      this._requestTimeoutMs <= 0
+    ) {
+      return;
+    }
+
+    this._maintenanceTimer = setInterval(() => {
+      if (this._disposed) {
+        this._stopMaintenanceLoop();
+        return;
+      }
+
+      this._expireTimedOutRequests();
+    }, this._maintenanceIntervalMs);
+
+    if (typeof this._maintenanceTimer.unref === 'function') {
+      this._maintenanceTimer.unref();
+    }
+  }
+
+  _stopMaintenanceLoop() {
+    if (!this._maintenanceTimer) {
+      return;
+    }
+
+    clearInterval(this._maintenanceTimer);
+    this._maintenanceTimer = null;
+  }
+
+  _syncMaintenanceLoop() {
+    if (this._pending.size > 0) {
+      this._ensureMaintenanceLoop();
+      return;
+    }
+
+    this._stopMaintenanceLoop();
+  }
+
   _selectNextQueuedIndex() {
     if (this._queued.length === 0) {
       return -1;
@@ -395,6 +534,11 @@ class PooledWorkerClient {
     }
 
     while (this._queued.length > 0) {
+      this._expireTimedOutRequests();
+      if (this._queued.length === 0) {
+        return;
+      }
+
       this._ensureWorkerCapacity(this._pending.size);
 
       const entry = this._findIdleReadyWorker();
@@ -460,6 +604,8 @@ class PooledWorkerClient {
   }
 
   _finalizePendingResolution(pending, resolution) {
+    this._syncMaintenanceLoop();
+
     const finishedAt = this._now();
     const queueWaitMs = Math.max(
       0,

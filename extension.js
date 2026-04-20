@@ -26,6 +26,7 @@ const {
   throttle,
 } = require('./src/extension/utils');
 const { getCompileWorkerClient } = require('./src/managers/CompileWorkerClient');
+const { getLintWorkerClient } = require('./src/managers/LintWorkerClient');
 const {
   updateStatusBar,
   updateCodeStats,
@@ -36,7 +37,9 @@ const { executeCompile } = require('./src/extension/compileCommand');
 const { runInCrt } = require('./src/extension/crtRunner');
 const { maybeAutoConfigureQB64 } = require('./src/extension/qb64Compiler');
 const {
+  selectCompileWorkerResilience,
   selectInternalOutputDir,
+  selectLintWorkerResilience,
   selectInternalTargets,
   showInternalBuildQuickActions,
 } = require('./src/extension/internalBuildSettings');
@@ -98,6 +101,41 @@ async function activate(context) {
   const startTime = Date.now();
 
   state.extensionContext = context;
+
+  const workerResilienceKeys = [
+    CONFIG.COMPILE_WORKER_MAX_QUEUE_SIZE,
+    CONFIG.COMPILE_WORKER_REQUEST_TIMEOUT_MS,
+    CONFIG.LINT_WORKER_MAX_QUEUE_SIZE,
+    CONFIG.LINT_WORKER_REQUEST_TIMEOUT_MS,
+  ];
+
+  function recycleWorkerClients() {
+    try {
+      getCompileWorkerClient().dispose();
+    } catch {
+      // Ignore failures and let compile path fallback safely.
+    }
+
+    try {
+      getLintWorkerClient().dispose();
+    } catch {
+      // Ignore failures and let lint path fallback safely.
+    }
+
+    setTimeout(() => {
+      try {
+        getCompileWorkerClient().prepare();
+      } catch {
+        // Safe fallback: compile commands still work on the main thread path.
+      }
+
+      try {
+        getLintWorkerClient().prepare?.();
+      } catch {
+        // Safe fallback: lint requests still work via in-process fallback.
+      }
+    }, 0);
+  }
 
   // Initialize diagnostic collection
   state.diagnosticCollection =
@@ -267,6 +305,14 @@ async function activate(context) {
       COMMANDS.SELECT_INTERNAL_OUTPUT_DIR,
       selectInternalOutputDir,
     ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_COMPILE_WORKER_RESILIENCE,
+      selectCompileWorkerResilience,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_LINT_WORKER_RESILIENCE,
+      selectLintWorkerResilience,
+    ),
   );
 
   // ── Event handlers ───────────────────────────────────────────────────────
@@ -336,6 +382,14 @@ async function activate(context) {
       updateCodeStats(doc);
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
+      const workerResilienceChanged = workerResilienceKeys.some((key) =>
+        e.affectsConfiguration(`${CONFIG.SECTION}.${key}`),
+      );
+
+      if (workerResilienceChanged) {
+        recycleWorkerClients();
+      }
+
       if (e.affectsConfiguration(CONFIG.SECTION)) {
         updateStatusBar();
       }
@@ -399,13 +453,7 @@ async function activate(context) {
     updateCodeStats(doc);
   }
 
-  setTimeout(() => {
-    try {
-      getCompileWorkerClient().prepare();
-    } catch {
-      // Safe fallback: compile commands still work on the main thread path.
-    }
-  }, 0);
+  recycleWorkerClients();
 
   const activationTime = Date.now() - startTime;
   console.log(`[QBasic Nexus] ✅ Ready in ${activationTime}ms`);

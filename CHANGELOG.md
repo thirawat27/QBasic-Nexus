@@ -2,6 +2,28 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.8] - 2026-04-20
+
+### ✨ Worker Resilience Controls
+
+- **Internal Build Quick Actions Expanded**: Added worker resilience quick actions so compile and lint queue/timeout policies can be tuned directly from the command palette and status-bar build quick action flow.
+- **Dedicated Worker Tuning Commands**: Added explicit commands for compile and lint resilience tuning with presets and custom values:
+  - `QBasic Tune Compile Worker Resilience 🛡️`
+  - `QBasic Tune Lint Worker Resilience 🛡️`
+- **Hot-Reload on Setting Changes**: Worker clients now recycle automatically when resilience settings change, so updates apply immediately without manually reloading VS Code.
+
+### 🛠️ Configuration
+
+- Added new resource-scoped settings:
+  - `qbasic-nexus.compileWorkerMaxQueueSize`
+  - `qbasic-nexus.compileWorkerRequestTimeoutMs`
+  - `qbasic-nexus.lintWorkerMaxQueueSize`
+  - `qbasic-nexus.lintWorkerRequestTimeoutMs`
+
+### 📝 Documentation
+
+- Updated `README.md` configuration and command sections to document worker resilience settings, quick actions, and automatic worker reload behavior.
+
 ## [1.5.7] - 2026-04-19
 
 ### ✨ Internal Compiler and CRT Expansion

@@ -41,6 +41,7 @@
   - [Step 4 - Start Coding](#step-4---start-coding)
 - [🛠️ Configuration Guide](#️-configuration-guide)
   - [Compiler Settings](#compiler-settings)
+   - [Worker Resilience Settings](#worker-resilience-settings)
   - [Editor Settings](#editor-settings)
   - [Line Number Settings](#line-number-settings)
 - [📂 Supported File Types \& Icons](#-supported-file-types--icons)
@@ -717,6 +718,52 @@ build/artifacts
 C:\QBasicNexus\out
 ```
 
+### Worker Resilience Settings
+
+These settings tune worker-pool behavior for internal compile/lint workloads under heavy editor activity.
+
+**Compile Worker Max Queue Size**
+
+- **Setting Name** - `qbasic-nexus.compileWorkerMaxQueueSize`
+- **Type** - Number
+- **Default** - `64`
+- **Minimum** - `1`
+
+Controls how many compile requests can wait in the shared queue before backpressure kicks in. When full, new requests are resolved through the safe fallback path instead of growing memory usage indefinitely.
+
+**Compile Worker Request Timeout**
+
+- **Setting Name** - `qbasic-nexus.compileWorkerRequestTimeoutMs`
+- **Type** - Number (milliseconds)
+- **Default** - `30000`
+- **Minimum** - `0` (`0` disables timeout)
+
+Sets the maximum time allowed for an in-flight compile request. Timed-out workers are recycled automatically and the request is completed through fallback logic.
+
+**Lint Worker Max Queue Size**
+
+- **Setting Name** - `qbasic-nexus.lintWorkerMaxQueueSize`
+- **Type** - Number
+- **Default** - `96`
+- **Minimum** - `1`
+
+Controls how many lint requests can queue before backpressure starts. This keeps typing responsive in very large workspaces.
+
+**Lint Worker Request Timeout**
+
+- **Setting Name** - `qbasic-nexus.lintWorkerRequestTimeoutMs`
+- **Type** - Number (milliseconds)
+- **Default** - `15000`
+- **Minimum** - `0` (`0` disables timeout)
+
+Sets the timeout for active lint requests before the worker is recycled.
+
+**Quick Actions and Auto-Reload**
+
+- Use **QBasic Internal Build Quick Actions ⚙️** to tune targets/output plus worker resilience from one picker.
+- Dedicated commands are available: **QBasic Tune Compile Worker Resilience 🛡️** and **QBasic Tune Lint Worker Resilience 🛡️**.
+- Changing these settings automatically recycles worker clients so new values take effect without manually reloading the VS Code window.
+
 ### Editor Settings
 
 These settings control the editing experience and real-time code analysis.
@@ -1165,6 +1212,8 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 | **QBasic Internal Build Quick Actions ⚙️** | -          | Opens a quick picker for internal build targets and output folders.    |
 | **QBasic Select Internal Build Targets 🎯** | -           | Picks internal compiler target presets or a custom pkg target list.    |
 | **QBasic Select Internal Output Folder 📂** | -           | Picks or enters the output folder used by internal executable builds.  |
+| **QBasic Tune Compile Worker Resilience 🛡️** | -         | Picks or customizes compile worker queue/timeout resilience settings.   |
+| **QBasic Tune Lint Worker Resilience 🛡️** | -            | Picks or customizes lint worker queue/timeout resilience settings.      |
 
 ---
 

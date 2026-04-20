@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.5.7",
+    "version": "1.5.8",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -164,6 +164,16 @@
                 "command": "qbasic-nexus.selectInternalOutputDir",
                 "title": "QBasic Select Internal Output Folder 📂",
                 "icon": "$(folder-opened)"
+            },
+            {
+                "command": "qbasic-nexus.selectCompileWorkerResilience",
+                "title": "QBasic Tune Compile Worker Resilience 🛡️",
+                "icon": "$(pulse)"
+            },
+            {
+                "command": "qbasic-nexus.selectLintWorkerResilience",
+                "title": "QBasic Tune Lint Worker Resilience 🛡️",
+                "icon": "$(pulse)"
             }
         ],
         "menus": {
@@ -316,6 +326,34 @@
                     "type": "string",
                     "default": "",
                     "markdownDescription": "Output directory for **Qbasic Nexus** internal builds.\n\nLeave empty to write beside the source file. Relative paths resolve from the workspace folder when available; absolute paths and `~/...` home-relative paths are also supported.\n\nSingle-target builds write the executable into this folder. Multi-target builds write all generated binaries there.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.compileWorkerMaxQueueSize": {
+                    "type": "number",
+                    "default": 64,
+                    "minimum": 1,
+                    "markdownDescription": "Maximum compile requests allowed in the shared worker queue before backpressure starts.\n\nWhen this limit is reached, new compile requests are resolved through the safe fallback path instead of growing memory usage.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.compileWorkerRequestTimeoutMs": {
+                    "type": "number",
+                    "default": 30000,
+                    "minimum": 0,
+                    "markdownDescription": "Timeout in milliseconds for an in-flight compile worker request.\n\nSet to `0` to disable timeouts. When a request times out, the worker is recycled and the request falls back to the in-process compiler.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.lintWorkerMaxQueueSize": {
+                    "type": "number",
+                    "default": 96,
+                    "minimum": 1,
+                    "markdownDescription": "Maximum lint requests allowed in the shared worker queue before backpressure starts.\n\nWhen this limit is reached, new lint requests are resolved through the safe fallback linter to keep the editor responsive.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.lintWorkerRequestTimeoutMs": {
+                    "type": "number",
+                    "default": 15000,
+                    "minimum": 0,
+                    "markdownDescription": "Timeout in milliseconds for an in-flight lint worker request.\n\nSet to `0` to disable timeouts. When a request times out, the worker is recycled and diagnostics are computed via the fallback path.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.enableLinting": {

@@ -679,6 +679,143 @@ test('PooledWorkerClient keeps worker IDs unique after worker failure and replac
   }
 });
 
+test('PooledWorkerClient times out stuck worker requests and recovers with a replacement worker', async () => {
+  const { PooledWorkerClient } = require('../src/managers/PooledWorkerClient');
+  const createdWorkers = [];
+
+  class FakeWorker extends EventEmitter {
+    constructor() {
+      super();
+      this.serial = createdWorkers.length + 1;
+      this.terminated = false;
+      createdWorkers.push(this);
+    }
+
+    postMessage(message) {
+      if (message.type === 'warmup') {
+        setImmediate(() => this.emit('message', { type: 'ready' }));
+        return;
+      }
+
+      if (this.serial === 1) {
+        return;
+      }
+
+      setImmediate(() => {
+        this.emit('message', { id: message.id, value: `${message.payload}-${this.serial}` });
+      });
+    }
+
+    terminate() {
+      this.terminated = true;
+      return Promise.resolve();
+    }
+  }
+
+  class TestClient extends PooledWorkerClient {
+    run(payload, options = {}) {
+      return this._dispatch({ type: 'job', payload }, { payload, ...options });
+    }
+
+    _resolveWorkerMessage(_pending, message) {
+      return { value: message.value };
+    }
+
+    _runFallbackForPending(pending) {
+      this._metrics.fallbackRequests++;
+      return `fallback-${pending.payload}`;
+    }
+  }
+
+  const client = new TestClient({
+    WorkerClass: FakeWorker,
+    maxWorkers: 1,
+    requestTimeoutMs: 20,
+    maintenanceIntervalMs: 5,
+  });
+
+  try {
+    client.prepare();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const stuckPromise = Promise.resolve(client.run('stuck'));
+    await new Promise((resolve) => setTimeout(resolve, 35));
+
+    const freshPromise = Promise.resolve(client.run('fresh'));
+    const [stuckResult, freshResult] = await Promise.all([stuckPromise, freshPromise]);
+    const stats = client.getStats();
+
+    assert(stuckResult === 'fallback-stuck', `Expected stuck request to fallback, got ${stuckResult}`);
+    assert(freshResult === 'fresh-2', `Expected fresh request to run on replacement worker, got ${freshResult}`);
+    assert(createdWorkers.length >= 2, `Expected replacement worker after timeout, got ${createdWorkers.length}`);
+    assert(createdWorkers[0].terminated, 'Expected timed-out worker to be terminated');
+    assert(stats.metrics.timedOutRequests >= 1, `Expected at least one timeout metric, got ${stats.metrics.timedOutRequests}`);
+  } finally {
+    client.dispose();
+  }
+});
+
+test('PooledWorkerClient applies queue backpressure and falls back when queue is full', async () => {
+  const { PooledWorkerClient } = require('../src/managers/PooledWorkerClient');
+
+  class FakeWorker extends EventEmitter {
+    postMessage(message) {
+      if (message.type === 'warmup') {
+        setImmediate(() => this.emit('message', { type: 'ready' }));
+        return;
+      }
+
+      setTimeout(() => {
+        this.emit('message', { id: message.id, value: message.payload });
+      }, 25);
+    }
+
+    terminate() {
+      return Promise.resolve();
+    }
+  }
+
+  class TestClient extends PooledWorkerClient {
+    run(payload, options = {}) {
+      return this._dispatch({ type: 'job', payload }, { payload, ...options });
+    }
+
+    _resolveWorkerMessage(_pending, message) {
+      return { value: message.value };
+    }
+
+    _runFallbackForPending(pending) {
+      this._metrics.fallbackRequests++;
+      return `fallback-${pending.payload}`;
+    }
+  }
+
+  const client = new TestClient({
+    WorkerClass: FakeWorker,
+    maxWorkers: 1,
+    maxQueueSize: 1,
+    requestTimeoutMs: 0,
+  });
+
+  try {
+    client.prepare();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const first = Promise.resolve(client.run('one'));
+    const second = Promise.resolve(client.run('two'));
+    const third = await Promise.resolve(client.run('three'));
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    const stats = client.getStats();
+
+    assert(firstResult === 'one', `Expected first request to complete on worker, got ${firstResult}`);
+    assert(secondResult === 'two', `Expected second request to complete from queue, got ${secondResult}`);
+    assert(third === 'fallback-three', `Expected overflow request fallback, got ${third}`);
+    assert(stats.metrics.queueOverflowRequests === 1, `Expected one queue overflow, got ${stats.metrics.queueOverflowRequests}`);
+  } finally {
+    client.dispose();
+  }
+});
+
 async function run() {
   for (const { name, fn } of tests) {
     try {

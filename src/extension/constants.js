@@ -12,6 +12,10 @@ const CONFIG = Object.freeze({
   COMPILER_ARGS: 'compilerArgs',
   INTERNAL_TARGETS: 'internalTargets',
   INTERNAL_OUTPUT_DIR: 'internalOutputDir',
+  COMPILE_WORKER_MAX_QUEUE_SIZE: 'compileWorkerMaxQueueSize',
+  COMPILE_WORKER_REQUEST_TIMEOUT_MS: 'compileWorkerRequestTimeoutMs',
+  LINT_WORKER_MAX_QUEUE_SIZE: 'lintWorkerMaxQueueSize',
+  LINT_WORKER_REQUEST_TIMEOUT_MS: 'lintWorkerRequestTimeoutMs',
   ENABLE_LINT: 'enableLinting',
   LINT_DELAY: 'lintDelay',
   AUTO_FORMAT: 'autoFormatOnSave',
@@ -40,6 +44,8 @@ const COMMANDS = Object.freeze({
   SHOW_INTERNAL_BUILD_QUICK_ACTIONS: 'qbasic-nexus.showInternalBuildQuickActions',
   SELECT_INTERNAL_TARGETS: 'qbasic-nexus.selectInternalTargets',
   SELECT_INTERNAL_OUTPUT_DIR: 'qbasic-nexus.selectInternalOutputDir',
+  SELECT_COMPILE_WORKER_RESILIENCE: 'qbasic-nexus.selectCompileWorkerResilience',
+  SELECT_LINT_WORKER_RESILIENCE: 'qbasic-nexus.selectLintWorkerResilience',
 });
 
 module.exports = { CONFIG, COMMANDS };

@@ -16,6 +16,46 @@ const {
   detectDefaultWorkerCount,
 } = require('./PooledWorkerClient');
 
+const SETTINGS_SECTION = 'qbasic-nexus';
+const COMPILE_WORKER_MAX_QUEUE_SIZE = 'compileWorkerMaxQueueSize';
+const COMPILE_WORKER_REQUEST_TIMEOUT_MS = 'compileWorkerRequestTimeoutMs';
+
+function readIntegerSetting(value, fallback, minimum = 0) {
+  const normalized = Math.trunc(Number(value));
+  if (!Number.isFinite(normalized) || normalized < minimum) {
+    return fallback;
+  }
+
+  return normalized;
+}
+
+function getExtensionConfiguration() {
+  try {
+    const vscode = require('vscode');
+    return vscode?.workspace?.getConfiguration?.(SETTINGS_SECTION) || null;
+  } catch {
+    return null;
+  }
+}
+
+function getCompileWorkerRuntimeOptions() {
+  const config = getExtensionConfiguration();
+  const defaultMaxWorkers = detectDefaultWorkerCount(4);
+
+  return {
+    maxQueueSize: readIntegerSetting(
+      config?.get(COMPILE_WORKER_MAX_QUEUE_SIZE),
+      Math.max(32, defaultMaxWorkers * 16),
+      1,
+    ),
+    requestTimeoutMs: readIntegerSetting(
+      config?.get(COMPILE_WORKER_REQUEST_TIMEOUT_MS),
+      30_000,
+      0,
+    ),
+  };
+}
+
 function hydrateCompilationResult(payload = {}) {
   const diagnostics = new DiagnosticCollector();
   const allDiagnostics = Array.isArray(payload.diagnostics)
@@ -132,7 +172,7 @@ let _instance = null;
 
 function getCompileWorkerClient() {
   if (!_instance || _instance._disposed) {
-    _instance = new CompileWorkerClient();
+    _instance = new CompileWorkerClient(getCompileWorkerRuntimeOptions());
   }
 
   return _instance;

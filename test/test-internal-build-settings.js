@@ -70,8 +70,12 @@ test('Internal build quick actions describe current targets and output folder', 
     'host,linux-x64',
     'build/artifacts',
     workspaceDir,
+    64,
+    30000,
+    96,
+    15000,
   );
-  assert(items.length === 2, 'Expected quick actions for targets and output');
+  assert(items.length === 4, 'Expected quick actions for targets, output, and worker resilience settings');
   assert(
     items[0].detail.includes('host, linux-x64'),
     'Expected targets quick action to summarize the normalized target list',
@@ -79,6 +83,14 @@ test('Internal build quick actions describe current targets and output folder', 
   assert(
     items[1].detail.includes(path.join(workspaceDir, 'build', 'artifacts')),
     'Expected output quick action to resolve workspace-relative output folders',
+  );
+  assert(
+    items[2].detail.includes('Queue 64') && items[2].detail.includes('Timeout 30000ms'),
+    'Expected compile worker quick action to summarize queue and timeout settings',
+  );
+  assert(
+    items[3].detail.includes('Queue 96') && items[3].detail.includes('Timeout 15000ms'),
+    'Expected lint worker quick action to summarize queue and timeout settings',
   );
 });
 
