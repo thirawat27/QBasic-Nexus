@@ -605,6 +605,80 @@ test('Pooled worker stats expose queue timing and cancellation metrics', async (
   }
 });
 
+test('PooledWorkerClient keeps worker IDs unique after worker failure and replacement', async () => {
+  const { PooledWorkerClient } = require('../src/managers/PooledWorkerClient');
+  const createdWorkers = [];
+
+  class FakeWorker extends EventEmitter {
+    constructor() {
+      super();
+      this.serial = createdWorkers.length + 1;
+      this.messages = [];
+      createdWorkers.push(this);
+    }
+
+    postMessage(message) {
+      this.messages.push(message);
+
+      if (message.type === 'warmup') {
+        setImmediate(() => this.emit('message', { type: 'ready' }));
+        return;
+      }
+
+      const payload = message.payload;
+      if (payload === 'slow') {
+        setTimeout(() => {
+          this.emit('message', { id: message.id, value: `${payload}-${this.serial}` });
+        }, 25);
+        return;
+      }
+
+      setImmediate(() => {
+        this.emit('message', { id: message.id, value: `${payload}-${this.serial}` });
+      });
+    }
+
+    terminate() {
+      this.terminated = true;
+      return Promise.resolve();
+    }
+  }
+
+  class TestClient extends PooledWorkerClient {
+    run(payload, options = {}) {
+      return this._dispatch({ type: 'job', payload }, options);
+    }
+
+    _resolveWorkerMessage(_pending, message) {
+      return { value: message.value };
+    }
+  }
+
+  const client = new TestClient({ WorkerClass: FakeWorker, maxWorkers: 2 });
+
+  try {
+    client.prepare();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const first = client.run('slow');
+    const second = client.run('fast');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    createdWorkers[0].emit('error', new Error('simulated worker failure'));
+
+    const third = client.run('slow');
+    const fourth = client.run('fast');
+    await Promise.all([first, second, third, fourth]);
+
+    const activeIds = client._workers.map((entry) => entry.id);
+    assert(activeIds.length === 2, `Expected exactly 2 active workers, got ${activeIds.length}`);
+    assert(new Set(activeIds).size === activeIds.length, `Expected unique worker IDs, got ${JSON.stringify(activeIds)}`);
+    assert(Math.max(...activeIds) >= 3, `Expected replacement worker to get a new ID, got ${JSON.stringify(activeIds)}`);
+  } finally {
+    client.dispose();
+  }
+});
+
 async function run() {
   for (const { name, fn } of tests) {
     try {

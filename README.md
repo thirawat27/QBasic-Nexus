@@ -26,39 +26,48 @@
 
 **QBasic Nexus** transforms VS Code into an immensely powerful retro-coding station. Engineered from the ground up for raw performance, it features a blazingly fast custom transpiler, multi-tiered caching, and out-of-the-box native executable packaging for Windows, macOS, and Linux. Whether you're a veteran developer reviving classic code or a newcomer learning the roots of programming, QBasic Nexus provides an unmatched, modern experience for **QBasic** and **QB64**.
 
-### What's New in 1.5.7
-
-- Broader internal compiler + CRT coverage for `PRINT USING`, advanced `_SND*` helpers, `_SCREENMOVE`, `_ICON`, `_SCREENICON`, dropped-file helpers, resize helpers, console helpers, and connection-state helpers.
-- Working virtual memory and memory-block paths for `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `_MEMNEW`, `_MEM`, `_OFFSET`, `_MEMIMAGE`, `_MEMGET`, and `_MEMPUT`.
-- Shared worker-thread infrastructure for linting and compilation with pooling, warmup, priority scheduling, stale-job cancellation, queue aging, and internal telemetry.
-- Full validation refreshed with `npm run lint` and `npm test`.
-
 ---
 
 ## 📖 Table of Contents
 
+- [📖 Table of Contents](#-table-of-contents)
 - [⚙️ Prerequisites](#️-prerequisites)
+  - [Mode 1 - QBasic Nexus Internal (Fully Standalone)](#mode-1---qbasic-nexus-internal-fully-standalone)
+  - [Mode 2 - QB64 (Recommended for Production)](#mode-2---qb64-recommended-for-production)
 - [🚀 Getting Started](#-getting-started)
-  - [Step 1 - Install QB64](#step-1---install-qb64-optional-but-recommended)
-  - [Step 2 - Install Extension](#step-2---install-qbasic-nexus-extension)
-  - [Step 3 - Configure Path](#step-3---configure-compiler-path)
+  - [Step 1 - Install QB64 (Optional but Recommended)](#step-1---install-qb64-optional-but-recommended)
+  - [Step 2 - Install QBasic Nexus Extension](#step-2---install-qbasic-nexus-extension)
+  - [Step 3 - Configure Compiler Path](#step-3---configure-compiler-path)
   - [Step 4 - Start Coding](#step-4---start-coding)
 - [🛠️ Configuration Guide](#️-configuration-guide)
   - [Compiler Settings](#compiler-settings)
   - [Editor Settings](#editor-settings)
   - [Line Number Settings](#line-number-settings)
-- [📂 Supported File Types & Icons](#-supported-file-types--icons)
-- [✨ Features](#-unrivaled-features)
-  - [Lightning-Fast Compilation](#-lightning-fast-compilation-engine)
-  - [Advanced Web Runtime](#-advanced-web-runtime)
-  - [Professional IDE Tools](#-professional-ide-tools)
-  - [Advanced Code Tools](#-advanced-code-tools)
+- [📂 Supported File Types \& Icons](#-supported-file-types--icons)
+- [✨ Unrivaled Features](#-unrivaled-features)
+  - [⚡ Lightning-Fast Compilation Engine](#-lightning-fast-compilation-engine)
+  - [📺 Advanced Web Runtime](#-advanced-web-runtime)
+  - [📊 Professional IDE Tools](#-professional-ide-tools)
+  - [🔧 Advanced Code Tools](#-advanced-code-tools)
 - [📦 Available Commands](#-available-commands)
 - [🎬 Web Runtime Capabilities](#-web-runtime-capabilities)
 - [🧩 Snippets Reference](#-snippets-reference)
-- [🎮 Interactive Tutorial](#-the-interactive-curriculum)
-- [🔥 QBNex Compiler](#-introducing-qbnex-compiler)
+  - [Reference Snippets](#reference-snippets)
+  - [Structure Snippets](#structure-snippets)
+  - [Loop Snippets](#loop-snippets)
+  - [Graphics Snippets](#graphics-snippets)
+  - [Boilerplate Snippets](#boilerplate-snippets)
+  - [How to Use Snippets](#how-to-use-snippets)
+- [🎮 The Interactive Curriculum](#-the-interactive-curriculum)
+- [🔥 Introducing QBNex Compiler](#-introducing-qbnex-compiler)
 - [🆘 Troubleshooting](#-troubleshooting)
+  - [Installation Issues](#installation-issues)
+  - [Compilation Issues](#compilation-issues)
+  - [Runtime Issues](#runtime-issues)
+  - [Common Runtime Errors](#common-runtime-errors)
+  - [Performance Issues](#performance-issues)
+  - [Platform-Specific Issues](#platform-specific-issues)
+  - [Getting More Help](#getting-more-help)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
 

@@ -40,6 +40,7 @@ class PooledWorkerClient {
       Number(options.agingBoostPerInterval) || 1,
     );
     this._workers = [];
+    this._nextWorkerId = 1;
     this._nextRequestId = 1;
     this._dispatchSequence = 1;
     this._pending = new Map();
@@ -94,13 +95,13 @@ class PooledWorkerClient {
 
   getStats() {
     const now = this._now();
-    const oldestQueuedAgeMs =
-      this._queued.length > 0
-        ? Math.max(
-            0,
-            ...this._queued.map((pending) => now - pending.queuedAt),
-          )
-        : 0;
+    let oldestQueuedAgeMs = 0;
+    for (const pending of this._queued) {
+      const ageMs = Math.max(0, now - (pending?.queuedAt || now));
+      if (ageMs > oldestQueuedAgeMs) {
+        oldestQueuedAgeMs = ageMs;
+      }
+    }
     const averageQueueWaitMs =
       this._metrics.completedRequests > 0
         ? this._metrics.totalQueueWaitMs / this._metrics.completedRequests
@@ -184,7 +185,7 @@ class PooledWorkerClient {
   _spawnWorker() {
     const worker = this._workerFactory(this._workerPath);
     const entry = {
-      id: this._workers.length + 1,
+      id: this._nextWorkerId++,
       worker,
       pendingCount: 0,
       ready: false,
@@ -224,10 +225,19 @@ class PooledWorkerClient {
     });
 
     worker.on('exit', (code) => {
-      this._workers = this._workers.filter((candidate) => candidate !== entry);
-      if (code !== 0 && !this._disposed) {
-        this._handleWorkerFailure(entry);
+      if (this._disposed) {
+        this._workers = this._workers.filter((candidate) => candidate !== entry);
+        return;
       }
+
+      const lostInFlightWork =
+        entry.activeRequestId !== null || entry.pendingCount > 0;
+      if (code !== 0 || lostInFlightWork) {
+        this._handleWorkerFailure(entry);
+        return;
+      }
+
+      this._workers = this._workers.filter((candidate) => candidate !== entry);
     });
 
     this._workers.push(entry);
@@ -241,6 +251,8 @@ class PooledWorkerClient {
     }
 
     this._workers = this._workers.filter((candidate) => candidate !== entry);
+    entry.pendingCount = 0;
+    entry.activeRequestId = null;
 
     try {
       entry.worker.removeAllListeners();
@@ -318,6 +330,9 @@ class PooledWorkerClient {
         // Ignore worker shutdown errors and resolve affected requests below.
       }
 
+      entry.pendingCount = 0;
+      entry.activeRequestId = null;
+
       for (const pending of affectedPendings) {
         this._pending.delete(pending.id);
         const isDirectMatch = predicate(pending);
@@ -341,12 +356,14 @@ class PooledWorkerClient {
       return -1;
     }
 
+    const now = this._now();
+
     let bestIndex = 0;
     for (let index = 1; index < this._queued.length; index++) {
       const current = this._queued[index];
       const best = this._queued[bestIndex];
-      const currentEffectivePriority = this._getEffectivePriority(current);
-      const bestEffectivePriority = this._getEffectivePriority(best);
+      const currentEffectivePriority = this._getEffectivePriority(current, now);
+      const bestEffectivePriority = this._getEffectivePriority(best, now);
       if (
         currentEffectivePriority > bestEffectivePriority ||
         (currentEffectivePriority === bestEffectivePriority &&
@@ -421,8 +438,9 @@ class PooledWorkerClient {
     this._drainQueue();
   }
 
-  _getEffectivePriority(pending) {
-    const waitMs = Math.max(0, this._now() - (pending?.queuedAt || this._now()));
+  _getEffectivePriority(pending, nowOverride) {
+    const now = Number.isFinite(nowOverride) ? nowOverride : this._now();
+    const waitMs = Math.max(0, now - (pending?.queuedAt || now));
     const agingBoost = Math.floor(waitMs / this._agingIntervalMs) * this._agingBoostPerInterval;
     return (Number(pending?.priority) || 0) + agingBoost;
   }
