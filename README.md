@@ -41,7 +41,7 @@
   - [Step 4 - Start Coding](#step-4---start-coding)
 - [🛠️ Configuration Guide](#️-configuration-guide)
   - [Compiler Settings](#compiler-settings)
-   - [Worker Resilience Settings](#worker-resilience-settings)
+  - [Worker Resilience Settings](#worker-resilience-settings)
   - [Editor Settings](#editor-settings)
   - [Line Number Settings](#line-number-settings)
 - [📂 Supported File Types \& Icons](#-supported-file-types--icons)
@@ -1822,170 +1822,78 @@ After completing the tutorial
 
 ## 🔥 Introducing QBNex Compiler
 
-Looking for a modern, high-performance alternative to **QB64**? Meet **QBNex**, a next-generation QBasic/QuickBASIC compiler developed entirely in **Rust** by **Thirawat27**.
+Looking for a modern, CLI-first alternative to QB64? **QBNex** is included in this repository under `QBNex/` and is maintained as a self-hosting QBasic/QuickBASIC compiler.
 
-Designed from the ground up to seamlessly integrate with the QBasic Nexus extension, QBNex brings legacy BASIC development into the modern era with unparalleled speed and memory safety.
+Unlike the previous description, QBNex in this repo is **not a Rust compiler**. It is implemented in QBNex BASIC and bootstraps itself by transpiling BASIC to C++, then producing native binaries.
 
-**Key Advantages**
+**What matches the current QBNex codebase**
 
-- 🚀 **Blazingly Fast** - Powered by Rust for extreme compilation and execution speeds.
-- 🛡️ **Memory Safe** - Solid backend architecture ensuring stability over decades-old legacy engines.
-- 🔌 **Native Synergy** - Perfect alternative backend compiler for testing and running your code within the extension.
-- ⚡ **Modern Architecture** - Built with modern compiler design principles and optimizations.
-- 🔧 **Active Development** - Regular updates and improvements based on community feedback.
+- Self-hosting compiler flow (`qb-stage0` -> final `qb`/`qb.exe`)
+- CLI-focused workflow (no legacy IDE shell)
+- Native output for Windows, macOS, and Linux
+- Graphics/audio/runtime stack through bundled C/C++ components (OpenGL/FreeGLUT/miniaudio paths in `internal/c`)
+- Networking and extended runtime support available in current sources
 
-**QBNex vs QB64 Comparison**
+**Where QBNex lives**
 
-| Feature                | QBNex                 | QB64                  |
-| ---------------------- | --------------------- | --------------------- |
-| **Language**           | Rust                  | C++                   |
-| **Compilation Speed**  | Very Fast             | Fast                  |
-| **Memory Safety**      | Built-in              | Manual                |
-| **Binary Size**        | Smaller               | Larger                |
-| **Startup Time**       | Instant               | Fast                  |
-| **Platform Support**   | Windows, macOS, Linux | Windows, macOS, Linux |
-| **QB64 Compatibility** | High (95%+)           | 100% (reference)      |
-| **Modern Features**    | Yes                   | Limited               |
-| **Active Development** | Yes                   | Yes                   |
+- Source in this repository: `QBNex/`
+- Upstream project repository: [thirawat27/QBNex](https://github.com/thirawat27/QBNex)
 
-**Installation**
+**Release assets and binary names (current)**
 
-**Step 1 - Download QBNex**
+The QBNex docs and scripts currently reference release artifacts in this format:
 
-📥 [Get the latest version from GitHub Releases](https://github.com/thirawat27/QBasic-Nexus/releases)
+- `qbnex_<tag>_win-x64.zip`
+- `qbnex_<tag>_osx.tar.gz`
+- `qbnex_<tag>_lnx.tar.gz`
 
-Download the appropriate version for your operating system
+After setup/build, the compiler executable is:
 
-- Windows - `qbnex-windows-x64.zip`
-- macOS - `qbnex-macos-x64.tar.gz`
-- Linux - `qbnex-linux-x64.tar.gz`
+- Windows: `qb.exe`
+- macOS/Linux: `qb`
 
-**Step 2 - Extract QBNex**
+Wrapper script:
 
-Extract the downloaded archive to a permanent location
+- Windows helper command: `QBNex/qb.cmd` (calls `qb.exe`)
 
-**Recommended locations**
+**Build QBNex from source (inside `QBNex/`)**
 
-- Windows - `C:\QBNex\`
-- macOS - `/Applications/QBNex/` or `~/QBNex/`
-- Linux - `~/qbnex/` or `/opt/qbnex/`
+- Windows: run `setup_win.cmd`
+- macOS: run `./setup_osx.command`
+- Linux: run `./setup_lnx.sh`
 
-**Step 3 - Configure QBasic Nexus Extension**
+These scripts build runtime objects, build `qb-stage0`, then self-host into final `qb`/`qb.exe`.
 
-1. Open VS Code Settings (`Ctrl+,` or `Cmd+,`)
-2. Search for **"QBasic Nexus Compiler Path"**
-3. Enter the path to QBNex executable
+**Using QBNex with QBasic Nexus extension (important today)**
 
-**Examples**
+Current extension validation in QB64 mode is still QB64-specific. It verifies compiler paths using QB64 naming/location heuristics, so a plain `qb.exe`/`qb` path may fail validation unless it matches QB64-style expectations.
 
-```
-Windows  C:\QBNex\qbnex.exe
-macOS    /Applications/QBNex/qbnex
-Linux    /home/yourname/qbnex/qbnex
-```
+Practical guidance right now:
 
-4. Make sure **Compiler Mode** is set to **"QB64 (Recommended)"**
-5. QBNex will now be used instead of QB64
+- Use QBNex directly from terminal/CI via `QBNex/qb.cmd` (Windows) or `QBNex/qb` (macOS/Linux)
+- If you wire QBNex into extension compile flow, ensure your configured path satisfies current QB64 validation rules
 
-**Step 4 - Verify Installation**
+**Quick verification**
 
-1. Create a test file `test.bas`
-2. Write simple code
+1. Build QBNex in `QBNex/`.
+2. Create `hello.bas`:
+
    ```basic
    PRINT "Hello from QBNex!"
    ```
-3. Press F5
-4. If QBNex is configured correctly, your program will compile and run
 
-**Using QBNex**
+3. Compile from `QBNex/`:
 
-**Compilation**
-
-- Use F5 or "QBasic Compile & Run" command
-- QBNex compiles your code to native executable
-- Compilation is typically faster than QB64
-- Output executable is optimized and smaller
-
-**Compatibility**
-
-**Fully Supported**
-
-- All standard QBasic commands
-- Most QB64 extensions
-- Graphics (SCREEN modes)
-- Sound (PLAY, SOUND)
-- File I/O
-- Arrays and data structures
-- SUBs and FUNCTIONs
-
-**Limited Support**
-
-- Some advanced QB64 libraries
-- OpenGL features (in development)
-- Networking commands (planned)
-
-**Not Yet Supported**
-
-- Inline assembly
-- Some hardware-specific features
-- Legacy QB64 quirks and bugs (intentionally)
-
-**Troubleshooting QBNex**
-
-**"QBNex not found" error**
-
-- Check that the compiler path is correct
-- Verify the executable file exists
-- On macOS/Linux, ensure the file is executable - `chmod +x qbnex`
-
-**Compilation errors**
-
-- Check if your code uses unsupported features
-- Try compiling with QB64 to compare
-- Report issues on GitHub with code sample
-
-**Performance issues**
-
-- QBNex should be faster than QB64
-- If slower, report the issue with details
-- Check system resources (CPU, memory)
-
-**Switching Between QB64 and QBNex**
-
-You can easily switch between QB64 and QBNex
-
-1. Change the **Compiler Path** setting
-2. Point to QB64 or QBNex executable
-3. Next compilation uses the selected compiler
-
-**Why Choose QBNex?**
-
-**Choose QBNex if you want**
-
-- Faster compilation times
-- Modern, memory-safe compiler
-- Smaller executable sizes
-- Active development and updates
-- Support for modern development practices
-
-**Stick with QB64 if you need**
-
-- 100% compatibility with existing QB64 code
-- Access to all QB64 libraries
-- Mature, stable compiler
-- Extensive community resources
+   - Windows: `qb.cmd hello.bas`
+   - macOS/Linux: `./qb hello.bas`
 
 **Contributing to QBNex**
 
-QBNex is open source and welcomes contributions
+Contributions are welcome. See:
 
-- Report bugs and issues
-- Suggest new features
-- Contribute code improvements
-- Help with documentation
-- Share your QBNex projects
-
-Visit the [QBNex GitHub Repository](https://github.com/thirawat27/QBasic-Nexus) to get involved!
+- [QBNex README](./QBNex/README.md)
+- [QBNex CONTRIBUTING](./QBNex/CONTRIBUTING.md)
+- [QBNex repository](https://github.com/thirawat27/QBNex)
 
 ---
 
