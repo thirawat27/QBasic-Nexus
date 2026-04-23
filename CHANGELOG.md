@@ -2,6 +2,22 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.5.9] - 2026-04-23
+
+### ✨ System Configuration Quick Actions
+
+- **Unified Configure System Picker**: Added `QBasic Configure System ⚙️` to centralize the extension's main adjustable settings in one quick picker, including compiler mode, QB64 path/args, internal build settings, worker resilience, linting, auto-format, and line-number defaults.
+- **Direct Setting Commands**: Added dedicated quick commands for compiler mode, QB64 path, QB64 args, linting, lint delay, auto-format, and line-number defaults so common changes no longer require editing JSON settings manually.
+- **Status Bar Config Entry**: The secondary status-bar action now opens the broader system configuration hub in both QB64 and internal modes while still surfacing internal target/output context and validation warnings.
+
+### ✅ Quality Assurance
+
+- Added regression coverage for system quick-action item generation and formatter helpers.
+
+### 📝 Documentation
+
+- Updated `README.md` to document the new configuration hub, commands, and quick-action workflow for patch `1.5.9`.
+
 ## [1.5.8] - 2026-04-20
 
 ### ✨ Worker Resilience Controls

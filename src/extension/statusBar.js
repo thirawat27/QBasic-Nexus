@@ -13,6 +13,7 @@ const {
   normalizePackagerTargets,
   validatePackagerTargets,
 } = require('./executableUtils');
+const { formatCompilerPathLabel } = require('./systemSettingsShared');
 const { formatInternalOutputDirLabel } = require('./internalBuildSettings');
 const { state } = require('./state');
 const { getConfig } = require('./utils');
@@ -51,6 +52,8 @@ function updateStatusBar() {
   }
 
   if (state.internalBuildBarItem) {
+    const tooltipLines = ['QBasic Nexus system quick actions', `Mode: ${mode}`];
+
     if (mode === CONFIG.MODE_INTERNAL) {
       const targetSummary = internalTargets.length > 0
         ? internalTargets.join(', ')
@@ -59,20 +62,24 @@ function updateStatusBar() {
         internalOutputDir,
         workspacePath,
       );
-      state.internalBuildBarItem.text = internalTargetError
-        ? '$(warning) Fix Build'
-        : '$(settings-gear) Targets/Out';
-      state.internalBuildBarItem.tooltip = internalTargetError
-        ? `${internalTargetError.message}\nClick to update internal build targets or output folder.`
-        : `Internal build quick actions\nTargets: ${targetSummary}\nOutput: ${outputSummary}`;
-      state.internalBuildBarItem.command = COMMANDS.SHOW_INTERNAL_BUILD_QUICK_ACTIONS;
-      state.internalBuildBarItem.backgroundColor = internalTargetError
-        ? new vscode.ThemeColor('statusBarItem.warningBackground')
-        : undefined;
-      state.internalBuildBarItem.show();
+      tooltipLines.push(`Targets: ${targetSummary}`, `Output: ${outputSummary}`);
     } else {
-      state.internalBuildBarItem.hide();
+      tooltipLines.push(
+        `QB64: ${formatCompilerPathLabel(compilerPath, autoDetectedCompilerPath)}`,
+      );
     }
+
+    state.internalBuildBarItem.text = internalTargetError
+      ? '$(warning) Config'
+      : '$(settings-gear) Config';
+    state.internalBuildBarItem.tooltip = internalTargetError
+      ? `${internalTargetError.message}\nClick to fix build or system settings.`
+      : tooltipLines.join('\n');
+    state.internalBuildBarItem.command = COMMANDS.SHOW_SYSTEM_QUICK_ACTIONS;
+    state.internalBuildBarItem.backgroundColor = internalTargetError
+      ? new vscode.ThemeColor('statusBarItem.warningBackground')
+      : undefined;
+    state.internalBuildBarItem.show();
   }
 
   if (state.isCompiling) {

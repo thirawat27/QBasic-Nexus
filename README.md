@@ -583,6 +583,8 @@ Each compilation mode produces different results. Here's a detailed comparison t
 
 Fine-tune QBasic Nexus to match your workflow. Access settings via `File > Preferences > Settings` and search for **"QBasic Nexus"**.
 
+For faster setup, run **QBasic Configure System ⚙️** from the Command Palette or use the **Config** status-bar action while a QBasic file is open. This system picker centralizes compiler mode/path/args, internal build settings, worker resilience, linting, auto-format, and line-number defaults.
+
 ### Compiler Settings
 
 These settings control how your QBasic code is compiled and executed.
@@ -690,7 +692,7 @@ Linux    /home/yourname/qb64/qb64
 - Common aliases like `windows-x64`, `darwin-arm64`, `osx-arm64`, `amd64`, `aarch64`, and `current` are normalized automatically
 - `Compile & Run` only auto-runs when the result is a single host-compatible target
 - You can also change this from the Command Palette via **QBasic Select Internal Build Targets 🎯**
-- In internal mode, the Status Bar now exposes a **Targets/Out** quick action that opens both target and output pickers directly
+- In internal mode, the Status Bar **Config** action and **QBasic Configure System ⚙️** can jump straight to this setting flow
 
 **Examples**
 
@@ -715,7 +717,7 @@ host,linux-x64
 - Relative paths resolve from the workspace folder when one exists
 - Absolute paths and `~/...` home-relative paths are also accepted
 - You can also change this from the Command Palette via **QBasic Select Internal Output Folder 📂**
-- The same Status Bar quick action can jump straight to this picker without opening settings JSON
+- The same Status Bar **Config** action can jump straight to this picker without opening settings JSON
 
 **Examples**
 
@@ -767,6 +769,7 @@ Sets the timeout for active lint requests before the worker is recycled.
 
 **Quick Actions and Auto-Reload**
 
+- Use **QBasic Configure System ⚙️** for one quick picker that covers the extension's major adjustable settings.
 - Use **QBasic Internal Build Quick Actions ⚙️** to tune targets/output plus worker resilience from one picker.
 - Dedicated commands are available: **QBasic Tune Compile Worker Resilience 🛡️** and **QBasic Tune Lint Worker Resilience 🛡️**.
 - Changing these settings automatically recycles worker clients so new values take effect without manually reloading the VS Code window.
@@ -933,6 +936,12 @@ Structured sections   Start 1000, Step 1000
 ---
 
 **Quick Settings Access**
+
+**Via QBasic Quick Actions**
+
+1. Press `Ctrl+Shift+P` / `Cmd+Shift+P`
+2. Run **QBasic Configure System ⚙️**
+3. Pick the setting you want to adjust
 
 **Via Command Palette**
 
@@ -1208,6 +1217,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 | ---------------------------------------- | -------------- | ---------------------------------------------------------------------- |
 | **QBasic Compile 🔨**                    | `Ctrl+Shift+B` | Compiles the current file without running it.                          |
 | **QBasic Compile & Run 🌀**              | `F5`           | Compiles and executes code using your chosen Compiler Mode.            |
+| **QBasic Configure System ⚙️**          | -              | Opens one quick picker for the extension's main adjustable settings.   |
 | **QBasic Run in Retro CRT 📺**           | -              | Forces the current file to run in the Webview Visualizer.              |
 | **QBasic Start Interactive Tutorial 🎮** | -              | Opens the 150-lesson interactive training terminal.                    |
 | **QBasic Show Code Statistics 📊**       | `Ctrl+Shift+I` | Provides an instant breakdown of line counts, loops, and SUBs.         |
@@ -1216,11 +1226,18 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 | **QBasic Show ASCII Chart 📋**           | `Ctrl+Alt+A`   | Opens an interactive ASCII reference table.                            |
 | **QBasic Insert CHR$() at Cursor ✍️**    | -              | Inserts a CHR$() code at the current cursor position from ASCII chart. |
 | **Refresh TODOs 🔄**                     | -              | Scans workspace and refreshes the QBasic TODOs panel.                  |
-| **QBasic Internal Build Quick Actions ⚙️** | -          | Opens a quick picker for internal build targets and output folders.    |
+| **QBasic Internal Build Quick Actions ⚙️** | -          | Opens a quick picker for internal targets, output folders, and worker resilience. |
+| **QBasic Select Compiler Mode 🧭**      | -              | Switches between QB64 and QBasic Nexus compilation modes.              |
+| **QBasic Configure QB64 Path 🛤️**       | -              | Saves, clears, auto-detects, or picks the QB64 executable path.        |
+| **QBasic Configure QB64 Args 🧪**       | -              | Picks or customizes extra QB64 command-line arguments.                 |
 | **QBasic Select Internal Build Targets 🎯** | -           | Picks internal compiler target presets or a custom pkg target list.    |
 | **QBasic Select Internal Output Folder 📂** | -           | Picks or enters the output folder used by internal executable builds.  |
 | **QBasic Tune Compile Worker Resilience 🛡️** | -         | Picks or customizes compile worker queue/timeout resilience settings.   |
 | **QBasic Tune Lint Worker Resilience 🛡️** | -            | Picks or customizes lint worker queue/timeout resilience settings.      |
+| **QBasic Configure Linting 🩺**         | -              | Enables or disables editor linting from a quick picker.                |
+| **QBasic Set Lint Delay ⏱️**            | -              | Adjusts the lint debounce delay without editing settings JSON.          |
+| **QBasic Configure Auto Format 💾**     | -              | Enables or disables format-on-save behavior.                           |
+| **QBasic Set Line Number Defaults 🔢**  | -              | Sets the default renumber start and step values.                       |
 
 ---
 

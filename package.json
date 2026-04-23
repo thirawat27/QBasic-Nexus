@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.5.8",
+    "version": "1.5.9",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -23,7 +23,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -40,7 +40,8 @@
         "test:optimizations": "node test/test-optimization-managers.js",
         "test:executables": "node test/test-executable-utils.js",
         "test:buildsettings": "node test/test-internal-build-settings.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run benchmark",
+        "test:systemsettings": "node test/test-system-settings.js",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish"
@@ -100,6 +101,26 @@
             }
         ],
         "commands": [
+            {
+                "command": "qbasic-nexus.configureSystem",
+                "title": "QBasic Configure System ⚙️",
+                "icon": "$(settings-gear)"
+            },
+            {
+                "command": "qbasic-nexus.selectCompilerMode",
+                "title": "QBasic Select Compiler Mode 🧭",
+                "icon": "$(compass)"
+            },
+            {
+                "command": "qbasic-nexus.selectCompilerPath",
+                "title": "QBasic Configure QB64 Path 🛤️",
+                "icon": "$(tools)"
+            },
+            {
+                "command": "qbasic-nexus.selectCompilerArgs",
+                "title": "QBasic Configure QB64 Args 🧪",
+                "icon": "$(symbol-parameter)"
+            },
             {
                 "command": "qbasic-nexus.compile",
                 "title": "QBasic Compile 🔨",
@@ -174,6 +195,26 @@
                 "command": "qbasic-nexus.selectLintWorkerResilience",
                 "title": "QBasic Tune Lint Worker Resilience 🛡️",
                 "icon": "$(pulse)"
+            },
+            {
+                "command": "qbasic-nexus.selectEnableLinting",
+                "title": "QBasic Configure Linting 🩺",
+                "icon": "$(check)"
+            },
+            {
+                "command": "qbasic-nexus.selectLintDelay",
+                "title": "QBasic Set Lint Delay ⏱️",
+                "icon": "$(history)"
+            },
+            {
+                "command": "qbasic-nexus.selectAutoFormat",
+                "title": "QBasic Configure Auto Format 💾",
+                "icon": "$(paintcan)"
+            },
+            {
+                "command": "qbasic-nexus.selectLineNumberSettings",
+                "title": "QBasic Set Line Number Defaults 🔢",
+                "icon": "$(symbol-number)"
             }
         ],
         "menus": {
@@ -226,9 +267,14 @@
                     "group": "navigation"
                 },
                 {
+                    "command": "qbasic-nexus.configureSystem",
+                    "when": "resourceLangId == qbasic",
+                    "group": "navigation@1"
+                },
+                {
                     "command": "qbasic-nexus.runInCrt",
                     "when": "resourceLangId == qbasic",
-                    "group": "navigation"
+                    "group": "navigation@2"
                 }
             ],
             "view/title": [

@@ -562,6 +562,7 @@ module.exports = {
   LINT_WORKER_PRESETS,
   formatInternalOutputDirLabel,
   formatWorkerResilienceLabel,
+  getPreferredConfigTarget,
   getInternalBuildQuickActionItems,
   TARGET_PRESETS,
   getInternalTargetPresetItems,

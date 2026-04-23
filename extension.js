@@ -44,6 +44,16 @@ const {
   showInternalBuildQuickActions,
 } = require('./src/extension/internalBuildSettings');
 const {
+  showSystemQuickActions,
+  selectAutoFormat,
+  selectCompilerArgs,
+  selectCompilerMode,
+  selectCompilerPath,
+  selectEnableLinting,
+  selectLineNumberSettings,
+  selectLintDelay,
+} = require('./src/extension/systemSettings');
+const {
   removeLineNumbers,
   renumberLines,
 } = require('./src/commands/lineNumbers');
@@ -154,7 +164,7 @@ async function activate(context) {
     vscode.StatusBarAlignment.Left,
     99,
   );
-  state.internalBuildBarItem.command = COMMANDS.SHOW_INTERNAL_BUILD_QUICK_ACTIONS;
+  state.internalBuildBarItem.command = COMMANDS.SHOW_SYSTEM_QUICK_ACTIONS;
   context.subscriptions.push(state.internalBuildBarItem);
 
   state.statsBarItem = vscode.window.createStatusBarItem(
@@ -294,6 +304,22 @@ async function activate(context) {
       insertChrFromAsciiChart,
     ),
     vscode.commands.registerCommand(
+      COMMANDS.SHOW_SYSTEM_QUICK_ACTIONS,
+      showSystemQuickActions,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_COMPILER_MODE,
+      selectCompilerMode,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_COMPILER_PATH,
+      selectCompilerPath,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_COMPILER_ARGS,
+      selectCompilerArgs,
+    ),
+    vscode.commands.registerCommand(
       COMMANDS.SHOW_INTERNAL_BUILD_QUICK_ACTIONS,
       showInternalBuildQuickActions,
     ),
@@ -312,6 +338,22 @@ async function activate(context) {
     vscode.commands.registerCommand(
       COMMANDS.SELECT_LINT_WORKER_RESILIENCE,
       selectLintWorkerResilience,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_ENABLE_LINTING,
+      selectEnableLinting,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_LINT_DELAY,
+      selectLintDelay,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_AUTO_FORMAT,
+      selectAutoFormat,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_LINE_NUMBER_SETTINGS,
+      selectLineNumberSettings,
     ),
   );
 

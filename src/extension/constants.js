@@ -35,6 +35,10 @@ const COMMANDS = Object.freeze({
   COMPILE_RUN: 'qbasic-nexus.compileAndRun',
   RUN_CRT: 'qbasic-nexus.runInCrt',
   START_TUTORIAL: 'qbasic-nexus.startTutorial',
+  SHOW_SYSTEM_QUICK_ACTIONS: 'qbasic-nexus.configureSystem',
+  SELECT_COMPILER_MODE: 'qbasic-nexus.selectCompilerMode',
+  SELECT_COMPILER_PATH: 'qbasic-nexus.selectCompilerPath',
+  SELECT_COMPILER_ARGS: 'qbasic-nexus.selectCompilerArgs',
   SHOW_STATS: 'qbasic-nexus.showCodeStats',
   REMOVE_LINE_NUMBERS: 'qbasic-nexus.removeLineNumbers',
   RENUMBER_LINES: 'qbasic-nexus.renumberLines',
@@ -46,6 +50,10 @@ const COMMANDS = Object.freeze({
   SELECT_INTERNAL_OUTPUT_DIR: 'qbasic-nexus.selectInternalOutputDir',
   SELECT_COMPILE_WORKER_RESILIENCE: 'qbasic-nexus.selectCompileWorkerResilience',
   SELECT_LINT_WORKER_RESILIENCE: 'qbasic-nexus.selectLintWorkerResilience',
+  SELECT_ENABLE_LINTING: 'qbasic-nexus.selectEnableLinting',
+  SELECT_LINT_DELAY: 'qbasic-nexus.selectLintDelay',
+  SELECT_AUTO_FORMAT: 'qbasic-nexus.selectAutoFormat',
+  SELECT_LINE_NUMBER_SETTINGS: 'qbasic-nexus.selectLineNumberSettings',
 });
 
 module.exports = { CONFIG, COMMANDS };
