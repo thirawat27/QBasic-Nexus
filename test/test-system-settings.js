@@ -101,6 +101,28 @@ test('System quick actions cover all top-level configurable settings', () => {
   );
 });
 
+test('WASM internal compiler mode keeps internal build settings active', () => {
+  const items = getSystemQuickActionItems({
+    compilerMode: CONFIG.MODE_INTERNAL_WASM,
+    internalTargets: 'host',
+    internalOutputDir: '',
+    compileWorkerMaxQueueSize: 64,
+    compileWorkerRequestTimeoutMs: 30000,
+    lintWorkerMaxQueueSize: 96,
+    lintWorkerRequestTimeoutMs: 15000,
+    enableLinting: true,
+    lintDelay: 500,
+    autoFormatOnSave: true,
+    lineNumberStart: 1,
+    lineNumberStep: 1,
+  });
+
+  const targetItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_TARGETS);
+  const outputItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_OUTPUT_DIR);
+  assert(targetItem?.description === 'Active in internal mode', 'Expected targets to be active for WASM mode');
+  assert(outputItem?.description === 'Active in internal mode', 'Expected output folder to be active for WASM mode');
+});
+
 async function run() {
   for (const { name, fn } of tests) {
     try {

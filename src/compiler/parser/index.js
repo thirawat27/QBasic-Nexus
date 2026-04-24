@@ -12,12 +12,29 @@ const {
 } = require('../preprocessor');
 
 class Parser {
-  constructor(tokens, target = 'node') {
+  constructor(tokens, target = 'node', options = {}) {
     // Call the initialized method that we mapped from core.js
     if (this._init) {
-      this._init(tokens, target);
+      this._init(tokens, target, options);
     }
   }
+}
+
+function normalizeTranspileTarget(target = 'web') {
+  const normalized = String(target || 'web').toLowerCase();
+  if (normalized === 'node-wasm' || normalized === 'web-wasm') {
+    return {
+      parserTarget: normalized.startsWith('web') ? 'web' : 'node',
+      wasmAccelerator: true,
+      cacheTarget: normalized,
+    };
+  }
+
+  return {
+    parserTarget: normalized === 'node' ? 'node' : 'web',
+    wasmAccelerator: false,
+    cacheTarget: normalized === 'node' ? 'node' : 'web',
+  };
 }
 
 function formatParserErrors(errors) {
@@ -74,10 +91,7 @@ class InternalTranspiler {
       return '// Empty source';
     }
 
-    // Validate target
-    if (target !== 'node' && target !== 'web') {
-      target = 'web';
-    }
+    const targetInfo = normalizeTranspileTarget(target);
 
     let tokens = null;
 
@@ -97,7 +111,10 @@ class InternalTranspiler {
         return '// No tokens generated';
       }
 
-      const parser = new Parser(tokens, target);
+      const parser = new Parser(tokens, targetInfo.parserTarget, {
+        ...options,
+        wasmAccelerator: options.wasmAccelerator || targetInfo.wasmAccelerator,
+      });
       const result = parser.parse();
       const blockingErrors = getBlockingParserErrors(parser.errors);
       if (blockingErrors.length > 0) {
@@ -122,13 +139,16 @@ class InternalTranspiler {
    * @param {string} target - 'node' or 'web'.
    * @returns {{ code: string, errors: Array }} Result object.
    */
-  transpileTokens(tokens, target = 'web') {
+  transpileTokens(tokens, target = 'web', options = {}) {
     if (!Array.isArray(tokens) || tokens.length === 0) {
       return { code: '// No tokens generated', errors: [] };
     }
-    if (target !== 'node' && target !== 'web') target = 'web';
+    const targetInfo = normalizeTranspileTarget(target);
     try {
-      const parser = new Parser(tokens, target);
+      const parser = new Parser(tokens, targetInfo.parserTarget, {
+        ...options,
+        wasmAccelerator: options.wasmAccelerator || targetInfo.wasmAccelerator,
+      });
       const code = parser.parse();
       return { code, errors: parser.errors || [] };
     } catch (e) {

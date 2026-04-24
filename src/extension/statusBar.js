@@ -31,6 +31,9 @@ function updateStatusBar() {
   }
 
   const mode = getConfig(CONFIG.COMPILER_MODE);
+  const isInternalMode =
+    mode === CONFIG.MODE_INTERNAL || mode === CONFIG.MODE_INTERNAL_WASM;
+  const isWasmInternalMode = mode === CONFIG.MODE_INTERNAL_WASM;
   const compilerPath = getConfig(CONFIG.COMPILER_PATH);
   const internalOutputDir = getConfig(CONFIG.INTERNAL_OUTPUT_DIR, '');
   const autoDetectedCompilerPath = state.autoDetectedCompilerPath;
@@ -42,7 +45,7 @@ function updateStatusBar() {
   let internalTargets = [];
   let internalTargetError = null;
 
-  if (mode === CONFIG.MODE_INTERNAL) {
+  if (isInternalMode) {
     try {
       internalTargets = validatePackagerTargets(getConfig(CONFIG.INTERNAL_TARGETS));
     } catch (error) {
@@ -54,7 +57,7 @@ function updateStatusBar() {
   if (state.internalBuildBarItem) {
     const tooltipLines = ['QBasic Nexus system quick actions', `Mode: ${mode}`];
 
-    if (mode === CONFIG.MODE_INTERNAL) {
+    if (isInternalMode) {
       const targetSummary = internalTargets.length > 0
         ? internalTargets.join(', ')
         : 'host';
@@ -87,7 +90,7 @@ function updateStatusBar() {
     state.statusBarItem.tooltip = 'Compilation in progress';
     state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
-  } else if (mode === CONFIG.MODE_INTERNAL && internalTargetError) {
+  } else if (isInternalMode && internalTargetError) {
     state.statusBarItem.text = '$(warning) Internal Target Error';
     state.statusBarItem.tooltip = `${internalTargetError.message}\nClick to open the internal target setting.`;
     state.statusBarItem.command = {
@@ -97,13 +100,17 @@ function updateStatusBar() {
     state.statusBarItem.backgroundColor = new vscode.ThemeColor(
       'statusBarItem.warningBackground',
     );
-  } else if (mode === CONFIG.MODE_INTERNAL) {
+  } else if (isInternalMode) {
     const targetLabel =
       internalTargets.length === 1
         ? internalTargets[0]
         : `${internalTargets.length} targets`;
-    state.statusBarItem.text = `$(package) Build ${targetLabel} ⚡`;
-    state.statusBarItem.tooltip = `Compile with QBasic Nexus (@yao-pkg/pkg -> ${internalBuildLabel}; targets: ${internalTargets.join(', ')})`;
+    state.statusBarItem.text = isWasmInternalMode
+      ? `$(package) Build ${targetLabel} WASM`
+      : `$(package) Build ${targetLabel} ⚡`;
+    state.statusBarItem.tooltip = isWasmInternalMode
+      ? `Compile with QBasic Nexus + WASM (@yao-pkg/pkg -> ${internalBuildLabel}; targets: ${internalTargets.join(', ')})`
+      : `Compile with QBasic Nexus (@yao-pkg/pkg -> ${internalBuildLabel}; targets: ${internalTargets.join(', ')})`;
     state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
   } else if (!compilerPath && autoDetectedCompilerPath) {

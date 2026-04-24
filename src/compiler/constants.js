@@ -162,6 +162,9 @@ const KEYWORDS = new Set([
     '_ATAN2', '_ASIN', '_ACOS', '_COSH', '_SINH', '_TANH', '_SECH', '_CSCH', '_COTH',
     '_ARCSEC', '_ARCCSC', '_ARCCOT', '_SEC', '_CSC', '_COT', '_HYPOT', '_CEIL',
     '_ROUND', '_PI', '_TAN', '_FLOOR', '_LOG10', '_EXP10',
+    '_ACOSH', '_ASINH', '_ATANH',
+    '_READBIT', '_SETBIT', '_RESETBIT', '_TOGGLEBIT', '_SHL', '_SHR',
+    '_STRCMP', '_STRICMP', '_DESKTOPWIDTH', '_DESKTOPHEIGHT',
     '_CV', '_CVD', '_CVI', '_CVL', '_CVS', '_MK$', '_MKD$', '_MKI$', '_MKL$', '_MKS$',
     '_RGB', '_RGBA', '_RGB32', '_RGBA32',
     '_ERROR$', '_ERRORMESSAGE$', '_GETPTR', '_GETPTR$', '_SETPTR',
@@ -251,7 +254,10 @@ const BUILTIN_FUNCS = Object.freeze({
     '_ATAN2': 'Math.atan2',
     '_ASIN': 'Math.asin',
     '_ACOS': 'Math.acos',
+    '_ACOSH': 'Math.acosh',
     '_COSH': 'Math.cosh',
+    '_ASINH': 'Math.asinh',
+    '_ATANH': 'Math.atanh',
     '_SINH': 'Math.sinh',
     '_TANH': 'Math.tanh',
     '_HYPOT': 'Math.hypot',
@@ -264,6 +270,14 @@ const BUILTIN_FUNCS = Object.freeze({
     '_ARCSEC': '(x => Math.acos(1 / x))',
     '_ARCCSC': '(x => Math.asin(1 / x))',
     '_ARCCOT': '(x => Math.PI / 2 - Math.atan(x))',
+    '_READBIT': '((value, bit) => ((value >> bit) & 1) ? -1 : 0)',
+    '_SETBIT': '((value, bit) => value | (1 << bit))',
+    '_RESETBIT': '((value, bit) => value & ~(1 << bit))',
+    '_TOGGLEBIT': '((value, bit) => value ^ (1 << bit))',
+    '_SHL': '((value, shift) => value << shift)',
+    '_SHR': '((value, shift) => value >>> shift)',
+    '_STRCMP': '((left, right) => String(left) === String(right) ? 0 : (String(left) < String(right) ? -1 : 1))',
+    '_STRICMP': '((left, right) => { const l = String(left).toLowerCase(); const r = String(right).toLowerCase(); return l === r ? 0 : (l < r ? -1 : 1); })',
     
     // ========== Array Functions ==========
     'LBOUND': '_lbound',
@@ -410,6 +424,8 @@ const BUILTIN_FUNCS = Object.freeze({
     '_RESIZE': '_resize',
     '_RESIZEWIDTH': '_resizewidth',
     '_RESIZEHEIGHT': '_resizeheight',
+    '_DESKTOPWIDTH': '(() => typeof screen !== "undefined" ? screen.width * (globalThis.devicePixelRatio || 1) : 0)',
+    '_DESKTOPHEIGHT': '(() => typeof screen !== "undefined" ? screen.height * (globalThis.devicePixelRatio || 1) : 0)',
     // _PRINTWIDTH - (already defined above)
     
     // ========== QB64 Font Functions ==========

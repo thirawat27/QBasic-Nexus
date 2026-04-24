@@ -23,7 +23,7 @@ const {
  * Compiler options
  */
 const DEFAULT_OPTIONS = {
-  target: 'web',          // 'web' or 'node'
+  target: 'web',          // 'web', 'node', 'web-wasm', or 'node-wasm'
   cache: true,            // Enable compilation cache
   strictMode: false,      // Strict error checking
   optimizationLevel: 2,   // 0=none, 1=basic, 2=aggressive
@@ -173,7 +173,11 @@ class Compiler {
       // ── Parse + codegen (reuse token array — no re-tokenize) ───────────
       const parserStart = process.hrtime.bigint();
       const transpiler = new InternalTranspiler();
-      const { code, errors } = transpiler.transpileTokens(tokens, options.target);
+      const { code, errors } = transpiler.transpileTokens(
+        tokens,
+        options.target,
+        options,
+      );
       const parserTime = Number(process.hrtime.bigint() - parserStart) / 1_000_000;
 
       // Collect errors directly from the parse result (no extra lint pass)

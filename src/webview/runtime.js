@@ -3894,8 +3894,8 @@
     get POS() {
       return cursorCol;
     },
-    screenWidth: () => 80,
-    screenHeight: () => 25,
+    screenWidth: _screenWidth,
+    screenHeight: _screenHeight,
 
     // Internal
     _keyBuffer: '',
@@ -4540,6 +4540,18 @@
           400,
       ),
     );
+  }
+
+  function _screenWidth(imageHandle) {
+    const image = images.get(Number(imageHandle));
+    if (image?.width) return image.width;
+    return Math.max(1, Math.round(canvas?.width || 640));
+  }
+
+  function _screenHeight(imageHandle) {
+    const image = images.get(Number(imageHandle));
+    if (image?.height) return image.height;
+    return Math.max(1, Math.round(canvas?.height || 400));
   }
 
   function _openhost(protocol) {

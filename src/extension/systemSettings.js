@@ -24,6 +24,11 @@ const COMPILER_MODE_ITEMS = Object.freeze([
     detail: 'Internal transpiler and packaged executable flow',
     value: CONFIG.MODE_INTERNAL,
   },
+  {
+    label: 'Qbasic Nexus + WASM',
+    detail: 'Internal transpiler with an embedded WebAssembly runtime accelerator',
+    value: CONFIG.MODE_INTERNAL_WASM,
+  },
 ]);
 
 const COMPILER_ARGS_PRESETS = Object.freeze([

@@ -51,7 +51,7 @@ async function executeCompile(shouldRun) {
     // Get compiler mode
     const mode = getConfig(CONFIG.COMPILER_MODE);
 
-    if (mode === CONFIG.MODE_INTERNAL) {
+    if (mode === CONFIG.MODE_INTERNAL || mode === CONFIG.MODE_INTERNAL_WASM) {
       await runInternalTranspiler(document, shouldRun);
     } else {
       await runQB64Compiler(document, shouldRun);

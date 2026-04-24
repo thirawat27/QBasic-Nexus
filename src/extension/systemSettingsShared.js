@@ -37,6 +37,8 @@ function formatInternalTargetsLabel(targets) {
 
 function getSystemQuickActionItems(options = {}) {
   const mode = options.compilerMode || CONFIG.MODE_QB64;
+  const isInternalMode =
+    mode === CONFIG.MODE_INTERNAL || mode === CONFIG.MODE_INTERNAL_WASM;
   const workspacePath = options.workspacePath || '';
 
   return [
@@ -62,7 +64,7 @@ function getSystemQuickActionItems(options = {}) {
       label: 'Internal Build Targets',
       detail: `Current: ${formatInternalTargetsLabel(options.internalTargets)}`,
       description:
-        mode === CONFIG.MODE_INTERNAL ? 'Active in internal mode' : 'Used when internal mode is selected',
+        isInternalMode ? 'Active in internal mode' : 'Used when internal mode is selected',
       command: COMMANDS.SELECT_INTERNAL_TARGETS,
     },
     {
@@ -72,7 +74,7 @@ function getSystemQuickActionItems(options = {}) {
         workspacePath,
       )}`,
       description:
-        mode === CONFIG.MODE_INTERNAL ? 'Active in internal mode' : 'Used when internal mode is selected',
+        isInternalMode ? 'Active in internal mode' : 'Used when internal mode is selected',
       command: COMMANDS.SELECT_INTERNAL_OUTPUT_DIR,
     },
     {

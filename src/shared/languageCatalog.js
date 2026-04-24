@@ -168,6 +168,8 @@ const ZERO_ARG_FUNCTIONS = new Set([
   '_CONSOLEINPUT',
   '_CWD$',
   '_DAY',
+  '_DESKTOPHEIGHT',
+  '_DESKTOPWIDTH',
   '_DEVICE$',
   '_DEVICES',
   '_DONTWAIT',
@@ -217,6 +219,9 @@ const IMPLEMENTATION_ARITY_MAP = Object.freeze({
   'Math.atan2': ['y', 'x'],
   'Math.ceil': ['number'],
   'Math.cos': ['number'],
+  'Math.acosh': ['number'],
+  'Math.asinh': ['number'],
+  'Math.atanh': ['number'],
   'Math.cosh': ['number'],
   'Math.exp': ['number'],
   'Math.floor': ['number'],
@@ -238,6 +243,8 @@ const IMPLEMENTATION_ARITY_MAP = Object.freeze({
   _consoleinput: [],
   _controlchr: ['code'],
   _copyimage: ['image', 'mode'],
+  _desktopheight: [],
+  _desktopwidth: [],
   _cwd$: [],
   _day: [],
   _device$: [],
@@ -308,6 +315,14 @@ const IMPLEMENTATION_ARITY_MAP = Object.freeze({
   _width: ['image'],
   _weekday: [],
   _year: [],
+  _READBIT: ['value', 'bit'],
+  _RESETBIT: ['value', 'bit'],
+  _SETBIT: ['value', 'bit'],
+  _SHL: ['value', 'shift'],
+  _SHR: ['value', 'shift'],
+  _STRCMP: ['left$', 'right$'],
+  _STRICMP: ['left$', 'right$'],
+  _TOGGLEBIT: ['value', 'bit'],
 });
 
 const EXACT_KEYWORD_DETAIL_HINTS = Object.freeze({
@@ -560,6 +575,8 @@ const EXACT_FUNCTION_PARAM_HINTS = Object.freeze({
   _CVS: ['bytes$'],
   '_CWD$': [],
   _DAY: [],
+  _DESKTOPHEIGHT: [],
+  _DESKTOPWIDTH: [],
   '_DEVICE$': ['deviceNumber'],
   _DEVICES: [],
   '_DIR$': ['filespec'],
@@ -612,11 +629,13 @@ const EXACT_FUNCTION_PARAM_HINTS = Object.freeze({
   _OPENHOST: ['port'],
   '_OS$': [],
   _PI: [],
+  _READBIT: ['value', 'bit'],
   _RED: ['colorValue'],
   _RED32: ['colorValue'],
   _RESIZE: [],
   _RESIZEHEIGHT: [],
   _RESIZEWIDTH: [],
+  _RESETBIT: ['value', 'bit'],
   _RGB: ['red', 'green', 'blue'],
   _RGB32: ['red', 'green', 'blue'],
   _RGBA: ['red', 'green', 'blue', 'alpha'],
@@ -626,13 +645,19 @@ const EXACT_FUNCTION_PARAM_HINTS = Object.freeze({
   _SCREENEXISTS: ['screenHandle'],
   _SCROLLLOCK: [],
   _SECOND: [],
+  _SETBIT: ['value', 'bit'],
+  _SHL: ['value', 'shift'],
+  _SHR: ['value', 'shift'],
   '_SELECTFOLDERDIALOG$': ['title$'],
   _SNDGETPOS: ['soundHandle'],
   _SNDLEN: ['soundHandle'],
   _SNDPLAYING: ['soundHandle'],
   '_STARTDIR$': [],
+  _STRCMP: ['left$', 'right$'],
+  _STRICMP: ['left$', 'right$'],
   _TIMER: [],
   _TOTALDROPPEDFILES: [],
+  _TOGGLEBIT: ['value', 'bit'],
   '_TRIM$': ['text'],
   _WEEKDAY: ['timestamp'],
   _WHEEL: ['wheelNumber'],
@@ -855,7 +880,7 @@ function getKeywordFamily(keyword) {
   }
   if (keyword === 'ON ERROR') return 'controlFlow';
   if (/^DEF(?:INT|LNG|SNG|DBL|STR)$/.test(keyword)) return 'declaration';
-  if (/^(?:PEEK|POKE|VARPTR|VARSEG|SADD|_CV|_CVD|_CVI|_CVL|_CVS|_GETPTR|_SETPTR|_INPOKE)$/.test(keyword)) {
+  if (/^(?:PEEK|POKE|VARPTR|VARSEG|SADD|_CV|_CVD|_CVI|_CVL|_CVS|_GETPTR|_SETPTR|_INPOKE|_READBIT|_SETBIT|_RESETBIT|_TOGGLEBIT|_SHL|_SHR)$/.test(keyword)) {
     return 'memory';
   }
   if (/^(?:SPC|TAB|USING|_INSTRREV)$/.test(keyword)) return 'stringValue';
@@ -883,10 +908,10 @@ function getKeywordFamily(keyword) {
   if (/^_(?:DATE\$|TIME\$|TIMER|YEAR|MONTH|DAY|HOUR|MINUTE|SECOND|WEEKDAY)/.test(keyword)) {
     return 'dateTime';
   }
-  if (/^_(?:PI|ROUND|D2R|D2G|R2D|R2G|G2D|G2R|ATAN2|ASIN|ACOS|COSH|SINH|TANH|TAN|SECH|CSCH|COTH|ARCSEC|ARCCSC|ARCCOT|SEC|CSC|COT|HYPOT|CEIL|FLOOR|LOG10|EXP10)/.test(keyword)) {
+  if (/^_(?:PI|ROUND|D2R|D2G|R2D|R2G|G2D|G2R|ATAN2|ASIN|ACOS|ACOSH|ASINH|ATANH|COSH|SINH|TANH|TAN|SECH|CSCH|COTH|ARCSEC|ARCCSC|ARCCOT|SEC|CSC|COT|HYPOT|CEIL|FLOOR|LOG10|EXP10)/.test(keyword)) {
     return 'math';
   }
-  if (/^_(?:FILEEXISTS|DIREXISTS|DIR\$|FILES\$|STARTDIR\$|CWD\$|ENVIRONCOUNT|ENVIRON\$|CLIPBOARD\$|CONSOLE|CONSOLETITLE|CONTROLCHR|TOTALDROPPEDFILES|DROPPEDFILE\$|FINISHDROP|EMBEDDED\$|OS\$|SHELL|DONTWAIT|HIDE|ACCEPTFILEDROP|EXIT|ERROR|ERRORMESSAGE)/.test(keyword)) {
+  if (/^_(?:FILEEXISTS|DIREXISTS|DIR\$|FILES\$|STARTDIR\$|CWD\$|ENVIRONCOUNT|ENVIRON\$|CLIPBOARD\$|CONSOLE|CONSOLETITLE|CONTROLCHR|TOTALDROPPEDFILES|DROPPEDFILE\$|FINISHDROP|EMBEDDED\$|OS\$|SHELL|DONTWAIT|HIDE|ACCEPTFILEDROP|EXIT|ERROR|ERRORMESSAGE|DESKTOPWIDTH|DESKTOPHEIGHT)/.test(keyword)) {
     return 'system';
   }
   if (DATA_TYPE_KEYWORDS.has(keyword)) return 'dataType';
@@ -910,6 +935,7 @@ function getFunctionFamily(name) {
   if (/^_(?:KEY|BUTTON|AXIS|WHEEL|DEVICE|LAST|CAPSLOCK|NUMLOCK|SCROLLLOCK)/.test(name)) {
     return 'inputDevice';
   }
+  if (/^_(?:READBIT|SETBIT|RESETBIT|TOGGLEBIT|SHL|SHR)$/.test(name)) return 'runtimeState';
   if (/^_(?:RGB|RGBA|RED|GREEN|BLUE|ALPHA)/.test(name)) return 'color';
   if (/^_(?:OPENHOST|OPENCLIENT|OPENCONNECTION|CONNECTED|CONNECTIONADDRESS)/.test(name)) {
     return 'network';
@@ -917,16 +943,16 @@ function getFunctionFamily(name) {
   if (/^_(?:FILEEXISTS|DIREXISTS|DIR\$|FILES\$|FULLPATH\$|STARTDIR\$|CWD\$|SELECTFOLDERDIALOG\$|DROPPEDFILE\$|TOTALDROPPEDFILES|COLORCHOOSERDIALOG)/.test(name) || name === 'DIR$') {
     return 'filesystem';
   }
-  if (/^_(?:NEWIMAGE|LOADIMAGE|COPYIMAGE|WIDTH|HEIGHT|SCREENEXISTS|RESIZE|RESIZEWIDTH|RESIZEHEIGHT|LOADFONT|FREEFONT|FONTWIDTH|FONTHEIGHT|CLIPBOARD\$|CONSOLETITLE|CONSOLEINPUT|CONTROLCHR|OS\$)/.test(name)) {
+  if (/^_(?:NEWIMAGE|LOADIMAGE|COPYIMAGE|WIDTH|HEIGHT|SCREENEXISTS|RESIZE|RESIZEWIDTH|RESIZEHEIGHT|LOADFONT|FREEFONT|FONTWIDTH|FONTHEIGHT|CLIPBOARD\$|CONSOLETITLE|CONSOLEINPUT|CONTROLCHR|OS\$|DESKTOPWIDTH|DESKTOPHEIGHT)/.test(name)) {
     return 'displaySystem';
   }
   if (/^_(?:DATE\$|TIME\$|TIMER|YEAR|MONTH|DAY|HOUR|MINUTE|SECOND|WEEKDAY)/.test(name) || /^(?:DATE\$|TIME\$|TIMER)$/.test(name)) {
     return 'dateTime';
   }
-  if (/^(?:ABS|ATN|COS|EXP|INT|FIX|LOG|RND|SGN|SIN|SQR|TAN|CINT|CLNG|CSNG|CDBL|_ACOS|_ASIN|_ATAN2|_COSH|_SINH|_TANH|_SECH|_CSCH|_COTH|_ARCSEC|_ARCCSC|_ARCCOT|_SEC|_CSC|_COT|_HYPOT|_CEIL|_FLOOR|_LOG10|_EXP10|_ROUND|_PI|_D2R|_D2G|_R2D|_R2G|_G2D|_G2R)$/.test(name)) {
+  if (/^(?:ABS|ATN|COS|EXP|INT|FIX|LOG|RND|SGN|SIN|SQR|TAN|CINT|CLNG|CSNG|CDBL|_ACOS|_ACOSH|_ASIN|_ASINH|_ATANH|_ATAN2|_COSH|_SINH|_TANH|_SECH|_CSCH|_COTH|_ARCSEC|_ARCCSC|_ARCCOT|_SEC|_CSC|_COT|_HYPOT|_CEIL|_FLOOR|_LOG10|_EXP10|_ROUND|_PI|_D2R|_D2G|_R2D|_R2G|_G2D|_G2R)$/.test(name)) {
     return 'math';
   }
-  if (/^(?:LEN|ASC|CHR\$|VAL|STR\$|HEX\$|OCT\$|LEFT\$|RIGHT\$|MID\$|UCASE\$|LCASE\$|LTRIM\$|RTRIM\$|SPACE\$|STRING\$|SPC|TAB|INSTR|_INSTRREV|_TRIM\$|_LEFTOF\$|_RIGHTOF\$|_LEFTOFLAST\$|_RIGHTOFLAST\$|COMMAND\$|ENVIRON\$|INKEY\$|_ENVIRON\$)$/.test(name)) {
+  if (/^(?:LEN|ASC|CHR\$|VAL|STR\$|HEX\$|OCT\$|LEFT\$|RIGHT\$|MID\$|UCASE\$|LCASE\$|LTRIM\$|RTRIM\$|SPACE\$|STRING\$|SPC|TAB|INSTR|_INSTRREV|_TRIM\$|_LEFTOF\$|_RIGHTOF\$|_LEFTOFLAST\$|_RIGHTOFLAST\$|_STRCMP|_STRICMP|COMMAND\$|ENVIRON\$|INKEY\$|_ENVIRON\$)$/.test(name)) {
     return 'string';
   }
   if (/^(?:LBOUND|UBOUND)$/.test(name)) return 'array';

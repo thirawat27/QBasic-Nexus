@@ -23,6 +23,7 @@ const CONFIG = Object.freeze({
   LINE_NUMBER_STEP: 'lineNumberStep',
   MODE_QB64: 'QB64 (Recommended)',
   MODE_INTERNAL: 'Qbasic Nexus',
+  MODE_INTERNAL_WASM: 'Qbasic Nexus + WASM',
   LANGUAGE_ID: 'qbasic',
   OUTPUT_CHANNEL: 'QBasic Nexus',
   TERMINAL_NAME: 'QBasic Nexus',

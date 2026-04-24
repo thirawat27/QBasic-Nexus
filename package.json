@@ -346,11 +346,13 @@
                     "type": "string",
                     "enum": [
                         "QB64 (Recommended)",
-                        "Qbasic Nexus"
+                        "Qbasic Nexus",
+                        "Qbasic Nexus + WASM"
                     ],
                     "enumDescriptions": [
                         "Compile with QB64 for native executable (best performance)",
-                        "Transpile QBasic to JavaScript via the internal engine, then package one or more standalone executables using @yao-pkg/pkg"
+                        "Transpile QBasic to JavaScript via the internal engine, then package one or more standalone executables using @yao-pkg/pkg",
+                        "Transpile QBasic to JavaScript and embed a small WebAssembly accelerator for hot runtime primitives while keeping JavaScript fallback for cross-platform builds"
                     ],
                     "default": "QB64 (Recommended)",
                     "markdownDescription": "Select the compilation mode.",

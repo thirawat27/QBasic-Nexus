@@ -169,6 +169,8 @@ async function runInternalTranspiler(document, shouldRun) {
     path.extname(document.uri.fsPath),
   );
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+  const compilerMode = getConfig(CONFIG.COMPILER_MODE, CONFIG.MODE_INTERNAL);
+  const useWasmAccelerator = compilerMode === CONFIG.MODE_INTERNAL_WASM;
 
   let packagerTargets = [];
   let outputDir = '';
@@ -214,6 +216,9 @@ async function runInternalTranspiler(document, shouldRun) {
     channel.appendLine(`  📍 Path:     ${document.uri.fsPath}`);
     channel.appendLine(`  📊 Stats:    ${lineCount} lines • ${fileSize} KB`);
     channel.appendLine(`  📂 Output:   ${outputDir}`);
+    channel.appendLine(
+      `  🧠 Engine:   ${useWasmAccelerator ? 'Internal JS + WASM accelerator' : 'Internal JS'}`,
+    );
     channel.appendLine('');
     channel.appendLine('─────────────────────────────────────────────────────');
 
@@ -246,9 +251,10 @@ async function runInternalTranspiler(document, shouldRun) {
             priority: 80,
           },
           {
-            target: 'node',
+            target: useWasmAccelerator ? 'node-wasm' : 'node',
             cache: true,
             optimizationLevel: 2,
+            wasmAccelerator: useWasmAccelerator,
           },
         );
 
@@ -261,6 +267,11 @@ async function runInternalTranspiler(document, shouldRun) {
         const meta = result.getMetadata();
         if (meta.cached) {
           channel.appendLine(`  [L1/L2] Cache hit (age ${meta.cacheAge}ms) — parsing skipped`);
+        }
+        if (useWasmAccelerator) {
+          channel.appendLine(
+            '  [WASM] Runtime bitwise/MOD accelerator embedded with automatic JS fallback',
+          );
         }
         report(30, 'Syntax analysis passed ✓');
 

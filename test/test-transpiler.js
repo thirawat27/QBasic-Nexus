@@ -20,7 +20,9 @@ const tests = [
     { name: 'Graphics', code: 'SCREEN 12\nCIRCLE (100, 100), 50, 4' },
     { name: 'Sound', code: 'SOUND 440, 18\nPLAY "CDE"' },
     { name: 'Array', code: 'DIM arr(10) AS INTEGER\narr(1) = 5\nPRINT arr(1)' },
-    { name: 'String Functions', code: 'a$ = "Hello"\nPRINT LEFT$(a$, 2)' }
+    { name: 'String Functions', code: 'a$ = "Hello"\nPRINT LEFT$(a$, 2)' },
+    { name: 'WASM Accelerator Target', code: 'PRINT (7 AND 3) MOD 2', target: 'web-wasm' },
+    { name: 'Expanded QB64 Intrinsics', code: 'PRINT _SHL(1, 3)\nPRINT _STRICMP("QB64", "qb64")' }
 ];
 
 let passed = 0;
@@ -29,9 +31,12 @@ let failed = 0;
 for (const test of tests) {
     try {
         const t = new Transpiler();
-        const result = t.transpile(test.code, 'web');
-        
+        const result = t.transpile(test.code, test.target || 'web');
+
         if (result && result.length > 0) {
+            if (test.target && !result.includes('_qbWasmAcceleratorEnabled = true')) {
+                throw new Error('Expected WASM accelerator bootstrap in generated code');
+            }
             console.log(`✅ ${test.name}: OK (${result.length} chars)`);
             passed++;
         } else {
