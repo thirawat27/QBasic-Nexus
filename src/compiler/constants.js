@@ -278,6 +278,7 @@ const BUILTIN_FUNCS = Object.freeze({
     '_SHR': '((value, shift) => value >>> shift)',
     '_STRCMP': '((left, right) => String(left) === String(right) ? 0 : (String(left) < String(right) ? -1 : 1))',
     '_STRICMP': '((left, right) => { const l = String(left).toLowerCase(); const r = String(right).toLowerCase(); return l === r ? 0 : (l < r ? -1 : 1); })',
+    '_KEYTOSTR$': '((code) => { const n = Math.trunc(Number(code) || 0); if (n >= 32 && n <= 126) return String.fromCharCode(n); const named = {8:"BACKSPACE",9:"TAB",13:"ENTER",27:"ESC",32:"SPACE"}; return named[n] || ""; })',
     
     // ========== Array Functions ==========
     'LBOUND': '_lbound',
@@ -302,6 +303,10 @@ const BUILTIN_FUNCS = Object.freeze({
     '_STARTDIR$': '_startdir$',
     '_OS$': '(() => typeof process !== "undefined" ? process.platform : "web")',
     '_CLIPBOARD$': '(() => "")',
+    '_SNDOPENRAW': '_sndopenraw',
+    '_SNDRAWLEN': '_sndrawlen',
+    '_SNDRATE': '_sndrate',
+    '_SNDRAWDONE': '_sndrawdone',
     
     // ========== Boolean Constants ==========
     'TRUE': '(() => -1)',

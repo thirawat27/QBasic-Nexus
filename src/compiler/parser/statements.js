@@ -154,8 +154,7 @@ _parseStatement() {
     if (this._matchKw('_TITLE')) return this._parseTitle();
     if (this._matchKw('_FULLSCREEN')) return this._parseFullscreen();
     if (this._matchKw('_SCREENMOVE')) return this._parseScreenMove();
-    if (this._matchKw('_SCREENICON'))
-      return this._emit('// _SCREENICON - not supported in web');
+    if (this._matchKw('_SCREENICON')) return this._parseScreenIcon();
     if (this._matchKw('_SCREENHIDE')) return this._parseScreenHide();
     if (this._matchKw('_SCREENSHOW')) return this._parseScreenShow();
     if (this._matchKw('_ICON')) return this._parseIcon();
@@ -171,6 +170,7 @@ _parseStatement() {
     if (this._matchKw('_SNDPAUSE')) return this._parseSndPause();
     if (this._matchKw('_SNDBAL')) return this._parseSndBal();
     if (this._matchKw('_SNDSETPOS')) return this._parseSndSetPos();
+    if (this._matchKw('_SNDRAW')) return this._parseSndRaw();
 
     // ============ NEW: QB64 Memory ============
     if (this._matchKw('_MEMGET')) return this._parseMemGet();
@@ -796,6 +796,15 @@ _parseSndClose() {
     this._emit(`_runtime.sndclose?.(${sid});`);
   },
 
+_parseSndRaw() {
+    const left = this._parseExpr();
+    let right = left;
+    if (this._matchPunc(',')) {
+      right = this._parseExpr();
+    }
+    this._emit(`_sndraw(${left}, ${right});`);
+  },
+
 _parseDefFn() {
     // DEF FNname(params) = expression
     // Skip FN keyword if present
@@ -993,6 +1002,10 @@ _parseRun() {
 _parseChain() {
     // CHAIN program
     const prog = this._parseExpr();
+    this._recordCompatibilityWarning(
+      'CHAIN',
+      'It is emitted as a runtime handoff object; host code must handle it.',
+    );
     this._emit(`throw {type: "CHAIN", program: ${prog}};`);
   },
 
@@ -1035,6 +1048,10 @@ _parseIcon() {
 
 _parseScreenIcon() {
     // _SCREENICON [handle]
+    this._recordCompatibilityWarning(
+      '_SCREENICON',
+      'It only runs when the host runtime exposes screenicon().',
+    );
     if (!this._isStmtEnd()) {
       const handle = this._parseExpr();
       this._emit(`_runtime.screenicon?.(${handle});`);
@@ -1218,6 +1235,10 @@ _parseMouseMove() {
     const x = this._parseExpr();
     this._matchPunc(',');
     const y = this._parseExpr();
+    this._recordCompatibilityWarning(
+      '_MOUSEMOVE',
+      'Browsers and VS Code webviews do not allow programmatic pointer movement.',
+    );
     this._emit(
       `// _MOUSEMOVE ${x}, ${y} - cannot programmatically move mouse in browsers`,
     );
@@ -1251,6 +1272,10 @@ _parseKey() {
     // KEY n, string$ - sets function key string
     // KEY ON/OFF - shows/hides function key display
     if (this._matchKw('ON') || this._matchKw('OFF')) {
+      this._recordCompatibilityWarning(
+        'KEY display',
+        'Function-key display state is accepted but not rendered.',
+      );
       this._emit(`// KEY ${this._prev().value}`);
     } else {
       const keyNum = this._parseExpr();
@@ -1270,6 +1295,10 @@ _parseTimer() {
     // TIMER ON/OFF/STOP - timer control
     // TIMER = seconds - sets timer interval
     if (this._matchKw('ON') || this._matchKw('OFF') || this._matchKw('STOP')) {
+      this._recordCompatibilityWarning(
+        'TIMER event control',
+        'Timer event scheduling is accepted but not wired to ON TIMER handlers.',
+      );
       this._emit(`// TIMER ${this._prev().value}`);
     } else {
       const seconds = this._parseExpr();

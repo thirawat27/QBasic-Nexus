@@ -43,6 +43,29 @@ function countLines(source) {
   return count;
 }
 
+function addDiagnosticSuggestions(diagnostic, message) {
+  if (!diagnostic || !message) return;
+
+  const text = String(message);
+  const rules = [
+    [/Expected variable after FOR/i, 'Use FOR variable = start TO end [STEP n].'],
+    [/Expected (END IF|ENDIF)/i, 'Close block IF statements with END IF.'],
+    [/Expected NEXT/i, 'Every FOR loop must end with NEXT, optionally followed by the loop variable.'],
+    [/Label not defined/i, 'Check the target label spelling or add a matching line label.'],
+    [/Array lower bound cannot exceed upper bound/i, 'Swap the DIM bounds or use OPTION BASE for default lower bounds.'],
+    [/CONTINUE used outside/i, 'CONTINUE can only be used inside DO, WHILE, or FOR loops.'],
+    [/EXIT (FOR|DO|WHILE) used outside/i, 'EXIT must appear inside the matching loop type.'],
+    [/Type mismatch/i, 'Convert values explicitly with CINT, CDbl, STR$, VAL, or matching suffixes.'],
+    [/Division by zero/i, 'Guard the divisor before /, \\, or MOD operations.'],
+  ];
+
+  for (const [pattern, suggestion] of rules) {
+    if (pattern.test(text)) {
+      diagnostic.addSuggestion(suggestion);
+    }
+  }
+}
+
 /**
  * Compilation result
  */
@@ -186,18 +209,20 @@ class Compiler {
         const line = err.line;
         const column = err.column;
         const length = err.length || 1;
+        let diagnostic;
 
         switch (err.severity) {
           case 'warning':
-            diagnostics.warning(category, err.message, line, column, length);
+            diagnostic = diagnostics.warning(category, err.message, line, column, length);
             break;
           case 'info':
-            diagnostics.info(category, err.message, line, column, length);
+            diagnostic = diagnostics.info(category, err.message, line, column, length);
             break;
           default:
-            diagnostics.error(category, err.message, line, column, length);
+            diagnostic = diagnostics.error(category, err.message, line, column, length);
             break;
         }
+        addDiagnosticSuggestions(diagnostic, err.message);
       }
 
       // Cache the result if clean

@@ -697,12 +697,15 @@
   // Print batching for performance - reduces DOM reflows
   let printBatch = null;
   let printBatchTimer = null;
+  let printBatchNodeCount = 0;
   const _BATCH_DELAY = 16; // ~60fps (for documentation)
+  const PRINT_BATCH_MAX_NODES = 256;
 
   function flushPrintBatch() {
     if (printBatch && printBatch.childNodes.length > 0) {
       screen.appendChild(printBatch);
       printBatch = null;
+      printBatchNodeCount = 0;
 
       // Single scroll at end of batch
       screen.scrollTop = screen.scrollHeight;
@@ -825,9 +828,17 @@
       printBatch = document.createDocumentFragment();
     }
     printBatch.appendChild(span);
+    printBatchNodeCount++;
+
+    if (printBatchNodeCount >= PRINT_BATCH_MAX_NODES) {
+      if (printBatchTimer) {
+        cancelAnimationFrame(printBatchTimer);
+      }
+      flushPrintBatch();
+    }
 
     // Schedule flush - only if not already scheduled
-    if (!printBatchTimer) {
+    if (printBatch && !printBatchTimer) {
       printBatchTimer = requestAnimationFrame(flushPrintBatch);
     }
 
@@ -838,6 +849,7 @@
     // Clear pending batch to avoid ghost text
     if (printBatch) {
       printBatch = null;
+      printBatchNodeCount = 0;
     }
     if (printBatchTimer) {
       cancelAnimationFrame(printBatchTimer);
@@ -2961,10 +2973,8 @@
 
     if (safeCount <= 0) return;
 
-    destinationView.set(
-      sourceView.slice(sourceOffset, sourceOffset + safeCount),
-      destinationOffset,
-    );
+    const sourceEnd = sourceOffset + safeCount;
+    destinationView.set(sourceView.subarray(sourceOffset, sourceEnd), destinationOffset);
   }
 
   function _memfill(mem, off, bytes, val) {
@@ -3625,6 +3635,11 @@
     sndlen: _sndLen,
     sndplaying: _sndPlaying,
     sndclose: _sndClose,
+    sndopenraw: _sndOpenRaw,
+    sndraw: _sndRaw,
+    sndrawlen: _sndRawLen,
+    sndrate: _sndRate,
+    sndrawdone: _sndRawDone,
 
     // RGB Color
     rgb32: _rgb32,
@@ -4260,17 +4275,30 @@
     const srcH = sy2 !== undefined ? Math.abs(sy2 - sy1) : srcCanvas.height;
     const dstW = dx2 !== undefined ? Math.abs(dx2 - dx1) : srcW;
     const dstH = dy2 !== undefined ? Math.abs(dy2 - dy1) : srcH;
+    const normalizedSrcW = Math.max(0, Math.trunc(Number(srcW) || 0));
+    const normalizedSrcH = Math.max(0, Math.trunc(Number(srcH) || 0));
+    const normalizedDstW = Math.max(0, Math.trunc(Number(dstW) || 0));
+    const normalizedDstH = Math.max(0, Math.trunc(Number(dstH) || 0));
+
+    if (
+      normalizedSrcW <= 0 ||
+      normalizedSrcH <= 0 ||
+      normalizedDstW <= 0 ||
+      normalizedDstH <= 0
+    ) {
+      return;
+    }
 
     dstCtx.drawImage(
       srcCanvas,
       sx1 || 0,
       sy1 || 0,
-      srcW,
-      srcH,
+      normalizedSrcW,
+      normalizedSrcH,
       dx1 || 0,
       dy1 || 0,
-      dstW,
-      dstH,
+      normalizedDstW,
+      normalizedDstH,
     );
   }
 
@@ -4290,6 +4318,11 @@
   const sounds = new Map();
   const MAX_SOUNDS = 32; // Limit number of loaded sounds
   let nextSoundId = 1;
+  const rawSoundState = {
+    handle: 0,
+    sampleRate: 44100,
+    samplesQueued: 0,
+  };
 
   // Helper to enforce sound limit
   function _enforceSoundLimit() {
@@ -4454,6 +4487,40 @@
       audio.currentTime = 0;
       sounds.delete(sid);
     }
+  }
+
+  function _sndOpenRaw(sampleRate) {
+    rawSoundState.handle = nextSoundId++;
+    rawSoundState.sampleRate = Math.max(8000, Math.trunc(Number(sampleRate) || 44100));
+    rawSoundState.samplesQueued = 0;
+    return rawSoundState.handle;
+  }
+
+  function _sndRaw(left, right) {
+    if (!rawSoundState.handle) {
+      _sndOpenRaw(44100);
+    }
+    const leftSample = Math.max(-1, Math.min(1, Number(left) || 0));
+    const rightSample = right === undefined
+      ? leftSample
+      : Math.max(-1, Math.min(1, Number(right) || 0));
+    if (Number.isFinite(leftSample) && Number.isFinite(rightSample)) {
+      rawSoundState.samplesQueued++;
+    }
+    return rawSoundState.samplesQueued;
+  }
+
+  function _sndRawLen() {
+    return rawSoundState.samplesQueued / rawSoundState.sampleRate;
+  }
+
+  function _sndRate() {
+    return rawSoundState.sampleRate;
+  }
+
+  function _sndRawDone() {
+    rawSoundState.samplesQueued = 0;
+    return -1;
   }
 
   function _console(enabled) {
@@ -4753,6 +4820,7 @@
       printBatchTimer = null;
     }
     printBatch = null;
+    printBatchNodeCount = 0;
 
     // Clear and reset SpanPool
     SpanPool.clear();

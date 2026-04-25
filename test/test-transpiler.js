@@ -22,7 +22,9 @@ const tests = [
     { name: 'Array', code: 'DIM arr(10) AS INTEGER\narr(1) = 5\nPRINT arr(1)' },
     { name: 'String Functions', code: 'a$ = "Hello"\nPRINT LEFT$(a$, 2)' },
     { name: 'WASM Accelerator Target', code: 'PRINT (7 AND 3) MOD 2', target: 'web-wasm' },
-    { name: 'Expanded QB64 Intrinsics', code: 'PRINT _SHL(1, 3)\nPRINT _STRICMP("QB64", "qb64")' }
+    { name: 'Expanded QB64 Intrinsics', code: 'PRINT _SHL(1, 3)\nPRINT _STRICMP("QB64", "qb64")' },
+    { name: 'QB64 raw sound compatibility', code: 'sid = _SNDOPENRAW(44100)\n_SNDRAW 0.1, 0.1\nPRINT _SNDRAWLEN(sid)' },
+    { name: 'QB64 key string helper', code: 'PRINT _KEYTOSTR$(13)\nPRINT _KEYTOSTR$(65)' }
 ];
 
 let passed = 0;

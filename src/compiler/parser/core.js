@@ -25,6 +25,7 @@ module.exports = {
 
     /** @type {Array<{line: number, message: string, column: number}>} */
     this.errors = [];
+    this.compatWarnings = new Set();
 
     /** @type {Set<string>} Global SHARED variables */
     this.scopes = [new Set()];
@@ -593,6 +594,28 @@ module.exports = {
     });
   },
 
+  _recordWarning(message, token = this._peek(), category = 'semantic') {
+    this.errors.push({
+      line: (token?.line || 1) - 1,
+      message,
+      column: token?.col || 0,
+      severity: 'warning',
+      category,
+    });
+  },
+
+  _recordCompatibilityWarning(feature, detail, token = this._peek()) {
+    const key = `${feature}:${detail || ''}`;
+    if (this.compatWarnings.has(key)) return;
+    this.compatWarnings.add(key);
+    const suffix = detail ? ` ${detail}` : '';
+    this._recordWarning(
+      `${feature} has partial compatibility in this runtime.${suffix}`,
+      token,
+      'semantic',
+    );
+  },
+
   _raiseSyntaxError(message, token = this._peek(), category = 'syntax') {
     const error = new Error(message);
     error.line = (token?.line || 1) - 1;
@@ -800,6 +823,11 @@ const _SNDOPEN = _runtime.sndopen || (() => -1);
 const _SNDPLAY = _runtime.sndplay || (() => {});
 const _SNDLOOP = _runtime.sndloop || (() => {});
 const _SNDCLOSE = _runtime.sndclose || (() => {});
+const _SNDOPENRAW = _runtime.sndopenraw || (() => -1);
+const _SNDRAW = _runtime.sndraw || (() => 0);
+const _SNDRAWLEN = _runtime.sndrawlen || (() => 0);
+const _SNDRATE = _runtime.sndrate || (() => 44100);
+const _SNDRAWDONE = _runtime.sndrawdone || (() => -1);
 
 // RGB Color Functions
 const _RGB32 = _runtime.rgb32 || ((r, g, b, a) => ((a||255) << 24) | (r << 16) | (g << 8) | b);
@@ -1090,10 +1118,8 @@ function _memcopy(src, srcOff, bytes, dst, dstOff) {
 
   if (safeCount <= 0) return;
 
-  destinationView.set(
-    sourceView.slice(sourceOffset, sourceOffset + safeCount),
-    destinationOffset,
-  );
+  const sourceEnd = sourceOffset + safeCount;
+  destinationView.set(sourceView.subarray(sourceOffset, sourceEnd), destinationOffset);
   _syncMemoryBlock(dst);
 }
 
@@ -1130,7 +1156,7 @@ function _memwrite(mem, off, data) {
 
   if (offset >= view.length || safeCount <= 0) return;
 
-  view.set(payload.slice(0, safeCount), offset);
+  view.set(payload.subarray(0, safeCount), offset);
   _syncMemoryBlock(mem);
 }
 
@@ -3874,6 +3900,36 @@ function _sndplaying(handle) {
     return _runtime.sndplaying(handle);
   }
   return 0;
+}
+
+function _sndopenraw(sampleRate) {
+  return typeof _runtime.sndopenraw === 'function'
+    ? _runtime.sndopenraw(sampleRate)
+    : -1;
+}
+
+function _sndraw(left, right) {
+  return typeof _runtime.sndraw === 'function'
+    ? _runtime.sndraw(left, right)
+    : 0;
+}
+
+function _sndrawlen(handle) {
+  return typeof _runtime.sndrawlen === 'function'
+    ? _runtime.sndrawlen(handle)
+    : 0;
+}
+
+function _sndrate(handle) {
+  return typeof _runtime.sndrate === 'function'
+    ? _runtime.sndrate(handle)
+    : 44100;
+}
+
+function _sndrawdone(handle) {
+  return typeof _runtime.sndrawdone === 'function'
+    ? _runtime.sndrawdone(handle)
+    : -1;
 }
 
 // _openhost - open TCP host

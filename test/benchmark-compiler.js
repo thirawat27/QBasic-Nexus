@@ -8,7 +8,15 @@
 
 const Lexer = require('../src/compiler/lexer');
 const InternalTranspiler = require('../src/compiler/transpiler');
+const { Compiler } = require('../src/compiler/compiler');
 const { printStats, runBenchmarkTasks } = require('./benchmarkHarness');
+
+const COMPILE_TARGETS = Object.freeze([
+    { name: 'web', target: 'web' },
+    { name: 'web-wasm', target: 'web-wasm' },
+    { name: 'node', target: 'node' },
+    { name: 'node-wasm', target: 'node-wasm' }
+]);
 
 // Sample QBasic programs for benchmarking
 const testPrograms = {
@@ -113,14 +121,37 @@ async function benchmarkCompile(source, time = 150) {
                     const transpiler = new InternalTranspiler();
                     return transpiler.transpile(source, 'web').length;
                 }
-            }
+            },
+            ...COMPILE_TARGETS.map(({ name, target }) => ({
+                name: `Compiler ${name}`,
+                fn: () => {
+                    const compiler = new Compiler({
+                        target,
+                        cache: false,
+                        wasmAccelerator: target.endsWith('-wasm')
+                    });
+                    const result = compiler.compile(source);
+                    if (!result.isSuccess()) {
+                        throw new Error(result.formatDiagnostics());
+                    }
+                    return result.getCode().length;
+                }
+            }))
         ],
         { time }
     );
 
+    const targetStats = Object.fromEntries(
+        COMPILE_TARGETS.map(({ name }) => [
+            name,
+            tasks.find((task) => task.name === `Compiler ${name}`)
+        ])
+    );
+
     return {
         lexer: tasks.find((task) => task.name === 'Lexer tokenize'),
-        transpile: tasks.find((task) => task.name === 'End-to-end transpile')
+        transpile: tasks.find((task) => task.name === 'End-to-end transpile'),
+        targets: targetStats
     };
 }
 
@@ -139,10 +170,21 @@ async function runBenchmarks() {
 
         printStats('\nLexer Performance:', stats.lexer);
         printStats('\nEnd-to-End Compilation:', stats.transpile);
+        for (const { name: targetName } of COMPILE_TARGETS) {
+            printStats(`\nCompiler Target ${targetName}:`, stats.targets[targetName]);
+        }
 
         const throughputKilobytes = (source.length * stats.transpile.opsPerSecond) / 1024;
         console.log(`\n⚡ Compiler throughput: ${throughputKilobytes.toFixed(2)} KB/s`);
         console.log(`   Relative margin of error: ${stats.transpile.relativeMarginOfError.toFixed(2)}%`);
+        if (stats.targets.web && stats.targets['web-wasm']) {
+            const ratio = stats.targets['web-wasm'].opsPerSecond / stats.targets.web.opsPerSecond;
+            console.log(`   web-wasm compile speed vs web: ${(ratio * 100).toFixed(1)}%`);
+        }
+        if (stats.targets.node && stats.targets['node-wasm']) {
+            const ratio = stats.targets['node-wasm'].opsPerSecond / stats.targets.node.opsPerSecond;
+            console.log(`   node-wasm compile speed vs node: ${(ratio * 100).toFixed(1)}%`);
+        }
     }
     
     console.log('\n' + '='.repeat(70));
