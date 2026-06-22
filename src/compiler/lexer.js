@@ -18,33 +18,16 @@ const { TokenType, KEYWORDS } = require('./constants');
 // ─────────────────────────────────────────────────────────────────────────────
 // Pre-compiled character-level helpers (used in fallback only)
 // ─────────────────────────────────────────────────────────────────────────────
-const SMART_QUOTE_RE = /[\u201C\u201D\u201E\u201F]/g;
-const SMART_APOS_RE = /[\u2018\u2019\u201A\u201B]/g;
-const FULLWIDTH_RE = /[\uFF04\uFE69]/g;
+const NORMALISE_RE = /[\u201C\u201D\u201E\u201F\u2018\u2019\u201A\u201B\uFF04\uFE69]/g;
 
 // Normalise Unicode curly quotes / fullwidth chars to ASCII once per compile
 function normalise(source) {
-  // Reset stateful regex BEFORE .test() call to prevent lastIndex corruption
-  SMART_QUOTE_RE.lastIndex = 0;
-  SMART_APOS_RE.lastIndex = 0;
-  FULLWIDTH_RE.lastIndex = 0;
-  
-  // Fast path: test once with a combined regex (covers mid-string Unicode too)
-  if (
-    !SMART_QUOTE_RE.test(source) &&
-    !SMART_APOS_RE.test(source) &&
-    !FULLWIDTH_RE.test(source)
-  ) {
-    return source;
-  }
-  // Reset again after .test() calls
-  SMART_QUOTE_RE.lastIndex = 0;
-  SMART_APOS_RE.lastIndex = 0;
-  FULLWIDTH_RE.lastIndex = 0;
-  return source
-    .replace(FULLWIDTH_RE, '$')
-    .replace(SMART_QUOTE_RE, '"')
-    .replace(SMART_APOS_RE, "'");
+  NORMALISE_RE.lastIndex = 0;
+  if (!NORMALISE_RE.test(source)) return source;
+  NORMALISE_RE.lastIndex = 0;
+  return source.replace(NORMALISE_RE, (char) =>
+    char === '\uFF04' || char === '\uFE69' ? '$' : char <= '\u201B' ? "'" : '"'
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

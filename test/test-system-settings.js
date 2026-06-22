@@ -8,6 +8,7 @@ const {
   formatCompilerPathLabel,
   formatInternalTargetsLabel,
   formatLineNumberSettingsLabel,
+  formatWasmAcceleratorLabel,
   getSystemQuickActionItems,
 } = require('../src/extension/systemSettingsShared');
 
@@ -57,6 +58,13 @@ test('Line number labels summarize start and step', () => {
   );
 });
 
+test('WASM accelerator labels normalize supported values', () => {
+  assert(formatWasmAcceleratorLabel('auto') === 'Auto', 'Expected auto label');
+  assert(formatWasmAcceleratorLabel('on') === 'On', 'Expected on label');
+  assert(formatWasmAcceleratorLabel('off') === 'Off', 'Expected off label');
+  assert(formatWasmAcceleratorLabel('bad') === 'Auto', 'Expected invalid values to fall back to Auto');
+});
+
 test('System quick actions cover all top-level configurable settings', () => {
   const items = getSystemQuickActionItems({
     compilerMode: CONFIG.MODE_INTERNAL,
@@ -65,6 +73,7 @@ test('System quick actions cover all top-level configurable settings', () => {
     compilerArgs: '-w',
     internalTargets: 'host,linux-x64',
     internalOutputDir: 'dist',
+    internalWasmAccelerator: 'auto',
     workspacePath: 'C:\\Workspace\\QBasic-Nexus',
     compileWorkerMaxQueueSize: 64,
     compileWorkerRequestTimeoutMs: 30000,
@@ -77,7 +86,7 @@ test('System quick actions cover all top-level configurable settings', () => {
     lineNumberStep: 10,
   });
 
-  assert(items.length === 11, 'Expected one quick action per top-level configurable setting');
+  assert(items.length === 12, 'Expected one quick action per top-level configurable setting');
   assert(
     items.some((item) => item.command === COMMANDS.SELECT_COMPILER_MODE),
     'Expected compiler mode quick action',
@@ -89,6 +98,10 @@ test('System quick actions cover all top-level configurable settings', () => {
   assert(
     items.some((item) => item.command === COMMANDS.SELECT_INTERNAL_TARGETS),
     'Expected internal target quick action',
+  );
+  assert(
+    items.some((item) => item.command === COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR),
+    'Expected internal WASM accelerator quick action',
   );
   assert(
     items.some((item) => item.command === COMMANDS.SELECT_LINE_NUMBER_SETTINGS),
@@ -106,6 +119,7 @@ test('WASM internal compiler mode keeps internal build settings active', () => {
     compilerMode: CONFIG.MODE_INTERNAL_WASM,
     internalTargets: 'host',
     internalOutputDir: '',
+    internalWasmAccelerator: 'on',
     compileWorkerMaxQueueSize: 64,
     compileWorkerRequestTimeoutMs: 30000,
     lintWorkerMaxQueueSize: 96,
@@ -119,8 +133,10 @@ test('WASM internal compiler mode keeps internal build settings active', () => {
 
   const targetItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_TARGETS);
   const outputItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_OUTPUT_DIR);
+  const wasmItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR);
   assert(targetItem?.description === 'Active in internal mode', 'Expected targets to be active for WASM mode');
   assert(outputItem?.description === 'Active in internal mode', 'Expected output folder to be active for WASM mode');
+  assert(wasmItem?.description === 'Active in internal mode', 'Expected WASM setting to be active for legacy WASM mode');
 });
 
 async function run() {

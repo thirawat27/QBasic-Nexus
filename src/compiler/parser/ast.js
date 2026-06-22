@@ -53,6 +53,152 @@ function findLoopTarget(context, targetKind, field) {
   return null;
 }
 
+const AST_STATEMENT_DISPATCH = Object.freeze({
+  IF: (parser, context) => parser._parseAstIf(context),
+  FOR: (parser, context) => parser._parseAstFor(context),
+  NEXT: (parser) =>
+    parser._parseAstUnexpectedTerminator(
+      'Unexpected NEXT without a matching FOR block.',
+    ),
+  DO: (parser, context) => parser._parseAstDo(context),
+  LOOP: (parser) =>
+    parser._parseAstUnexpectedTerminator(
+      'Unexpected LOOP without a matching DO block.',
+    ),
+  WHILE: (parser, context) => parser._parseAstWhile(context),
+  WEND: (parser) =>
+    parser._parseAstUnexpectedTerminator(
+      'Unexpected WEND without a matching WHILE block.',
+    ),
+  SELECT: (parser, context) => parser._parseAstSelect(context),
+  CASE: (parser) =>
+    parser._parseAstUnexpectedTerminator(
+      'Unexpected CASE outside a SELECT CASE block.',
+    ),
+  ELSEIF: (parser) =>
+    parser._parseAstUnexpectedTerminator(
+      'Unexpected ELSEIF without a matching IF block.',
+    ),
+  ELSE: (parser) =>
+    parser._parseAstUnexpectedTerminator(
+      'Unexpected ELSE without a matching IF block.',
+    ),
+  EXIT: (parser, context) => parser._parseAstExit(context),
+  CONTINUE: (parser) => ({ kind: 'Continue', ...parser._astLoc() }),
+  _CONTINUE: (parser) => ({ kind: 'Continue', ...parser._astLoc() }),
+  ON: (parser, context) => parser._parseAstOnStatement(context),
+  GOTO: (parser) => parser._parseAstGoto(),
+  GOSUB: (parser) => parser._parseAstGosub(),
+  ERROR: (parser) => parser._parseAstError(),
+  RESUME: (parser) => parser._parseAstResume(),
+  RETURN: (parser) => ({ kind: 'Return', ...parser._astLoc() }),
+  SUB: (parser) => parser._parseAstProcedure('SUB'),
+  FUNCTION: (parser) => parser._parseAstProcedure('FUNCTION'),
+  STOP: (parser) => ({ kind: 'Terminate', reason: 'STOP', ...parser._astLoc() }),
+  SYSTEM: (parser) => ({ kind: 'Terminate', reason: 'SYSTEM', ...parser._astLoc() }),
+  END: (parser, context) => parser._parseAstEnd(context),
+  CLS: (parser) => parser._parseAstEmitLines(['_cls();']),
+  LOCATE: (parser) => parser._parseAstEmitStatement('_parseLocate'),
+  COLOR: (parser) => parser._parseAstEmitStatement('_parseColor'),
+  SCREEN: (parser) => parser._parseAstEmitStatement('_parseScreen'),
+  WIDTH: (parser) => parser._parseAstEmitStatement('_parseWidth'),
+  CIRCLE: (parser) => parser._parseAstEmitStatement('_parseCircle'),
+  PSET: (parser) => parser._parseAstEmitStatement('_parsePset'),
+  PRESET: (parser) => parser._parseAstEmitStatement('_parsePreset'),
+  PAINT: (parser) => parser._parseAstEmitStatement('_parsePaint'),
+  DRAW: (parser) => parser._parseAstEmitStatement('_parseDraw'),
+  VIEW: (parser) => parser._parseAstEmitStatement('_parseView'),
+  WINDOW: (parser) => parser._parseAstEmitStatement('_parseWindow'),
+  PALETTE: (parser) => parser._parseAstEmitStatement('_parsePalette'),
+  PCOPY: (parser) => parser._parseAstEmitStatement('_parsePcopy'),
+  BEEP: (parser) => parser._parseAstEmitLines(['await _beep();']),
+  SOUND: (parser) => parser._parseAstEmitStatement('_parseSound'),
+  PLAY: (parser) => parser._parseAstEmitStatement('_parsePlay'),
+  SLEEP: (parser) => parser._parseAstEmitStatement('_parseSleep'),
+  _DELAY: (parser) => parser._parseAstEmitStatement('_parseDelay'),
+  _LIMIT: (parser) => parser._parseAstEmitStatement('_parseLimit'),
+  _FULLSCREEN: (parser) => parser._parseAstEmitStatement('_parseFullscreen'),
+  _TITLE: (parser) => parser._parseAstEmitStatement('_parseTitle'),
+  _SCREENMOVE: (parser) => parser._parseAstEmitStatement('_parseScreenMove'),
+  _SCREENICON: (parser) => parser._parseAstEmitStatement('_parseScreenIcon'),
+  _SCREENHIDE: (parser) => parser._parseAstEmitStatement('_parseScreenHide'),
+  _SCREENSHOW: (parser) => parser._parseAstEmitStatement('_parseScreenShow'),
+  _ICON: (parser) => parser._parseAstEmitStatement('_parseIcon'),
+  _DEST: (parser) => parser._parseAstEmitStatement('_parseDest'),
+  _SOURCE: (parser) => parser._parseAstEmitStatement('_parseSource'),
+  _FONT: (parser) => parser._parseAstEmitStatement('_parseFont'),
+  _PUTIMAGE: (parser) => parser._parseAstEmitStatement('_parsePutImage'),
+  _PRINTSTRING: (parser) => parser._parseAstEmitStatement('_parsePrintString'),
+  _FREEIMAGE: (parser) => parser._parseAstEmitStatement('_parseFreeImage'),
+  _MEMGET: (parser) => parser._parseAstEmitStatement('_parseMemGet'),
+  _MEMPUT: (parser) => parser._parseAstEmitStatement('_parseMemPut'),
+  _MEMFREE: (parser) => parser._parseAstEmitStatement('_parseMemFree'),
+  _MEMCOPY: (parser) => parser._parseAstEmitStatement('_parseMemCopy'),
+  _MEMFILL: (parser) => parser._parseAstEmitStatement('_parseMemFill'),
+  _SETALPHA: (parser) => parser._parseAstEmitStatement('_parseSetAlpha'),
+  _CLEARCOLOR: (parser) => parser._parseAstEmitStatement('_parseClearColor'),
+  _AUTODISPLAY: (parser) =>
+    parser._parseAstEmitLines(['// _AUTODISPLAY - default in web']),
+  _MOUSEHIDE: (parser) => parser._parseAstEmitLines(['_runtime.mousehide?.();']),
+  _MOUSESHOW: (parser) => parser._parseAstEmitStatement('_parseMouseShow'),
+  _MOUSEMOVE: (parser) => parser._parseAstEmitStatement('_parseMouseMove'),
+  _KEYCLEAR: (parser) => parser._parseAstEmitLines(['_runtime.keyclear?.();']),
+  _DISPLAY: (parser) => parser._parseAstEmitLines(['_runtime.display?.();']),
+  PRINT: (parser) => parser._parseAstEmitStatement('_parsePrint'),
+  INPUT: (parser) => parser._parseAstEmitStatement('_parseInput'),
+  OPTION: (parser) => parser._parseAstEmitStatement('_parseOption'),
+  GET(parser) {
+    return parser._peek()?.type === TokenType.PUNCTUATION && parser._peek()?.value === '#'
+      ? parser._parseAstEmitStatement('_parseGetFile')
+      : parser._parseAstEmitStatement('_parseGet');
+  },
+  PUT(parser) {
+    return parser._peek()?.type === TokenType.PUNCTUATION && parser._peek()?.value === '#'
+      ? parser._parseAstEmitStatement('_parsePutFile')
+      : parser._parseAstEmitStatement('_parsePut');
+  },
+  LINE(parser) {
+    if (parser._matchKw('INPUT')) {
+      return parser._parseAstEmitStatement('_parseLineInput');
+    }
+    return parser._parseAstEmitStatement('_parseLine');
+  },
+  DATA: (parser) => parser._parseAstEmitStatement('_parseData'),
+  READ: (parser) => parser._parseAstEmitStatement('_parseRead'),
+  RESTORE: (parser) => parser._parseAstEmitStatement('_parseRestore'),
+  OPEN: (parser) => parser._parseAstEmitStatement('_parseOpen'),
+  CLOSE: (parser) => parser._parseAstEmitStatement('_parseClose'),
+  FIELD: (parser) => parser._parseAstEmitStatement('_parseField'),
+  FILES: (parser) => parser._parseAstEmitStatement('_parseFiles'),
+  NAME: (parser) => parser._parseAstEmitStatement('_parseName'),
+  KILL: (parser) => parser._parseAstEmitStatement('_parseKill'),
+  MKDIR: (parser) => parser._parseAstEmitStatement('_parseMkdir'),
+  RMDIR: (parser) => parser._parseAstEmitStatement('_parseRmdir'),
+  CHDIR: (parser) => parser._parseAstEmitStatement('_parseChdir'),
+  SEEK: (parser) => parser._parseAstEmitStatement('_parseSeek'),
+  LOCK: (parser) => parser._parseAstEmitStatement('_parseLock'),
+  UNLOCK: (parser) => parser._parseAstEmitStatement('_parseUnlock'),
+  RESET: (parser) => parser._parseAstEmitLines(['await _resetFiles();']),
+  WRITE: (parser) => parser._parseAstEmitStatement('_parseWrite'),
+  RANDOMIZE: (parser) => parser._parseAstEmitStatement('_parseRandomize'),
+  OUT: (parser) => parser._parseAstEmitStatement('_parseOut'),
+  WAIT: (parser) => parser._parseAstEmitStatement('_parseWait'),
+  POKE: (parser) => parser._parseAstEmitStatement('_parsePoke'),
+  LSET: (parser) => parser._parseAstEmitStatement('_parseLsetStatement'),
+  RSET: (parser) => parser._parseAstEmitStatement('_parseRsetStatement'),
+  'MID$': (parser) => parser._parseAstEmitStatement('_parseMidAssignment'),
+  RUN: (parser) => parser._parseAstEmitStatement('_parseRun', { unconditional: true }),
+  CHAIN: (parser) => parser._parseAstEmitStatement('_parseChain', { unconditional: true }),
+  SHELL: (parser) => parser._parseAstEmitStatement('_parseShell'),
+  _SHELL: (parser) => parser._parseAstEmitStatement('_parseShell'),
+  DEF(parser) {
+    if (parser._matchKw('SEG')) {
+      return parser._parseAstEmitStatement('_parseDefSeg');
+    }
+    return parser._parseAstEmitStatement('_parseDefFn');
+  },
+});
+
 class TrampolineBuilder {
   constructor(parser, body, context = {}) {
     this.parser = parser;
@@ -593,174 +739,13 @@ module.exports = {
       };
     }
 
-    if (this._matchKw('IF')) return this._parseAstIf(context);
-    if (this._matchKw('FOR')) return this._parseAstFor(context);
-    if (this._matchKw('NEXT')) {
-      return this._parseAstUnexpectedTerminator(
-        'Unexpected NEXT without a matching FOR block.',
-      );
-    }
-    if (this._matchKw('DO')) return this._parseAstDo(context);
-    if (this._matchKw('LOOP')) {
-      return this._parseAstUnexpectedTerminator(
-        'Unexpected LOOP without a matching DO block.',
-      );
-    }
-    if (this._matchKw('WHILE')) return this._parseAstWhile(context);
-    if (this._matchKw('WEND')) {
-      return this._parseAstUnexpectedTerminator(
-        'Unexpected WEND without a matching WHILE block.',
-      );
-    }
-    if (this._matchKw('SELECT')) return this._parseAstSelect(context);
-    if (this._matchKw('CASE')) {
-      return this._parseAstUnexpectedTerminator(
-        'Unexpected CASE outside a SELECT CASE block.',
-      );
-    }
-    if (this._matchKw('ELSEIF')) {
-      return this._parseAstUnexpectedTerminator(
-        'Unexpected ELSEIF without a matching IF block.',
-      );
-    }
-    if (this._matchKw('ELSE')) {
-      return this._parseAstUnexpectedTerminator(
-        'Unexpected ELSE without a matching IF block.',
-      );
-    }
-    if (this._matchKw('EXIT')) return this._parseAstExit(context);
-    if (this._matchKw('CONTINUE') || this._matchKw('_CONTINUE')) {
-      return {
-        kind: 'Continue',
-        ...this._astLoc(),
-      };
-    }
-    if (this._matchKw('ON')) return this._parseAstOnStatement(context);
-    if (this._matchKw('GOTO')) return this._parseAstGoto();
-    if (this._matchKw('GOSUB')) return this._parseAstGosub();
-    if (this._matchKw('ERROR')) return this._parseAstError();
-    if (this._matchKw('RESUME')) return this._parseAstResume();
-    if (this._matchKw('RETURN')) {
-      return {
-        kind: 'Return',
-        ...this._astLoc(),
-      };
-    }
-    if (this._checkKw('SUB')) {
-      this._advance();
-      return this._parseAstProcedure('SUB');
-    }
-    if (this._checkKw('FUNCTION')) {
-      this._advance();
-      return this._parseAstProcedure('FUNCTION');
-    }
-    if (this._matchKw('STOP')) {
-      return { kind: 'Terminate', reason: 'STOP', ...this._astLoc() };
-    }
-    if (this._matchKw('SYSTEM')) {
-      return { kind: 'Terminate', reason: 'SYSTEM', ...this._astLoc() };
-    }
-    if (this._matchKw('END')) return this._parseAstEnd(context);
-    if (this._matchKw('CLS')) return this._parseAstEmitLines(['_cls();']);
-    if (this._matchKw('LOCATE')) return this._parseAstEmitStatement('_parseLocate');
-    if (this._matchKw('COLOR')) return this._parseAstEmitStatement('_parseColor');
-    if (this._matchKw('SCREEN')) return this._parseAstEmitStatement('_parseScreen');
-    if (this._matchKw('WIDTH')) return this._parseAstEmitStatement('_parseWidth');
-    if (this._matchKw('CIRCLE')) return this._parseAstEmitStatement('_parseCircle');
-    if (this._matchKw('PSET')) return this._parseAstEmitStatement('_parsePset');
-    if (this._matchKw('PRESET')) return this._parseAstEmitStatement('_parsePreset');
-    if (this._matchKw('PAINT')) return this._parseAstEmitStatement('_parsePaint');
-    if (this._matchKw('DRAW')) return this._parseAstEmitStatement('_parseDraw');
-    if (this._matchKw('VIEW')) return this._parseAstEmitStatement('_parseView');
-    if (this._matchKw('WINDOW')) return this._parseAstEmitStatement('_parseWindow');
-    if (this._matchKw('PALETTE')) return this._parseAstEmitStatement('_parsePalette');
-    if (this._matchKw('PCOPY')) return this._parseAstEmitStatement('_parsePcopy');
-    if (this._matchKw('BEEP')) return this._parseAstEmitLines(['await _beep();']);
-    if (this._matchKw('SOUND')) return this._parseAstEmitStatement('_parseSound');
-    if (this._matchKw('PLAY')) return this._parseAstEmitStatement('_parsePlay');
-    if (this._matchKw('SLEEP')) return this._parseAstEmitStatement('_parseSleep');
-    if (this._matchKw('_DELAY')) return this._parseAstEmitStatement('_parseDelay');
-    if (this._matchKw('_LIMIT')) return this._parseAstEmitStatement('_parseLimit');
-    if (this._matchKw('_FULLSCREEN')) return this._parseAstEmitStatement('_parseFullscreen');
-    if (this._matchKw('_TITLE')) return this._parseAstEmitStatement('_parseTitle');
-    if (this._matchKw('_SCREENMOVE')) return this._parseAstEmitStatement('_parseScreenMove');
-    if (this._matchKw('_SCREENICON'))
-      return this._parseAstEmitStatement('_parseScreenIcon');
-    if (this._matchKw('_SCREENHIDE')) return this._parseAstEmitStatement('_parseScreenHide');
-    if (this._matchKw('_SCREENSHOW')) return this._parseAstEmitStatement('_parseScreenShow');
-    if (this._matchKw('_ICON')) return this._parseAstEmitStatement('_parseIcon');
-    if (this._matchKw('_DEST')) return this._parseAstEmitStatement('_parseDest');
-    if (this._matchKw('_SOURCE')) return this._parseAstEmitStatement('_parseSource');
-    if (this._matchKw('_FONT')) return this._parseAstEmitStatement('_parseFont');
-    if (this._matchKw('_PUTIMAGE')) return this._parseAstEmitStatement('_parsePutImage');
-    if (this._matchKw('_PRINTSTRING')) return this._parseAstEmitStatement('_parsePrintString');
-    if (this._matchKw('_FREEIMAGE')) return this._parseAstEmitStatement('_parseFreeImage');
-    if (this._matchKw('_MEMGET')) return this._parseAstEmitStatement('_parseMemGet');
-    if (this._matchKw('_MEMPUT')) return this._parseAstEmitStatement('_parseMemPut');
-    if (this._matchKw('_MEMFREE')) return this._parseAstEmitStatement('_parseMemFree');
-    if (this._matchKw('_MEMCOPY')) return this._parseAstEmitStatement('_parseMemCopy');
-    if (this._matchKw('_MEMFILL')) return this._parseAstEmitStatement('_parseMemFill');
-    if (this._matchKw('_SETALPHA')) return this._parseAstEmitStatement('_parseSetAlpha');
-    if (this._matchKw('_CLEARCOLOR')) return this._parseAstEmitStatement('_parseClearColor');
-    if (this._matchKw('_AUTODISPLAY'))
-      return this._parseAstEmitLines(['// _AUTODISPLAY - default in web']);
-    if (this._matchKw('_MOUSEHIDE'))
-      return this._parseAstEmitLines(['_runtime.mousehide?.();']);
-    if (this._matchKw('_MOUSESHOW')) return this._parseAstEmitStatement('_parseMouseShow');
-    if (this._matchKw('_MOUSEMOVE')) return this._parseAstEmitStatement('_parseMouseMove');
-    if (this._matchKw('_KEYCLEAR')) return this._parseAstEmitLines(['_runtime.keyclear?.();']);
-    if (this._matchKw('_DISPLAY')) return this._parseAstEmitLines(['_runtime.display?.();']);
-    if (this._matchKw('PRINT')) return this._parseAstEmitStatement('_parsePrint');
-    if (this._matchKw('INPUT')) return this._parseAstEmitStatement('_parseInput');
-    if (this._matchKw('OPTION')) return this._parseAstEmitStatement('_parseOption');
-    if (this._matchKw('GET')) {
-      return this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === '#'
-        ? this._parseAstEmitStatement('_parseGetFile')
-        : this._parseAstEmitStatement('_parseGet');
-    }
-    if (this._matchKw('PUT')) {
-      return this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === '#'
-        ? this._parseAstEmitStatement('_parsePutFile')
-        : this._parseAstEmitStatement('_parsePut');
-    }
-    if (this._matchKw('LINE')) {
-      if (this._matchKw('INPUT')) {
-        return this._parseAstEmitStatement('_parseLineInput');
+    const token = this._peek();
+    if (token?.type === TokenType.KEYWORD) {
+      const handler = AST_STATEMENT_DISPATCH[token.value];
+      if (handler) {
+        this._advance();
+        return handler(this, context);
       }
-      return this._parseAstEmitStatement('_parseLine');
-    }
-    if (this._matchKw('DATA')) return this._parseAstEmitStatement('_parseData');
-    if (this._matchKw('READ')) return this._parseAstEmitStatement('_parseRead');
-    if (this._matchKw('RESTORE')) return this._parseAstEmitStatement('_parseRestore');
-    if (this._matchKw('OPEN')) return this._parseAstEmitStatement('_parseOpen');
-    if (this._matchKw('CLOSE')) return this._parseAstEmitStatement('_parseClose');
-    if (this._matchKw('FIELD')) return this._parseAstEmitStatement('_parseField');
-    if (this._matchKw('FILES')) return this._parseAstEmitStatement('_parseFiles');
-    if (this._matchKw('NAME')) return this._parseAstEmitStatement('_parseName');
-    if (this._matchKw('KILL')) return this._parseAstEmitStatement('_parseKill');
-    if (this._matchKw('MKDIR')) return this._parseAstEmitStatement('_parseMkdir');
-    if (this._matchKw('RMDIR')) return this._parseAstEmitStatement('_parseRmdir');
-    if (this._matchKw('CHDIR')) return this._parseAstEmitStatement('_parseChdir');
-    if (this._matchKw('SEEK')) return this._parseAstEmitStatement('_parseSeek');
-    if (this._matchKw('LOCK')) return this._parseAstEmitStatement('_parseLock');
-    if (this._matchKw('UNLOCK')) return this._parseAstEmitStatement('_parseUnlock');
-    if (this._matchKw('RESET')) return this._parseAstEmitLines(['await _resetFiles();']);
-    if (this._matchKw('WRITE')) return this._parseAstEmitStatement('_parseWrite');
-    if (this._matchKw('RANDOMIZE')) return this._parseAstEmitStatement('_parseRandomize');
-    if (this._matchKw('OUT')) return this._parseAstEmitStatement('_parseOut');
-    if (this._matchKw('WAIT')) return this._parseAstEmitStatement('_parseWait');
-    if (this._matchKw('POKE')) return this._parseAstEmitStatement('_parsePoke');
-    if (this._matchKw('LSET')) return this._parseAstEmitStatement('_parseLsetStatement');
-    if (this._matchKw('RSET')) return this._parseAstEmitStatement('_parseRsetStatement');
-    if (this._matchKw('MID$')) return this._parseAstEmitStatement('_parseMidAssignment');
-    if (this._matchKw('RUN')) return this._parseAstEmitStatement('_parseRun', { unconditional: true });
-    if (this._matchKw('CHAIN')) return this._parseAstEmitStatement('_parseChain', { unconditional: true });
-    if (this._matchKw('SHELL') || this._matchKw('_SHELL')) return this._parseAstEmitStatement('_parseShell');
-    if (this._matchKw('DEF')) {
-      if (this._matchKw('SEG')) {
-        return this._parseAstEmitStatement('_parseDefSeg');
-      }
-      return this._parseAstEmitStatement('_parseDefFn');
     }
 
     return this._captureAstRawStatement();

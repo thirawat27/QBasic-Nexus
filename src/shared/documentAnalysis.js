@@ -41,6 +41,16 @@ const SELECT_CASE_RE = /^\s*SELECT\s+CASE\b/i;
 const DECLARATION_CONTEXT_RE = /\b(?:DIM|SUB|FUNCTION|TYPE|CONST)\s*$/i;
 const DIM_PREFIX_RE = /^\s*DIM\s+(?:SHARED\s+)?/i;
 
+function countRegexMatches(regex, text) {
+  regex.lastIndex = 0;
+  let count = 0;
+  while (regex.exec(text) !== null) {
+    count++;
+  }
+  regex.lastIndex = 0;
+  return count;
+}
+
 function getUppercaseLines(analysis) {
   if (!Array.isArray(analysis?.lines)) {
     return null;
@@ -223,13 +233,11 @@ function analyzeQBasicText(text = '') {
     let match;
 
     if (upperLine.includes('GOTO')) {
-      const gotos = line.match(GOTO_RE);
-      if (gotos) gotoCount += gotos.length;
+      gotoCount += countRegexMatches(GOTO_RE, line);
     }
 
     if (upperLine.includes('GOSUB')) {
-      const gosubs = line.match(GOSUB_RE);
-      if (gosubs) gosubCount += gosubs.length;
+      gosubCount += countRegexMatches(GOSUB_RE, line);
     }
     
     if (upperLine.includes('SELECT CASE')) {

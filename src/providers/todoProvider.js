@@ -6,6 +6,7 @@ const {
   scanTodoComments,
 } = require('../shared/todoComments');
 const UTF8_DECODER = new TextDecoder('utf-8');
+const CRITICAL_TODO_KEYWORDS = new Set(['FIXME', 'FIXIT', 'HACK', 'BUG']);
 
 class TodoItem extends vscode.TreeItem {
   constructor(label, collapsibleState, range, uri, keyword) {
@@ -13,11 +14,14 @@ class TodoItem extends vscode.TreeItem {
     this.range = range;
     this.uri = uri;
     this.keyword = keyword;
+    this.sortRank = KEYWORD_RANK[keyword] || 4;
+    this.sortFilePath = uri.fsPath || uri.toString();
+    this.sortLine = range.start.line;
     
     // Set icons based on keyword
     if (keyword === 'TODO') {
       this.iconPath = new vscode.ThemeIcon('checklist');
-    } else if (keyword === 'FIXME' || keyword === 'FIXIT' || keyword === 'HACK' || keyword === 'BUG') {
+    } else if (CRITICAL_TODO_KEYWORDS.has(keyword)) {
       this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
     } else if (keyword === 'NOTE') {
       this.iconPath = new vscode.ThemeIcon('info', new vscode.ThemeColor('infoForeground'));
@@ -196,18 +200,18 @@ class QBasicTodoProvider {
     const todos = [];
 
     for (const entry of this._fileTodoCache.values()) {
-      todos.push(...entry.todos);
+      for (const todo of entry.todos) {
+        todos.push(todo);
+      }
     }
 
     todos.sort((a, b) => {
-      const aRank = KEYWORD_RANK[a.keyword] || 4;
-      const bRank = KEYWORD_RANK[b.keyword] || 4;
-      if (aRank !== bRank) return aRank - bRank;
+      if (a.sortRank !== b.sortRank) return a.sortRank - b.sortRank;
 
-      const fileCompare = a.uri.fsPath.localeCompare(b.uri.fsPath);
+      const fileCompare = a.sortFilePath.localeCompare(b.sortFilePath);
       if (fileCompare !== 0) return fileCompare;
 
-      return a.range.start.line - b.range.start.line;
+      return a.sortLine - b.sortLine;
     });
 
     this.todos = todos;

@@ -456,6 +456,9 @@ class WebviewManager {
     const crtTranscriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'crtTranscript.js'),
     );
+    const crtOutputBufferUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'crtOutputBuffer.js'),
+    );
     const jsUri = webview.asWebviewUri(
       vscode.Uri.joinPath(extensionUri, 'src', 'webview', 'runtime.js'),
     );
@@ -485,6 +488,7 @@ class WebviewManager {
       .replace('{{cssUri}}', cssUri.toString())
       .replace('{{crtTextUri}}', crtTextUri.toString())
       .replace('{{crtTranscriptUri}}', crtTranscriptUri.toString())
+      .replace('{{crtOutputBufferUri}}', crtOutputBufferUri.toString())
       .replace('{{jsUri}}', jsUri.toString());
   }
 

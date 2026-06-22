@@ -727,6 +727,27 @@ build/artifacts
 C:\QBasicNexus\out
 ```
 
+---
+
+**Internal WASM Accelerator**
+
+- **Setting Name** - `qbasic-nexus.internalWasmAccelerator`
+- **Type** - Dropdown selection
+- **Default** - `auto`
+- **Required For** - QBasic Nexus internal mode
+
+**Options**
+
+- `auto` - Use the WebAssembly accelerator when the runtime supports it, with JavaScript fallback
+- `on` - Force the internal compiler to emit the WebAssembly accelerator path
+- `off` - Use the pure JavaScript internal runtime
+
+**What this does**
+
+- Keeps **Qbasic Nexus** as the single internal compiler mode
+- Lets WASM acceleration be tuned separately without creating a third compiler mode
+- You can change this from the Command Palette via **QBasic Select Internal WASM Accelerator ⚡**
+
 ### Worker Resilience Settings
 
 These settings tune worker-pool behavior for internal compile/lint workloads under heavy editor activity.
@@ -966,6 +987,7 @@ Structured sections   Start 1000, Step 1000
   "qbasic-nexus.compilerMode": "Qbasic Nexus",
   "qbasic-nexus.internalTargets": "host,linux-x64",
   "qbasic-nexus.internalOutputDir": "dist",
+  "qbasic-nexus.internalWasmAccelerator": "auto",
   "qbasic-nexus.enableLinting": true,
   "qbasic-nexus.lintDelay": 500,
   "qbasic-nexus.autoFormatOnSave": true,
@@ -1232,6 +1254,7 @@ Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 | **QBasic Configure QB64 Args 🧪**       | -              | Picks or customizes extra QB64 command-line arguments.                 |
 | **QBasic Select Internal Build Targets 🎯** | -           | Picks internal compiler target presets or a custom pkg target list.    |
 | **QBasic Select Internal Output Folder 📂** | -           | Picks or enters the output folder used by internal executable builds.  |
+| **QBasic Select Internal WASM Accelerator ⚡** | -       | Chooses auto, on, or off for the internal compiler WASM accelerator.   |
 | **QBasic Tune Compile Worker Resilience 🛡️** | -         | Picks or customizes compile worker queue/timeout resilience settings.   |
 | **QBasic Tune Lint Worker Resilience 🛡️** | -            | Picks or customizes lint worker queue/timeout resilience settings.      |
 | **QBasic Configure Linting 🩺**         | -              | Enables or disables editor linting from a quick picker.                |

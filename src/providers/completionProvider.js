@@ -7,8 +7,7 @@
 
 const vscode = require('vscode');
 const {
-  getKeywordCompletionItems,
-  getFunctionCompletionItems,
+  getStaticCompletionItems,
 } = require('./cache');
 const {
   SYMBOL_KIND,
@@ -59,11 +58,7 @@ class QBasicCompletionItemProvider {
     const analysis = await workspaceAnalyzer.getWorkspaceAnalysis(document, {
       awaitWorkspace: false,
     });
-    return [
-      ...getKeywordCompletionItems(),
-      ...getFunctionCompletionItems(),
-      ...getDynamicCompletionItems(analysis),
-    ];
+    return getStaticCompletionItems().concat(getDynamicCompletionItems(analysis));
   }
 }
 

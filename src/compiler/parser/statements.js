@@ -1,269 +1,244 @@
 // Auto-extracted Mixin
 'use strict';
 const { TokenType } = require('../constants');
+
+const STATEMENT_DISPATCH = Object.freeze({
+  DECLARE(parser) {
+    parser._advance();
+    return parser._skipToEndOfLine();
+  },
+  PRINT: (parser) => { parser._advance(); return parser._parsePrint(); },
+  INPUT: (parser) => { parser._advance(); return parser._parseInput(); },
+  LINE(parser) {
+    parser._advance();
+    if (parser._matchKw('INPUT')) return parser._parseLineInput();
+    return parser._parseLine();
+  },
+  CIRCLE: (parser) => { parser._advance(); return parser._parseCircle(); },
+  PSET: (parser) => { parser._advance(); return parser._parsePset(); },
+  PRESET: (parser) => { parser._advance(); return parser._parsePreset(); },
+  PAINT: (parser) => { parser._advance(); return parser._parsePaint(); },
+  GET(parser) {
+    parser._advance();
+    return parser._peek()?.type === TokenType.PUNCTUATION && parser._peek()?.value === '#'
+      ? parser._parseGetFile()
+      : parser._parseGet();
+  },
+  PUT(parser) {
+    parser._advance();
+    return parser._peek()?.type === TokenType.PUNCTUATION && parser._peek()?.value === '#'
+      ? parser._parsePutFile()
+      : parser._parsePut();
+  },
+  IF: (parser) => { parser._advance(); return parser._parseIf(); },
+  ELSEIF: (parser) => { parser._advance(); return parser._parseElseIf(); },
+  ELSE: (parser) => { parser._advance(); return parser._parseElse(); },
+  END: (parser) => { parser._advance(); return parser._parseEnd(); },
+  FOR: (parser) => { parser._advance(); return parser._parseFor(); },
+  NEXT: (parser) => { parser._advance(); return parser._parseNext(); },
+  DO: (parser) => { parser._advance(); return parser._parseDo(); },
+  LOOP: (parser) => { parser._advance(); return parser._parseLoop(); },
+  WHILE: (parser) => { parser._advance(); return parser._parseWhile(); },
+  WEND: (parser) => { parser._advance(); return parser._parseWend(); },
+  SELECT: (parser) => { parser._advance(); return parser._parseSelect(); },
+  EXIT: (parser) => { parser._advance(); return parser._parseExit(); },
+  STOP(parser) {
+    parser._advance();
+    return parser._emit('throw "__END__"; // STOP');
+  },
+  COMMON: (parser) => { parser._advance(); return parser._parseCommon(); },
+  OPTION: (parser) => { parser._advance(); return parser._parseOption(); },
+  DIM: (parser) => { parser._advance(); return parser._parseDim(); },
+  REDIM: (parser) => { parser._advance(); return parser._parseRedim(); },
+  STATIC: (parser) => { parser._advance(); return parser._parseStatic(); },
+  CONST: (parser) => { parser._advance(); return parser._parseConst(); },
+  TYPE: (parser) => { parser._advance(); return parser._parseType(); },
+  DATA: (parser) => { parser._advance(); return parser._parseData(); },
+  READ: (parser) => { parser._advance(); return parser._parseRead(); },
+  RESTORE: (parser) => { parser._advance(); return parser._parseRestore(); },
+  FIELD: (parser) => { parser._advance(); return parser._parseField(); },
+  SWAP: (parser) => { parser._advance(); return parser._parseSwap(); },
+  ERASE: (parser) => { parser._advance(); return parser._parseErase(); },
+  LSET: (parser) => { parser._advance(); return parser._parseLsetStatement(); },
+  RSET: (parser) => { parser._advance(); return parser._parseRsetStatement(); },
+  LET: (parser) => { parser._advance(); return parser._parseAssignment(); },
+  CLS(parser) {
+    parser._advance();
+    return parser._emit('_cls();');
+  },
+  LOCATE: (parser) => { parser._advance(); return parser._parseLocate(); },
+  COLOR: (parser) => { parser._advance(); return parser._parseColor(); },
+  SCREEN: (parser) => { parser._advance(); return parser._parseScreen(); },
+  WIDTH: (parser) => { parser._advance(); return parser._parseWidth(); },
+  BEEP(parser) {
+    parser._advance();
+    return parser._emit('await _beep();');
+  },
+  SOUND: (parser) => { parser._advance(); return parser._parseSound(); },
+  PLAY: (parser) => { parser._advance(); return parser._parsePlay(); },
+  SLEEP: (parser) => { parser._advance(); return parser._parseSleep(); },
+  _DELAY: (parser) => { parser._advance(); return parser._parseDelay(); },
+  _LIMIT: (parser) => { parser._advance(); return parser._parseLimit(); },
+  CONTINUE(parser) {
+    parser._advance();
+    return parser._emit('continue;');
+  },
+  _CONTINUE(parser) {
+    parser._advance();
+    return parser._emit('continue;');
+  },
+  GOTO: (parser) => { parser._advance(); return parser._parseGoto(); },
+  GOSUB: (parser) => { parser._advance(); return parser._parseGosub(); },
+  RETURN(parser) {
+    parser._advance();
+    if (parser._insideRawCapture) {
+      parser._rawCaptureContainsJump = true;
+    }
+    return parser._emit('return;');
+  },
+  ON: (parser) => { parser._advance(); return parser._parseOnStatement(); },
+  RESUME: (parser) => { parser._advance(); return parser._parseResume(); },
+  CALL: (parser) => { parser._advance(); return parser._parseCall(); },
+  SUB: (parser) => { parser._advance(); return parser._parseSub(); },
+  FUNCTION: (parser) => { parser._advance(); return parser._parseFunction(); },
+  RANDOMIZE: (parser) => { parser._advance(); return parser._parseRandomize(); },
+  DEF(parser) {
+    parser._advance();
+    if (parser._matchKw('SEG')) return parser._parseDefSeg();
+    return parser._parseDefFn();
+  },
+  OPEN: (parser) => { parser._advance(); return parser._parseOpen(); },
+  CLOSE: (parser) => { parser._advance(); return parser._parseClose(); },
+  DRAW: (parser) => { parser._advance(); return parser._parseDraw(); },
+  VIEW: (parser) => { parser._advance(); return parser._parseView(); },
+  WINDOW: (parser) => { parser._advance(); return parser._parseWindow(); },
+  PALETTE: (parser) => { parser._advance(); return parser._parsePalette(); },
+  PCOPY: (parser) => { parser._advance(); return parser._parsePcopy(); },
+  NAME: (parser) => { parser._advance(); return parser._parseName(); },
+  KILL: (parser) => { parser._advance(); return parser._parseKill(); },
+  MKDIR: (parser) => { parser._advance(); return parser._parseMkdir(); },
+  RMDIR: (parser) => { parser._advance(); return parser._parseRmdir(); },
+  CHDIR: (parser) => { parser._advance(); return parser._parseChdir(); },
+  FILES: (parser) => { parser._advance(); return parser._parseFiles(); },
+  SEEK: (parser) => { parser._advance(); return parser._parseSeek(); },
+  LOCK: (parser) => { parser._advance(); return parser._parseLock(); },
+  UNLOCK: (parser) => { parser._advance(); return parser._parseUnlock(); },
+  RESET(parser) {
+    parser._advance();
+    return parser._emit('await _resetFiles();');
+  },
+  DEFINT: (parser) => { parser._advance(); return parser._parseDefType('INTEGER'); },
+  DEFLNG: (parser) => { parser._advance(); return parser._parseDefType('LONG'); },
+  DEFSNG: (parser) => { parser._advance(); return parser._parseDefType('SINGLE'); },
+  DEFDBL: (parser) => { parser._advance(); return parser._parseDefType('DOUBLE'); },
+  DEFSTR: (parser) => { parser._advance(); return parser._parseDefType('STRING'); },
+  LPRINT: (parser) => { parser._advance(); return parser._parseLprint(); },
+  WRITE: (parser) => { parser._advance(); return parser._parseWrite(); },
+  OUT: (parser) => { parser._advance(); return parser._parseOut(); },
+  WAIT: (parser) => { parser._advance(); return parser._parseWait(); },
+  POKE: (parser) => { parser._advance(); return parser._parsePoke(); },
+  SYSTEM(parser) {
+    parser._advance();
+    return parser._emit('throw "__END__"; // SYSTEM');
+  },
+  RUN: (parser) => { parser._advance(); return parser._parseRun(); },
+  CHAIN: (parser) => { parser._advance(); return parser._parseChain(); },
+  SHELL: (parser) => { parser._advance(); return parser._parseShell(); },
+  _SHELL: (parser) => { parser._advance(); return parser._parseShell(); },
+  _TITLE: (parser) => { parser._advance(); return parser._parseTitle(); },
+  _FULLSCREEN: (parser) => { parser._advance(); return parser._parseFullscreen(); },
+  _SCREENMOVE: (parser) => { parser._advance(); return parser._parseScreenMove(); },
+  _SCREENICON: (parser) => { parser._advance(); return parser._parseScreenIcon(); },
+  _SCREENHIDE: (parser) => { parser._advance(); return parser._parseScreenHide(); },
+  _SCREENSHOW: (parser) => { parser._advance(); return parser._parseScreenShow(); },
+  _ICON: (parser) => { parser._advance(); return parser._parseIcon(); },
+  _DEST: (parser) => { parser._advance(); return parser._parseDest(); },
+  _SOURCE: (parser) => { parser._advance(); return parser._parseSource(); },
+  _AUTODISPLAY(parser) {
+    parser._advance();
+    return parser._emit('// _AUTODISPLAY - default in web');
+  },
+  _FONT: (parser) => { parser._advance(); return parser._parseFont(); },
+  _SNDSTOP: (parser) => { parser._advance(); return parser._parseSndStop(); },
+  _SNDVOL: (parser) => { parser._advance(); return parser._parseSndVol(); },
+  _SNDPAUSE: (parser) => { parser._advance(); return parser._parseSndPause(); },
+  _SNDBAL: (parser) => { parser._advance(); return parser._parseSndBal(); },
+  _SNDSETPOS: (parser) => { parser._advance(); return parser._parseSndSetPos(); },
+  _SNDRAW: (parser) => { parser._advance(); return parser._parseSndRaw(); },
+  _MEMGET: (parser) => { parser._advance(); return parser._parseMemGet(); },
+  _MEMPUT: (parser) => { parser._advance(); return parser._parseMemPut(); },
+  _MEMFREE: (parser) => { parser._advance(); return parser._parseMemFree(); },
+  _MEMCOPY: (parser) => { parser._advance(); return parser._parseMemCopy(); },
+  _MEMFILL: (parser) => { parser._advance(); return parser._parseMemFill(); },
+  _CLIPBOARD: (parser) => { parser._advance(); return parser._parseClipboard(); },
+  _PUTIMAGE: (parser) => { parser._advance(); return parser._parsePutImage(); },
+  _PRINTSTRING: (parser) => { parser._advance(); return parser._parsePrintString(); },
+  _FREEIMAGE: (parser) => { parser._advance(); return parser._parseFreeImage(); },
+  _SETALPHA: (parser) => { parser._advance(); return parser._parseSetAlpha(); },
+  _CLEARCOLOR: (parser) => { parser._advance(); return parser._parseClearColor(); },
+  _MOUSEHIDE(parser) {
+    parser._advance();
+    return parser._emit('_runtime.mousehide?.();');
+  },
+  _MOUSESHOW: (parser) => { parser._advance(); return parser._parseMouseShow(); },
+  _MOUSEMOVE: (parser) => { parser._advance(); return parser._parseMouseMove(); },
+  _KEYCLEAR(parser) {
+    parser._advance();
+    return parser._emit('_runtime.keyclear?.();');
+  },
+  _SNDPLAY: (parser) => { parser._advance(); return parser._parseSndPlay(); },
+  _SNDLOOP: (parser) => { parser._advance(); return parser._parseSndLoop(); },
+  _SNDCLOSE: (parser) => { parser._advance(); return parser._parseSndClose(); },
+  _DISPLAY(parser) {
+    parser._advance();
+    return parser._emit('_runtime.display?.();');
+  },
+  ERROR: (parser) => { parser._advance(); return parser._parseError(); },
+  CLEAR: (parser) => { parser._advance(); return parser._parseClear(); },
+  KEY: (parser) => { parser._advance(); return parser._parseKey(); },
+  STRIG: (parser) => { parser._advance(); return parser._parseStrig(); },
+  TIMER: (parser) => { parser._advance(); return parser._parseTimer(); },
+  FRE: (parser) => { parser._advance(); return parser._parseFre(); },
+  ENVIRON: (parser) => { parser._advance(); return parser._parseEnviron(); },
+  'DATE$': (parser) => { parser._advance(); return parser._parseDate$(); },
+  'TIME$': (parser) => { parser._advance(); return parser._parseTime$(); },
+  _CONSOLE: (parser) => { parser._advance(); return parser._parseConsole(); },
+  _CONSOLETITLE: (parser) => { parser._advance(); return parser._parseConsoleTitle(); },
+  _SHELLHIDE: (parser) => { parser._advance(); return parser._parseShellHide(); },
+  _ACCEPTFILEDROP: (parser) => { parser._advance(); return parser._parseAcceptFileDrop(); },
+  _NEWIMAGE: (parser) => { parser._advance(); return parser._parseNewImage(); },
+  _LOADIMAGE: (parser) => { parser._advance(); return parser._parseLoadImage(); },
+  _COPYIMAGE: (parser) => { parser._advance(); return parser._parseCopyImage(); },
+  _SNDOPEN: (parser) => { parser._advance(); return parser._parseSndOpen(); },
+  _SNDPLAYFILE: (parser) => { parser._advance(); return parser._parseSndPlayFile(); },
+  _SNDGETPOS: (parser) => { parser._advance(); return parser._parseSndGetPos(); },
+  _SNDLEN: (parser) => { parser._advance(); return parser._parseSndLen(); },
+  _SNDPLAYING: (parser) => { parser._advance(); return parser._parseSndPlaying(); },
+  _MOUSEWHEEL: (parser) => { parser._advance(); return parser._parseMouseWheel(); },
+  _MOUSEINPUT: (parser) => { parser._advance(); return parser._parseMouseInput(); },
+  _OPENHOST: (parser) => { parser._advance(); return parser._parseOpenHost(); },
+  _OPENCLIENT: (parser) => { parser._advance(); return parser._parseOpenClient(); },
+  _OPENCONNECTION: (parser) => { parser._advance(); return parser._parseOpenConnection(); },
+  _CLOSE: (parser) => { parser._advance(); return parser._parseClose(); },
+  _KEYDOWN: (parser) => { parser._advance(); return parser._parseKeyDown(); },
+  _KEYHIT: (parser) => { parser._advance(); return parser._parseKeyHit(); },
+  _RESIZE: (parser) => { parser._advance(); return parser._parseResize(); },
+  'MID$': (parser) => { parser._advance(); return parser._parseMidAssignment(); },
+});
+
 module.exports = {
 _parseStatement() {
-    // Skip DECLARE statements (forward declarations)
-    if (this._matchKw('DECLARE')) return this._skipToEndOfLine();
+    const token = this._peek();
+    if (!token) return;
 
-    // I/O Statements
-    if (this._matchKw('PRINT')) return this._parsePrint();
-    if (this._matchKw('INPUT')) return this._parseInput();
-    if (this._matchKw('LINE')) {
-      if (this._matchKw('INPUT')) return this._parseLineInput();
-      return this._parseLine();
-    }
-    if (this._matchKw('CIRCLE')) return this._parseCircle();
-    if (this._matchKw('PSET')) return this._parsePset();
-    if (this._matchKw('PRESET')) return this._parsePreset();
-    if (this._matchKw('PAINT')) return this._parsePaint();
-    if (this._matchKw('GET')) {
-      return this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === '#'
-        ? this._parseGetFile()
-        : this._parseGet();
-    }
-    if (this._matchKw('PUT')) {
-      return this._peek()?.type === TokenType.PUNCTUATION && this._peek()?.value === '#'
-        ? this._parsePutFile()
-        : this._parsePut();
-    }
-
-    // Control Flow
-    if (this._matchKw('IF')) return this._parseIf();
-    if (this._matchKw('ELSEIF')) return this._parseElseIf();
-    if (this._matchKw('ELSE')) return this._parseElse();
-    if (this._matchKw('END')) return this._parseEnd();
-    if (this._matchKw('FOR')) return this._parseFor();
-    if (this._matchKw('NEXT')) return this._parseNext();
-    if (this._matchKw('DO')) return this._parseDo();
-    if (this._matchKw('LOOP')) return this._parseLoop();
-    if (this._matchKw('WHILE')) return this._parseWhile();
-    if (this._matchKw('WEND')) return this._parseWend();
-    if (this._matchKw('SELECT')) return this._parseSelect();
-    if (this._matchKw('EXIT')) return this._parseExit();
-    if (this._matchKw('STOP')) return this._emit('throw "__END__"; // STOP');
-
-    // Variables & Data
-    if (this._matchKw('COMMON')) return this._parseCommon();
-    if (this._matchKw('OPTION')) return this._parseOption();
-    if (this._matchKw('DIM')) return this._parseDim();
-    if (this._matchKw('REDIM')) return this._parseRedim();
-    if (this._matchKw('STATIC')) return this._parseStatic();
-    if (this._matchKw('CONST')) return this._parseConst();
-    if (this._matchKw('TYPE')) return this._parseType();
-    if (this._matchKw('DATA')) return this._parseData();
-    if (this._matchKw('READ')) return this._parseRead();
-    if (this._matchKw('RESTORE')) return this._parseRestore();
-    if (this._matchKw('FIELD')) return this._parseField();
-    if (this._matchKw('SWAP')) return this._parseSwap();
-    if (this._matchKw('ERASE')) return this._parseErase();
-    if (this._matchKw('LSET')) return this._parseLsetStatement();
-    if (this._matchKw('RSET')) return this._parseRsetStatement();
-    if (this._matchKw('LET')) return this._parseAssignment();
-
-    // Screen & I/O
-    if (this._matchKw('CLS')) return this._emit('_cls();');
-    if (this._matchKw('LOCATE')) return this._parseLocate();
-    if (this._matchKw('COLOR')) return this._parseColor();
-    if (this._matchKw('SCREEN')) return this._parseScreen();
-    if (this._matchKw('WIDTH')) return this._parseWidth();
-    if (this._matchKw('BEEP')) return this._emit('await _beep();');
-    if (this._matchKw('SOUND')) return this._parseSound();
-    if (this._matchKw('PLAY')) return this._parsePlay();
-    if (this._matchKw('SLEEP')) return this._parseSleep();
-    if (this._matchKw('_DELAY')) return this._parseDelay();
-    if (this._matchKw('_LIMIT')) return this._parseLimit();
-    if (this._matchKw('CONTINUE') || this._matchKw('_CONTINUE'))
-      return this._emit('continue;');
-
-    // Branching
-    if (this._matchKw('GOTO')) return this._parseGoto();
-    if (this._matchKw('GOSUB')) return this._parseGosub();
-    if (this._matchKw('RETURN')) {
-      if (this._insideRawCapture) {
-        this._rawCaptureContainsJump = true;
-      }
-      return this._emit('return;');
-    }
-    if (this._matchKw('ON')) return this._parseOnStatement();
-    if (this._matchKw('RESUME')) return this._parseResume();
-
-    // Procedures
-    if (this._matchKw('CALL')) return this._parseCall();
-    if (this._checkKw('SUB')) {
+    if (token.type === TokenType.KEYWORD) {
+      const handler = STATEMENT_DISPATCH[token.value];
+      if (handler) return handler(this);
       this._advance();
-      return this._parseSub();
-    }
-    if (this._checkKw('FUNCTION')) {
-      this._advance();
-      return this._parseFunction();
+      return;
     }
 
-    // Misc
-    if (this._matchKw('RANDOMIZE')) return this._parseRandomize();
-    if (this._matchKw('DEF')) {
-      if (this._matchKw('SEG')) return this._parseDefSeg();
-      return this._parseDefFn();
-    }
-    if (this._matchKw('OPEN')) return this._parseOpen();
-    if (this._matchKw('CLOSE')) return this._parseClose();
-
-    // ============ NEW: Additional Graphics Commands ============
-    if (this._matchKw('DRAW')) return this._parseDraw();
-    if (this._matchKw('VIEW')) return this._parseView();
-    if (this._matchKw('WINDOW')) return this._parseWindow();
-    if (this._matchKw('PALETTE')) return this._parsePalette();
-    if (this._matchKw('PCOPY')) return this._parsePcopy();
-
-    // ============ NEW: File System Commands ============
-    if (this._matchKw('NAME')) return this._parseName();
-    if (this._matchKw('KILL')) return this._parseKill();
-    if (this._matchKw('MKDIR')) return this._parseMkdir();
-    if (this._matchKw('RMDIR')) return this._parseRmdir();
-    if (this._matchKw('CHDIR')) return this._parseChdir();
-    if (this._matchKw('FILES')) return this._parseFiles();
-    if (this._matchKw('SEEK')) return this._parseSeek();
-    if (this._matchKw('LOCK')) return this._parseLock();
-    if (this._matchKw('UNLOCK')) return this._parseUnlock();
-    if (this._matchKw('RESET')) return this._emit('await _resetFiles();');
-
-    // ============ NEW: DEF Type Commands ============
-    if (this._matchKw('DEFINT')) return this._parseDefType('INTEGER');
-    if (this._matchKw('DEFLNG')) return this._parseDefType('LONG');
-    if (this._matchKw('DEFSNG')) return this._parseDefType('SINGLE');
-    if (this._matchKw('DEFDBL')) return this._parseDefType('DOUBLE');
-    if (this._matchKw('DEFSTR')) return this._parseDefType('STRING');
-
-    // ============ NEW: I/O Commands ============
-    if (this._matchKw('LPRINT')) return this._parseLprint();
-    if (this._matchKw('WRITE')) return this._parseWrite();
-    if (this._matchKw('OUT')) return this._parseOut();
-    if (this._matchKw('WAIT')) return this._parseWait();
-
-    // ============ NEW: Memory Commands ============
-    if (this._matchKw('POKE')) return this._parsePoke();
-
-    // ============ NEW: System Commands ============
-    if (this._matchKw('SYSTEM')) return this._emit('throw "__END__"; // SYSTEM');
-    if (this._matchKw('RUN')) return this._parseRun();
-    if (this._matchKw('CHAIN')) return this._parseChain();
-    if (this._matchKw('SHELL') || this._matchKw('_SHELL'))
-      return this._parseShell();
-
-    // ============ NEW: QB64 Title/Window ============
-    if (this._matchKw('_TITLE')) return this._parseTitle();
-    if (this._matchKw('_FULLSCREEN')) return this._parseFullscreen();
-    if (this._matchKw('_SCREENMOVE')) return this._parseScreenMove();
-    if (this._matchKw('_SCREENICON')) return this._parseScreenIcon();
-    if (this._matchKw('_SCREENHIDE')) return this._parseScreenHide();
-    if (this._matchKw('_SCREENSHOW')) return this._parseScreenShow();
-    if (this._matchKw('_ICON')) return this._parseIcon();
-    if (this._matchKw('_DEST')) return this._parseDest();
-    if (this._matchKw('_SOURCE')) return this._parseSource();
-    if (this._matchKw('_AUTODISPLAY'))
-      return this._emit('// _AUTODISPLAY - default in web');
-    if (this._matchKw('_FONT')) return this._parseFont();
-
-    // ============ NEW: QB64 Sound Commands ============
-    if (this._matchKw('_SNDSTOP')) return this._parseSndStop();
-    if (this._matchKw('_SNDVOL')) return this._parseSndVol();
-    if (this._matchKw('_SNDPAUSE')) return this._parseSndPause();
-    if (this._matchKw('_SNDBAL')) return this._parseSndBal();
-    if (this._matchKw('_SNDSETPOS')) return this._parseSndSetPos();
-    if (this._matchKw('_SNDRAW')) return this._parseSndRaw();
-
-    // ============ NEW: QB64 Memory ============
-    if (this._matchKw('_MEMGET')) return this._parseMemGet();
-    if (this._matchKw('_MEMPUT')) return this._parseMemPut();
-    if (this._matchKw('_MEMFREE')) return this._parseMemFree();
-    if (this._matchKw('_MEMCOPY')) return this._parseMemCopy();
-    if (this._matchKw('_MEMFILL')) return this._parseMemFill();
-
-    // ============ NEW: QB64 Clipboard ============
-    if (this._matchKw('_CLIPBOARD')) return this._parseClipboard();
-
-    // Advanced Graphics
-    if (this._matchKw('_PUTIMAGE')) return this._parsePutImage();
-    if (this._matchKw('_PRINTSTRING')) return this._parsePrintString();
-    if (this._matchKw('_FREEIMAGE')) return this._parseFreeImage();
-    if (this._matchKw('_SETALPHA')) return this._parseSetAlpha();
-    if (this._matchKw('_CLEARCOLOR')) return this._parseClearColor();
-
-    // Advanced Mouse
-    if (this._matchKw('_MOUSEHIDE'))
-      return this._emit('_runtime.mousehide?.();');
-    if (this._matchKw('_MOUSESHOW')) return this._parseMouseShow();
-    if (this._matchKw('_MOUSEMOVE')) return this._parseMouseMove();
-
-    // Advanced Keyboard
-    if (this._matchKw('_KEYCLEAR')) return this._emit('_runtime.keyclear?.();');
-
-    // Advanced Sound
-    if (this._matchKw('_SNDPLAY')) return this._parseSndPlay();
-    if (this._matchKw('_SNDLOOP')) return this._parseSndLoop();
-    if (this._matchKw('_SNDCLOSE')) return this._parseSndClose();
-
-    // Performance
-    if (this._matchKw('_DISPLAY')) return this._emit('_runtime.display?.();');
-
-    // Error Handling
-    if (this._matchKw('ERROR')) return this._parseError();
-
-    // ============ NEW: Additional Commands ============
-    if (this._matchKw('CLEAR')) return this._parseClear();
-    if (this._matchKw('KEY')) return this._parseKey();
-    if (this._matchKw('STRIG')) return this._parseStrig();
-    if (this._matchKw('TIMER')) return this._parseTimer();
-    if (this._matchKw('FRE')) return this._parseFre();
-    if (this._matchKw('ENVIRON')) return this._parseEnviron();
-    if (this._matchKw('DATE$')) return this._parseDate$();
-    if (this._matchKw('TIME$')) return this._parseTime$();
-    if (this._matchKw('ON')) return this._parseOnStatement();
-    
-    // ============ NEW: QB64 Console Commands ============
-    if (this._matchKw('_CONSOLE')) return this._parseConsole();
-    if (this._matchKw('_CONSOLETITLE')) return this._parseConsoleTitle();
-    if (this._matchKw('_SCREENHIDE')) return this._parseScreenHide();
-    if (this._matchKw('_SCREENSHOW')) return this._parseScreenShow();
-    if (this._matchKw('_SHELLHIDE')) return this._parseShellHide();
-    if (this._matchKw('_ACCEPTFILEDROP')) return this._parseAcceptFileDrop();
-    
-    // ============ NEW: QB64 Image Commands ============
-    if (this._matchKw('_NEWIMAGE')) return this._parseNewImage();
-    if (this._matchKw('_LOADIMAGE')) return this._parseLoadImage();
-    if (this._matchKw('_COPYIMAGE')) return this._parseCopyImage();
-    
-    // ============ NEW: QB64 Sound Commands ============
-    if (this._matchKw('_SNDOPEN')) return this._parseSndOpen();
-    if (this._matchKw('_SNDPLAYFILE')) return this._parseSndPlayFile();
-    if (this._matchKw('_SNDSETPOS')) return this._parseSndSetPos();
-    if (this._matchKw('_SNDGETPOS')) return this._parseSndGetPos();
-    if (this._matchKw('_SNDLEN')) return this._parseSndLen();
-    if (this._matchKw('_SNDPLAYING')) return this._parseSndPlaying();
-    
-    // ============ NEW: QB64 Mouse Commands ============
-    if (this._matchKw('_MOUSEMOVE')) return this._parseMouseMove();
-    if (this._matchKw('_MOUSEWHEEL')) return this._parseMouseWheel();
-    if (this._matchKw('_MOUSEINPUT')) return this._parseMouseInput();
-    
-    // ============ NEW: QB64 Network Commands ============
-    if (this._matchKw('_OPENHOST')) return this._parseOpenHost();
-    if (this._matchKw('_OPENCLIENT')) return this._parseOpenClient();
-    if (this._matchKw('_OPENCONNECTION')) return this._parseOpenConnection();
-    if (this._matchKw('_CLOSE')) return this._parseClose();
-    
-    // ============ NEW: QB64 Keyboard Commands ============
-    if (this._matchKw('_KEYDOWN')) return this._parseKeyDown();
-    if (this._matchKw('_KEYHIT')) return this._parseKeyHit();
-    
-    // ============ NEW: QB64 Resize Commands ============
-    if (this._matchKw('_RESIZE')) return this._parseResize();
-    
-    // Check for MID$ assignment
-    if (this._matchKw('MID$')) return this._parseMidAssignment();
-    
-    // Check for label definition (identifier followed by colon)
-    if (this._check(TokenType.IDENTIFIER)) {
+    if (token.type === TokenType.IDENTIFIER) {
       const next = this.tokens[this.pos + 1];
       if (next?.type === TokenType.PUNCTUATION && next?.value === ':') {
         return this._parseLabel();

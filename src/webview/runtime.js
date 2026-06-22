@@ -40,6 +40,7 @@
   const canvas = document.getElementById('gfx-layer');
   const crtText = globalThis.QBasicCrtText || {};
   const crtTranscript = globalThis.QBasicCrtTranscript || {};
+  const crtOutputBuffer = globalThis.QBasicCrtOutputBuffer || {};
   const CRT_NEWLINE = typeof crtText.CRT_NEWLINE === 'string'
     ? crtText.CRT_NEWLINE
     : '\n';
@@ -69,6 +70,51 @@
     typeof crtTranscript.createTranscriptEvent === 'function'
       ? crtTranscript.createTranscriptEvent
       : (kind, payload = {}) => ({ kind, ...payload });
+  const createTextRunBuffer =
+    typeof crtOutputBuffer.createTextRunBuffer === 'function'
+      ? crtOutputBuffer.createTextRunBuffer
+      : () => {
+          const runs = [];
+          return {
+            append(text, fg, bg) {
+              const value = text == null ? '' : String(text);
+              if (!value) return this.stats();
+              const normalizedFg = (Number.isFinite(Number(fg)) ? Math.trunc(Number(fg)) : 0) & 15;
+              const bgNumber = Number(bg);
+              const normalizedBg =
+                Number.isFinite(bgNumber) && bgNumber >= 0
+                  ? Math.trunc(bgNumber) & 7
+                  : 0;
+              const lastRun = runs[runs.length - 1];
+              if (lastRun && lastRun.fg === normalizedFg && lastRun.bg === normalizedBg) {
+                lastRun.text += value;
+              } else {
+                runs.push({ fg: normalizedFg, bg: normalizedBg, text: value });
+              }
+              return this.stats();
+            },
+            clear() {
+              runs.length = 0;
+            },
+            flush() {
+              const output = runs.slice();
+              runs.length = 0;
+              return output;
+            },
+            stats() {
+              return {
+                charCount: runs.reduce((sum, run) => sum + run.text.length, 0),
+                runCount: runs.length,
+              };
+            },
+            get charCount() {
+              return this.stats().charCount;
+            },
+            get runCount() {
+              return runs.length;
+            },
+          };
+        };
 
   // Global directives for linters
   // =========================================================================
@@ -694,23 +740,45 @@
   // SCREEN FUNCTIONS
   // =========================================================================
 
-  // Print batching for performance - reduces DOM reflows
-  let printBatch = null;
+  // Print batching for performance - coalesces same-style output before DOM work
+  const printBatch = createTextRunBuffer();
   let printBatchTimer = null;
-  let printBatchNodeCount = 0;
+  const outputEventBatch = {
+    parts: [],
+    charCount: 0,
+    newline: false,
+  };
   const _BATCH_DELAY = 16; // ~60fps (for documentation)
-  const PRINT_BATCH_MAX_NODES = 256;
+  const PRINT_BATCH_MAX_RUNS = 128;
+  const PRINT_BATCH_MAX_CHARS = 64 * 1024;
+  const OUTPUT_EVENT_BATCH_MAX_CHARS = 32 * 1024;
 
   function flushPrintBatch() {
-    if (printBatch && printBatch.childNodes.length > 0) {
-      screen.appendChild(printBatch);
-      printBatch = null;
-      printBatchNodeCount = 0;
+    const runs = printBatch.flush();
+    if (runs.length > 0) {
+      const fragment = document.createDocumentFragment();
+      for (const run of runs) {
+        fragment.appendChild(createSpan(run.text, run.fg, run.bg));
+      }
+      screen.appendChild(fragment);
 
       // Single scroll at end of batch
       screen.scrollTop = screen.scrollHeight;
     }
+    flushOutputEventBatch();
     printBatchTimer = null;
+  }
+
+  function schedulePrintBatchFlush() {
+    if (!printBatchTimer) {
+      printBatchTimer = requestAnimationFrame(flushPrintBatch);
+    }
+  }
+
+  function clearOutputEventBatch() {
+    outputEventBatch.parts.length = 0;
+    outputEventBatch.charCount = 0;
+    outputEventBatch.newline = false;
   }
 
   // Pre-computed glow cache for performance with size limit
@@ -778,6 +846,40 @@
     });
   }
 
+  function flushOutputEventBatch() {
+    if (outputEventBatch.parts.length === 0) return null;
+
+    const text =
+      outputEventBatch.parts.length === 1
+        ? outputEventBatch.parts[0]
+        : outputEventBatch.parts.join('');
+    const newline = outputEventBatch.newline;
+    clearOutputEventBatch();
+
+    return emitOutputChunk(text, {
+      kind: 'output',
+      newline,
+    });
+  }
+
+  function queueOutputChunk(content, metadata = {}) {
+    const text = normalizeCrtText(content, {
+      decodeEscapedControls: false,
+    });
+    if (!text) return null;
+
+    outputEventBatch.parts.push(text);
+    outputEventBatch.charCount += text.length;
+    outputEventBatch.newline =
+      outputEventBatch.newline || Boolean(metadata.newline);
+
+    if (outputEventBatch.charCount >= OUTPUT_EVENT_BATCH_MAX_CHARS) {
+      return flushOutputEventBatch();
+    }
+
+    return null;
+  }
+
   function print(text, newline = true) {
     const rawContent = String(text);
     let content = '';
@@ -821,36 +923,28 @@
       cursorCol = 1;
     }
     const spanContent = newline ? appendCrtNewline(content, { decodeEscapedControls: false }) : content;
-    const span = createSpan(spanContent);
 
-    // Batch DOM operations
-    if (!printBatch) {
-      printBatch = document.createDocumentFragment();
-    }
-    printBatch.appendChild(span);
-    printBatchNodeCount++;
+    const stats = printBatch.append(spanContent, fgColor, bgColor);
+    queueOutputChunk(spanContent, { newline });
 
-    if (printBatchNodeCount >= PRINT_BATCH_MAX_NODES) {
+    if (
+      stats.runCount >= PRINT_BATCH_MAX_RUNS ||
+      stats.charCount >= PRINT_BATCH_MAX_CHARS
+    ) {
       if (printBatchTimer) {
         cancelAnimationFrame(printBatchTimer);
       }
       flushPrintBatch();
+      return;
     }
 
-    // Schedule flush - only if not already scheduled
-    if (printBatch && !printBatchTimer) {
-      printBatchTimer = requestAnimationFrame(flushPrintBatch);
-    }
-
-    emitOutputChunk(spanContent, { newline });
+    schedulePrintBatchFlush();
   }
 
   function cls() {
     // Clear pending batch to avoid ghost text
-    if (printBatch) {
-      printBatch = null;
-      printBatchNodeCount = 0;
-    }
+    printBatch.clear();
+    clearOutputEventBatch();
     if (printBatchTimer) {
       cancelAnimationFrame(printBatchTimer);
       printBatchTimer = null;
@@ -887,7 +981,10 @@
 
   function color(fg, bg) {
     if (fg !== undefined) fgColor = fg % 16;
-    if (bg !== undefined) bgColor = bg % 8;
+    const numericBg = Number(bg);
+    if (bg !== undefined && Number.isFinite(numericBg) && numericBg >= 0) {
+      bgColor = Math.trunc(numericBg) % 8;
+    }
   }
 
   // =========================================================================
@@ -4749,14 +4846,14 @@
   }
 
   const chunkTransfer = {
-    buffer: undefined,
+    chunks: undefined,
     filename: '',
     nextChunkIdx: 0,
     totalChunks: 0,
   };
 
   function resetChunkTransfer() {
-    chunkTransfer.buffer = undefined;
+    chunkTransfer.chunks = undefined;
     chunkTransfer.filename = '';
     chunkTransfer.nextChunkIdx = 0;
     chunkTransfer.totalChunks = 0;
@@ -4819,8 +4916,8 @@
       cancelAnimationFrame(printBatchTimer);
       printBatchTimer = null;
     }
-    printBatch = null;
-    printBatchNodeCount = 0;
+    printBatch.clear();
+    clearOutputEventBatch();
 
     // Clear and reset SpanPool
     SpanPool.clear();
@@ -4932,7 +5029,7 @@
       // ── Chunked transfer support (Phase 3.1) ─────────────────────
       case 'execute_start':
         // Begin receiving a large program in chunks
-        chunkTransfer.buffer = String(message.chunk || '');
+        chunkTransfer.chunks = [String(message.chunk || '')];
         chunkTransfer.filename = message.filename || '';
         chunkTransfer.nextChunkIdx = 1;
         chunkTransfer.totalChunks = Number(message.totalChunks) || 0;
@@ -4940,7 +5037,7 @@
 
       case 'execute_chunk':
         // Accumulate subsequent chunks
-        if (chunkTransfer.buffer === undefined) {
+        if (!chunkTransfer.chunks) {
           failChunkTransfer('CRT chunk stream was not initialized.');
           break;
         }
@@ -4948,13 +5045,13 @@
           failChunkTransfer('CRT chunk stream arrived out of order.');
           break;
         }
-        chunkTransfer.buffer += String(message.chunk || '');
+        chunkTransfer.chunks.push(String(message.chunk || ''));
         chunkTransfer.nextChunkIdx++;
         break;
 
       case 'execute_end': {
         // Final chunk – assemble and execute
-        if (chunkTransfer.buffer === undefined) {
+        if (!chunkTransfer.chunks) {
           failChunkTransfer('CRT chunk stream ended before it started.');
           break;
         }
@@ -4970,7 +5067,8 @@
           break;
         }
 
-        const assembledCode = chunkTransfer.buffer + String(message.chunk || '');
+        chunkTransfer.chunks.push(String(message.chunk || ''));
+        const assembledCode = chunkTransfer.chunks.join('');
         const assembledFilename = chunkTransfer.filename;
         resetChunkTransfer();
 

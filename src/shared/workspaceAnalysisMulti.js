@@ -18,6 +18,7 @@ const path = require('path');
 const { getDocumentAnalysis, analyzeQBasicText, findIdentifierMatchesInAnalysis } = require('./documentAnalysis');
 
 const WORKSPACE_PARSE_YIELD_INTERVAL = 25;
+const INCLUDE_PATTERN = /^\s*\$INCLUDE\s*:\s*(?:['"])(.+?)(?:['"])/i;
 
 function yieldToEventLoop() {
   return new Promise((resolve) => setImmediate(resolve));
@@ -113,17 +114,18 @@ class WorkspaceAnalysis {
   async getWorkspaceAnalysis(document, options = {}) {
     const awaitWorkspace = options.awaitWorkspace === true;
     const localAnalysis = getDocumentAnalysis(document);
-    
+
     // Get include files
-    const includePattern = /^\s*\$INCLUDE\s*:\s*(?:['"])(.+?)(?:['"])/i;
-    let includedFiles = [];
-    
-    const lines = document.getText().split(/\r?\n/);
-    for (const line of lines) {
-      const match = includePattern.exec(line);
+    const includedFiles = [];
+    const includedFileSet = new Set();
+    const workspaceFolder = vscode && vscode.workspace
+      ? vscode.workspace.getWorkspaceFolder(document.uri)
+      : null;
+
+    for (const line of localAnalysis.lines) {
+      const match = INCLUDE_PATTERN.exec(line);
       if (match) {
         const includePath = match[1];
-        const workspaceFolder = vscode && vscode.workspace ? vscode.workspace.getWorkspaceFolder(document.uri) : null;
         let fullPath;
         if (path.isAbsolute(includePath)) {
           fullPath = includePath;
@@ -133,8 +135,9 @@ class WorkspaceAnalysis {
             fullPath = path.resolve(workspaceFolder.uri.fsPath, includePath);
           }
         }
-        if (fs.existsSync(fullPath)) {
+        if (fs.existsSync(fullPath) && !includedFileSet.has(fullPath)) {
           includedFiles.push(fullPath);
+          includedFileSet.add(fullPath);
         }
       }
     }
@@ -167,7 +170,7 @@ class WorkspaceAnalysis {
 
     // Merge workspace files after initial workspace parse completes
     for (const [filePath, analysis] of this.symbolCache.entries()) {
-      if (filePath === document.uri.fsPath || includedFiles.includes(filePath)) continue;
+      if (filePath === document.uri.fsPath || includedFileSet.has(filePath)) continue;
       
       for (const sym of analysis.symbols) {
         mergedAnalysis.symbols.push({...sym, file: filePath});

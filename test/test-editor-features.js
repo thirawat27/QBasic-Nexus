@@ -20,6 +20,7 @@ const {
 const {
   buildKeywordSearchEntries,
   findKeywordEntryAtPosition,
+  getTokenAtPosition,
 } = require('../src/shared/keywordLookup');
 const {
   analyzeQBasicText,
@@ -277,6 +278,11 @@ test('keyword lookup resolves longest multi-word keyword at cursor position', ()
     'ON ERROR',
     'Lookup should resolve ON ERROR as one keyword label',
   );
+  assertEqual(
+    getTokenAtPosition('$INCLUDE: "lib.bi"', 2),
+    '$INCLUDE',
+    'Lookup tokenization should preserve directive-style keyword names',
+  );
 });
 
 test('snippet bodies escape literal dollar signs for VS Code snippet syntax', () => {
@@ -498,6 +504,18 @@ test('todo comment scanner extracts supported keywords and ignores plain strings
   assertEqual(matches[0].keyword, 'TODO', 'Expected TODO keyword to be preserved');
   assertEqual(matches[1].keyword, 'FIXME', 'Expected FIXME keyword to be preserved');
   assertEqual(matches[2].label, 'NOTE: remember spacing', 'Expected comment label to be normalized');
+});
+
+test('todo comment scanner preserves CRLF line and column positions', () => {
+  const matches = scanTodoComments(
+    'PRINT "TODO only text"\r\n  REM BUG: first\r\n\' NOTE: second',
+  );
+
+  assertEqual(matches.length, 2, 'Expected CRLF comments to be matched');
+  assertEqual(matches[0].line, 1, 'Expected first comment line after CRLF');
+  assertEqual(matches[0].start, 2, 'Expected first comment indentation column');
+  assertEqual(matches[1].line, 2, 'Expected second comment line');
+  assertEqual(matches[1].start, 0, 'Expected second comment at column zero');
 });
 
 console.log('\n════════════════════════════════════════');

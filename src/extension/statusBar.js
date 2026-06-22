@@ -13,7 +13,10 @@ const {
   normalizePackagerTargets,
   validatePackagerTargets,
 } = require('./executableUtils');
-const { formatCompilerPathLabel } = require('./systemSettingsShared');
+const {
+  formatCompilerPathLabel,
+  formatWasmAcceleratorLabel,
+} = require('./systemSettingsShared');
 const { formatInternalOutputDirLabel } = require('./internalBuildSettings');
 const { state } = require('./state');
 const { getConfig } = require('./utils');
@@ -33,9 +36,12 @@ function updateStatusBar() {
   const mode = getConfig(CONFIG.COMPILER_MODE);
   const isInternalMode =
     mode === CONFIG.MODE_INTERNAL || mode === CONFIG.MODE_INTERNAL_WASM;
-  const isWasmInternalMode = mode === CONFIG.MODE_INTERNAL_WASM;
   const compilerPath = getConfig(CONFIG.COMPILER_PATH);
   const internalOutputDir = getConfig(CONFIG.INTERNAL_OUTPUT_DIR, '');
+  const internalWasmAccelerator = getConfig(
+    CONFIG.INTERNAL_WASM_ACCELERATOR,
+    CONFIG.WASM_ACCELERATOR_AUTO,
+  );
   const autoDetectedCompilerPath = state.autoDetectedCompilerPath;
   const workspaceFolder =
     vscode.workspace.getWorkspaceFolder(editor.document.uri) ||
@@ -65,7 +71,11 @@ function updateStatusBar() {
         internalOutputDir,
         workspacePath,
       );
-      tooltipLines.push(`Targets: ${targetSummary}`, `Output: ${outputSummary}`);
+      tooltipLines.push(
+        `Targets: ${targetSummary}`,
+        `Output: ${outputSummary}`,
+        `WASM: ${formatWasmAcceleratorLabel(internalWasmAccelerator)}`,
+      );
     } else {
       tooltipLines.push(
         `QB64: ${formatCompilerPathLabel(compilerPath, autoDetectedCompilerPath)}`,
@@ -105,12 +115,8 @@ function updateStatusBar() {
       internalTargets.length === 1
         ? internalTargets[0]
         : `${internalTargets.length} targets`;
-    state.statusBarItem.text = isWasmInternalMode
-      ? `$(package) Build ${targetLabel} WASM`
-      : `$(package) Build ${targetLabel} ⚡`;
-    state.statusBarItem.tooltip = isWasmInternalMode
-      ? `Compile with QBasic Nexus + WASM (@yao-pkg/pkg -> ${internalBuildLabel}; targets: ${internalTargets.join(', ')})`
-      : `Compile with QBasic Nexus (@yao-pkg/pkg -> ${internalBuildLabel}; targets: ${internalTargets.join(', ')})`;
+    state.statusBarItem.text = `$(package) Build ${targetLabel} ⚡`;
+    state.statusBarItem.tooltip = `Compile with QBasic Nexus (@yao-pkg/pkg -> ${internalBuildLabel}; targets: ${internalTargets.join(', ')}; WASM: ${formatWasmAcceleratorLabel(internalWasmAccelerator)})`;
     state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
   } else if (!compilerPath && autoDetectedCompilerPath) {

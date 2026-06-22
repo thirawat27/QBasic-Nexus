@@ -282,33 +282,6 @@ input.cmd-input::placeholder {
     0 0 4px rgba(0, 255, 65, 0.4);
 }
 
-/* Neon Color classes - Enhanced visibility with glow */
-.fg-0 { color: var(--black); text-shadow: none; }
-.fg-1 { color: var(--qb-blue); text-shadow: 0 0 4px #3388FF88, 0 0 8px #3388FF44; }
-.fg-2 { color: var(--qb-green); text-shadow: 0 0 4px #00DD4488, 0 0 8px #00DD4444; }
-.fg-3 { color: var(--qb-cyan); text-shadow: 0 0 4px #00DDDD88, 0 0 8px #00DDDD44; }
-.fg-4 { color: var(--qb-red); text-shadow: 0 0 4px #DD333388, 0 0 8px #DD333344; }
-.fg-5 { color: var(--qb-magenta); text-shadow: 0 0 4px #DD44DD88, 0 0 8px #DD44DD44; }
-.fg-6 { color: var(--qb-brown); text-shadow: 0 0 4px #DD880088, 0 0 8px #DD880044; }
-.fg-7 { color: var(--qb-lightgray); text-shadow: 0 0 3px #CCCCCC66, 0 0 6px #CCCCCC33; }
-.fg-8 { color: var(--qb-darkgray); text-shadow: 0 0 3px #80808066, 0 0 6px #80808033; }
-.fg-9 { color: var(--qb-lightblue); text-shadow: 0 0 5px #6699FF99, 0 0 10px #6699FF55; }
-.fg-10 { color: var(--qb-lightgreen); text-shadow: 0 0 5px #66FF6699, 0 0 10px #66FF6655; }
-.fg-11 { color: var(--qb-lightcyan); text-shadow: 0 0 5px #66FFFF99, 0 0 10px #66FFFF55; }
-.fg-12 { color: var(--qb-lightred); text-shadow: 0 0 5px #FF666699, 0 0 10px #FF666655; }
-.fg-13 { color: var(--qb-lightmagenta); text-shadow: 0 0 5px #FF66FF99, 0 0 10px #FF66FF55; }
-.fg-14 { color: var(--qb-yellow); text-shadow: 0 0 5px #FFFF6699, 0 0 10px #FFFF6655; }
-.fg-15 { color: var(--qb-white); text-shadow: 0 0 5px #FFFFFF99, 0 0 10px #FFFFFF55; }
-
-.bg-0 { background-color: var(--black); }
-.bg-1 { background-color: var(--qb-blue); box-shadow: inset 0 0 10px rgba(51, 136, 255, 0.3); }
-.bg-2 { background-color: var(--qb-green); box-shadow: inset 0 0 10px rgba(0, 221, 68, 0.3); }
-.bg-3 { background-color: var(--qb-cyan); box-shadow: inset 0 0 10px rgba(0, 221, 221, 0.3); }
-.bg-4 { background-color: var(--qb-red); box-shadow: inset 0 0 10px rgba(221, 51, 51, 0.3); }
-.bg-5 { background-color: var(--qb-magenta); box-shadow: inset 0 0 10px rgba(221, 68, 221, 0.3); }
-.bg-6 { background-color: var(--qb-brown); box-shadow: inset 0 0 10px rgba(221, 136, 0, 0.3); }
-.bg-7 { background-color: var(--qb-lightgray); box-shadow: inset 0 0 10px rgba(204, 204, 204, 0.3); }
-
 /* Reduce motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
   #scanlines,

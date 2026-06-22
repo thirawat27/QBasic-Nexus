@@ -16,6 +16,7 @@ const symbolCache = new Map();
 // Pre-built completion items for keywords/functions (immutable, never changes)
 let cachedKeywordItems = null;
 let cachedFunctionItems = null;
+let cachedStaticCompletionItems = null;
 const UPPER_FUNCTION_NAMES = new Set(
   Object.keys(FUNCTIONS).map((name) => name.toUpperCase()),
 );
@@ -64,6 +65,15 @@ function getFunctionCompletionItems() {
   return cachedFunctionItems;
 }
 
+function getStaticCompletionItems() {
+  if (cachedStaticCompletionItems) return cachedStaticCompletionItems;
+  cachedStaticCompletionItems = [
+    ...getKeywordCompletionItems(),
+    ...getFunctionCompletionItems(),
+  ];
+  return cachedStaticCompletionItems;
+}
+
 function getCachedSymbols(document) {
   const entry = symbolCache.get(document.uri.toString());
   // Valid only if document has not changed since last scan
@@ -85,6 +95,7 @@ function invalidateCache(uri) {
 module.exports = {
   getKeywordCompletionItems,
   getFunctionCompletionItems,
+  getStaticCompletionItems,
   getCachedSymbols,
   setCachedSymbols,
   invalidateCache,

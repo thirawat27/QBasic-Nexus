@@ -2,6 +2,7 @@
 
 const TODO_COMMENT_REGEX =
   /(?:'|\bREM\b)[^\r\n]*?\b(TODO|FIXME|FIXIT|HACK|BUG|NOTE)\b[^\r\n]*/gi;
+const TODO_HINT_REGEX = /TODO|FIX|HACK|BUG|NOTE/i;
 
 const KEYWORD_RANK = Object.freeze({
   BUG: 1,
@@ -13,14 +14,8 @@ const KEYWORD_RANK = Object.freeze({
 });
 
 function mightContainTodoKeyword(text = '') {
-  const upperText = String(text ?? '').toUpperCase();
-  return (
-    upperText.includes('TODO') ||
-    upperText.includes('FIX') ||
-    upperText.includes('HACK') ||
-    upperText.includes('BUG') ||
-    upperText.includes('NOTE')
-  );
+  TODO_HINT_REGEX.lastIndex = 0;
+  return TODO_HINT_REGEX.test(String(text ?? ''));
 }
 
 function scanTodoComments(text = '') {
@@ -30,27 +25,33 @@ function scanTodoComments(text = '') {
   }
 
   const matches = [];
-  const lines = source.split(/\r?\n/);
+  let lineNumber = 0;
+  let lineStart = 0;
+  let scannedTo = 0;
+  let match;
 
-  for (let lineNumber = 0; lineNumber < lines.length; lineNumber++) {
-    const line = lines[lineNumber];
-
-    if (!mightContainTodoKeyword(line)) {
-      continue;
+  TODO_COMMENT_REGEX.lastIndex = 0;
+  while ((match = TODO_COMMENT_REGEX.exec(source)) !== null) {
+    for (let index = scannedTo; index < match.index; index++) {
+      const code = source.charCodeAt(index);
+      if (code === 13 || code === 10) {
+        if (code === 13 && source.charCodeAt(index + 1) === 10) {
+          index++;
+        }
+        lineNumber++;
+        lineStart = index + 1;
+      }
     }
+    scannedTo = match.index + match[0].length;
 
-    let match;
-    TODO_COMMENT_REGEX.lastIndex = 0;
-
-    while ((match = TODO_COMMENT_REGEX.exec(line)) !== null) {
-      matches.push({
-        keyword: match[1].toUpperCase(),
-        label: match[0].replace(/^('|REM)\s*/i, '').trim(),
-        line: lineNumber,
-        start: match.index,
-        end: match.index + match[0].length,
-      });
-    }
+    const start = match.index - lineStart;
+    matches.push({
+      keyword: match[1].toUpperCase(),
+      label: match[0].replace(/^('|REM)\s*/i, '').trim(),
+      line: lineNumber,
+      start,
+      end: start + match[0].length,
+    });
   }
 
   return matches;

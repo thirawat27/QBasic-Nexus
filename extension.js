@@ -50,6 +50,7 @@ const {
   selectCompilerMode,
   selectCompilerPath,
   selectEnableLinting,
+  selectInternalWasmAccelerator,
   selectLineNumberSettings,
   selectLintDelay,
 } = require('./src/extension/systemSettings');
@@ -330,6 +331,10 @@ async function activate(context) {
     vscode.commands.registerCommand(
       COMMANDS.SELECT_INTERNAL_OUTPUT_DIR,
       selectInternalOutputDir,
+    ),
+    vscode.commands.registerCommand(
+      COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR,
+      selectInternalWasmAccelerator,
     ),
     vscode.commands.registerCommand(
       COMMANDS.SELECT_COMPILE_WORKER_RESILIENCE,

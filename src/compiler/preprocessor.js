@@ -41,7 +41,7 @@ function preprocessSource(source, options = {}) {
     metadata,
     currentDir: rootDir,
     sourcePath,
-    includeStack: sourcePath ? [sourcePath] : [],
+    includeSet: sourcePath ? new Set([sourcePath]) : new Set(),
     depth: 0,
   });
 
@@ -112,7 +112,7 @@ function expandSource(source, context) {
     }
 
     const resolvedPath = path.resolve(context.currentDir, includePath);
-    if (context.includeStack.includes(resolvedPath)) {
+    if (context.includeSet.has(resolvedPath)) {
       context.diagnostics.error(
         ErrorCategory.SYNTAX,
         `Circular $INCLUDE detected for "${resolvedPath}"`,
@@ -140,6 +140,8 @@ function expandSource(source, context) {
     }
 
     context.metadata.includedFiles.push(resolvedPath);
+    const nextIncludeSet = new Set(context.includeSet);
+    nextIncludeSet.add(resolvedPath);
     output.push(`' ${line.trim()}`);
     output.push(
       expandSource(includeSource, {
@@ -147,7 +149,7 @@ function expandSource(source, context) {
         metadata: context.metadata,
         currentDir: path.dirname(resolvedPath),
         sourcePath: resolvedPath,
-        includeStack: [...context.includeStack, resolvedPath],
+        includeSet: nextIncludeSet,
         depth: context.depth + 1,
       }),
     );

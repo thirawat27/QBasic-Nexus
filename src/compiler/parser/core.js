@@ -1,6 +1,7 @@
 // Auto-extracted Mixin
 'use strict';
 const { TokenType } = require('../constants');
+const STATEMENT_END_KEYWORDS = new Set(['THEN', 'ELSE', 'ELSEIF']);
 module.exports = {
   _init(tokens, target = 'node', options = {}) {
     this.tokens = tokens;
@@ -4416,10 +4417,7 @@ break _qbRestart;
     const t = this._peek();
     if (!t || t.type === TokenType.EOF || t.type === TokenType.NEWLINE)
       return true;
-    if (
-      t.type === TokenType.KEYWORD &&
-      ['THEN', 'ELSE', 'ELSEIF'].includes(t.value)
-    )
+    if (t.type === TokenType.KEYWORD && STATEMENT_END_KEYWORDS.has(t.value))
       return true;
     return false;
   },

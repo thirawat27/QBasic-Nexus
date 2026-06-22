@@ -173,6 +173,12 @@ class ErrorRecovery {
 class DiagnosticCollector {
     constructor() {
         this.diagnostics = [];
+        this.diagnosticsBySeverity = {
+            [ErrorSeverity.ERROR]: [],
+            [ErrorSeverity.WARNING]: [],
+            [ErrorSeverity.INFO]: [],
+            [ErrorSeverity.HINT]: []
+        };
         this.errorCount = 0;
         this.warningCount = 0;
     }
@@ -182,14 +188,18 @@ class DiagnosticCollector {
      */
     add(diagnostic) {
         this.diagnostics.push(diagnostic);
-        
+        const bucket = this.diagnosticsBySeverity[diagnostic.severity];
+        if (bucket) {
+            bucket.push(diagnostic);
+        }
+
         if (diagnostic.severity === ErrorSeverity.ERROR) {
             this.errorCount++;
         } else if (diagnostic.severity === ErrorSeverity.WARNING) {
             this.warningCount++;
         }
     }
-    
+
     /**
      * Add an error
      */
@@ -235,7 +245,8 @@ class DiagnosticCollector {
      * Get diagnostics by severity
      */
     getBySeverity(severity) {
-        return this.diagnostics.filter(d => d.severity === severity);
+        const bucket = this.diagnosticsBySeverity[severity];
+        return bucket ? bucket.slice() : [];
     }
     
     /**
@@ -260,6 +271,9 @@ class DiagnosticCollector {
      */
     clear() {
         this.diagnostics = [];
+        for (const bucket of Object.values(this.diagnosticsBySeverity)) {
+            bucket.length = 0;
+        }
         this.errorCount = 0;
         this.warningCount = 0;
     }

@@ -1,6 +1,28 @@
 'use strict';
 
-const CALL_NAME_RE = /([a-zA-Z_][a-zA-Z0-9_$%!#&]*)\s*$/;
+const IDENTIFIER_CHAR_RE = /[a-zA-Z0-9_$%!#&]/;
+const IDENTIFIER_START_RE = /[a-zA-Z_]/;
+
+function findCallNameBeforeParen(text, parenIndex) {
+  let end = parenIndex - 1;
+  while (end >= 0 && /\s/.test(text[end])) {
+    end--;
+  }
+
+  if (end < 0 || !IDENTIFIER_CHAR_RE.test(text[end])) {
+    return null;
+  }
+
+  let start = end;
+  while (start >= 0 && IDENTIFIER_CHAR_RE.test(text[start])) {
+    start--;
+  }
+  start++;
+
+  return IDENTIFIER_START_RE.test(text[start])
+    ? text.slice(start, end + 1)
+    : null;
+}
 
 function findActiveCall(textBefore = '') {
   if (typeof textBefore !== 'string' || textBefore.length === 0) {
@@ -29,9 +51,8 @@ function findActiveCall(textBefore = '') {
     }
 
     if (char === '(') {
-      const prefix = textBefore.slice(0, index).match(CALL_NAME_RE);
       stack.push({
-        name: prefix ? prefix[1] : null,
+        name: findCallNameBeforeParen(textBefore, index),
         activeParameter: 0,
       });
       continue;

@@ -35,6 +35,20 @@ function formatInternalTargetsLabel(targets) {
   }
 }
 
+function normalizeWasmAccelerator(value) {
+  const normalized = String(value || CONFIG.WASM_ACCELERATOR_AUTO).toLowerCase();
+  if (normalized === CONFIG.WASM_ACCELERATOR_ON) return CONFIG.WASM_ACCELERATOR_ON;
+  if (normalized === CONFIG.WASM_ACCELERATOR_OFF) return CONFIG.WASM_ACCELERATOR_OFF;
+  return CONFIG.WASM_ACCELERATOR_AUTO;
+}
+
+function formatWasmAcceleratorLabel(value) {
+  const normalized = normalizeWasmAccelerator(value);
+  if (normalized === CONFIG.WASM_ACCELERATOR_ON) return 'On';
+  if (normalized === CONFIG.WASM_ACCELERATOR_OFF) return 'Off';
+  return 'Auto';
+}
+
 function getSystemQuickActionItems(options = {}) {
   const mode = options.compilerMode || CONFIG.MODE_QB64;
   const isInternalMode =
@@ -76,6 +90,15 @@ function getSystemQuickActionItems(options = {}) {
       description:
         isInternalMode ? 'Active in internal mode' : 'Used when internal mode is selected',
       command: COMMANDS.SELECT_INTERNAL_OUTPUT_DIR,
+    },
+    {
+      label: 'Internal WASM Accelerator',
+      detail: `Current: ${formatWasmAcceleratorLabel(
+        options.internalWasmAccelerator,
+      )}`,
+      description:
+        isInternalMode ? 'Active in internal mode' : 'Used when internal mode is selected',
+      command: COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR,
     },
     {
       label: 'Compile Worker Resilience',
@@ -125,5 +148,7 @@ module.exports = {
   formatCompilerPathLabel,
   formatInternalTargetsLabel,
   formatLineNumberSettingsLabel,
+  formatWasmAcceleratorLabel,
   getSystemQuickActionItems,
+  normalizeWasmAccelerator,
 };

@@ -187,6 +187,11 @@
                 "icon": "$(folder-opened)"
             },
             {
+                "command": "qbasic-nexus.selectInternalWasmAccelerator",
+                "title": "QBasic Select Internal WASM Accelerator ⚡",
+                "icon": "$(rocket)"
+            },
+            {
                 "command": "qbasic-nexus.selectCompileWorkerResilience",
                 "title": "QBasic Tune Compile Worker Resilience 🛡️",
                 "icon": "$(pulse)"
@@ -346,13 +351,11 @@
                     "type": "string",
                     "enum": [
                         "QB64 (Recommended)",
-                        "Qbasic Nexus",
-                        "Qbasic Nexus + WASM"
+                        "Qbasic Nexus"
                     ],
                     "enumDescriptions": [
-                        "Compile with QB64 for native executable (best performance)",
-                        "Transpile QBasic to JavaScript via the internal engine, then package one or more standalone executables using @yao-pkg/pkg",
-                        "Transpile QBasic to JavaScript and embed a small WebAssembly accelerator for hot runtime primitives while keeping JavaScript fallback for cross-platform builds"
+                        "Compile with QB64 for native executable (best compatibility and performance)",
+                        "Transpile QBasic to JavaScript via the internal engine, then package one or more standalone executables using @yao-pkg/pkg"
                     ],
                     "default": "QB64 (Recommended)",
                     "markdownDescription": "Select the compilation mode.",
@@ -374,6 +377,22 @@
                     "type": "string",
                     "default": "",
                     "markdownDescription": "Output directory for **Qbasic Nexus** internal builds.\n\nLeave empty to write beside the source file. Relative paths resolve from the workspace folder when available; absolute paths and `~/...` home-relative paths are also supported.\n\nSingle-target builds write the executable into this folder. Multi-target builds write all generated binaries there.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.internalWasmAccelerator": {
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "on",
+                        "off"
+                    ],
+                    "enumDescriptions": [
+                        "Use the WebAssembly accelerator when available, with JavaScript fallback.",
+                        "Force the internal compiler to emit the WebAssembly accelerator path.",
+                        "Use the pure JavaScript internal runtime."
+                    ],
+                    "default": "auto",
+                    "markdownDescription": "Controls the optional WebAssembly accelerator used by **Qbasic Nexus** internal builds.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.compileWorkerMaxQueueSize": {

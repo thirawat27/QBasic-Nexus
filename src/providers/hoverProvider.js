@@ -6,6 +6,7 @@
 'use strict';
 
 const vscode = require('vscode');
+const path = require('path');
 const { KEYWORDS, FUNCTIONS } = require('../../languageData');
 const { PATTERNS } = require('./patterns');
 const {
@@ -79,7 +80,7 @@ class QBasicHoverProvider {
     }
 
     const symbolLabel = USER_SYMBOL_LABELS[definition.kind] || 'symbol';
-    const fileBase = definition.file ? require('path').basename(definition.file) : require('path').basename(document.uri.fsPath);
+    const fileBase = path.basename(definition.file || document.uri.fsPath);
     return new vscode.Hover(
       new vscode.MarkdownString(
         `**${originalWord}** *(${symbolLabel})*\n\nDefined at line ${definition.line + 1} (*File: ${fileBase}*)`,

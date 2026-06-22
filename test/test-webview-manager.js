@@ -18,6 +18,10 @@ const {
   eventHasRenderableText,
   eventToText,
 } = require('../src/webview/crtTranscript');
+const {
+  createTextRunBuffer,
+  normalizeColorIndex,
+} = require('../src/webview/crtOutputBuffer');
 
 console.log('\n📦 WebviewManager Tests\n');
 
@@ -143,6 +147,7 @@ function loadWebviewManager(options = {}) {
     '<link rel="stylesheet" href="{{cssUri}}">',
     '<script src="{{crtTextUri}}"></script>',
     '<script src="{{crtTranscriptUri}}"></script>',
+    '<script src="{{crtOutputBufferUri}}"></script>',
     '<script src="{{jsUri}}"></script>',
   ].join('\n');
 
@@ -262,7 +267,51 @@ test('HTML template injects CSP and resource URIs', async () => {
     html.includes('webview:/extension/src/webview/crtTranscript.js'),
     'CRT transcript URI should be injected',
   );
+  assert(
+    html.includes('webview:/extension/src/webview/crtOutputBuffer.js'),
+    'CRT output buffer URI should be injected',
+  );
   assert(html.includes('webview:/extension/src/webview/runtime.js'), 'JS URI should be injected');
+});
+
+test('CRT output run buffer coalesces adjacent matching colors', () => {
+  const buffer = createTextRunBuffer();
+
+  buffer.append('A', 10, 0);
+  buffer.append('B', 10, 0);
+  buffer.append('C', 12, 0);
+  buffer.append('D', 12, 1);
+  buffer.append('E', 12, 1);
+
+  const runs = buffer.flush();
+  assert(runs.length === 3, 'Expected adjacent matching styles to share one run');
+  assert(runs[0].text === 'AB', 'Expected same-color text to be joined');
+  assert(runs[0].fg === 10 && runs[0].bg === 0, 'Expected first run style to be preserved');
+  assert(runs[1].text === 'C', 'Expected foreground changes to create a new run');
+  assert(runs[2].text === 'DE', 'Expected background-matched text to be joined');
+  assert(buffer.runCount === 0, 'Flush should reset the run buffer');
+});
+
+test('CRT output run buffer normalizes QBasic color ranges', () => {
+  const buffer = createTextRunBuffer();
+
+  buffer.append('wrapped', 31, 15);
+  const [run] = buffer.flush();
+
+  assert(normalizeColorIndex(31, 15) === 15, 'Foreground colors should wrap to 0-15');
+  assert(normalizeColorIndex(15, 7) === 7, 'Background colors should wrap to 0-7');
+  assert(run.fg === 15, 'Run foreground should be normalized');
+  assert(run.bg === 7, 'Run background should be normalized');
+});
+
+test('CRT output run buffer treats negative background as transparent', () => {
+  const buffer = createTextRunBuffer();
+
+  buffer.append('plain', 13, -1);
+  const [run] = buffer.flush();
+
+  assert(run.fg === 13, 'Foreground should stay intact');
+  assert(run.bg === 0, 'Negative background sentinel should not become white/gray');
 });
 
 test('CRT transcript helpers preserve rendered text and reset cleanly', () => {

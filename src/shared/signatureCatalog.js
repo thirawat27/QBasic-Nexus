@@ -80,6 +80,20 @@ const PAREN_SIGNATURE_NAMES = Object.freeze(
     .sort((left, right) => right.length - left.length),
 );
 
+function createStatementPattern(name) {
+  return new RegExp(
+    `(?:^|:)\\s*${name.replace(/\s+/g, '\\s+')}\\b([\\s\\S]*)$`,
+    'i',
+  );
+}
+
+const INLINE_SIGNATURE_PATTERNS = Object.freeze(
+  new Map(INLINE_SIGNATURE_NAMES.map((name) => [name, createStatementPattern(name)])),
+);
+const PAREN_SIGNATURE_PATTERNS = Object.freeze(
+  new Map(PAREN_SIGNATURE_NAMES.map((name) => [name, createStatementPattern(name)])),
+);
+
 function countTopLevelCommas(text = '') {
   let depth = 0;
   let inString = false;
@@ -125,7 +139,7 @@ function findInlineStatementSignature(textBefore = '') {
   }
 
   for (const name of INLINE_SIGNATURE_NAMES) {
-    const pattern = new RegExp(`(?:^|:)\\s*${name.replace(/\s+/g, '\\s+')}\\b([\\s\\S]*)$`, 'i');
+    const pattern = INLINE_SIGNATURE_PATTERNS.get(name);
     const match = pattern.exec(textBefore);
     if (!match) continue;
 
@@ -153,7 +167,7 @@ function findParenStatementSignature(textBefore = '') {
   }
 
   for (const name of PAREN_SIGNATURE_NAMES) {
-    const pattern = new RegExp(`(?:^|:)\\s*${name.replace(/\s+/g, '\\s+')}\\b([\\s\\S]*)$`, 'i');
+    const pattern = PAREN_SIGNATURE_PATTERNS.get(name);
     const match = pattern.exec(textBefore);
     if (!match) continue;
 

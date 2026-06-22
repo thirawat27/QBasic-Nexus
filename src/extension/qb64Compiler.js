@@ -38,6 +38,46 @@ const autoDetectDiscoveryState = {
   cachedPath: null,
 };
 
+const QB64_ERROR_PREFIXES = Object.freeze([
+  'ILLEGAL ',
+  'DIM: ',
+  'CANNOT ',
+  'UNDEFINE ',
+  'UNDEFINED ',
+  'EXPECTED',
+  'FILE ',
+  'SYNTAX ',
+  'RETURN ',
+  'TYPE ',
+  'NAME ',
+  'UNEXPECTED ',
+  'INVALID EXPRESSION',
+  'ELEMENT NOT DEFINED',
+  'UNKNOWN ',
+  'MISSING ',
+  '_DEFINE: ',
+  'COMMAND ',
+  '2ND SUB ARGUMENT',
+  'INVALID ',
+  'VARIABLE ',
+  'ARRAY',
+  'THEN ',
+  'INCORRECT ',
+  '1ST ',
+  'STRING ',
+  'END IF ',
+  'STATEMENT ',
+  'LABEL \'',
+  'USER DEFINED TYPES',
+  'IF WITHOUT END IF',
+  'SUB ',
+  'TYPE ',
+  'ONLY ',
+  'NUMBER REQUIRED FOR FUNCTION',
+  'CVL ',
+  'EXPECTED IF EXPRESSION THEN/GOTO',
+]);
+
 function setAutoDetectedCompilerPath(compilerPath) {
   const nextPath = compilerPath || null;
   if (state.autoDetectedCompilerPath === nextPath) return;
@@ -362,7 +402,21 @@ function compileWithQB64(document, compilerPath, channel) {
  */
 function parseCompilerErrors(output, uri) {
   const diagnostics = [];
+  const diagnosticKeys = new Set();
   const filename = path.basename(uri.fsPath).toLowerCase();
+  const addDiagnostic = (diagnostic) => {
+    const range = diagnostic.range;
+    const key = [
+      range.start.line,
+      range.start.character,
+      range.end.line,
+      range.end.character,
+      diagnostic.message,
+    ].join('|');
+    if (diagnosticKeys.has(key)) return;
+    diagnosticKeys.add(key);
+    diagnostics.push(diagnostic);
+  };
 
   // Pattern: filename.bas:line: error message
   const pattern =
@@ -384,26 +438,19 @@ function parseCompilerErrors(output, uri) {
         severity,
       );
       diagnostic.source = 'QB64';
-      diagnostics.push(diagnostic);
+      addDiagnostic(diagnostic);
     }
   }
 
   // qb64pe-vscode-main robust output parsing
-  const errorPrefixes = [
-    'Illegal ', 'DIM: ', 'Cannot ', 'Undefine ', 'Undefined ', 'Expected', 'File ', 'Syntax ', 
-    'RETURN ', 'Type ', 'Name ', 'Unexpected ', 'Invalid expression', 'Element not defined', 
-    'Unknown ', 'Missing ', '_DEFINE: ', 'Command ', '2nd sub argument', 'Invalid ', 'Variable ', 
-    'Array', 'THEN ', 'Incorrect ', '1st ', 'String ', 'END IF ', 'Statement ', 'Label \'', 
-    'User defined types', 'IF without END IF', 'SUB ', 'TYPE ', 'Only ', 'Number required for function', 
-    'CVL ', 'Expected IF expression THEN/GOTO'
-  ];
   const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
   const sourceCode = document ? document.getText().split(/\r?\n/) : [];
   const lines = output.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const lintLine = lines[i];
     if (!lintLine || lintLine.startsWith('[')) continue;
-    if (errorPrefixes.some(prefix => lintLine.toUpperCase().startsWith(prefix.toUpperCase()))) {
+    const upperLintLine = lintLine.toUpperCase();
+    if (QB64_ERROR_PREFIXES.some(prefix => upperLintLine.startsWith(prefix))) {
       let errorLineNumber = -1;
       let code = '';
       for (let x = i; x < lines.length; x++) {
@@ -436,9 +483,7 @@ function parseCompilerErrors(output, uri) {
         const message = lintLine + (nextLine && !nextLine.startsWith('LINE ') ? '\n' + nextLine : '');
         const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
         diagnostic.source = 'QB64';
-        if (!diagnostics.some(d => d.range.isEqual(diagnostic.range) && d.message === diagnostic.message)) {
-            diagnostics.push(diagnostic);
-        }
+        addDiagnostic(diagnostic);
       }
     } else if (lintLine.toLowerCase().includes('warning')) {
         const tokens = lintLine.split(':');
@@ -452,9 +497,7 @@ function parseCompilerErrors(output, uri) {
                 vscode.DiagnosticSeverity.Warning
             );
             diagnostic.source = 'QB64';
-            if (!diagnostics.some(d => d.range.isEqual(diagnostic.range) && d.message === diagnostic.message)) {
-                diagnostics.push(diagnostic);
-            }
+            addDiagnostic(diagnostic);
         }
     }
   }

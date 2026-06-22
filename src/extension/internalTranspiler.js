@@ -41,6 +41,19 @@ const PACKAGER_HEADER = `#!/usr/bin/env node
 // Built by QBasic Nexus — https://github.com/thirawat27/QBasic-Nexus
 `;
 
+function shouldUseWasmAccelerator(settingValue, compilerMode) {
+  if (compilerMode === CONFIG.MODE_INTERNAL_WASM) {
+    return true;
+  }
+
+  const normalized = String(
+    settingValue || CONFIG.WASM_ACCELERATOR_AUTO,
+  ).toLowerCase();
+  if (normalized === CONFIG.WASM_ACCELERATOR_ON) return true;
+  if (normalized === CONFIG.WASM_ACCELERATOR_OFF) return false;
+  return typeof WebAssembly === 'object' && typeof WebAssembly.compile === 'function';
+}
+
 function getPackagerCliInvocation(args) {
   const packageJsonPath = require.resolve(`${PACKAGER_MODULE}/package.json`);
   const packageJson = require(packageJsonPath);
@@ -170,7 +183,14 @@ async function runInternalTranspiler(document, shouldRun) {
   );
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
   const compilerMode = getConfig(CONFIG.COMPILER_MODE, CONFIG.MODE_INTERNAL);
-  const useWasmAccelerator = compilerMode === CONFIG.MODE_INTERNAL_WASM;
+  const wasmAcceleratorSetting = getConfig(
+    CONFIG.INTERNAL_WASM_ACCELERATOR,
+    CONFIG.WASM_ACCELERATOR_AUTO,
+  );
+  const useWasmAccelerator = shouldUseWasmAccelerator(
+    wasmAcceleratorSetting,
+    compilerMode,
+  );
 
   let packagerTargets = [];
   let outputDir = '';
@@ -217,7 +237,7 @@ async function runInternalTranspiler(document, shouldRun) {
     channel.appendLine(`  📊 Stats:    ${lineCount} lines • ${fileSize} KB`);
     channel.appendLine(`  📂 Output:   ${outputDir}`);
     channel.appendLine(
-      `  🧠 Engine:   ${useWasmAccelerator ? 'Internal JS + WASM accelerator' : 'Internal JS'}`,
+      `  🧠 Engine:   ${useWasmAccelerator ? 'Internal JS + WASM accelerator' : 'Internal JS'} (${String(wasmAcceleratorSetting || CONFIG.WASM_ACCELERATOR_AUTO).toLowerCase()})`,
     );
     channel.appendLine('');
     channel.appendLine('─────────────────────────────────────────────────────');

@@ -24,10 +24,23 @@ const COMPILER_MODE_ITEMS = Object.freeze([
     detail: 'Internal transpiler and packaged executable flow',
     value: CONFIG.MODE_INTERNAL,
   },
+]);
+
+const INTERNAL_WASM_ACCELERATOR_ITEMS = Object.freeze([
   {
-    label: 'Qbasic Nexus + WASM',
-    detail: 'Internal transpiler with an embedded WebAssembly runtime accelerator',
-    value: CONFIG.MODE_INTERNAL_WASM,
+    label: 'Auto',
+    detail: 'Use the WASM accelerator when available, with JavaScript fallback',
+    value: CONFIG.WASM_ACCELERATOR_AUTO,
+  },
+  {
+    label: 'On',
+    detail: 'Force the internal compiler to emit the WASM accelerator path',
+    value: CONFIG.WASM_ACCELERATOR_ON,
+  },
+  {
+    label: 'Off',
+    detail: 'Use the pure JavaScript internal runtime',
+    value: CONFIG.WASM_ACCELERATOR_OFF,
   },
 ]);
 
@@ -108,6 +121,10 @@ async function showSystemQuickActions() {
       compilerArgs: getConfig(CONFIG.COMPILER_ARGS, ''),
       internalTargets: getConfig(CONFIG.INTERNAL_TARGETS, 'host'),
       internalOutputDir: getConfig(CONFIG.INTERNAL_OUTPUT_DIR, ''),
+      internalWasmAccelerator: getConfig(
+        CONFIG.INTERNAL_WASM_ACCELERATOR,
+        CONFIG.WASM_ACCELERATOR_AUTO,
+      ),
       workspacePath: getWorkspacePath(),
       compileWorkerMaxQueueSize: getConfig(
         CONFIG.COMPILE_WORKER_MAX_QUEUE_SIZE,
@@ -298,6 +315,33 @@ async function selectCompilerArgs() {
   await updateSetting(CONFIG.COMPILER_ARGS, nextArgs);
   const label = nextArgs || 'none';
   vscode.window.showInformationMessage(`QB64 compiler args set to ${label}`);
+}
+
+async function selectInternalWasmAccelerator() {
+  const currentValue = String(
+    getConfig(
+      CONFIG.INTERNAL_WASM_ACCELERATOR,
+      CONFIG.WASM_ACCELERATOR_AUTO,
+    ) || CONFIG.WASM_ACCELERATOR_AUTO,
+  ).toLowerCase();
+  const picked = await vscode.window.showQuickPick(
+    INTERNAL_WASM_ACCELERATOR_ITEMS.map((item) => ({
+      ...item,
+      description: item.value === currentValue ? 'Current' : '',
+    })),
+    {
+      title: 'QBasic Nexus: Internal WASM Accelerator',
+      placeHolder: 'Choose how the internal compiler uses WASM acceleration',
+      ignoreFocusOut: true,
+    },
+  );
+
+  if (!picked) return;
+
+  await updateSetting(CONFIG.INTERNAL_WASM_ACCELERATOR, picked.value);
+  vscode.window.showInformationMessage(
+    `Internal WASM accelerator set to ${picked.label}.`,
+  );
 }
 
 async function selectEnableLinting() {
@@ -505,6 +549,7 @@ module.exports = {
   selectCompilerMode,
   selectCompilerPath,
   selectEnableLinting,
+  selectInternalWasmAccelerator,
   selectLineNumberSettings,
   selectLintDelay,
 };
