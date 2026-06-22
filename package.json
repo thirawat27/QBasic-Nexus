@@ -16,6 +16,7 @@
     },
     "homepage": "https://github.com/thirawat27/QBasic-Nexus#readme",
     "engines": {
+        "node": ">=22.0.0",
         "vscode": "^1.107.0"
     },
     "main": "./extension.js",
@@ -23,7 +24,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -32,7 +33,9 @@
         "test:variables": "node test/test-variable-declaration.js",
         "test:features": "node test/test-editor-features.js",
         "test:integration": "node test/test-integration.js",
+        "test:deep": "node test/test-deep.js",
         "test:autodetect": "node test/test-qb64-autodetect.js",
+        "test:qb64diagnostics": "node test/test-qb64-compiler.js",
         "test:workspace": "node test/test-workspace-multi.js",
         "test:webview": "node test/test-webview-manager.js",
         "test:todo": "node test/test-todo-provider.js",
@@ -41,7 +44,7 @@
         "test:executables": "node test/test-executable-utils.js",
         "test:buildsettings": "node test/test-internal-build-settings.js",
         "test:systemsettings": "node test/test-system-settings.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:autodetect && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run benchmark",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish"

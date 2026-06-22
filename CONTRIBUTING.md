@@ -12,7 +12,7 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18.x or higher
+- Node.js 22.x or higher
 - npm 9.x or higher
 - VS Code 1.107.0 or higher
 - Git 2.x or higher
