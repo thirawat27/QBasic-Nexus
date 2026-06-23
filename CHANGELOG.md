@@ -2,6 +2,14 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.6.0] - 2026-06-22
+
+### 🛠️ Compatibility and Quality
+
+- Raised the development and CI Node.js baseline to 22 to match the internal packaging dependency requirements.
+- Restored QB64 compiler diagnostics for `.inc` files and added regression coverage.
+- Added the deep regression suite to the default test command.
+
 ## [1.5.9] - 2026-04-23
 
 ### ✨ System Configuration Quick Actions
