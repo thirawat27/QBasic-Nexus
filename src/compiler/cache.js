@@ -33,6 +33,30 @@ function fnv1a(str) {
   return (hash >>> 0).toString(16);
 }
 
+/**
+ * Compute a wide cache fingerprint of a source string in a single pass.
+ *
+ * A bare 32-bit FNV-1a is far too narrow to key a compiler cache: a collision
+ * makes the cache hand back a *different program's* generated code, silently
+ * and with no error. Two independent accumulators plus the source length give a
+ * ~72-bit key, which makes a collision across a few hundred cached entries
+ * vanishingly unlikely, and costs one extra multiply-add per character.
+ *
+ * @param {string} str
+ * @returns {string} fingerprint safe to use as a cache key
+ */
+function fingerprint(str) {
+  let fnv = 2166136261; // FNV-1a offset basis
+  let djb = 5381; // djb2 — different basis and multiplier
+  const len = str.length;
+  for (let i = 0; i < len; i++) {
+    const code = str.charCodeAt(i);
+    fnv = Math.imul(fnv ^ code, 16777619);
+    djb = Math.imul(djb, 33) ^ code;
+  }
+  return `${(fnv >>> 0).toString(36)}.${(djb >>> 0).toString(36)}.${len.toString(36)}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // L1 Hot Cache – tiny Map that holds only the last N entries
 // Designed for the most recently accessed items (repeated typing scenario)
@@ -159,9 +183,9 @@ class CompilationCache {
     this._stats = { hits: 0, misses: 0 };
   }
 
-  /** Fast FNV-1a hash (replaces SHA-256) */
+  /** Wide single-pass fingerprint (see `fingerprint`) */
   _hash(source) {
-    return fnv1a(source);
+    return fingerprint(source);
   }
 
   // ── Token cache ──────────────────────────────────────────────────────────
@@ -185,10 +209,18 @@ class CompilationCache {
 
   // ── Code cache ───────────────────────────────────────────────────────────
 
+  /**
+   * Build the code-cache key without copying the source.
+   * The previous form hashed `source + '\x00' + target`, which allocated a full
+   * copy of the program on every lookup *and* every store.
+   */
+  _codeKey(source, target) {
+    return `${this._hash(source)}\x00${target}`;
+  }
+
   getCode(source, target = 'web') {
     if (!this.enabled) return null;
-    const key = this._hash(source + '\x00' + target);
-    const val = this.codeCache.get(key);
+    const val = this.codeCache.get(this._codeKey(source, target));
     if (val !== null) {
       this._stats.hits++;
       return val;
@@ -199,8 +231,11 @@ class CompilationCache {
 
   setCode(source, target, code, errors = []) {
     if (!this.enabled) return;
-    const key = this._hash(source + '\x00' + target);
-    this.codeCache.set(key, { code, errors, timestamp: Date.now() });
+    this.codeCache.set(this._codeKey(source, target), {
+      code,
+      errors,
+      timestamp: Date.now(),
+    });
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -296,6 +331,7 @@ module.exports = {
   TieredCache,
   L1Cache,
   fnv1a,
+  fingerprint,
   // Backward-compatible exports
   LRUCache: TieredCache, // alias so old require('./cache').LRUCache still works
   CompilationCache,

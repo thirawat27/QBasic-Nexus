@@ -5,6 +5,7 @@ const {
   mightContainTodoKeyword,
   scanTodoComments,
 } = require('../shared/todoComments');
+const { BoundedCache } = require('../shared/boundedCache');
 
 // Matches: _RGB32(r, g, b), _RGBA32(r, g, b, a), _RGB(r, g, b), _RGBA(r, g, b, a)
 const COLOR_PATTERN = /\b(_RGB32|_RGBA32|_RGB|_RGBA)\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+))?\s*\)/gi;
@@ -83,7 +84,10 @@ class QBasicColorProvider {
 // ── Inline TODO Highlighter ──────────────────────────────────────────────────
 
 let timeout = null;
-const decorationCache = new Map();
+// Bounded: one entry per document that has been decorated. Previously only
+// pruned on close, so opening many files in one session grew it unbounded.
+const DECORATION_CACHE_LIMIT = 24;
+const decorationCache = new BoundedCache(DECORATION_CACHE_LIMIT);
 
 const todoDecorationType = vscode.window.createTextEditorDecorationType({
   backgroundColor: 'rgba(255, 165, 0, 0.2)', // Orange background

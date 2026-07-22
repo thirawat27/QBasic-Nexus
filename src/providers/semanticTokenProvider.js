@@ -2,6 +2,7 @@
 
 const vscode = require('vscode');
 const { buildSemanticTokenSpans } = require('../shared/semanticTokens');
+const { BoundedCache } = require('../shared/boundedCache');
 
 const TOKEN_TYPES = Object.freeze([
   'variable',
@@ -33,7 +34,10 @@ const QBasicSemanticTokensLegend = new vscode.SemanticTokensLegend(
   [...TOKEN_MODIFIERS],
 );
 
-const semanticTokenCache = new Map();
+// Bounded: each entry holds a built SemanticTokens buffer for one document
+// version. Entries are recomputable, so evicting the coldest is always safe.
+const SEMANTIC_TOKEN_CACHE_LIMIT = 24;
+const semanticTokenCache = new BoundedCache(SEMANTIC_TOKEN_CACHE_LIMIT);
 
 class QBasicDocumentSemanticTokenProvider {
   provideDocumentSemanticTokens(document) {

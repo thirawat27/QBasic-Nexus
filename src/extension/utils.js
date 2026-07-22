@@ -219,6 +219,41 @@ function splitCommandLineArgs(value) {
   return args;
 }
 
+// ── Configuration snapshot cache ─────────────────────────────────────────────
+// getConfig() sits on the keystroke path (lintDocument calls it per edit).
+// vscode.workspace.getConfiguration() plus a defu deep-merge per call is pure
+// overhead there, so the merged snapshot is cached until VS Code reports a
+// configuration change. invalidateConfigCache() is wired to
+// onDidChangeConfiguration in extension.js.
+/** @type {Record<string, any> | null} */
+let _configSnapshot = null;
+
+/**
+ * Drop the cached configuration snapshot so the next read re-queries VS Code.
+ * Must be called whenever extension settings may have changed.
+ */
+function invalidateConfigCache() {
+  _configSnapshot = null;
+}
+
+/**
+ * Build (or reuse) the merged configuration snapshot.
+ * @returns {Record<string, any>}
+ */
+function _getConfigSnapshot() {
+  if (_configSnapshot) return _configSnapshot;
+
+  const section = vscode.workspace.getConfiguration(CONFIG.SECTION);
+  const raw = {};
+  for (const key of Object.keys(CONFIG_DEFAULTS)) {
+    raw[key] = section.get(key);
+  }
+  // Frozen: the snapshot is shared by every reader, so accidental mutation
+  // must fail loudly instead of silently corrupting other call sites.
+  _configSnapshot = Object.freeze(defu(raw, CONFIG_DEFAULTS));
+  return _configSnapshot;
+}
+
 /**
  * Get a single configuration value, merged with defaults via defu.
  * defu ensures: user setting → default (never null/undefined for known keys).
@@ -226,10 +261,15 @@ function splitCommandLineArgs(value) {
  * @param {*} [fallback] - override fallback (optional, CONFIG_DEFAULTS used if omitted)
  */
 function getConfig(key, fallback = undefined) {
-  const raw = vscode.workspace.getConfiguration(CONFIG.SECTION).get(key);
-  // Build a single-key object, merge with defaults, return the value
-  const merged = defu({ [key]: raw }, CONFIG_DEFAULTS);
-  const value = merged[key];
+  let value;
+
+  if (Object.prototype.hasOwnProperty.call(CONFIG_DEFAULTS, key)) {
+    value = _getConfigSnapshot()[key];
+  } else {
+    // Unknown key: no default to merge with, so read straight through.
+    value = vscode.workspace.getConfiguration(CONFIG.SECTION).get(key);
+  }
+
   // If still undefined/null AND a manual fallback was given, use it
   if ((value === undefined || value === null) && fallback !== undefined)
     return fallback;
@@ -242,12 +282,7 @@ function getConfig(key, fallback = undefined) {
  * @returns {Record<string, any>}
  */
 function getAllConfig() {
-  const section = vscode.workspace.getConfiguration(CONFIG.SECTION);
-  const raw = {};
-  for (const key of Object.keys(CONFIG_DEFAULTS)) {
-    raw[key] = section.get(key);
-  }
-  return defu(raw, CONFIG_DEFAULTS);
+  return _getConfigSnapshot();
 }
 
 /**
@@ -276,5 +311,6 @@ module.exports = {
   splitCommandLineArgs,
   getConfig,
   getAllConfig,
+  invalidateConfigCache,
   log,
 };

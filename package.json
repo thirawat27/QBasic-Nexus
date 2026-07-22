@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.6.0",
+    "version": "1.6.2",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -24,7 +24,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -44,7 +44,10 @@
         "test:executables": "node test/test-executable-utils.js",
         "test:buildsettings": "node test/test-internal-build-settings.js",
         "test:systemsettings": "node test/test-system-settings.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run benchmark",
+        "test:hotpath": "node test/test-hot-path-caches.js",
+        "test:configcache": "node test/test-config-cache.js",
+        "test:cacheintegrity": "node test/test-compiler-cache-integrity.js",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish"
@@ -62,8 +65,7 @@
         "defu": "^6.1.7",
         "flru": "^1.0.2",
         "magic-string": "^0.30.21",
-        "mitt": "^3.0.1",
-        "moo": "^0.5.3"
+        "mitt": "^3.0.1"
     },
     "categories": [
         "Programming Languages",

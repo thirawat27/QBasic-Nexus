@@ -3,7 +3,11 @@
 const vscode = require('vscode');
 const { CONFIG } = require('./constants');
 const { state } = require('./state');
-const { expandHomePath, getConfig } = require('./utils');
+const {
+  expandHomePath,
+  getConfig,
+  invalidateConfigCache,
+} = require('./utils');
 const {
   getPreferredConfigTarget,
 } = require('./internalBuildSettings');
@@ -104,6 +108,9 @@ function getWorkspacePath() {
 
 async function updateSetting(key, value, target = getPreferredConfigTarget()) {
   await vscode.workspace.getConfiguration(CONFIG.SECTION).update(key, value, target);
+  // onDidChangeConfiguration is not guaranteed to have fired yet, so drop the
+  // cached snapshot here to keep the immediate re-read below correct.
+  invalidateConfigCache();
   getStatusBarModule().updateStatusBar();
 }
 

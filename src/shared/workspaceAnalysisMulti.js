@@ -16,6 +16,7 @@ try {
 const fs = require('fs');
 const path = require('path');
 const { getDocumentAnalysis, analyzeQBasicText, findIdentifierMatchesInAnalysis } = require('./documentAnalysis');
+const { BoundedCache } = require('./boundedCache');
 
 const WORKSPACE_PARSE_YIELD_INTERVAL = 25;
 const INCLUDE_PATTERN = /^\s*\$INCLUDE\s*:\s*(?:['"])(.+?)(?:['"])/i;
@@ -23,6 +24,11 @@ const INCLUDE_PATTERN = /^\s*\$INCLUDE\s*:\s*(?:['"])(.+?)(?:['"])/i;
 function yieldToEventLoop() {
   return new Promise((resolve) => setImmediate(resolve));
 }
+
+// Bound the per-analyzer memo caches so long editing sessions cannot grow
+// without limit. Values are small (one merged view per document version).
+const MERGED_ANALYSIS_CACHE_LIMIT = 32;
+const WORKSPACE_MATCH_CACHE_LIMIT = 256;
 
 class WorkspaceAnalysis {
   constructor(workspaceId) {
@@ -32,6 +38,22 @@ class WorkspaceAnalysis {
     this.isRefreshing = false;
     this._refreshPromise = null;
     this._hasParsedWorkspace = false;
+
+    // Bumped on every mutation of symbolCache. Every derived memo is keyed by
+    // it, so a single counter invalidates all downstream caches at once.
+    this._generation = 0;
+
+    /** @type {BoundedCache} */
+    this._mergedCache = new BoundedCache(MERGED_ANALYSIS_CACHE_LIMIT);
+    /** @type {BoundedCache} */
+    this._matchCache = new BoundedCache(WORKSPACE_MATCH_CACHE_LIMIT);
+  }
+
+  /** Invalidate every memo derived from symbolCache. */
+  _bumpGeneration() {
+    this._generation++;
+    this._mergedCache.clear();
+    this._matchCache.clear();
   }
 
   async parseWorkspaceSymbols() {
@@ -85,9 +107,10 @@ class WorkspaceAnalysis {
 
       const content = await fs.promises.readFile(filePath, 'utf8');
       const analysis = analyzeQBasicText(content);
-      
+
       this.symbolCache.set(filePath, analysis);
       this.lastModified.set(filePath, lastMod);
+      this._bumpGeneration();
       return analysis;
     } catch (_e) {
       this.invalidateFile(filePath);
@@ -111,8 +134,41 @@ class WorkspaceAnalysis {
     return this.parseFileSymbols(filePath);
   }
 
+  /**
+   * Build a stable memo key for document-derived views.
+   * `_generation` covers every symbolCache mutation, so one key invalidates all.
+   * @param {vscode.TextDocument} document
+   * @param {string} suffix
+   * @returns {string|null} null when the document cannot be keyed safely
+   */
+  _memoKey(document, suffix = '') {
+    const uri = document?.uri;
+    if (!uri || typeof uri.toString !== 'function') return null;
+    const version = Number(document.version);
+    if (!Number.isFinite(version)) return null;
+    return `${uri.toString()}\x00${version}\x00${this._hasParsedWorkspace ? 1 : 0}\x00${suffix}`;
+  }
+
   async getWorkspaceAnalysis(document, options = {}) {
     const awaitWorkspace = options.awaitWorkspace === true;
+
+    // Settle workspace parsing before keying the memo. Parsing only populates
+    // symbolCache (and bumps the generation), so hoisting it does not change
+    // the merged result — it just makes the cache key accurate.
+    if (awaitWorkspace && !this._hasParsedWorkspace) {
+      await this.parseWorkspaceSymbols();
+    } else if (!awaitWorkspace) {
+      this.prepareWorkspace();
+    }
+
+    const memoKey = this._memoKey(document, 'merged');
+    if (memoKey !== null) {
+      const cached = this._mergedCache.get(memoKey);
+      if (cached && cached.generation === this._generation) {
+        return cached.merged;
+      }
+    }
+
     const localAnalysis = getDocumentAnalysis(document);
 
     // Get include files
@@ -162,12 +218,6 @@ class WorkspaceAnalysis {
       }
     }
 
-    if (awaitWorkspace && !this._hasParsedWorkspace) {
-      await this.parseWorkspaceSymbols();
-    } else if (!awaitWorkspace) {
-      this.prepareWorkspace();
-    }
-
     // Merge workspace files after initial workspace parse completes
     for (const [filePath, analysis] of this.symbolCache.entries()) {
       if (filePath === document.uri.fsPath || includedFileSet.has(filePath)) continue;
@@ -186,24 +236,46 @@ class WorkspaceAnalysis {
     }
 
     mergedAnalysis.variables = Array.from(mergedAnalysis.variables);
+
+    if (memoKey !== null) {
+      this._mergedCache.set(memoKey, {
+        generation: this._generation,
+        merged: mergedAnalysis,
+      });
+    }
+
     return mergedAnalysis;
   }
 
   async findWorkspaceIdentifierMatches(document, identifier, options = {}) {
     const awaitWorkspace = options.awaitWorkspace !== false;
-    const allMatches = [];
-    
-    // Check the current document first
-    const localMatches = findIdentifierMatchesInAnalysis(getDocumentAnalysis(document), identifier, options);
-    for (const match of localMatches) {
-        allMatches.push({ ...match, file: document.uri.fsPath });
-    }
 
     // Refresh workspace symbols to ensure cache is populated
     if (awaitWorkspace && !this._hasParsedWorkspace) {
       await this.parseWorkspaceSymbols();
     } else if (!awaitWorkspace) {
       this.prepareWorkspace();
+    }
+
+    const memoKey = this._memoKey(
+      document,
+      `matches\x00${String(identifier).toUpperCase()}\x00${
+        options.includeDeclaration === false ? 0 : 1
+      }`,
+    );
+    if (memoKey !== null) {
+      const cached = this._matchCache.get(memoKey);
+      if (cached && cached.generation === this._generation) {
+        return cached.matches;
+      }
+    }
+
+    const allMatches = [];
+
+    // Check the current document first
+    const localMatches = findIdentifierMatchesInAnalysis(getDocumentAnalysis(document), identifier, options);
+    for (const match of localMatches) {
+        allMatches.push({ ...match, file: document.uri.fsPath });
     }
 
     for (const [filePath, analysis] of this.symbolCache.entries()) {
@@ -215,6 +287,13 @@ class WorkspaceAnalysis {
       }
     }
 
+    if (memoKey !== null) {
+      this._matchCache.set(memoKey, {
+        generation: this._generation,
+        matches: allMatches,
+      });
+    }
+
     return allMatches;
   }
 
@@ -224,8 +303,11 @@ class WorkspaceAnalysis {
    */
   invalidateFile(filePath) {
     if (!filePath) return;
-    this.symbolCache.delete(filePath);
-    this.lastModified.delete(filePath);
+    // Both deletes must run, so evaluate them before combining the results.
+    const removedSymbols = this.symbolCache.delete(filePath);
+    const removedTimestamp = this.lastModified.delete(filePath);
+    // Nothing was cached for this path, so no derived memo can be stale.
+    if (removedSymbols || removedTimestamp) this._bumpGeneration();
   }
 
   /**
@@ -235,6 +317,7 @@ class WorkspaceAnalysis {
     this.symbolCache.clear();
     this.lastModified.clear();
     this._hasParsedWorkspace = false;
+    this._bumpGeneration();
   }
 
   /**

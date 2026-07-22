@@ -2,6 +2,39 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.6.1] - 2026-07-22
+
+### ⚡ Internal Compiler Performance
+
+- **Direct scanner replaces `moo`**: The lexer is now driven by a single sticky master regex whose ordered alternatives are exactly the previous tokenizer rules, so it produces a byte-identical token stream (verified token-for-token across 57 inputs, including adversarial ones) while allocating no per-token match object. Lexing a large program is ~35% faster and the `moo` runtime dependency is removed.
+- **Identifier classification memoized**: The lexer no longer allocates an uppercase copy of every identifier just to test keyword membership; the classification is cached per spelling.
+- **Allocation-free codegen indentation**: `_emit` reuses cached indent strings instead of building `'  '.repeat(n)` per generated line — previously the single largest source of GC pressure during code generation.
+- **Memoized name encoding**: `_encodeStorageName` and `_isSafeJavaScriptIdentifier` are now cached pure functions with a fast all-safe path and code-point-correct fallback.
+- **Leaner token access and DATA pre-pass**: Parser primitives (`_peek`/`_advance`/`_check`/`_matchPunc`/`_checkKw`) index the token array directly instead of through a manual one-slot cache, and the DATA/label pre-pass scans the array in a tight loop. Measured on a large program: parse+codegen ~34% faster, full cold compile ~29% faster.
+- Generated JavaScript is byte-identical to the previous compiler across a 155-entry corpus (4 targets plus lint, valid and malformed inputs).
+
+### ⚡ Editor & Workspace Performance
+
+- **Workspace Analysis Memoized**: `getWorkspaceAnalysis` and `findWorkspaceIdentifierMatches` now cache their merged result per document version and per symbol-cache generation. Previously every completion, hover, and go-to-definition request re-merged the entire workspace symbol cache and cloned every symbol and definition. On a 300-file workspace, repeat lookups drop from ~0.94 ms to ~0.001 ms.
+- **Completion Items Reused**: Because the merged analysis is now a stable object, the completion provider's per-analysis item memo actually takes effect instead of rebuilding every `CompletionItem` in the workspace on each keystroke.
+- **Include Resolution Off The Keystroke Path**: The synchronous `fs.existsSync` probes used to resolve `$INCLUDE` targets now run once per document version instead of once per language-server request.
+- **Cached Settings Snapshot**: Extension settings are read once and merged once, then reused until VS Code reports a configuration change. `lintDocument` no longer performs two `getConfiguration` lookups plus two deep merges on every edit.
+
+### 🐛 Correctness
+
+- **Fixed a silent cache miscompilation**: The compilation cache keyed generated code on a 32-bit FNV-1a hash, so a hash collision returned a *different program's* compiled output with no error. It now uses a wide multi-accumulator fingerprint and no longer copies the whole source per lookup. Includes a regression test built from a real collision pair.
+
+### 🧠 Memory Stability
+
+- **All Long-Lived Caches Bounded**: Introduced a shared `BoundedCache` LRU and applied it to the document-analysis cache, provider symbol cache, semantic-token cache, TODO decoration cache, per-analysis identifier-match cache, and the workspace memo caches. These previously grew for the lifetime of the extension host and only shrank when a document was explicitly closed.
+- **No-Op Invalidations Preserve Warm Caches**: Invalidating a path that was never cached no longer discards valid derived results.
+
+### ✅ Quality Assurance
+
+- Added `test/test-compiler-cache-integrity.js` covering the cache-collision regression, target isolation, cold/warm equivalence, and fingerprint distribution.
+- Added `test/test-hot-path-caches.js` covering LRU semantics, memo identity, invalidation correctness, and cache caps under pressure.
+- Added `test/test-config-cache.js` covering settings-snapshot reuse, default merging, explicit fallbacks, invalidation, and read-through for undeclared keys.
+
 ## [1.6.0] - 2026-06-22
 
 ### 🛠️ Compatibility and Quality

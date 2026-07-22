@@ -332,6 +332,7 @@ async function selectInternalTargets() {
       nextValue,
       getPreferredConfigTarget(),
     );
+  require('./utils').invalidateConfigCache();
   updateStatusBar();
   vscode.window.showInformationMessage(`Internal build targets set to ${nextValue}`);
 }
@@ -419,6 +420,7 @@ async function selectInternalOutputDir() {
       nextValue,
       getPreferredConfigTarget(),
     );
+  require('./utils').invalidateConfigCache();
   updateStatusBar();
   const label = nextValue || 'beside the source file';
   vscode.window.showInformationMessage(`Internal output folder set to ${label}`);
@@ -526,6 +528,7 @@ async function selectWorkerResilienceSetting(options = {}) {
   const config = vscode.workspace.getConfiguration(CONFIG.SECTION);
   await config.update(maxQueueConfigKey, nextMaxQueue, target);
   await config.update(timeoutConfigKey, nextTimeout, target);
+  require('./utils').invalidateConfigCache();
 
   updateStatusBar();
   vscode.window.showInformationMessage(

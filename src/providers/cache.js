@@ -8,10 +8,14 @@
 const vscode = require('vscode');
 const { KEYWORDS, FUNCTIONS } = require('../../languageData');
 const { invalidateDocumentAnalysis } = require('../shared/documentAnalysis');
+const { BoundedCache } = require('../shared/boundedCache');
 
 // Version-based cache: invalidates when document content changes (more accurate than TTL)
-// symbolCache stores { data, version } keyed by URI string
-const symbolCache = new Map();
+// symbolCache stores { data, version } keyed by URI string.
+// Bounded so files that are analysed but never opened (workspace scans,
+// go-to-definition across the project) cannot grow the heap indefinitely.
+const SYMBOL_CACHE_LIMIT = 48;
+const symbolCache = new BoundedCache(SYMBOL_CACHE_LIMIT);
 
 // Pre-built completion items for keywords/functions (immutable, never changes)
 let cachedKeywordItems = null;

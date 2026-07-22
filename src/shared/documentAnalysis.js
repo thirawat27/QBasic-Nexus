@@ -12,6 +12,15 @@ const {
   makeDimRegex,
   makeIdentifierRegex,
 } = require('../providers/patterns');
+const { BoundedCache } = require('./boundedCache');
+
+// A full analysis retains the document split into lines (plus a lazily built
+// uppercase copy), so this cache is the largest heap consumer in the extension
+// host. Cap it: entries are pure recomputable speed cache.
+const ANALYSIS_CACHE_LIMIT = 24;
+// Per-analysis identifier match memo. One entry per distinct identifier looked
+// up in that document; unbounded it grows with every rename/reference query.
+const IDENTIFIER_MATCH_CACHE_LIMIT = 128;
 
 // O(1) keyword lookup set (avoids object property access overhead)
 const KEYWORDS_UPPER_SET = new Set(Object.keys(KEYWORDS).map(k => k.toUpperCase()));
@@ -31,9 +40,9 @@ const SYMBOL_KIND = Object.freeze({
 
 /**
  * Cache for document analysis results
- * @type {Map<string, {version: number, analysis: DocumentAnalysis}>}
+ * @type {BoundedCache}
  */
-const analysisCache = new Map();
+const analysisCache = new BoundedCache(ANALYSIS_CACHE_LIMIT);
 
 const GOTO_RE = /\bGOTO\b/gi;
 const GOSUB_RE = /\bGOSUB\b/gi;
@@ -68,8 +77,10 @@ function getIdentifierMatchCache(analysis) {
     return null;
   }
 
-  if (!(analysis.identifierMatchCache instanceof Map)) {
-    analysis.identifierMatchCache = new Map();
+  if (!(analysis.identifierMatchCache instanceof BoundedCache)) {
+    analysis.identifierMatchCache = new BoundedCache(
+      IDENTIFIER_MATCH_CACHE_LIMIT,
+    );
   }
 
   return analysis.identifierMatchCache;

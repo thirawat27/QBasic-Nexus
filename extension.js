@@ -24,6 +24,7 @@ const { state } = require('./src/extension/state');
 const {
   debounce,
   throttle,
+  invalidateConfigCache,
 } = require('./src/extension/utils');
 const { getCompileWorkerClient } = require('./src/managers/CompileWorkerClient');
 const { getLintWorkerClient } = require('./src/managers/LintWorkerClient');
@@ -429,6 +430,10 @@ async function activate(context) {
       updateCodeStats(doc);
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
+      // Drop the cached settings snapshot first so every downstream handler
+      // below reads post-change values.
+      invalidateConfigCache();
+
       const workerResilienceChanged = workerResilienceKeys.some((key) =>
         e.affectsConfiguration(`${CONFIG.SECTION}.${key}`),
       );
@@ -512,6 +517,9 @@ async function activate(context) {
 
 function deactivate() {
   console.log('[QBasic Nexus] Extension deactivated');
+
+  // Drop cached settings so a later reactivation starts from a clean read
+  invalidateConfigCache();
 
   // Dispose the incremental linter (cancels all pending timers)
   getIncrementalLinter().dispose();

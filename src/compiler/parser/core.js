@@ -2,6 +2,106 @@
 'use strict';
 const { TokenType } = require('../constants');
 const STATEMENT_END_KEYWORDS = new Set(['THEN', 'ELSE', 'ELSEIF']);
+
+// -- Codegen helpers (module-level: pure, shared across every parse) ----------
+
+// _emit runs once per generated line, and `'  '.repeat(n)` allocated a fresh
+// string every time -- the single largest source of GC pressure in codegen.
+// Indent strings are immutable and few, so build them once and reuse.
+const INDENT_CACHE = [''];
+function indentString(level) {
+  if (!(level > 0)) return '';
+  const cached = INDENT_CACHE[level];
+  if (cached !== undefined) return cached;
+  for (let i = INDENT_CACHE.length; i <= level; i++) {
+    INDENT_CACHE[i] = INDENT_CACHE[i - 1] + '  ';
+  }
+  return INDENT_CACHE[level];
+}
+
+// _encodeStorageName is a pure function of its input and is called for
+// practically every identifier reference, with names repeating constantly.
+const STORAGE_SUFFIX = {
+  '%': '_pct',
+  '!': '_sgl',
+  '#': '_dbl',
+  '&': '_lng',
+  $: '$',
+};
+const SAFE_IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const SAFE_IDENTIFIER_START_RE = /^[A-Za-z_$]/;
+const ENCODED_NAME_CACHE = new Map();
+const SAFE_IDENTIFIER_CACHE = new Map();
+// Cap the memos so a pathological source cannot grow them without bound.
+const NAME_CACHE_LIMIT = 4096;
+
+function cacheName(cache, key, value) {
+  if (cache.size >= NAME_CACHE_LIMIT) cache.clear();
+  cache.set(key, value);
+  return value;
+}
+
+/** True when `ch` is one of A-Z a-z 0-9 _ $ -- checked without a regex. */
+function isSafeNameChar(code) {
+  return (
+    (code >= 65 && code <= 90) || // A-Z
+    (code >= 97 && code <= 122) || // a-z
+    (code >= 48 && code <= 57) || // 0-9
+    code === 95 || // _
+    code === 36 // $
+  );
+}
+
+function encodeStorageName(name) {
+  const source = String(name || '');
+  const cached = ENCODED_NAME_CACHE.get(source);
+  if (cached !== undefined) return cached;
+
+  // Fast path: every character already survives encoding unchanged, so the
+  // per-character rebuild can be skipped entirely. This is the common case.
+  let allSafe = source.length > 0;
+  for (let i = 0; i < source.length; i++) {
+    if (!isSafeNameChar(source.charCodeAt(i))) {
+      allSafe = false;
+      break;
+    }
+  }
+
+  let encoded;
+  if (allSafe) {
+    encoded = source;
+  } else {
+    // Slow path iterates by code point, matching the original semantics for
+    // astral characters (one `_x` escape per code point, not per code unit).
+    encoded = '';
+    for (const ch of source) {
+      if (isSafeNameChar(ch.charCodeAt(0)) && ch.length === 1) {
+        encoded += ch;
+      } else {
+        const suffix = STORAGE_SUFFIX[ch];
+        encoded +=
+          suffix !== undefined ? suffix : `_x${ch.charCodeAt(0).toString(16)}`;
+      }
+    }
+  }
+
+  if (!encoded || !SAFE_IDENTIFIER_START_RE.test(encoded)) {
+    encoded = `_${encoded}`;
+  }
+
+  return cacheName(ENCODED_NAME_CACHE, source, `__qb_${encoded}`);
+}
+
+function isSafeJavaScriptIdentifier(name) {
+  const source = String(name || '');
+  const cached = SAFE_IDENTIFIER_CACHE.get(source);
+  if (cached !== undefined) return cached;
+  return cacheName(
+    SAFE_IDENTIFIER_CACHE,
+    source,
+    SAFE_IDENTIFIER_RE.test(source),
+  );
+}
 module.exports = {
   _init(tokens, target = 'node', options = {}) {
     this.tokens = tokens;
@@ -51,9 +151,6 @@ module.exports = {
     /** @type {Map<string, string[]>} Label code blocks for GOTO state machine */
     this.labelBlocks = new Map();
 
-    // Performance optimization: Cache frequently accessed token properties
-    this._cachedPeek = null;
-    this._cachedPeekPos = -1;
     this._insideRawCapture = false;
     this._rawCaptureContainsJump = false;
     this._pendingLoopClosures = [];
@@ -126,35 +223,11 @@ module.exports = {
   },
 
   _isSafeJavaScriptIdentifier(name) {
-    return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(name || ''));
+    return isSafeJavaScriptIdentifier(name);
   },
 
   _encodeStorageName(name) {
-    const source = String(name || '');
-    const suffixMap = {
-      '%': '_pct',
-      '!': '_sgl',
-      '#': '_dbl',
-      '&': '_lng',
-      '$': '$',
-    };
-
-    let encoded = '';
-    for (const ch of source) {
-      if (/[A-Za-z0-9_$]/.test(ch)) {
-        encoded += ch;
-      } else if (suffixMap[ch]) {
-        encoded += suffixMap[ch];
-      } else {
-        encoded += `_x${ch.charCodeAt(0).toString(16)}`;
-      }
-    }
-
-    if (!encoded || !/^[A-Za-z_$]/.test(encoded)) {
-      encoded = `_${encoded}`;
-    }
-
-    return `__qb_${encoded}`;
+    return encodeStorageName(name);
   },
 
   _memberAccessFragment(member) {
@@ -542,36 +615,84 @@ module.exports = {
     this.scopeKinds.pop();
   },
 
+  /**
+   * Pre-pass over the whole token stream to collect DATA values and GOTO/GOSUB
+   * labels before the main parse. It runs on every token, so it walks the array
+   * directly instead of going through _check/_match/_advance -- those add three
+   * call frames and a property load per token for no benefit here.
+   */
   _collectDataValues() {
-    const savedPos = this.pos;
+    const tokens = this.tokens;
+    const length = tokens.length;
+    const labels = this.labels;
+    const dataValues = this.dataValues;
+    // Scans from the current position and leaves this.pos untouched, matching
+    // the original save/restore behaviour without mutating parser state.
+    let i = this.pos;
 
-    while (!this._isEnd()) {
+    while (i < length) {
+      const token = tokens[i];
+      if (token === undefined || token.type === TokenType.EOF) break;
+
       // Collect labels for GOTO/GOSUB support
-      if (this._check(TokenType.IDENTIFIER)) {
-        const next = this.tokens[this.pos + 1];
-        if (next?.type === TokenType.PUNCTUATION && next?.value === ':') {
-          this.labels.add(this._peek().value);
+      if (token.type === TokenType.IDENTIFIER) {
+        const next = tokens[i + 1];
+        if (
+          next !== undefined &&
+          next.type === TokenType.PUNCTUATION &&
+          next.value === ':'
+        ) {
+          labels.add(token.value);
         }
       }
 
-      if (this._matchKw('DATA')) {
-        do {
-          let val = '0';
-          if (this._check(TokenType.STRING)) val = `"${this._advance().value}"`;
-          else if (this._check(TokenType.NUMBER)) val = this._advance().value;
-          else if (this._check(TokenType.IDENTIFIER))
-            val = `"${this._advance().value}"`;
-          else if (!this._isStmtEnd()) this._advance();
-          else break;
-          this.dataValues.push(val);
-        } while (this._matchPunc(','));
-      } else {
-        this._advance();
+      if (token.type !== TokenType.KEYWORD || token.value !== 'DATA') {
+        i++;
+        continue;
+      }
+
+      i++; // consume DATA
+      for (;;) {
+        const item = tokens[i];
+        const type = item === undefined ? TokenType.EOF : item.type;
+
+        let value;
+        if (type === TokenType.STRING) {
+          value = `"${item.value}"`;
+          i++;
+        } else if (type === TokenType.NUMBER) {
+          value = item.value;
+          i++;
+        } else if (type === TokenType.IDENTIFIER) {
+          value = `"${item.value}"`;
+          i++;
+        } else if (
+          type !== TokenType.EOF &&
+          type !== TokenType.NEWLINE &&
+          !(type === TokenType.KEYWORD && STATEMENT_END_KEYWORDS.has(item.value))
+        ) {
+          // Unrecognised item: skip it and record the placeholder, mirroring
+          // the original `else if (!this._isStmtEnd()) this._advance()` branch.
+          value = '0';
+          i++;
+        } else {
+          break;
+        }
+
+        dataValues.push(value);
+
+        // Continue only across a separating comma.
+        const separator = tokens[i];
+        if (
+          separator === undefined ||
+          separator.type !== TokenType.PUNCTUATION ||
+          separator.value !== ','
+        ) {
+          break;
+        }
+        i++;
       }
     }
-
-    // Reset position for main pass
-    this.pos = savedPos;
   },
 
   _recordError(errorOrMessage) {
@@ -636,7 +757,7 @@ module.exports = {
   },
 
   _emit(code) {
-    this.output.push('  '.repeat(this.indent) + code);
+    this.output.push(indentString(this.indent) + code);
   },
 
   _emitSourceTrace(sourceLine) {
@@ -4330,8 +4451,8 @@ break _qbRestart;
   },
 
   _matchPunc(c) {
-    const t = this._peek();
-    if (t?.type === TokenType.PUNCTUATION && t.value === c) {
+    const t = this.tokens[this.pos];
+    if (t !== undefined && t.type === TokenType.PUNCTUATION && t.value === c) {
       this._advance();
       return true;
     }
@@ -4392,21 +4513,21 @@ break _qbRestart;
   },
 
   _checkKw(kw) {
-    const t = this._peek();
-    return t?.type === TokenType.KEYWORD && t.value === kw;
+    const t = this.tokens[this.pos];
+    return t !== undefined && t.type === TokenType.KEYWORD && t.value === kw;
   },
 
   _advance() {
-    if (!this._isEnd()) {
+    const token = this.tokens[this.pos];
+    if (token !== undefined && token.type !== TokenType.EOF) {
       this.pos++;
-      // Invalidate cache
-      this._cachedPeekPos = -1;
     }
     return this._prev();
   },
 
   _isEnd() {
-    return this._check(TokenType.EOF);
+    const token = this.tokens[this.pos];
+    return token === undefined || token.type === TokenType.EOF;
   },
 
   _skipNewlines() {
@@ -4414,7 +4535,7 @@ break _qbRestart;
   },
 
   _isStmtEnd() {
-    const t = this._peek();
+    const t = this.tokens[this.pos];
     if (!t || t.type === TokenType.EOF || t.type === TokenType.NEWLINE)
       return true;
     if (t.type === TokenType.KEYWORD && STATEMENT_END_KEYWORDS.has(t.value))
@@ -4429,25 +4550,25 @@ break _qbRestart;
   },
 
   _check(type) {
-    return this._peek()?.type === type;
+    const token = this.tokens[this.pos];
+    return token !== undefined && token.type === type;
   },
 
   _matchOp(op) {
-    const t = this._peek();
-    if (t?.type === TokenType.OPERATOR && t.value === op) {
+    const t = this.tokens[this.pos];
+    if (t !== undefined && t.type === TokenType.OPERATOR && t.value === op) {
       this._advance();
       return true;
     }
     return false;
   },
 
+  // Indexing a packed array is cheaper than the manual one-slot memo this used
+  // to keep: that memo cost two loads plus a compare here and an extra store in
+  // every _advance(), for a value V8 already fetches in a single operation.
   _peek() {
-    if (this._cachedPeekPos === this.pos) {
-      return this._cachedPeek;
-    }
-    this._cachedPeek = this.tokens[this.pos] || null;
-    this._cachedPeekPos = this.pos;
-    return this._cachedPeek;
+    const token = this.tokens[this.pos];
+    return token === undefined ? null : token;
   },
 
   _prev() {
