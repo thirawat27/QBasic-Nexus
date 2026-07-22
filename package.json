@@ -17,7 +17,7 @@
     "homepage": "https://github.com/thirawat27/QBasic-Nexus#readme",
     "engines": {
         "node": ">=22.0.0",
-        "vscode": "^1.107.0"
+        "vscode": "^1.125.0"
     },
     "main": "./extension.js",
     "activationEvents": [
