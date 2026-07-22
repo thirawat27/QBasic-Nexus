@@ -58,17 +58,17 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
-        "@types/node": "25.x",
-        "@types/vscode": "^1.107.0",
-        "eslint": "^10.2.1",
-        "globals": "^17.5.0",
-        "tinybench": "6.0.0"
+        "@types/node": "26.x",
+        "@types/vscode": "^1.125.0",
+        "eslint": "^10.7.0",
+        "globals": "^17.7.0",
+        "tinybench": "6.0.2"
     },
     "dependencies": {
-        "@yao-pkg/pkg": "6.17.0",
+        "@yao-pkg/pkg": "6.21.0",
         "defu": "^6.1.7",
         "flru": "^1.0.2",
-        "magic-string": "^0.30.21",
+        "magic-string": "^1.0.0",
         "mitt": "^3.0.1"
     },
     "categories": [
