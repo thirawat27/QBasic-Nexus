@@ -2,6 +2,22 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [1.6.2] - 2026-07-22
+
+### 🛡️ Build Stability
+
+- **External builds can no longer hang the extension**: The QB64 compiler and the native packager were spawned with no timeout and no kill path. If one of them stalled — a stuck backend compile, a process waiting on a prompt — the build promise never settled, so the compile state stayed locked and Compile/Run remained disabled until the window was reloaded. External build processes are now guarded: they are terminated with `SIGTERM`, then `SIGKILL` after a short grace period, and the build always resolves.
+- **New setting `qbasic-nexus.externalBuildTimeoutMs`**: Configurable timeout in milliseconds for an external build process (default `300000`; set `0` to disable the guard), mirroring the existing worker-timeout settings.
+
+### ✨ Cancellable Builds
+
+- **Cancel button for builds**: Internal (QBasic Nexus) and QB64 compilations now run under a cancellable progress notification. Cancelling terminates the underlying child process and reports a clean "Build canceled" message instead of surfacing a spurious error.
+- **Killable packaging path**: The cancellable internal build now routes through the child-process packager instead of the uninterruptible in-process API, so both cancel and timeout can actually stop packaging and a heavy build no longer janks the editor.
+
+### ✅ Quality Assurance
+
+- Added `test/test-process-timeout.js` covering the timeout guard: `SIGTERM` on deadline, `SIGKILL` after grace, cancel-before-deadline is a no-op, a non-positive timeout disables the guard, and a missing process is handled safely.
+
 ## [1.6.1] - 2026-07-22
 
 ### ⚡ Internal Compiler Performance
