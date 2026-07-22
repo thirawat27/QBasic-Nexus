@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.6.2",
+    "version": "1.6.1",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -20,6 +20,10 @@
         "vscode": "^1.107.0"
     },
     "main": "./extension.js",
+    "activationEvents": [
+        "onLanguage:qbasic",
+        "onView:qbasic-todo"
+    ],
     "scripts": {
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
