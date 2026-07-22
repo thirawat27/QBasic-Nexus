@@ -27,12 +27,27 @@ const {
   validatePackagerTargets,
 } = require('./executableUtils');
 const { state } = require('./state');
-const { getConfig, getOutputChannel, getTerminal, log } = require('./utils');
+const {
+  getConfig,
+  getOutputChannel,
+  getTerminal,
+  log,
+  attachProcessTimeout,
+} = require('./utils');
 const { updateStatusBar } = require('./statusBar');
 const { getCompileWorkerClient } = require('../managers/CompileWorkerClient');
 
 const PACKAGER_MODULE = '@yao-pkg/pkg';
 const PACKAGER_COMPRESSION = 'GZip';
+
+/** Thrown when the user cancels an in-progress build. */
+class BuildCanceledError extends Error {
+  constructor(message = 'Build canceled') {
+    super(message);
+    this.name = 'BuildCanceledError';
+    this.canceled = true;
+  }
+}
 
 // Packager-compatible Node.js header
 // Shebang only needed on macOS/Linux; Windows ignores it but it causes no harm.
@@ -72,20 +87,25 @@ function getPackagerCliInvocation(args) {
   };
 }
 
-async function runPackager(args, channel) {
-  let packagerApi = null;
+async function runPackager(args, channel, token = null) {
+  // The in-process API (packagerApi.exec) runs on the extension-host event
+  // loop: it cannot be killed on timeout or user-cancel, and a heavy build
+  // janks the whole editor. When the caller can cancel (a token is supplied)
+  // always use the child-process path so timeout + cancel can terminate it.
+  if (!token) {
+    let packagerApi = null;
+    try {
+      packagerApi = require(PACKAGER_MODULE);
+    } catch (_loadError) {
+      channel.appendLine(
+        `  ⚠ ${PACKAGER_MODULE} API unavailable, falling back to bundled CLI…`,
+      );
+    }
 
-  try {
-    packagerApi = require(PACKAGER_MODULE);
-  } catch (_loadError) {
-    channel.appendLine(
-      `  ⚠ ${PACKAGER_MODULE} API unavailable, falling back to bundled CLI…`,
-    );
-  }
-
-  if (packagerApi?.exec) {
-    await packagerApi.exec(args);
-    return;
+    if (packagerApi?.exec) {
+      await packagerApi.exec(args);
+      return;
+    }
   }
 
   const { command, args: cliArgs } = getPackagerCliInvocation(args);
@@ -95,10 +115,55 @@ async function runPackager(args, channel) {
       env: process.env,
       shell: false,
     });
+
+    // Guard against a packager process that hangs so the build Promise always
+    // settles and state.isCompiling is released.
+    const timeoutMs = getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS, 300000);
+    let timedOut = false;
+    let canceled = false;
+    const cancelTimeout = attachProcessTimeout(proc, timeoutMs, () => {
+      timedOut = true;
+      channel.appendLine(
+        `\n  ⏱ Packaging exceeded ${timeoutMs}ms — terminating ${PACKAGER_MODULE}.`,
+      );
+    });
+
+    const cancelSub = token?.onCancellationRequested?.(() => {
+      canceled = true;
+      channel.appendLine(`\n  ⏹ Build canceled — terminating ${PACKAGER_MODULE}.`);
+      try {
+        proc.kill('SIGTERM');
+      } catch {
+        // Process may already be gone.
+      }
+    });
+
+    const cleanup = () => {
+      cancelTimeout();
+      cancelSub?.dispose?.();
+    };
+
     proc.stdout.on('data', (data) => channel.append(data.toString()));
     proc.stderr.on('data', (data) => channel.append(data.toString()));
-    proc.on('error', reject);
+    proc.on('error', (err) => {
+      cleanup();
+      reject(err);
+    });
     proc.on('close', (code) => {
+      cleanup();
+
+      if (canceled) {
+        reject(new BuildCanceledError());
+        return;
+      }
+
+      if (timedOut) {
+        reject(
+          new Error(`${PACKAGER_MODULE} packaging timed out after ${timeoutMs}ms`),
+        );
+        return;
+      }
+
       if (code === 0) {
         resolve();
         return;
@@ -248,9 +313,9 @@ async function runInternalTranspiler(document, shouldRun) {
       {
         location: vscode.ProgressLocation.Notification,
         title: `QBasic Nexus  —  ${fileName}`,
-        cancellable: false,
+        cancellable: true,
       },
-      async (progress) => {
+      async (progress, token) => {
         let lastPct = 0;
         function report(pct, label) {
           channel.appendLine(makeBar(pct, label));
@@ -259,6 +324,11 @@ async function runInternalTranspiler(document, shouldRun) {
             increment: pct - lastPct,
           });
           lastPct = pct;
+        }
+        function throwIfCanceled() {
+          if (token?.isCancellationRequested) {
+            throw new BuildCanceledError();
+          }
         }
 
         // ── 1: Lexical & Syntax Analysis (0 → 30%) ─────────────────────
@@ -294,6 +364,7 @@ async function runInternalTranspiler(document, shouldRun) {
           );
         }
         report(30, 'Syntax analysis passed ✓');
+        throwIfCanceled();
 
         // ── 2: Code Generation / write JS (30 → 60%) ───────────────────
         channel.appendLine('');
@@ -308,6 +379,7 @@ async function runInternalTranspiler(document, shouldRun) {
         const t0 = process.hrtime(startTime);
         const tMs = (t0[0] * 1000 + t0[1] / 1e6).toFixed(2);
         report(60, `Transpile complete (${tMs}ms) ✓`);
+        throwIfCanceled();
 
         // ── 3: Native packaging (60 → 100%) ────────────────────────────
         channel.appendLine('');
@@ -342,7 +414,7 @@ async function runInternalTranspiler(document, shouldRun) {
         }
         channel.appendLine(`  🎯 Targets: ${packagerTargets.join(', ')}`);
 
-        await runPackager(packagerArgs, channel);
+        await runPackager(packagerArgs, channel, token);
 
         if (multiTargetBuild) {
           generatedOutputs = await collectUpdatedPackagedOutputs(
@@ -426,11 +498,19 @@ async function runInternalTranspiler(document, shouldRun) {
       channel.appendLine('═══════════════════════════════════════════════════');
     }
   } catch (error) {
-    channel.appendLine('');
-    channel.appendLine(`  ❌ Build Failed: ${error.message}`);
-    channel.appendLine('═══════════════════════════════════════════════════');
-    log(`Error: ${error.message}`, 'error');
-    vscode.window.showErrorMessage(`❌ Build Error: ${error.message}`);
+    if (error instanceof BuildCanceledError || error?.canceled) {
+      channel.appendLine('');
+      channel.appendLine('  ⏹ Build canceled.');
+      channel.appendLine('═══════════════════════════════════════════════════');
+      log('Build canceled by user', 'warning');
+      vscode.window.showInformationMessage('⏹ Build canceled.');
+    } else {
+      channel.appendLine('');
+      channel.appendLine(`  ❌ Build Failed: ${error.message}`);
+      channel.appendLine('═══════════════════════════════════════════════════');
+      log(`Error: ${error.message}`, 'error');
+      vscode.window.showErrorMessage(`❌ Build Error: ${error.message}`);
+    }
   } finally {
     if (tempJs) {
       await fs.unlink(tempJs).catch(() => {});
@@ -467,4 +547,4 @@ async function runExecutable(exePath) {
   );
 }
 
-module.exports = { runInternalTranspiler, runExecutable };
+module.exports = { runInternalTranspiler, runExecutable, BuildCanceledError };

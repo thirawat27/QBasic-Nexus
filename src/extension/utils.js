@@ -24,6 +24,7 @@ const CONFIG_DEFAULTS = Object.freeze({
   [CONFIG.COMPILE_WORKER_REQUEST_TIMEOUT_MS]: 30000,
   [CONFIG.LINT_WORKER_MAX_QUEUE_SIZE]: 96,
   [CONFIG.LINT_WORKER_REQUEST_TIMEOUT_MS]: 15000,
+  [CONFIG.EXTERNAL_BUILD_TIMEOUT_MS]: 300000,
   [CONFIG.ENABLE_LINT]: true,
   [CONFIG.LINT_DELAY]: 500,
   [CONFIG.AUTO_FORMAT]: true,
@@ -219,6 +220,66 @@ function splitCommandLineArgs(value) {
   return args;
 }
 
+/**
+ * Guard a spawned child process against hanging forever.
+ *
+ * External build tools (QB64, the packager CLI) can wedge — waiting on a
+ * prompt, stuck in a backend compile, or deadlocked. Without a guard the
+ * wrapping Promise never settles, which leaves state.isCompiling === true and
+ * disables Compile/Run until the window is reloaded.
+ *
+ * Attaches a timer that SIGTERMs the process, then SIGKILLs it after a short
+ * grace period. The process 'close'/'error' handler must call the returned
+ * canceller so a normal, fast build never gets killed.
+ *
+ * @param {import('child_process').ChildProcess} proc
+ * @param {number} timeoutMs  0 (or non-positive) disables the guard
+ * @param {() => void} [onTimeout] invoked once, right before SIGTERM
+ * @returns {() => void} cancel — clears both timers; safe to call repeatedly
+ */
+function attachProcessTimeout(proc, timeoutMs, onTimeout) {
+  const normalized = Math.trunc(Number(timeoutMs));
+  if (!proc || !Number.isFinite(normalized) || normalized <= 0) {
+    return () => {};
+  }
+
+  let forceTimer = null;
+  let killTimer = setTimeout(() => {
+    killTimer = null;
+    try {
+      onTimeout?.();
+    } catch {
+      // Ignore reporting failures; killing the process is what matters.
+    }
+    try {
+      proc.kill('SIGTERM');
+    } catch {
+      // Process may already be gone; nothing else to do.
+    }
+    forceTimer = setTimeout(() => {
+      forceTimer = null;
+      try {
+        proc.kill('SIGKILL');
+      } catch {
+        // Already exited between SIGTERM and the grace deadline.
+      }
+    }, 3000);
+    forceTimer.unref?.();
+  }, normalized);
+  killTimer.unref?.();
+
+  return () => {
+    if (killTimer) {
+      clearTimeout(killTimer);
+      killTimer = null;
+    }
+    if (forceTimer) {
+      clearTimeout(forceTimer);
+      forceTimer = null;
+    }
+  };
+}
+
 // ── Configuration snapshot cache ─────────────────────────────────────────────
 // getConfig() sits on the keystroke path (lintDocument calls it per edit).
 // vscode.workspace.getConfiguration() plus a defu deep-merge per call is pure
@@ -304,6 +365,7 @@ function log(message, type = 'info') {
 module.exports = {
   debounce,
   throttle,
+  attachProcessTimeout,
   getOutputChannel,
   getTerminal,
   fileExists,

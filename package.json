@@ -28,7 +28,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -51,7 +51,8 @@
         "test:hotpath": "node test/test-hot-path-caches.js",
         "test:configcache": "node test/test-config-cache.js",
         "test:cacheintegrity": "node test/test-compiler-cache-integrity.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run benchmark",
+        "test:processtimeout": "node test/test-process-timeout.js",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish"
@@ -430,6 +431,13 @@
                     "default": 15000,
                     "minimum": 0,
                     "markdownDescription": "Timeout in milliseconds for an in-flight lint worker request.\n\nSet to `0` to disable timeouts. When a request times out, the worker is recycled and diagnostics are computed via the fallback path.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.externalBuildTimeoutMs": {
+                    "type": "number",
+                    "default": 300000,
+                    "minimum": 0,
+                    "markdownDescription": "Timeout in milliseconds for an external build process (the QB64 compiler or the native packager).\n\nIf the process does not finish in time it is terminated and the build fails with a timeout error, so a hung compiler never leaves Compile/Run stuck. Set to `0` to disable the guard.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.enableLinting": {

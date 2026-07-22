@@ -20,9 +20,14 @@ const {
   getConfig,
   expandHomePath,
   splitCommandLineArgs,
+  attachProcessTimeout,
 } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
-const { runExecutable, runInternalTranspiler } = require('./internalTranspiler');
+const {
+  runExecutable,
+  runInternalTranspiler,
+  BuildCanceledError,
+} = require('./internalTranspiler');
 const {
   findQB64,
   getInstallInstructions,
@@ -291,15 +296,31 @@ async function runQB64Compiler(document, shouldRun) {
   }
 
   try {
-    const outputPath = await compileWithQB64(document, compilerPath, channel);
+    const outputPath = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `QBasic Nexus  —  QB64  —  ${path.basename(document.uri.fsPath)}`,
+        cancellable: true,
+      },
+      (progress, token) => {
+        progress.report({ message: 'Compiling with QB64…' });
+        return compileWithQB64(document, compilerPath, channel, token);
+      },
+    );
 
     if (shouldRun && outputPath) {
       await runExecutable(outputPath);
     }
-  } catch (_error) {
-    vscode.window.showErrorMessage(
-      '❌ Compilation failed. Check output for details.',
-    );
+  } catch (error) {
+    if (error instanceof BuildCanceledError || error?.canceled) {
+      channel.appendLine('');
+      channel.appendLine('⏹ Compilation canceled.');
+      vscode.window.showInformationMessage('⏹ Compilation canceled.');
+    } else {
+      vscode.window.showErrorMessage(
+        '❌ Compilation failed. Check output for details.',
+      );
+    }
   } finally {
     state.isCompiling = false;
     updateStatusBar();
@@ -313,7 +334,7 @@ async function runQB64Compiler(document, shouldRun) {
  * @param {vscode.OutputChannel} channel
  * @returns {Promise<string>} resolved output path on success
  */
-function compileWithQB64(document, compilerPath, channel) {
+function compileWithQB64(document, compilerPath, channel, token = null) {
   return new Promise((resolve, reject) => {
     const sourcePath = document.uri.fsPath;
     const sourceDir = path.dirname(sourcePath);
@@ -346,6 +367,34 @@ function compileWithQB64(document, compilerPath, channel) {
       shell: false,
     });
 
+    // Guard against a QB64 process that never exits (stuck backend compile,
+    // waiting on a prompt). Without this the Promise never settles and
+    // state.isCompiling stays true until the window is reloaded.
+    const timeoutMs = getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS, 300000);
+    let timedOut = false;
+    let canceled = false;
+    const cancelTimeout = attachProcessTimeout(proc, timeoutMs, () => {
+      timedOut = true;
+      channel.appendLine(
+        `\n⏱ Compilation exceeded ${timeoutMs}ms — terminating QB64.`,
+      );
+    });
+
+    const cancelSub = token?.onCancellationRequested?.(() => {
+      canceled = true;
+      channel.appendLine('\n⏹ Canceled — terminating QB64.');
+      try {
+        proc.kill('SIGTERM');
+      } catch {
+        // Process may already be gone.
+      }
+    });
+
+    const cleanup = () => {
+      cancelTimeout();
+      cancelSub?.dispose?.();
+    };
+
     let output = '';
 
     proc.stdout.on('data', (data) => {
@@ -361,11 +410,28 @@ function compileWithQB64(document, compilerPath, channel) {
     });
 
     proc.on('error', (err) => {
+      cleanup();
       channel.appendLine(`\n❌ Failed to start compiler: ${err.message}`);
       reject(err);
     });
 
     proc.on('close', async (code) => {
+      cleanup();
+
+      if (canceled) {
+        channel.appendLine('');
+        channel.appendLine('⏹ BUILD CANCELED');
+        reject(new BuildCanceledError());
+        return;
+      }
+
+      if (timedOut) {
+        channel.appendLine('');
+        channel.appendLine(`❌ BUILD TIMED OUT (${timeoutMs}ms)`);
+        reject(new Error(`QB64 compilation timed out after ${timeoutMs}ms`));
+        return;
+      }
+
       try {
         parseCompilerErrors(output, document.uri);
 

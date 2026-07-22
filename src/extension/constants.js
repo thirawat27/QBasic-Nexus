@@ -17,6 +17,7 @@ const CONFIG = Object.freeze({
   COMPILE_WORKER_REQUEST_TIMEOUT_MS: 'compileWorkerRequestTimeoutMs',
   LINT_WORKER_MAX_QUEUE_SIZE: 'lintWorkerMaxQueueSize',
   LINT_WORKER_REQUEST_TIMEOUT_MS: 'lintWorkerRequestTimeoutMs',
+  EXTERNAL_BUILD_TIMEOUT_MS: 'externalBuildTimeoutMs',
   ENABLE_LINT: 'enableLinting',
   LINT_DELAY: 'lintDelay',
   AUTO_FORMAT: 'autoFormatOnSave',
