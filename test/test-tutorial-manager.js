@@ -5,7 +5,6 @@
 'use strict';
 
 const Module = require('module');
-const { createTranscriptEvent } = require('../src/webview/crtTranscript');
 
 console.log('\n📦 TutorialManager Tests\n');
 
@@ -71,18 +70,18 @@ function loadTutorialManager() {
   }
 }
 
-test('TutorialManager normalizes escaped CRT output before matching', () => {
+test('TutorialManager matches output with CRLF line ends and trailing spaces', () => {
   const { TutorialManager } = loadTutorialManager();
   TutorialManager.reset();
   TutorialManager.clearHistory();
   TutorialManager.currentLesson = {
-    title: 'Escaped Output',
-    matchRegex: /BMI Calculator\s*underweight/i,
+    title: 'Screen Text',
+    matchRegex: /BMI Calculator\nunderweight/i,
   };
 
-  const passedNow = TutorialManager.checkResult('BMI Calculator\\n\\nunderweight\\n');
+  const passedNow = TutorialManager.checkResult('BMI Calculator    \r\nunderweight   \r\n');
 
-  assert(passedNow === true, 'Expected escaped newline output to match after normalization');
+  assert(passedNow === true, 'Expected screen text to match after normalization');
 });
 
 test('TutorialManager trims oversized output history for long sessions', () => {
@@ -120,48 +119,22 @@ test('TutorialManager resets regex state before repeated checks', () => {
   assert(statusBarMessages.length >= 2, 'Expected completion status messages for both passes');
 });
 
-test('TutorialManager consumes structured transcript snapshots', () => {
+test('checkOutput judges each run on its own output', () => {
   const { TutorialManager } = loadTutorialManager();
   TutorialManager.reset();
-  TutorialManager.clearHistory();
   TutorialManager.currentLesson = {
-    title: 'Structured Transcript',
-    matchRegex: /BMI Calculator\s*underweight/i,
+    title: 'One Run',
+    matchRegex: /^HELLO$/m,
   };
 
-  const passedNow = TutorialManager.checkRuntimeEvent(
-    createTranscriptEvent('output', {
-      text: 'underweight',
-    }),
-    {
-      text: 'BMI Calculator\nunderweight',
-    },
-  );
-
-  assert(passedNow === true, 'Expected transcript-aware runtime events to match the active lesson');
+  assert(TutorialManager.checkOutput('BYE') === false, 'Expected a wrong run to fail');
+  assert(TutorialManager.checkOutput('HELLO') === true, 'Expected the next run to be judged alone');
 });
 
-test('TutorialManager ignores non-renderable structured events', () => {
+test('checkOutput does nothing without an active lesson', () => {
   const { TutorialManager } = loadTutorialManager();
   TutorialManager.reset();
-  TutorialManager.clearHistory();
-  TutorialManager.currentLesson = {
-    title: 'Structured Prompt',
-    matchRegex: /never-match/i,
-  };
-
-  const passedNow = TutorialManager.checkRuntimeEvent(
-    createTranscriptEvent('prompt_open', {
-      prompt: 'Enter weight: ',
-      promptId: 1,
-    }),
-    {
-      text: 'Enter weight: ',
-    },
-  );
-
-  assert(passedNow === false, 'Expected prompt lifecycle events to stay out of result matching');
-  assert(TutorialManager._outputHistory === '', 'Expected ignored events to leave history unchanged');
+  assert(TutorialManager.checkOutput('anything') === false, 'Expected no lesson to mean no pass');
 });
 
 async function run() {

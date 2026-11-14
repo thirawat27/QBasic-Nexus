@@ -10,4 +10,9 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 .github/**
 .nvmrc
-SECURITY.md
+SECURITY.mddocs/**
+scripts/**
+CONTRIBUTING.md
+.editorconfig
+.npmrc
+**/*.vsix

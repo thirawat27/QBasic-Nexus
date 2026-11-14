@@ -4,8 +4,8 @@
 <div align="center">
   <h1>QBasic Nexus ⚙️</h1>
   <p>
-    <strong>The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀</strong><br>
-    <em>Experience zero-setup compilation, state-of-the-art IntelliSense, and a stunning built-in Retro CRT Web Runtime that leaves all others in the dust.</em>
+    <strong>The Most Advanced QBasic, QB64 & QBNex Development Environment Ever Built for VS Code 🚀</strong><br>
+    <em>Build, check and debug with the real compilers, get live diagnostics as you type, and watch your programs glow in a built-in Retro CRT powered by the QBNex VM.</em>
   </p>
   <p>
     <a href="#️-prerequisites">Prerequisites</a> •
@@ -16,7 +16,7 @@
   </p>
   <p>
      <img src="https://img.shields.io/open-vsx/v/thirawat27/qbasic-nexus" alt="Version" />
-    <img src="https://img.shields.io/badge/VS%20Code-1.107.0+-green.svg" alt="VS Code" />
+    <img src="https://img.shields.io/badge/VS%20Code-1.125.0+-green.svg" alt="VS Code" />
     <img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="License" />
     
   </p>
@@ -24,7 +24,7 @@
 
 <br>
 
-**QBasic Nexus** transforms VS Code into an immensely powerful retro-coding station. Engineered from the ground up for raw performance, it features a blazingly fast custom transpiler, multi-tiered caching, and out-of-the-box native executable packaging for Windows, macOS, and Linux. Whether you're a veteran developer reviving classic code or a newcomer learning the roots of programming, QBasic Nexus provides an unmatched, modern experience for **QBasic** and **QB64**.
+**QBasic Nexus** transforms VS Code into an immensely powerful retro-coding station. Version 2.0 builds, runs and checks your programs with the real compilers - **QBNex 2.x** and **QB64 / QB64-PE** - so the editor reports exactly what the compiler reports. Errors land in the Problems view at the right line (even inside `$INCLUDE` files), QBNex adds live diagnostics as you type, a real debugger and the Retro CRT, and everything works on Windows, macOS, and Linux. Whether you're a veteran developer reviving classic code or a newcomer learning the roots of programming, QBasic Nexus provides an unmatched, modern experience for **QBasic**, **QB64** and **QBNex**.
 
 ---
 
@@ -32,26 +32,28 @@
 
 - [📖 Table of Contents](#-table-of-contents)
 - [⚙️ Prerequisites](#️-prerequisites)
-  - [Mode 1 - QBasic Nexus Internal (Fully Standalone)](#mode-1---qbasic-nexus-internal-fully-standalone)
-  - [Mode 2 - QB64 (Recommended for Production)](#mode-2---qb64-recommended-for-production)
+  - [Option 1 - QBNex 2.x (Recommended)](#option-1---qbnex-2x-recommended)
+  - [Option 2 - QB64 / QB64-PE](#option-2---qb64--qb64-pe)
 - [🚀 Getting Started](#-getting-started)
-  - [Step 1 - Install QB64 (Optional but Recommended)](#step-1---install-qb64-optional-but-recommended)
+  - [Step 1 - Install a Compiler](#step-1---install-a-compiler)
   - [Step 2 - Install QBasic Nexus Extension](#step-2---install-qbasic-nexus-extension)
   - [Step 3 - Configure Compiler Path](#step-3---configure-compiler-path)
   - [Step 4 - Start Coding](#step-4---start-coding)
+- [🔁 Migrating from 1.x](#-migrating-from-1x)
 - [🛠️ Configuration Guide](#️-configuration-guide)
   - [Compiler Settings](#compiler-settings)
-   - [Worker Resilience Settings](#worker-resilience-settings)
+  - [Language Server \& Debugger Settings](#language-server--debugger-settings)
   - [Editor Settings](#editor-settings)
   - [Line Number Settings](#line-number-settings)
 - [📂 Supported File Types \& Icons](#-supported-file-types--icons)
 - [✨ Unrivaled Features](#-unrivaled-features)
-  - [⚡ Lightning-Fast Compilation Engine](#-lightning-fast-compilation-engine)
-  - [📺 Advanced Web Runtime](#-advanced-web-runtime)
+  - [⚡ Real-Compiler Build Pipeline](#-real-compiler-build-pipeline)
+  - [🐞 Debugging with qb-dap](#-debugging-with-qb-dap)
+  - [📺 Retro CRT on the QBNex VM](#-retro-crt-on-the-qbnex-vm)
   - [📊 Professional IDE Tools](#-professional-ide-tools)
   - [🔧 Advanced Code Tools](#-advanced-code-tools)
 - [📦 Available Commands](#-available-commands)
-- [🎬 Web Runtime Capabilities](#-web-runtime-capabilities)
+- [🎬 Retro CRT Capabilities](#-retro-crt-capabilities)
 - [🧩 Snippets Reference](#-snippets-reference)
   - [Reference Snippets](#reference-snippets)
   - [Structure Snippets](#structure-snippets)
@@ -83,59 +85,51 @@
 
 ## ⚙️ Prerequisites
 
-QBasic Nexus offers two compilation modes, each with different requirements.
+QBasic Nexus builds, runs and checks your programs with a real compiler - it never interprets BASIC itself. You need **at least one** of the two compilers below. With both installed, the default `Auto` mode uses QBNex.
 
-### Mode 1 - QBasic Nexus Internal (Fully Standalone)
+| What you get                                         | QBNex 2.x | QB64 / QB64-PE |
+| ---------------------------------------------------- | --------- | -------------- |
+| Compile, Compile & Run, Check for Errors             | ✅        | ✅             |
+| Errors and warnings in the Problems view             | ✅        | ✅             |
+| Check on save                                        | ✅        | ✅             |
+| IntelliSense, hover, outline, rename, snippets       | ✅        | ✅             |
+| Live diagnostics as you type (qb-lsp)                | ✅        | -              |
+| Debugging with breakpoints (qb-dap)                  | ✅        | -              |
+| `qb-fmt` formatter                                   | ✅        | -              |
+| Retro CRT and the Interactive Tutorial               | ✅        | -              |
 
-**No prerequisites whatsoever!**
+### Option 1 - QBNex 2.x (Recommended)
 
-The internal transpiler works out of the box with zero setup. You can write QBasic code and immediately
+**Download QBNex** - [QBNex Releases on GitHub](https://github.com/thirawat27/QBNex/releases)
 
-- Run it in the beautiful Retro CRT viewer inside VS Code
-- Compile it into one or more standalone Node.js-based native executables for the host or configured pkg targets
-- Test and debug without any external dependencies
-
-This mode is perfect for learning, prototyping, and quick testing.
-
-**How QBasic Nexus Internal Works**
-
-The internal compiler transpiles your QBasic code to JavaScript, then packages it with the Node.js runtime using `@yao-pkg/pkg` to create one or more standalone executables for the selected targets.
+QBNex is a modern QBasic/QuickBASIC compiler that also understands the QB64 dialect. It translates BASIC into QIR, a text intermediate language, and packages it with a Rust runner into a standalone executable. A release or the installer needs no C/C++ toolchain and no setup script.
 
 **Key Characteristics**
 
-- **File Size** - Executables are typically 40-50MB (includes Node.js runtime)
-- **Performance** - Slightly slower than native QB64 compilation, but excellent for most use cases
-- **Compatibility** - Supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords/functions with broader helper coverage for sound, memory, screen, console, and file/runtime compatibility paths
-- **Platform** - Generates native executables for `host` or explicit `pkg` targets such as `win-x64`, `linux-x64`, and `macos-arm64`
-
-**Limitations Compared to QB64**
-
-- No direct physical hardware access (serial ports, parallel ports, USB)
-- Memory access (`PEEK`, `POKE`, `OUT`, `INP`) is sandboxed to the internal runtime memory space
-- No inline assembly (ASM blocks)
-- Virtual File System is limited to 10MB per workspace
-- Certain advanced QB64-specific libraries (especially full OpenGL, raw sockets, and host-level networking) remain limited or partially emulated
-- Graphics limited to SCREEN 13 (320x200, 256 colors) / limited Point tracking internally
-- External program execution via `RUN` / `CHAIN` without internal targets will fail explicitly
+- **File Size** - Every program is the runner (about 13 MB, with graphics, sound, network and the JIT) plus its QIR
+- **Build Speed** - A hello world compiles in about half a second
+- **Compatibility** - QBasic, QuickBASIC 4.5 and the QB64 dialect, plus QBNex extensions such as `_IIF`, `TRY`/`CATCH`, `FOR EACH` and `ENUM`
+- **Platform** - Windows x64, Linux and macOS
+- **Extra Tools** - `qb-lsp` (language server), `qb-dap` (debugger), `qb-fmt` (formatter) and `qb-web` (the QBNex VM built to WebAssembly, bundled with this extension for the Retro CRT)
 
 **Best Use Cases**
 
-- Learning QBasic programming
-- Quick prototyping and testing
-- Creating simple games and utilities
-- Cross-platform development without QB64 installation
-- Demonstrations and educational purposes
+- Learning QBasic programming with live diagnostics and the Interactive Tutorial
+- Debugging with breakpoints and variables
+- Creating games and utilities
+- Cross-platform development without a C/C++ toolchain
+- Demonstrations in the Retro CRT
 
-### Mode 2 - QB64 (Recommended for Production)
+### Option 2 - QB64 / QB64-PE
 
 **Requires QB64 Installation**
 
-For full legacy compatibility and native executable compilation, you'll need QB64 installed on your system.
+Choose QB64 when you need the reference QB64 compiler and its libraries. Builds, checks and Problems-view errors work just as with QBNex; live diagnostics, the debugger, `qb-fmt` and the Retro CRT need QBNex.
 
 **Download QB64**
 
-- Legacy Edition (Recommended) - [qb64.com](https://qb64.com/)
-- Phoenix Edition (Alternative) - [qb64phoenix.com](https://www.qb64phoenix.com/)
+- Phoenix Edition (Recommended) - [qb64phoenix.com](https://qb64phoenix.com/)
+- Older QB64 builds are detected too
 
 **Platform-Specific Requirements**
 
@@ -160,20 +154,37 @@ For full legacy compatibility and native executable compilation, you'll need QB6
 
 Follow these steps to get QBasic Nexus up and running.
 
-### Step 1 - Install QB64 (Optional but Recommended)
+### Step 1 - Install a Compiler
+
+Install QBNex, QB64-PE, or both (see [Prerequisites](#️-prerequisites) for what each one adds).
+
+**Option A - Install QBNex 2.x (Recommended)**
+
+1. Download the one-file installer for your system from [QBNex Releases](https://github.com/thirawat27/QBNex/releases) - `qbnex_<tag>_win-x64-setup.exe`, `qbnex_<tag>_lnx-setup` or `qbnex_<tag>_osx-setup`
+2. Run it. It installs for the current user, without administrator rights
+   - Windows - into `%LOCALAPPDATA%\Programs\QBNex`, added to your `PATH`
+   - Linux/macOS - into `~/.local/share/qbnex`, with `qb` and `qbnex` linked in `~/.local/bin`
+3. Open a new terminal and check the version
+   ```bash
+   qb --version
+   ```
+   You should see `QBNex Compiler 2.0.0`
+
+No setup script and no C/C++ compiler are needed. QBasic Nexus finds QBNex in these folders automatically, and finds `qb-lsp`, `qb-dap` and `qb-fmt` next to the compiler. More details (archives, installer options) are in [Introducing QBNex Compiler](#-introducing-qbnex-compiler).
+
+**Option B - Install QB64 / QB64-PE**
 
 **Why install QB64?**
 
 - Compile to true native executables with full system access
 - 100% compatibility with legacy QBasic/QuickBASIC code
-- Better performance for complex programs
 - Access to QB64-specific extensions and libraries
 
 **Installation Process**
 
 **1.1 Download QB64**
 
-Visit [qb64.com](https://qb64.com/) or [qb64phoenix.com](https://www.qb64phoenix.com/) and download the appropriate version for your operating system.
+Visit [qb64phoenix.com](https://qb64phoenix.com/) and download QB64 Phoenix Edition for your operating system.
 
 **1.2 Extract QB64**
 
@@ -294,107 +305,118 @@ Done!
 
 **Understanding Auto-Detection**
 
-When you first open a QBasic file (`.bas`, `.bi`, `.bm`, or `.inc`), QBasic Nexus will automatically try to find your QB64 installation by searching common locations.
+When you open a QBasic file (`.bas`, `.bi`, `.bm`, or `.inc`), QBasic Nexus looks for QBNex and QB64 automatically. Most users never need to set a path.
 
 **How Auto-Detection Works**
 
-The extension checks several sources in order:
+QBNex is searched in this order
 
-1. Environment hints such as `QB64_HOME`, `QB64_PATH`, `QB64PE_HOME`, and `QB64PE_PATH`
-2. Common install folders on Windows, macOS, and Linux (including QB64 Phoenix Edition layouts)
-3. Your `PATH`
+1. The `qbasic-nexus.qbnexPath` setting
+2. The environment variables `QBNEX_HOME` and `QBNEX_PATH`
+3. Your `PATH` (`qb` / `qbnex`)
+4. Common install folders - `%LOCALAPPDATA%\Programs\QBNex` (the QBNex setup folder), `C:\QBNex`, `~/.local/bin`, `~/.local/share/qbnex`, `/opt/qbnex`, `/usr/local/bin`, `/opt/homebrew/bin`
+
+QB64 is searched in this order
+
+1. The `qbasic-nexus.compilerPath` setting
+2. Environment hints such as `QB64_HOME`, `QB64_PATH`, `QB64PE_HOME`, and `QB64PE_PATH`
+3. Common install folders on Windows, macOS, and Linux (including QB64 Phoenix Edition layouts)
+4. Your `PATH`
 
 **Detection Process**
 
-- Checks each path in order until a valid QB64 executable is found
-- Verifies the file exists, is executable, and looks like a real QB64/QB64PE binary
-- Stops at the first valid installation found
+- A QBNex candidate is verified by running `qb --version`, which reports `QBNex Compiler 2.0.0`; QBNex 1.x still works, with a warning
+- A QB64 candidate must exist, be executable, and look like a real QB64/QB64PE binary
+- In `Auto` mode, QBNex is used when it is found, otherwise QB64
 
-**If Multiple QB64 Installations Exist**
+**If Multiple Installations Exist**
 
 - Auto-detection will use the first one found in the search order
 - You can manually override by setting the path in settings
-- The extension remembers your choice for future sessions
+- A saved path is used in all future sessions
 
 **3.1 If Auto-Detection Succeeds**
 
-You'll see a notification popup asking
+The first time you build with an auto-detected compiler, you'll see a notification like
 
 ```
-"Found QB64 at [path]. Save this path for future builds?"
+"Using QBNex 2.0.0 found at [path]. Save this path?"
 ```
 
-- Click **"Save Path"** - The path will be saved automatically
-- Click **"Continue Once"** - Compilation uses the detected path for the current session
-- Click **"Not Now"** - You can set the path manually later (see below)
+- Click **"Save Path"** - The path is saved to your user settings
+- Click **"Not Now"** - The detected compiler is still used, and you won't be asked again about that path in this session
 
 **3.2 If Auto-Detection Fails (Manual Configuration)**
 
-If QB64 isn't found automatically, or you want to use a different installation, follow these steps
+If no compiler is found, the toolchain item in the Status Bar shows **No compiler** and the Run button becomes **Find Compiler**.
 
 **Method A - Via Status Bar (Easiest)**
 
 1. Open any QBasic file (`.bas`)
 2. Look at the bottom Status Bar
-3. You'll see **QB64 Auto-Detect** when no saved path exists yet
-4. Click on it
-5. VS Code Settings will open automatically to the correct setting
+3. Click **No compiler** (or **Find Compiler**)
+4. **QBasic: Configure System ⚙️** opens - pick the QBNex or QB64 path entry
+5. Choose **Auto-Detect Now**, **Choose Executable...**, or **Custom Path...**
 
-**Method B - Via Settings Menu**
+**Method B - Via Command Palette**
+
+- Run **QBasic: Configure QBNex Path 🛤️** or **QBasic: Configure QB64 Path 🛤️**
+
+**Method C - Via Settings Menu**
 
 1. Open VS Code Settings
    - Windows/Linux - Press `Ctrl+,`
    - macOS - Press `Cmd+,`
-2. In the search box at the top, type **"QBasic Nexus Compiler Path"**
-3. Find the setting **"Qbasic-nexus Compiler Path"**
+2. In the search box at the top, type **"QBasic Nexus"**
+3. Find **"Qbnex Path"** (`qbasic-nexus.qbnexPath`) or **"Compiler Path"** (`qbasic-nexus.compilerPath`, used for QB64)
 4. Click "Edit in settings.json" or enter the path directly
 
 **3.3 Enter the Correct Path**
 
-You need to provide the **full, absolute path** to the QB64 executable file (not just the folder).
+You need to provide the **full, absolute path** to the compiler executable file (not just the folder). `~/` home-relative paths are accepted too.
 
 **Path Examples by Operating System**
 
 **Windows**
 
 ```
-C:\QB64\qb64.exe
+C:\Users\yourname\AppData\Local\Programs\QBNex\qb.exe
 ```
 
 or
 
 ```
-C:\Program Files\QB64\qb64.exe
+C:\QB64\qb64pe.exe
 ```
 
 **macOS**
 
 ```
-/Applications/QB64/qb64
+/Users/yourname/.local/bin/qb
 ```
 
 or
 
 ```
-/Users/yourname/QB64/qb64
+/Applications/QB64/qb64pe
 ```
 
 **Linux**
 
 ```
-/home/yourname/qb64/qb64
+/home/yourname/.local/bin/qb
 ```
 
 or
 
 ```
-/opt/qb64/qb64
+/opt/qb64/qb64pe
 ```
 
 **Important Path Rules**
 
 - Must be the full path to the executable file itself
-- Must include the filename (`qb64.exe` on Windows, `qb64` on macOS/Linux)
+- Must include the filename (`qb.exe`, `qb64pe.exe` or `qb64.exe` on Windows; `qb`, `qb64pe` or `qb64` on macOS/Linux)
 - Use forward slashes `/` or double backslashes `\\` on Windows
 - Avoid paths with spaces if possible
 
@@ -404,42 +426,27 @@ After setting the path
 
 1. Open or create a `.bas` file
 2. Check the Status Bar at the bottom
-3. You should see a compile icon (🔨) instead of the warning
-4. The extension is now ready to use!
+3. You should see the toolchain item (for example **QBNex 2.0.0**) and a **Run** button instead of the warning
+4. Run **QBasic: Show Toolchain Info 🧰** to see the mode, the active compiler, both compiler paths, and whether the language server is running
+5. The extension is now ready to use!
 
 **3.5 Switching Between Compiler Modes**
 
-You can switch between QB64 and the internal QBasic Nexus compiler anytime
+You can switch compilers anytime
 
-1. Open Settings (`Ctrl+,` or `Cmd+,`)
-2. Search for **"QBasic Nexus Compiler Mode"**
-3. Choose your preferred mode
-   - **"QB64 (Recommended)"** - Uses external QB64 for native compilation
-   - **"Qbasic Nexus"** - Uses internal transpiler for quick testing
-
-**What Happens When You Switch Modes?**
-
-**Switching from QB64 to QBasic Nexus**
-
-- Previously compiled QB64 executables remain unchanged
-- Next compilation will use the internal transpiler
-- No need to re-compile existing working programs
-- Settings like `compilerPath` are ignored in QBasic Nexus mode
-
-**Switching from QBasic Nexus to QB64**
-
-- Previously compiled QBasic Nexus executables remain unchanged
-- Next compilation will use QB64 (if path is configured)
-- You may need to set the `compilerPath` if not already configured
-- Some code may need adjustments for QB64 compatibility
+1. Run **QBasic: Select Compiler Mode 🧭**, or open Settings (`Ctrl+,` or `Cmd+,`) and search for **"QBasic Nexus Compiler Mode"**
+2. Choose your preferred mode
+   - **"Auto"** (default) - QBNex 2.x when it is installed, otherwise QB64
+   - **"QBNex"** - Always build and check with QBNex
+   - **"QB64"** - Always build and check with QB64 / QB64-PE
 
 **Important Notes**
 
 - Mode switching is instant and doesn't affect existing files
-- Each mode creates separate executable files
-- You can keep both versions of compiled programs
-- The Status Bar icon updates to reflect the current mode
+- Both compilers write to the same output path, so the latest build replaces the previous executable
+- The Run button tooltip and the toolchain item show which compiler is active
 - F5 always uses the currently selected mode
+- Live diagnostics, debugging, `qb-fmt` and the Retro CRT need QBNex installed, whatever the mode
 
 ### Step 4 - Start Coding
 
@@ -462,113 +469,86 @@ You have multiple options to run your code
 **Option 1 - Press F5 (Recommended)**
 
 - Simply press `F5` on your keyboard
-- Your code will compile and run using the selected compiler mode
+- Your code is compiled with the active compiler and the program runs in the integrated terminal
 
 **Option 2 - Use the Status Bar**
 
-- Click the compile icon (🔨) in the bottom Status Bar
+- Click the **Run** button in the bottom Status Bar (its tooltip shows which compiler is used)
 - Quick and convenient for mouse users
 
 **Option 3 - Use Command Palette**
 
 - Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)
-- Type "QBasic Compile & Run"
+- Type "QBasic: Compile & Run"
 - Press Enter
 
-**Option 4 - Run in Retro CRT Viewer**
+**Option 4 - Run in Retro CRT (Shift+F5)**
 
-- Press `Ctrl+Shift+P` / `Cmd+Shift+P`
-- Type "QBasic Run in Retro CRT"
-- See your code running in a beautiful retro terminal inside VS Code!
+- Press `Shift+F5`, or run "QBasic: Run in Retro CRT" from the Command Palette
+- See your code running in a beautiful retro terminal inside VS Code! (needs QBNex)
 
 **4.3 Understanding the Output**
 
-Each compilation mode produces different results. Here's a detailed comparison to help you choose the right mode for your needs.
+Each way of running produces different results. Here's a detailed comparison to help you choose.
 
 **Comparison Table**
 
-| Feature                 | QB64 Mode                | QBasic Nexus Mode                 | Retro CRT Viewer       |
-| ----------------------- | ------------------------ | --------------------------------- | ---------------------- |
-| **Output Type**         | Native executable        | Node.js-based native executable   | In-browser runtime     |
-| **File Size**           | 2-5 MB                   | 40-50 MB                          | No file created        |
-| **Startup Speed**       | Instant                  | ~1 second                         | Instant                |
-| **Runtime Performance** | Fastest (native)         | Fast (V8 engine)                  | Good (browser)         |
-| **System Access**       | Full (files, hardware)   | Sandboxed (Virtual FS, Memory)    | Sandboxed (Virtual FS) |
-| **Graphics**            | All SCREEN modes         | Text & SCREEN 13                  | SCREEN 13 only         |
-| **Audio**               | Full QB64 audio          | PLAY & SOUND                      | PLAY & SOUND           |
-| **Distribution**        | Single native executable | Cross-platform standalone targets | Requires VS Code       |
-| **Cross-Platform**      | Platform-specific        | Windows/macOS/Linux/Alpine        | Any platform           |
-| **Setup Required**      | QB64 installation        | None                              | None                   |
-| **Best For**            | Production apps          | Quick testing & isolated apps     | Demos & learning       |
+| Feature             | QBNex Build                          | QB64 Build                  | Retro CRT                                |
+| ------------------- | ------------------------------------ | --------------------------- | ---------------------------------------- |
+| **Output Type**     | Standalone executable (runner + QIR) | Native executable (via C++) | Runs in a VS Code panel                  |
+| **File Size**       | About 13 MB                          | 2-5 MB                      | No file created                          |
+| **Pipeline**        | BASIC → QIR → executable             | BASIC → C++ → native        | BASIC → QIR, run on qb-web (WebAssembly) |
+| **System Access**   | Full (files, network, SHELL)         | Full (files, hardware)      | Sandboxed (no files, SHELL, TCP/HTTP)    |
+| **Graphics**        | All SCREEN modes, 32-bit images      | All SCREEN modes            | SCREEN 0, SCREEN 13 and other modes      |
+| **Audio**           | SOUND, PLAY, BEEP, `_SND*`           | Full QB64 audio             | SOUND, BEEP, PLAY, `_SND*` (WebAudio)    |
+| **Debugger**        | qb-dap                               | -                           | -                                        |
+| **Setup Required**  | QBNex                                | QB64 installation           | QBNex                                    |
+| **Best For**        | Everyday builds & debugging          | QB64 libraries & projects   | Demos, lessons & learning                |
 
-**When using QB64 mode**
+**When using QBNex**
 
-- A native executable will be created in the same folder as your `.bas` file
-- The program will run in a separate window
+- The executable is written beside your `.bas` file, or to `outputDirectory`
+- Output files - `yourfile.exe` (Windows) or `yourfile` (macOS/Linux)
+- The program runs in the integrated terminal; graphics programs open their own window
+- Full access to files, network, `SHELL` and sound
+- Errors and warnings appear in the Problems view at the right file, line and column
+- Executables are about the same size whatever the program does, because each one carries the runner
+
+**When using QB64**
+
+- A native executable will be created beside your `.bas` file, or in `outputDirectory`
+- The program runs in the integrated terminal, just like a QBNex build
 - Output files - `yourfile.exe` (Windows) or `yourfile` (macOS/Linux)
 - Full access to system resources (files, network, hardware)
 - Supports all QB64 features and libraries
-- Smallest file size and fastest performance
 - Platform-specific - compile on Windows for Windows, macOS for macOS, etc.
 
-**When using QBasic Nexus mode**
+**When using the Retro CRT**
 
-- Code is transpiled to JavaScript
-- Packaged as a standalone native executable using Node.js and `@yao-pkg/pkg`
-- Larger file size (~40-50MB) but includes entire runtime
-- Slightly slower startup but good runtime performance
-- Virtual file system limited to 10MB
-- No external dependencies needed
-- Perfect for quick prototyping and testing
-- Output files are `yourfile.exe` on Windows or `yourfile` on macOS/Linux
-
-**When using Retro CRT viewer**
-
-- Code runs inside VS Code in a webview panel
-- Beautiful retro aesthetic with scanlines and CRT effects
+- QBNex compiles the program to QIR (`qb --emit-ir`) and it runs on qb-web in a VS Code panel
+- Beautiful retro aesthetic with scanlines and a neon monitor frame, in editor column 2
 - No executable file is created
-- Perfect for testing and demonstrations
-- Instant feedback - no compilation wait time
-- Multiline `PRINT`/`INPUT` prompts now render with real line breaks even when older runtime paths emit escaped `\n` or `\n\n`
-- Limited to SCREEN 13 graphics mode
-- Virtual file system persists in browser storage
-- Great for learning and experimenting
-
-**Performance Comparison**
-
-**Compilation Time**
-
-- QB64 - 2-10 seconds (depends on code size)
-- QBasic Nexus - 5-15 seconds (includes packaging)
-- CRT Viewer - <1 second (transpile only)
-
-**Runtime Speed (relative)**
-
-- QB64 - 100% (baseline, native code)
-- QBasic Nexus - 70-90% (V8 JavaScript engine)
-- CRT Viewer - 60-80% (browser with rendering overhead)
+- `INPUT` and `LINE INPUT` read the answers set with the **⌨ Set INPUT Answers** button in the panel's title bar; **↻ Run Again** and **■ Stop Program** sit next to it
+- Files, `SHELL` and TCP/HTTP are not available - build natively for those
+- Great for learning, experimenting and the Interactive Tutorial
 
 **Use Case Recommendations**
 
-**Choose QB64 Mode when**
+**Choose QBNex when**
 
-- Building production applications
-- Need maximum performance
-- Require full system access
-- Using advanced QB64 libraries
-- Distributing to end users
-- Need smallest file size
+- Learning QBasic programming with live diagnostics
+- Debugging with breakpoints and variables
+- Building games and utilities without a C/C++ toolchain
+- Using QBNex extensions such as `TRY`/`CATCH` or `'$IMPORT:` modules
+- Want to use the Retro CRT and the Interactive Tutorial
 
-**Choose QBasic Nexus Mode when**
+**Choose QB64 when**
 
-- Learning QBasic programming
-- Quick prototyping and testing
-- QB64 is not installed
-- Don't need hardware access
-- Want zero-setup compilation
-- File size is not critical
+- Your project depends on QB64-specific libraries or behaviour
+- Need the smallest file size
+- Distributing QB64 builds to end users
 
-**Choose CRT Viewer when**
+**Choose the Retro CRT when**
 
 - Testing code snippets quickly
 - Demonstrating code to others
@@ -579,11 +559,37 @@ Each compilation mode produces different results. Here's a detailed comparison t
 
 ---
 
+## 🔁 Migrating from 1.x
+
+QBasic Nexus 2.0 removed the internal JavaScript compiler: every build, run and check now goes through QBNex or QB64. Your settings are converted automatically the first time 2.0 starts.
+
+| 1.x setting or value                                       | In 2.0                        |
+| ---------------------------------------------------------- | ----------------------------- |
+| `compilerMode`: `"QB64 (Recommended)"`                     | `compilerMode`: `"QB64"`      |
+| `compilerMode`: `"Qbasic Nexus"` or `"Qbasic Nexus + WASM"` | `compilerMode`: `"QBNex"`     |
+| `internalOutputDir`                                        | Moved to `outputDirectory`    |
+| `internalTargets`, `internalWasmAccelerator`               | Removed                       |
+| `compileWorkerMaxQueueSize`, `compileWorkerRequestTimeoutMs` | Removed                     |
+| `lintWorkerMaxQueueSize`, `lintWorkerRequestTimeoutMs`, `lintDelay` | Removed              |
+
+**What Else Changed**
+
+- **No more internal builds** - The Node.js executables packaged with `@yao-pkg/pkg` and the multi-target builds (`win-x64`, `linux-x64`, `macos-arm64` from one machine) are gone. Build on each system with QBNex or QB64 instead
+- **Real diagnostics** - The real-time linter built on the internal parser is replaced by check on save with the real compiler and live diagnostics from qb-lsp
+- **New Retro CRT** - The JavaScript web runtime and its virtual file system are replaced by qb-web, the QBNex VM built to WebAssembly
+- **Removed commands** - Internal Build Quick Actions, Select Internal Build Targets, Select Internal WASM Accelerator, Tune Compile Worker Resilience, Tune Lint Worker Resilience and Set Lint Delay
+- **Renamed command** - Select Internal Output Folder is now **QBasic: Select Output Folder 📂**
+- **New** - QBNex support, Check for Errors, debugging with qb-dap, the `qb-fmt` formatter, Show Toolchain Info and Restart Language Server
+
+If you used the internal compiler because QB64 was not installed, install QBNex: it needs no setup script and no C/C++ compiler.
+
+---
+
 ## 🛠️ Configuration Guide
 
 Fine-tune QBasic Nexus to match your workflow. Access settings via `File > Preferences > Settings` and search for **"QBasic Nexus"**.
 
-For faster setup, run **QBasic Configure System ⚙️** from the Command Palette or use the **Config** status-bar action while a QBasic file is open. This system picker centralizes compiler mode/path/args, internal build settings, worker resilience, linting, auto-format, and line-number defaults.
+For faster setup, run **QBasic: Configure System ⚙️** from the Command Palette or click the toolchain item in the Status Bar while a QBasic file is open. This system picker centralizes compiler mode, QBNex and QB64 paths, diagnostics flags, extra compiler args, output folder, formatter, check on save, auto-format, and line-number defaults.
 
 ### Compiler Settings
 
@@ -593,32 +599,55 @@ These settings control how your QBasic code is compiled and executed.
 
 - **Setting Name** - `qbasic-nexus.compilerMode`
 - **Type** - Dropdown selection
-- **Default** - `QB64 (Recommended)`
+- **Default** - `Auto`
 - **Options**
-  - `QB64 (Recommended)` - Compile with external QB64 for native executables with full system access and best performance
-  - `Qbasic Nexus` - Use the internal transpiler to convert QBasic to JavaScript, then package one or more standalone executables for the selected internal targets
+  - `Auto` - QBNex 2.x when it is installed, otherwise QB64 / QB64-PE
+  - `QBNex` - Build and check with QBNex (`qb` / `qbnex`)
+  - `QB64` - Build and check with QB64 / QB64-PE
+
+Values from 1.x (`QB64 (Recommended)`, `Qbasic Nexus`, `Qbasic Nexus + WASM`) are converted automatically - see [Migrating from 1.x](#-migrating-from-1x).
+
+**When to use QBNex mode**
+
+- Everyday builds with live diagnostics, debugging and the Retro CRT
+- Fast builds without a C/C++ toolchain
+- Programs that use QBNex extensions or `'$IMPORT:` modules
 
 **When to use QB64 mode**
 
-- Production applications requiring native performance
-- Programs that need direct system access (file I/O, hardware)
-- Legacy code that must run exactly like original QBasic/QuickBASIC
-- Maximum compatibility with existing QB64 code
-
-**When to use QBasic Nexus mode**
-
-- Quick prototyping and testing
-- Learning and experimentation
-- When QB64 is not installed
-- Cross-platform development without external dependencies
+- Programs that need QB64-specific libraries
+- Legacy code that must build exactly like it does in QB64
+- Maximum compatibility with existing QB64 projects
 
 ---
 
-**Compiler Path**
+**QBNex Path**
+
+- **Setting Name** - `qbasic-nexus.qbnexPath`
+- **Type** - String (file path)
+- **Default** - `null` (auto-detect)
+- **Used By** - QBNex builds and checks, the Retro CRT, the tutorial, and as the folder where `qb-lsp`, `qb-dap` and `qb-fmt` are looked for
+
+**What to enter**
+
+- The full path to `qb` / `qb.exe` (or `qbnex`)
+- Leave it empty to auto-detect
+
+**Examples**
+
+```
+Windows  C:\Users\yourname\AppData\Local\Programs\QBNex\qb.exe
+macOS    /Users/yourname/.local/bin/qb
+Linux    /home/yourname/.local/bin/qb
+```
+
+---
+
+**Compiler Path (QB64)**
 
 - **Setting Name** - `qbasic-nexus.compilerPath`
 - **Type** - String (file path)
-- **Default** - `null` (not set)
+- **Default** - `null` (auto-detect)
 - **Required For** - QB64 mode only
 
 **What to enter**
@@ -629,23 +658,35 @@ These settings control how your QBasic code is compiled and executed.
 **Examples**
 
 ```
-Windows  C:\QB64\qb64.exe
-macOS    /Applications/QB64/qb64
-Linux    /home/yourname/qb64/qb64
+Windows  C:\QB64\qb64pe.exe
+macOS    /Applications/QB64/qb64pe
+Linux    /home/yourname/qb64/qb64pe
 ```
 
 **How to find your QB64 path**
 
 1. Locate where you extracted QB64
-2. Find the executable file (qb64.exe on Windows, qb64 on macOS/Linux)
+2. Find the executable file (`qb64pe.exe` / `qb64.exe` on Windows, `qb64pe` / `qb64` on macOS/Linux)
 3. Copy the full path including the filename
 4. Paste into this setting
 
 **Troubleshooting**
 
-- If you see "Compiler not found" errors, double-check this path
+- If you see "No compiler was found", double-check this path
 - Make sure the file exists and is executable
 - On macOS/Linux, ensure you ran the setup script first
+
+---
+
+**Diagnostics Flags**
+
+| Setting                          | Default | Flag      | What it does                                   |
+| -------------------------------- | ------- | --------- | ---------------------------------------------- |
+| `qbasic-nexus.showWarnings`      | `true`  | `-w`      | Report compiler warnings                       |
+| `qbasic-nexus.warningsAsErrors`  | `false` | `-Werror` | Treat warnings as errors (QBNex only)          |
+| `qbasic-nexus.optionExplicit`    | `false` | `-e`      | Compile as if `OPTION _EXPLICIT` were set      |
+
+Toggle all three from the Command Palette via **QBasic: Configure Diagnostics Flags 🩺**.
 
 ---
 
@@ -654,152 +695,104 @@ Linux    /home/yourname/qb64/qb64
 - **Setting Name** - `qbasic-nexus.compilerArgs`
 - **Type** - String
 - **Default** - `""` (empty)
-- **Required For** - QB64 mode only
+- **Used By** - QBNex and QB64
 
 **What this does**
 
-- Passes additional command-line arguments to QB64 when compiling
+- Appends extra command-line arguments after the ones QBasic Nexus adds
 - Useful for advanced users who need specific compiler flags
+- Use the Diagnostics Flags above for `-w`, `-Werror` and `-e` instead of typing them here
 
 **Common arguments**
 
-- `-w` - Show compiler warnings
-- `-g` - Include debug information
-- `-e` - Treat warnings as errors
-- `-x` - Compile without running
+- `-k` - Compact diagnostics (QBNex)
+- `-g` - Include debug information (QB64-PE)
 
 **Example**
 
 ```
--w -g
+-k
 ```
 
-**Note** - Most users can leave this empty. Only modify if you know what specific QB64 flags you need.
+**The command lines QBasic Nexus runs**
+
+```
+QBNex  qb <file> -o <exe> -q -m [-w] [-Werror] [-e] [compilerArgs]
+QB64   qb64pe -x -c <file> -o <exe> [-w] [-e] [compilerArgs]
+```
+
+**Note** - Most users can leave this empty. You can also change it via **QBasic: Configure Extra Compiler Args 🧪**.
 
 ---
 
-**Internal Targets**
+**Output Directory**
 
-- **Setting Name** - `qbasic-nexus.internalTargets`
-- **Type** - String
-- **Default** - `"host"`
-- **Required For** - QBasic Nexus internal mode
-
-**What this does**
-
-- Selects which `@yao-pkg/pkg` target or targets the internal compiler should build
-- Accepts `host` or comma-separated targets such as `win-x64`, `linux-x64`, `macos-arm64`, or `host,linux-x64`
-- Common aliases like `windows-x64`, `darwin-arm64`, `osx-arm64`, `amd64`, `aarch64`, and `current` are normalized automatically
-- `Compile & Run` only auto-runs when the result is a single host-compatible target
-- You can also change this from the Command Palette via **QBasic Select Internal Build Targets 🎯**
-- In internal mode, the Status Bar **Config** action and **QBasic Configure System ⚙️** can jump straight to this setting flow
-
-**Examples**
-
-```
-host
-linux-x64
-host,linux-x64
-```
-
----
-
-**Internal Output Directory**
-
-- **Setting Name** - `qbasic-nexus.internalOutputDir`
+- **Setting Name** - `qbasic-nexus.outputDirectory`
 - **Type** - String
 - **Default** - `""` (writes beside the source file)
-- **Required For** - QBasic Nexus internal mode
+- **Used By** - QBNex and QB64 builds
 
 **What this does**
 
-- Sends all internally packaged binaries to a dedicated folder
-- Relative paths resolve from the workspace folder when one exists
+- Sends all built executables to a dedicated folder
+- Relative paths resolve from the workspace folder
 - Absolute paths and `~/...` home-relative paths are also accepted
-- You can also change this from the Command Palette via **QBasic Select Internal Output Folder 📂**
-- The same Status Bar **Config** action can jump straight to this picker without opening settings JSON
+- You can also change this from the Command Palette via **QBasic: Select Output Folder 📂**
 
 **Examples**
 
 ```
-dist
+bin
 build/artifacts
 C:\QBasicNexus\out
 ```
 
 ---
 
-**Internal WASM Accelerator**
+**External Build Timeout**
 
-- **Setting Name** - `qbasic-nexus.internalWasmAccelerator`
-- **Type** - Dropdown selection
-- **Default** - `auto`
-- **Required For** - QBasic Nexus internal mode
+- **Setting Name** - `qbasic-nexus.externalBuildTimeoutMs`
+- **Type** - Number (milliseconds)
+- **Default** - `300000` (5 minutes)
+- **Minimum** - `0` (`0` disables the timeout)
 
-**Options**
+A compiler run that does not finish in time is stopped, so Compile and Run never stay stuck. Raise it for very large programs on slow machines.
 
-- `auto` - Use the WebAssembly accelerator when the runtime supports it, with JavaScript fallback
-- `on` - Force the internal compiler to emit the WebAssembly accelerator path
-- `off` - Use the pure JavaScript internal runtime
+### Language Server & Debugger Settings
+
+These settings control the QBNex tools that run beside the editor.
+
+**Language Server**
+
+- **Setting Names** - `qbasic-nexus.languageServer.enabled` (default `true`) and `qbasic-nexus.languageServer.path` (default `""`)
 
 **What this does**
 
-- Keeps **Qbasic Nexus** as the single internal compiler mode
-- Lets WASM acceleration be tuned separately without creating a third compiler mode
-- You can change this from the Command Palette via **QBasic Select Internal WASM Accelerator ⚡**
+- Starts **qb-lsp**, the QBNex language server, for live diagnostics as you type
+- With an empty path, qb-lsp is looked for next to the QBNex compiler, then on your `PATH`
+- It is not started when the official QBNex VS Code extension (`qbnex.qbnex`) is installed, because that extension runs qb-lsp itself
+- It is not started in untrusted workspaces
+- After changing these settings, run **QBasic: Restart Language Server 🔁**
 
-### Worker Resilience Settings
+The extension's own completion, hover, symbols, navigation, rename, semantic tokens, folding and code actions work without qb-lsp, and with QB64 too.
 
-These settings tune worker-pool behavior for internal compile/lint workloads under heavy editor activity.
+**Debug Adapter Path**
 
-**Compile Worker Max Queue Size**
+- **Setting Name** - `qbasic-nexus.debugAdapterPath`
+- **Type** - String
+- **Default** - `""` (next to the QBNex compiler, else `qb-dap` on `PATH`)
 
-- **Setting Name** - `qbasic-nexus.compileWorkerMaxQueueSize`
-- **Type** - Number
-- **Default** - `64`
-- **Minimum** - `1`
+Path to **qb-dap**, the QBNex debug adapter. See [Debugging with qb-dap](#-debugging-with-qb-dap).
 
-Controls how many compile requests can wait in the shared queue before backpressure kicks in. When full, new requests are resolved through the safe fallback path instead of growing memory usage indefinitely.
+**Untrusted Workspaces**
 
-**Compile Worker Request Timeout**
-
-- **Setting Name** - `qbasic-nexus.compileWorkerRequestTimeoutMs`
-- **Type** - Number (milliseconds)
-- **Default** - `30000`
-- **Minimum** - `0` (`0` disables timeout)
-
-Sets the maximum time allowed for an in-flight compile request. Timed-out workers are recycled automatically and the request is completed through fallback logic.
-
-**Lint Worker Max Queue Size**
-
-- **Setting Name** - `qbasic-nexus.lintWorkerMaxQueueSize`
-- **Type** - Number
-- **Default** - `96`
-- **Minimum** - `1`
-
-Controls how many lint requests can queue before backpressure starts. This keeps typing responsive in very large workspaces.
-
-**Lint Worker Request Timeout**
-
-- **Setting Name** - `qbasic-nexus.lintWorkerRequestTimeoutMs`
-- **Type** - Number (milliseconds)
-- **Default** - `15000`
-- **Minimum** - `0` (`0` disables timeout)
-
-Sets the timeout for active lint requests before the worker is recycled.
-
-**Quick Actions and Auto-Reload**
-
-- Use **QBasic Configure System ⚙️** for one quick picker that covers the extension's major adjustable settings.
-- Use **QBasic Internal Build Quick Actions ⚙️** to tune targets/output plus worker resilience from one picker.
-- Dedicated commands are available: **QBasic Tune Compile Worker Resilience 🛡️** and **QBasic Tune Lint Worker Resilience 🛡️**.
-- Changing these settings automatically recycles worker clients so new values take effect without manually reloading the VS Code window.
+In a workspace you have not trusted, the compiler, language server, debugger and formatter paths and `compilerArgs` are taken from your user settings only, never from the workspace, and qb-lsp does not start.
 
 ### Editor Settings
 
-These settings control the editing experience and real-time code analysis.
+These settings control the editing experience and code checking.
 
-**Enable Linting**
+**Check On Save (Enable Linting)**
 
 - **Setting Name** - `qbasic-nexus.enableLinting`
 - **Type** - Boolean (checkbox)
@@ -807,55 +800,24 @@ These settings control the editing experience and real-time code analysis.
 
 **What this does**
 
-- Enables real-time syntax checking as you type
-- Highlights errors with red squiggly underlines
-- Shows error messages when you hover over problems
-- Displays error count in the Problems panel
+- Checks each saved file with the active compiler
+  - QBNex - `qb file --emit-ir` (no native build, about 0.25 s)
+  - QB64 - `-x -z` (generates the C++ without compiling it)
+- Highlights errors and warnings with squiggly underlines and lists them in the Problems panel, at the right file, line and column - including errors inside `$INCLUDE` files
+- While qb-lsp runs, QBNex diagnostics come from it as you type
+- Run the same check at any time with **QBasic: Check for Errors 🩺**
+- Toggle it from the Command Palette via **QBasic: Configure Check On Save 🩺**
 
 **Benefits of enabling**
 
 - Catch syntax errors immediately before running code
-- See exactly where and what the problem is
-- Faster development with instant feedback
+- See exactly where and what the problem is - the messages come straight from the compiler
 - Learn proper QBasic syntax through helpful error messages
 
 **When to disable**
 
-- Working with very large files (>10,000 lines) that cause slowdown
+- Working with very large programs where checking on every save is too slow (QB64's C++ generation in particular)
 - Intentionally writing incomplete code snippets
-- Experiencing performance issues on slower machines
-
----
-
-**Lint Delay**
-
-- **Setting Name** - `qbasic-nexus.lintDelay`
-- **Type** - Number (milliseconds)
-- **Default** - `500` (half a second)
-- **Range** - 100 to 3000 ms
-
-**What this does**
-
-- Controls how long the extension waits after you stop typing before checking your code
-- Prevents constant re-checking while you're actively typing
-- Balances responsiveness with performance
-
-**Choosing the right value**
-
-- **Lower values (100-300ms)** - Faster feedback, but uses more CPU
-  - Good for Fast computers, small files, users who want instant feedback
-- **Medium values (400-600ms)** - Balanced approach (recommended)
-  - Good for Most users and typical file sizes
-- **Higher values (700-3000ms)** - Less frequent checking, saves CPU
-  - Good for Slower computers, large files, battery-powered devices
-
-**Example scenarios**
-
-```
-Fast desktop, small files     300ms
-Typical laptop, normal files  500ms
-Older computer, large files   1000ms
-```
 
 ---
 
@@ -869,6 +831,7 @@ Older computer, large files   1000ms
 
 - Automatically formats your code when you save the file (`Ctrl+S` / `Cmd+S`)
 - Mimics the classic QBasic IDE behavior
+- Skipped when VS Code's `editor.formatOnSave` is on, which already formats the file
 
 **Formatting actions performed**
 
@@ -891,6 +854,20 @@ Older computer, large files   1000ms
 - You prefer lowercase keywords
 - Working with auto-generated code that shouldn't be modified
 - Collaborating on code with specific style requirements
+
+---
+
+**Formatter**
+
+- **Setting Name** - `qbasic-nexus.formatter`
+- **Type** - Dropdown selection
+- **Default** - `builtin`
+- **Options**
+  - `builtin` - The extension's own formatter
+  - `qb-fmt` - The QBNex formatter; if qb-fmt fails, the built-in formatter is used instead
+- **Related** - `qbasic-nexus.formatterPath` - Path of `qb-fmt` (empty: next to the QBNex compiler, else `qb-fmt` on `PATH`)
+
+Change it from the Command Palette via **QBasic: Select Formatter 🖌️**.
 
 ### Line Number Settings
 
@@ -984,12 +961,12 @@ Structured sections   Start 1000, Step 1000
 
 ```json
 {
-  "qbasic-nexus.compilerMode": "Qbasic Nexus",
-  "qbasic-nexus.internalTargets": "host,linux-x64",
-  "qbasic-nexus.internalOutputDir": "dist",
-  "qbasic-nexus.internalWasmAccelerator": "auto",
+  "qbasic-nexus.compilerMode": "Auto",
+  "qbasic-nexus.showWarnings": true,
+  "qbasic-nexus.optionExplicit": false,
+  "qbasic-nexus.outputDirectory": "bin",
   "qbasic-nexus.enableLinting": true,
-  "qbasic-nexus.lintDelay": 500,
+  "qbasic-nexus.formatter": "qb-fmt",
   "qbasic-nexus.autoFormatOnSave": true,
   "qbasic-nexus.lineNumberStart": 10,
   "qbasic-nexus.lineNumberStep": 10
@@ -1013,193 +990,85 @@ QBasic Nexus provides full language support, syntax highlighting, and dedicated 
 
 ## ✨ Unrivaled Features
 
-### ⚡ Lightning-Fast Compilation Engine
+### ⚡ Real-Compiler Build Pipeline
 
-QBasic Nexus doesn't just parse text—it deeply analyzes it using an enterprise-grade compiler pipeline that dramatically outpaces legacy tools.
+QBasic Nexus doesn't guess what a compiler would say - every build, run and check goes through the real compiler, so the editor reports exactly what the compiler reports.
 
-- **Zero-Setup Native Executables Across Platforms** - Instantly compile QBasic code directly to standalone executables on Windows, macOS, Linux, Alpine, or any configured internal target list using the internal backend powered by `@yao-pkg/pkg`. No QB64 installation required for prototyping and distribution!
-- **High-Performance Lexer** - Powered by `moo`, achieving over **1,200 KB/s+ throughput** during compilation with zero-copy token passing to eliminate redundant processing.
-- **AST-First Control Flow & Semantics** - Deep semantic analysis and AST-based state-machine execution for `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`. This trampoline execution guarantees rock-solid stability (zero call-stack overflow crashes) and precise warnings for missing labels or unreachable code.
-- **Robust Legacy Memory & Data Scope** - Run legacy syntax seamlessly! Full internal support for `STATIC` procedure variables, `COMMON SHARED` globals across modules, Fixed-Length Strings (`STRING * N`), structured/nested `TYPE` records, and legacy memory safety operations (`PEEK`, `POKE`, `OUT`, `_MEMCOPY`, `MKI$`, `CVI`, `LSET`).
-- **Expanded QB64 Compatibility Paths** - The internal compiler now routes more QB64-heavy commands through real helper/runtime paths, including `PRINT USING`, `_SETALPHA`, `_CLEARCOLOR`, `_SCREENMOVE`, `_ICON`, `_SCREENICON`, `_SCREENEXISTS`, dropped-file helpers, resize helpers, console helpers, advanced `_SND*` queries/controls, and multiple `_MEM*` object/block flows.
-- **Tiered Cache Architecture** - L1 cache with 32 entries and L2 cache with 300 entries for better multi-file support. Powered by lightning-fast FNV-1a hashing, achieving ~85% cache hit rate. Re-compiling unchanged or slightly modified code is virtually instantaneous (0.03ms cache hits) with ~20% less RAM usage.
-- **Adaptive Performance** - Smart 3-tier adaptive linting (100ms for tiny edits, 250ms for medium, full delay for large changes) reduces CPU usage by ~30% during active typing while maintaining instant feedback.
-- **Worker-Backed Compile + Lint Pipeline** - Compile and lint tasks can now run through shared worker threads with prewarm, adaptive scale-out, stale lint cancellation, queue priorities, and queue aging so interactive work stays responsive under heavier load.
-- **Optimized Memory Management** - Token pool optimized with 15,000 max capacity and reduced initial allocation (1,500 tokens) saves memory on startup while handling larger files efficiently.
-- **Dual Pipeline Integration** - Run your code natively via the local **QB64** compiler for heavy-duty system access, or use the **QBasic Nexus Internal** engine for instant logic tests, complete with preprocessor directives (`$INCLUDE`), typed binary/random files, and virtualized sandboxing.
+- **Two Real Compilers** - Build with **QBNex 2.x** (BASIC → QIR → standalone executable with a Rust runner) or **QB64 / QB64-PE** (BASIC → C++ → native). `Auto` mode picks QBNex when it is installed.
+- **Errors Where They Belong** - Errors and warnings from either compiler appear in the Problems view at the right file, line and column, including errors inside `$INCLUDE` files. QBNex 2.x diagnostic blocks (`[!!] QBNex :: Fatal [E0000] ...` with `[@] file(line,col)`), gcc-style `file.bas:12: warning: ...` lines and QB64 `LINE n:` errors are all understood.
+- **Check on Save** - Saving runs a fast check without a native build: `qb file --emit-ir` for QBNex (about 0.25 s), `-x -z` (C++ generation only) for QB64. Run it on demand with **QBasic: Check for Errors 🩺**.
+- **Live Diagnostics as You Type** - With QBNex installed, **qb-lsp** checks your code while you type.
+- **Diagnostics Flags** - Warnings (`-w`), warnings as errors (`-Werror`, QBNex) and `OPTION _EXPLICIT` (`-e`) are plain settings.
+- **No Stuck Builds** - A compiler run that hangs is stopped after `externalBuildTimeoutMs` (5 minutes by default).
+- **Cross-Platform** - Works the same on Windows, Linux and macOS.
 
-**Understanding the Cache System**
+**What Happens When You Press F5**
 
-The cache system dramatically speeds up compilation by remembering previously compiled code.
+1. The file is saved
+2. QBasic Nexus picks the compiler (compiler mode, saved path, or auto-detection)
+3. It runs the build
+   ```
+   QBNex  qb <file> -o <exe> -q -m [-w] [-Werror] [-e] [compilerArgs]
+   QB64   qb64pe -x -c <file> -o <exe> [-w] [-e] [compilerArgs]
+   ```
+4. Compiler messages go to the **QBasic Nexus** Output panel and the Problems view
+5. If the build succeeds, the program starts in the integrated terminal
 
-**How It Works (Simple Explanation)**
+### 🐞 Debugging with qb-dap
 
-- When you compile code, the result is saved in memory
-- If you compile the same code again, it uses the saved result instead of re-compiling
-- This makes re-compilation almost instant (0.03 milliseconds!)
-- The cache automatically updates when you change your code
+With QBNex installed, you can debug programs with **qb-dap**, the QBNex debug adapter: breakpoints, stepping, the call stack and variables, right inside VS Code.
 
-**Two-Tier Cache Architecture**
+**How to Start**
 
-**L1 Hot Cache (Level 1)**
+1. Open the **Run and Debug** view (`Ctrl+Shift+D` / `Cmd+Shift+D`)
+2. Create a `launch.json` and choose **QBasic Nexus (QBNex)**, or add the configuration below
+3. Set breakpoints by clicking left of the line numbers
+4. Start debugging from the Run and Debug view. While a debug session runs, `F5` belongs to the debugger (continue); outside one, `F5` is still **Compile & Run**
 
-- Stores the most recently compiled code
-- Ultra-fast access (microseconds)
-- Limited size - keeps only the latest compilations
-- Perfect for rapid edit-compile-test cycles
+**launch.json Example**
 
-**L2 LRU Cache (Level 2)**
-
-- Stores more compilation results
-- Uses "Least Recently Used" algorithm - keeps frequently used code
-- Larger capacity than L1
-- Automatically removes old, unused entries
-
-**When Cache Is Used**
-
-- Re-compiling unchanged code - Instant (cache hit)
-- Compiling after small changes - Partial cache use (some parts reused)
-- Compiling completely new code - No cache benefit (cache miss)
-- Switching between files - Cache helps if files were compiled before
-
-**Cache Benefits**
-
-- **First compilation** - Normal speed (1-2 seconds for typical code)
-- **Re-compilation (no changes)** - 0.03ms (essentially instant)
-- **Small changes** - 50-80% faster than full re-compilation
-- **Switching between files** - Instant if previously compiled
-
-**Performance Improvements**
-
-- **Cache Hit Rate** - Improved from ~75% to ~85% through larger cache sizes
-- **RAM Usage** - Reduced by ~20% through optimized cache management and lazy allocation
-- **CPU Usage** - Reduced by ~30% during typing through adaptive linting delays
-- **Activation Time** - Reduced by ~15% through lazy module loading
-- **Multi-File Support** - Better performance with 300-entry L2 cache
-- **Responsiveness** - Faster feedback with 3-tier adaptive delays (100ms/250ms/full)
-
-**Managing the Cache**
-
-**Clear cache if you experience**
-
-- Unexpected compilation errors
-- Code changes not being reflected
-- Memory usage concerns
-
-**How to clear cache**
-
-1. Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
-2. Type "QBasic Invalidate Cache"
-3. Press Enter
-4. Cache is cleared - next compilation will be fresh
-
-**Technical Details (For Advanced Users)**
-
-- **FNV-1a hashing** - Fast hash algorithm to identify code changes
-- **Zero-copy token passing** - Tokens are referenced, not duplicated, saving memory
-- **Incremental parsing** - Only changed parts are re-parsed when possible
-- **Memory-efficient** - Cache automatically manages memory usage
-
-### 📺 Advanced Web Runtime
-
-The internal web runtime is a fully featured emulation layer powered by HTML5 Canvas and the Web Audio API, designed to look and feel exactly like the 90s, but run perfectly today.
-
-- **Retro CRT Aesthetic** - Authentic scanlines, adjustable neon glow effects, and phosphor persistence.
-- **Rich Graphics** - Full support for `SCREEN 13`, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`, `PUT`, `DRAW` (Macro language), `POINT`, and seamless color manipulation.
-- **High-Fidelity Audio** - Complete `PLAY` command parsing (octaves, tempo, legato/staccato), along with precise `SOUND` frequency generation.
-- **Expanded QB64 Runtime Hooks** - The CRT runtime now exposes more QB64-style helpers for sound playback state, screen/icon movement, resize queries, console input/title flows, dropped-file queues, and partial connection-state inspection without leaving the internal runtime path.
-- **Virtual File System** - Fully emulated local file I/O operations (`OPEN`, `WRITE`, `INPUT#`, `MKDIR`, `CHDIR`, `FILES`) allowing your QBasic scripts to read/write persistent data and traverse directory trees right inside the VS Code environment (up to 10MB).
-- **Modern Interactions (QB64 Extensions)** - Native support for `_MOUSEINPUT`, `_KEYHIT`, and `INKEY$` for building responsive interactive applications.
-
-**Virtual File System Details**
-
-The Virtual File System (VFS) allows your QBasic programs to read and write files as if they were on a real disk, but everything is stored in browser memory.
-
-**How It Works**
-
-- Files are stored in browser's localStorage
-- Each file is saved as a key-value pair
-- Data persists between sessions (until you clear browser data)
-- Maximum total storage - 10MB across all files
-- Supports text and binary file operations
-- Supports folder creation and file management (`MKDIR`, `RMDIR`, `CHDIR`, `NAME`, `KILL` , `FILES`) internally
-
-**Supported File Operations**
-
-```basic
-' Open file for writing
-OPEN "data.txt" FOR OUTPUT AS #1
-PRINT #1, "Hello, World!"
-CLOSE #1
-
-' Open file for reading
-OPEN "data.txt" FOR INPUT AS #1
-INPUT #1, message$
-CLOSE #1
-
-' Append to file
-OPEN "log.txt" FOR APPEND AS #1
-PRINT #1, "New entry"
-CLOSE #1
-
-' Binary file operations & Typed Records
-TYPE PlayerRecord
-    Score AS INTEGER
-    Name AS STRING * 10
-END TYPE
-DIM P1 AS PlayerRecord
-
-OPEN "game.dat" FOR RANDOM AS #1 LEN = LEN(P1)
-PUT #1, 1, P1
-GET #1, 1, P1
-CLOSE #1
-
-' Advanced File Sharing & Locking
-OPEN "shared.dat" FOR BINARY SHARED AS #2
-LOCK #2, 1 TO 100
-' ... write exclusive data ...
-UNLOCK #2, 1 TO 100
-CLOSE #2
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "qbasic-nexus",
+      "request": "launch",
+      "name": "Debug QBasic program",
+      "program": "${file}",
+      "stopOnEntry": false
+    }
+  ]
+}
 ```
 
-**Storage Location**
+**Launch Attributes**
 
-- Files are stored in browser localStorage under the key prefix `qbasic_vfs_`
-- Each workspace has its own isolated file system
-- Files persist until you clear browser data or use `KILL` command
+| Attribute     | Description                                                                      |
+| ------------- | -------------------------------------------------------------------------------- |
+| `program`     | The `.bas` file to debug (required)                                              |
+| `qir`         | Run this QIR file instead of compiling the program                               |
+| `compiler`    | QBNex compiler used to produce QIR (default: the detected or configured QBNex)  |
+| `cwd`         | Working directory of the program (default: the program's folder)                |
+| `stopOnEntry` | Stop at the first statement                                                      |
+| `input`       | File whose contents the program reads as standard input (`INPUT`, `LINE INPUT`) |
 
-**Managing Virtual Files**
+qb-dap is looked for next to the QBNex compiler, then on `PATH`; set `qbasic-nexus.debugAdapterPath` to use another one. QB64 has no debugger, so debugging always uses QBNex.
 
-**View stored files**
+### 📺 Retro CRT on the QBNex VM
 
-- Open browser DevTools (F12)
-- Go to Application > Local Storage
-- Look for keys starting with `qbasic_vfs_`
+Press `Shift+F5` (**QBasic: Run in Retro CRT 📺**) to run your program in a VS Code panel designed to look and feel exactly like the 90s.
 
-**Clear all virtual files**
+- **The Real VM** - QBNex compiles your program to QIR (`qb --emit-ir`) and it runs on **qb-web**, the QBNex VM built to WebAssembly - the same QIR that your QBNex executables run.
+- **Retro CRT Aesthetic** - The panel ("QBasic CRT 📺 <file>", in editor column 2) is a neon monitor with scanlines and a vignette, just like 1.x.
+- **Same Screen as 1.x** - The neon monitor, scanlines, vignette and objective HUD are unchanged; nothing is drawn over the program. The controls live in the panel's title bar: **⌨ Set INPUT Answers**, **↻ Run Again** (compiles and runs again) and **■ Stop Program**. Runtime errors and the run time appear as VS Code notifications.
+- **Objective HUD** - During the Interactive Tutorial, the **CURRENT OBJECTIVE** HUD (top right) shows the lesson objective and turns to **LESSON COMPLETE** when you pass.
+- **Text and Graphics** - `PRINT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN 0`, `SCREEN 13` and other graphics modes, with `_DISPLAY`, `_LIMIT` and `_DELAY`.
+- **High-Fidelity Audio** - `SOUND`, `BEEP`, `PLAY` and `_SND*` through WebAudio.
+- **Input and Console** - `INPUT` and `LINE INPUT` read the answers from **⌨ Set INPUT Answers**; console output (`$CONSOLE`) appears as text on the screen, as in 1.x.
+- **Requires QBNex** - QB64-only setups cannot use the Retro CRT; they run programs natively with `F5`.
 
-```basic
-' Delete a specific file
-KILL "data.txt"
-
-' Or clear from browser
-' DevTools > Application > Local Storage > Clear All
-```
-
-**Export virtual files**
-
-- Currently, files exist only in browser memory
-- To export, read the file in your program and display/copy the contents
-- Future versions may include export functionality
-
-**Limitations**
-
-- 10MB total storage limit (shared across all files)
-- Files exist in an isolated virtual disk (cannot directly interact with host OS files in Web Runtime)
-- No cross-origin networking capabilities
-- No file attributes (`GETATTR`, `SETATTR`)
-- Files are not accessible outside the CRT viewer natively without exporting
-- Clearing browser data will delete all virtual files
+qb-web ships with the extension in `vendor/qb-web` under the GPL-3.0 license, separate from the extension's MIT license. See [Retro CRT Capabilities](#-retro-crt-capabilities) for the full list and the limits.
 
 ### 📊 Professional IDE Tools
 
@@ -1209,7 +1078,7 @@ Write code faster, with fewer bugs, using tooling typically reserved for modern 
 - **Cross-File Symbol Renaming (F2)** - Need to rename a variable used 50 times? Do it instantly across the entire workspace (including all included files) safely and accurately.
 - **Color Preview & Picker** - Native VS Code visual color picker for `_RGB32`, `_RGBA`, and `_RGB` allowing an immediate visual display of QBasic colors in your code.
 - **Project TODOs View** - Automatically scans your workspace for `TODO:`, `FIXME:`, `BUG:`, and `NOTE:` tags, highlighting them securely in the editor and aggregating them in an interactive sidebar Explorer tree for instant tracking.
-- **Real-Time Semantic Diagnostics (Linting)** - Catch logic and syntax errors _as you type_. The parser dynamically evaluates your document without freezing your editor, providing distinct warnings and semantic checks (e.g., detecting missing labels, unreachable code, `RESUME` misuse, invalid `EXIT`, and type mismatches).
+- **Live Diagnostics** - With QBNex, **qb-lsp** reports errors _as you type_. On save, the real compiler (QBNex or QB64) checks the file and puts its errors and warnings in the Problems view at the right line, even inside `$INCLUDE` files.
 - **Semantic Token Highlighting** - Context-aware highlighting separates globals, locals, parameters, arrays, labels, and `TYPE` declarations so large QBasic files stay readable even when classic regex grammar coloring is not enough.
 - **Advanced Preprocessor Support** - Automatic tracking and intelligent resolution for `$INCLUDE`, `$STATIC`, and `$DYNAMIC` directives. Included files are verified and integrated instantly for seamless cross-file completion and diagnostics.
 - **At-a-glance Code Stats** - Live status bar counter showing your total Lines of Code, SUBs, and FUNCTIONs.
@@ -1226,7 +1095,7 @@ Powerful utilities to manage and enhance your QBasic code.
 - **Line Number Management** - Remove or renumber line numbers with customizable start and step values (perfect for legacy code migration).
 - **ASCII & CP437 Character Chart Viewer** - Interactive full ASCII and CP437 reference table with decimal, hexadecimal, and character display. Built-in `CHR$()` insert workflow directly maps keys into your editor (Ctrl+Alt+A).
 - **Code Statistics Analyzer** - Get instant breakdown of codebase structure, modules, LOC, and loops using `QBasic Show Code Statistics 📊` (Ctrl+Shift+I).
-- **Auto-Format on Save** - Automatically capitalize keywords and standardize indentation (mimicking classic QBasic IDE behavior).
+- **Auto-Format on Save** - Automatically capitalize keywords and standardize indentation (mimicking classic QBasic IDE behavior), with the built-in formatter or QBNex's `qb-fmt`.
 - **Code Actions** - Quick fixes and refactoring suggestions directly in the editor.
 
 ---
@@ -1235,109 +1104,89 @@ Powerful utilities to manage and enhance your QBasic code.
 
 Trigger these via the VS Code Command Palette (`Ctrl+Shift+P`)
 
-| Command                                  | Shortcut       | Description                                                            |
-| ---------------------------------------- | -------------- | ---------------------------------------------------------------------- |
-| **QBasic Compile 🔨**                    | `Ctrl+Shift+B` | Compiles the current file without running it.                          |
-| **QBasic Compile & Run 🌀**              | `F5`           | Compiles and executes code using your chosen Compiler Mode.            |
-| **QBasic Configure System ⚙️**          | -              | Opens one quick picker for the extension's main adjustable settings.   |
-| **QBasic Run in Retro CRT 📺**           | -              | Forces the current file to run in the Webview Visualizer.              |
-| **QBasic Start Interactive Tutorial 🎮** | -              | Opens the 150-lesson interactive training terminal.                    |
-| **QBasic Show Code Statistics 📊**       | `Ctrl+Shift+I` | Provides an instant breakdown of line counts, loops, and SUBs.         |
-| **QBasic Remove Line Numbers 🔢**        | `Ctrl+Alt+R`   | Removes all line numbers from the current file.                        |
-| **QBasic Renumber Lines 🔄**             | `Ctrl+Alt+N`   | Renumbers all lines with customizable start and step values.           |
-| **QBasic Show ASCII Chart 📋**           | `Ctrl+Alt+A`   | Opens an interactive ASCII reference table.                            |
-| **QBasic Insert CHR$() at Cursor ✍️**    | -              | Inserts a CHR$() code at the current cursor position from ASCII chart. |
-| **Refresh TODOs 🔄**                     | -              | Scans workspace and refreshes the QBasic TODOs panel.                  |
-| **QBasic Internal Build Quick Actions ⚙️** | -          | Opens a quick picker for internal targets, output folders, and worker resilience. |
-| **QBasic Select Compiler Mode 🧭**      | -              | Switches between QB64 and QBasic Nexus compilation modes.              |
-| **QBasic Configure QB64 Path 🛤️**       | -              | Saves, clears, auto-detects, or picks the QB64 executable path.        |
-| **QBasic Configure QB64 Args 🧪**       | -              | Picks or customizes extra QB64 command-line arguments.                 |
-| **QBasic Select Internal Build Targets 🎯** | -           | Picks internal compiler target presets or a custom pkg target list.    |
-| **QBasic Select Internal Output Folder 📂** | -           | Picks or enters the output folder used by internal executable builds.  |
-| **QBasic Select Internal WASM Accelerator ⚡** | -       | Chooses auto, on, or off for the internal compiler WASM accelerator.   |
-| **QBasic Tune Compile Worker Resilience 🛡️** | -         | Picks or customizes compile worker queue/timeout resilience settings.   |
-| **QBasic Tune Lint Worker Resilience 🛡️** | -            | Picks or customizes lint worker queue/timeout resilience settings.      |
-| **QBasic Configure Linting 🩺**         | -              | Enables or disables editor linting from a quick picker.                |
-| **QBasic Set Lint Delay ⏱️**            | -              | Adjusts the lint debounce delay without editing settings JSON.          |
-| **QBasic Configure Auto Format 💾**     | -              | Enables or disables format-on-save behavior.                           |
-| **QBasic Set Line Number Defaults 🔢**  | -              | Sets the default renumber start and step values.                       |
+| Command                                      | Shortcut       | Description                                                            |
+| -------------------------------------------- | -------------- | ---------------------------------------------------------------------- |
+| **QBasic: Compile 🔨**                       | `Ctrl+Shift+B` | Compiles the current file without running it.                          |
+| **QBasic: Compile & Run 🌀**                 | `F5`           | Compiles with the active compiler and runs the program.                |
+| **QBasic: Check for Errors 🩺**              | -              | Checks the current file with the compiler, without a native build.     |
+| **QBasic: Run in Retro CRT 📺**              | `Shift+F5`     | Runs the current file in the Retro CRT on the QBNex VM.                |
+| **QBasic: Start Interactive Tutorial 🎮**    | -              | Opens the 150-lesson interactive tutorial.                             |
+| **QBasic: Show Code Statistics 📊**          | `Ctrl+Shift+I` | Provides an instant breakdown of line counts, loops, and SUBs.         |
+| **QBasic: Remove Line Numbers 🔢**           | `Ctrl+Alt+R`   | Removes all line numbers from the current file.                        |
+| **QBasic: Renumber Lines 🔄**                | `Ctrl+Alt+N`   | Renumbers all lines with customizable start and step values.           |
+| **QBasic: Show ASCII Chart 📋**              | `Ctrl+Alt+A`   | Opens an interactive ASCII reference table.                            |
+| **QBasic: Insert CHR$() at Cursor ✍️**       | -              | Inserts a CHR$() code at the current cursor position from ASCII chart. |
+| **Refresh TODOs 🔄**                         | -              | Scans workspace and refreshes the QBasic TODOs panel.                  |
+| **QBasic: Configure System ⚙️**              | -              | Opens one quick picker for the extension's main adjustable settings.   |
+| **QBasic: Show Toolchain Info 🧰**           | -              | Shows the mode, the compilers found, and the language server state.    |
+| **QBasic: Select Compiler Mode 🧭**          | -              | Switches between Auto, QBNex and QB64.                                 |
+| **QBasic: Configure QBNex Path 🛤️**          | -              | Saves, clears, auto-detects, or picks the QBNex executable path.       |
+| **QBasic: Configure QB64 Path 🛤️**           | -              | Saves, clears, auto-detects, or picks the QB64 executable path.        |
+| **QBasic: Configure Diagnostics Flags 🩺**   | -              | Toggles warnings, warnings as errors, and `OPTION _EXPLICIT`.          |
+| **QBasic: Configure Extra Compiler Args 🧪** | -              | Picks or customizes extra compiler command-line arguments.             |
+| **QBasic: Select Output Folder 📂**          | -              | Picks or enters the folder for built executables.                      |
+| **QBasic: Select Formatter 🖌️**              | -              | Chooses the built-in formatter or qb-fmt.                              |
+| **QBasic: Restart Language Server 🔁**       | -              | Restarts qb-lsp, for example after changing its settings.              |
+| **QBasic: Configure Check On Save 🩺**       | -              | Enables or disables the compiler check on save.                        |
+| **QBasic: Configure Auto Format 💾**         | -              | Enables or disables format-on-save behavior.                           |
+| **QBasic: Set Line Number Defaults 🔢**      | -              | Sets the default renumber start and step values.                       |
+
+`F5` and `Shift+F5` work while no debug session is running; during a debug session they belong to the debugger.
 
 ---
 
-## 🎬 Web Runtime Capabilities
+## 🎬 Retro CRT Capabilities
 
-QBasic Nexus supports 575+ QBasic, QuickBASIC 4.5, and QB64 keywords and functions natively for testing within the editor.
-
-The CRT/runtime path in `1.5.7` keeps track of the active source line, preserves QB-style `ERR`/`ERL` state, routes conversion helpers such as `CINT` and `VAL` through QB-aware runtime logic, restores `DEFINT/DEFLNG/DEFSNG/DEFDBL/DEFSTR` defaults for implicit variables and function results, respects classic `% ! # & $` suffix typing with safe JavaScript code generation, preserves `OPTION BASE`, `LBOUND`, `UBOUND`, explicit lower array bounds, `ERASE`, auto-dimensioned arrays, and `REDIM PRESERVE` behavior more like QB64, routes mixed-type arithmetic plus relational/logical operators through QB-aware runtime helpers so overflow, type mismatches, `CASE IS`, and `-1/0` boolean results surface more like QB64, evaluates `IF/WHILE/DO` conditions through QB-aware numeric checks instead of raw JS truthiness, keeps `ERL` aligned when condition evaluation itself fails, surfaces file/runtime failures back in the editor with a direct jump to the most likely failing line, and uses a structured CRT transcript/event pipeline so output, input echo, prompt flow, and runtime errors stay synchronized without leaking literal `\n` / `\n\n` sequences into the rendered screen.
-
-Recent compatibility work also added real helper/runtime routing for `PRINT USING`, `PRINT #..., USING`, `_SETALPHA`, `_CLEARCOLOR`, `_SCREENMOVE`, `_ICON`, `_SCREENICON`, `_SCREENEXISTS`, `_RESIZEWIDTH`, `_RESIZEHEIGHT`, `_TOTALDROPPEDFILES`, `_DROPPEDFILE$`, `_FINISHDROP`, `_CONNECTED`, `_CONNECTIONADDRESS$`, `_CONSOLEINPUT`, and a larger `_SND*` / `_MEM*` surface, including `_MEMNEW`, `_MEM`, `_OFFSET`, `_MEMIMAGE`, `_MEMGET`, and `_MEMPUT`.
+The Retro CRT runs the QIR that QBNex compiles from your program on **qb-web**, the QBNex VM built to WebAssembly. The language is therefore whatever QBNex supports (QBasic, QuickBASIC 4.5, the QB64 dialect and the QBNex extensions); what differs from a native build is what the sandboxed panel can reach.
 
 **Compatibility Overview**
 
-| Feature Category | Compatibility | Supported Commands Examples                                                                         |
-| ---------------- | ------------- | --------------------------------------------------------------------------------------------------- |
-| **Core I/O**     | ✅ 100%       | `PRINT`, `PRINT USING`, `INPUT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`                        |
-| **Control Flow** | ✅ 100%       | `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE`, `EXIT`, `GOTO`, `GOSUB`, `ON ERROR`, `RESUME`            |
-| **Math & Logic** | ✅ 95%        | `ABS`, `INT`, `FIX`, `SIN`, `SQR`, `LOG`, `EXP`, `RND`, `MOD`, `AND`, `OR`, `XOR`, `EQV`, `IMP`     |
-| **Strings**      | ✅ 100%       | `LEFT$`, `MID$`, `RIGHT$`, `LEN`, `UCASE$`, `LTRIM$`, `INSTR`, `CHR$`, `STRING * N`                 |
-| **File I/O**     | ✅ 95%        | `OPEN`, `PRINT#`, `INPUT#`, `GET`, `PUT`, `FREEFILE`, `LOCK`, `UNLOCK`, `FILES`, `KILL`, `NAME`     |
-| **Mem / Bin**    | ✅ 92%        | `PEEK`, `POKE`, `OUT`, `INP`, `WAIT`, `DEF SEG`, `_MEMCOPY`, `_MEMFILL`, `_MEMFREE`, `_MEMNEW`, `_MEMGET`, `_MEMPUT`, `MKI$`, `CVI` |
-| **Graphics**     | ✅ 87%        | `LINE`, `CIRCLE`, `PSET`, `POINT`, `DRAW`, `PAINT`, `_RGB32`, `_CLEARCOLOR`, `_SETALPHA`, `_SCREENMOVE` |
-| **Input/Inter.** | ✅ 90%        | `INKEY$`, `TIMER`, `SLEEP`, `_LIMIT`, `_MOUSEINPUT`, `_MOUSEX`, `_KEYHIT`, `_KEYDOWN`               |
-| **QB64 Helpers** | ✅ 80%        | `_SNDPLAYFILE`, `_SNDSTOP`, `_SNDVOL`, `_SNDPAUSE`, `_SNDBAL`, `_SNDSETPOS`, `_SNDGETPOS`, `_SNDLEN`, `_SNDPLAYING`, `_SCREENICON` |
-| **Arrays**       | ✅ 100%       | `DIM`, `REDIM`, `ERASE`, `LBOUND`, `UBOUND`, multi-dimensional arrays                               |
-| **SUB/FUNCTION** | ✅ 100%       | `SUB`, `FUNCTION`, `CALL`, `SHARED`, `COMMON SHARED`, `STATIC`, param passing                       |
-| **Data Types**   | ✅ 95%        | `INTEGER`, `LONG`, `SINGLE`, `DOUBLE`, `STRING`, `TYPE`, nested `TYPE`s                             |
+| Feature Category        | In the Retro CRT          | Supported Commands Examples                                                    |
+| ----------------------- | ------------------------- | ------------------------------------------------------------------------------ |
+| **Core I/O**            | ✅                        | `PRINT`, `PRINT USING`, `CLS`, `LOCATE`, `COLOR`, `SCREEN`, `WIDTH`            |
+| **Control Flow**        | ✅                        | `IF`, `SELECT CASE`, `FOR`, `DO`, `WHILE`, `GOTO`, `GOSUB`, `ON ERROR`, `RESUME` |
+| **Math, Strings, Data** | ✅                        | `SIN`, `RND`, `MID$`, `INSTR`, `DIM`, `REDIM PRESERVE`, `TYPE`, `STRING * N`   |
+| **SUB/FUNCTION**        | ✅                        | `SUB`, `FUNCTION`, `CALL`, `SHARED`, `STATIC`                                  |
+| **Graphics**            | ✅                        | `SCREEN 0`, `SCREEN 13` and other modes, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `DRAW` |
+| **Timing**              | ✅                        | `_DISPLAY`, `_LIMIT`, `_DELAY`, `TIMER`                                        |
+| **Sound**               | ✅ WebAudio               | `SOUND`, `BEEP`, `PLAY`, `_SND*`                                               |
+| **INPUT**               | ✅ Prepared answers       | `INPUT`, `LINE INPUT`                                                          |
+| **Console**             | ✅ Separate pane          | `$CONSOLE`                                                                     |
+| **Live Keyboard/Mouse** | ⚠️ Isolated webview only  | `INKEY$`, `_KEYHIT`, `_MOUSEINPUT`, `_MOUSEX`                                  |
+| **Files**               | ❌ Build natively         | `OPEN`, `KILL`, `MKDIR`, `FILES`                                               |
+| **SHELL**               | ❌ Build natively         | `SHELL`                                                                        |
+| **Network**             | ❌ Build natively         | `_OPENHOST`, `_OPENCLIENT`, HTTP                                               |
 
 **Known Limitations**
 
-**Graphics**
+**Keyboard and Mouse**
 
-- Only SCREEN 13 (320x200, 256 colors) is fully supported in CRT viewer
-- SCREEN 0 (text mode) is supported
-- Other SCREEN modes (1, 2, 7-12) have limited or no support
-- `_NEWIMAGE` and `_DISPLAY` work with limitations
+- Live keyboard and mouse input (`INKEY$`, `_KEYHIT`, `_MOUSE*`) needs `SharedArrayBuffer`, which only a cross-origin isolated webview provides
+- VS Code normally does not provide that; then `INPUT` reads the prepared answers only and key polling does not see your key presses
+- For games that poll the keyboard or mouse, build natively with `F5`
 
-**File I/O**
+**INPUT**
 
-- Isolated from the host physical file system (uses Sandboxed Virtual File System)
-- `OPEN ... FOR RANDOM/BINARY` supports structured records but still runs over virtual storage
-- No hardware file flags or low-level file security properties
-- 10MB total storage limit in web runtime
+- Click **⌨ Set INPUT Answers** in the panel's title bar and type the answers separated by `|` (for example `Alice | 42`), then run (or click **↻ Run Again**)
+- `INPUT` and `LINE INPUT` read these answers in order
 
-**Sound**
+**Files, SHELL and Network**
 
-- `PLAY` command fully supported
-- `SOUND` command fully supported
-- Multiple runtime helpers now exist for `_SNDPLAYFILE`, `_SNDSTOP`, `_SNDVOL`, `_SNDPAUSE`, `_SNDBAL`, `_SNDSETPOS`, `_SNDGETPOS`, `_SNDLEN`, and `_SNDPLAYING`
-- Full QB64 file-audio parity is still not guaranteed for every browser/runtime edge case
+- The Retro CRT has no access to your disk, to other programs, or to the network
+- Programs that use files, `SHELL`, TCP or HTTP need a native QBNex or QB64 build
 
-**Hardware & Memory Access**
+**Requirements**
 
-- No physical serial/parallel port mapping to the local OS natively. `OUT` and `INP` connect to dummy endpoints.
-- **Emulated Memory Block**: Legacy hardware interactions (`PEEK`, `POKE`) and segment addresses (`DEF SEG`) read from and write to a safe, entirely emulated virtual RAM block. Use legacy memory copying (`_MEMCOPY`, `_MEMFILL`) safely without jeopardizing host security.
-- No inline assembly execution.
-- No raw USB device access.
-
-**Advanced QB64 Features**
-
-- Limited OpenGL support
-- Connection-state/network helpers are partially emulated, but full `_OPENCLIENT` / `_OPENHOST` socket behavior is not available
-- Clipboard write paths are available internally, but broad host clipboard parity is still limited
-- `_MEM*` coverage is much broader, though not every QB64 low-level memory object behavior is fully replicated yet
-
-**Full Compatibility List**
-
-For a complete list of supported commands and their compatibility status, see the [Compatibility Matrix](https://github.com/thirawat27/QBasic-Nexus/wiki/Compatibility-Matrix) in the project wiki.
+- QBNex must be installed: the program is compiled with `qb --emit-ir` before it runs
+- QB64-only users can still build and run natively with `F5`
 
 **Testing Your Code**
 
-To check if your code will work in the Web Runtime
+To check if your code will work in the Retro CRT
 
-1. Look for the compatibility indicators above
-2. Test in CRT viewer first before compiling
-3. Check console for any unsupported command warnings
-4. Use QB64 mode for full compatibility if needed
+1. Look at the compatibility table above
+2. Run it with `Shift+F5`
+3. If it needs files, `SHELL`, the network or live key polling, build it natively with `F5` instead
 
 ---
 
@@ -1570,7 +1419,7 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 - **Side-by-Side Dual Panel** - Code editor on the **left**, rich lesson description on the **right** — no more switching windows!
 - **Live Markdown Lesson Panel** - Each lesson opens a beautiful description panel showing the Objective, Description, Hint, and a Code Template — all formatted and syntax-highlighted.
 - **Automatic Verification** - Your code is checked instantly against the lesson goal the moment you run it.
-- **Instant Feedback** - See results immediately in the CRT viewer.
+- **Instant Feedback** - See results immediately in the Retro CRT.
 - **Hints and Tips** - Stuck? A `💡 Hint` is always visible in the lesson panel.
 
 **How to Start**
@@ -1582,7 +1431,8 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
    - **Left (Column 1)** — A new QBasic file pre-loaded with the lesson's starter template code
    - **Right (Column 2)** — A **Markdown Preview** showing the full lesson brief: Objective, Description, Hint, and the Template code block
 5. Write or modify your solution in the **left panel**
-6. Press **`F5`** to compile and run
+6. Press **`F5`** (or **`Shift+F5`**) in the lesson editor - the program runs in the **Retro CRT** with QBNex and its output is checked against the lesson goal
+7. On success you'll see **Lesson complete** with a **Next Lesson** button
 
 **Tutorial Stages**
 
@@ -1679,7 +1529,7 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 
 **Stage 16 - Directory Management (Lessons 16.1-16.3)**
 
-- Managing Virtual folders (`MKDIR`, `CHDIR`, `RMDIR`)
+- Managing folders (`MKDIR`, `CHDIR`, `RMDIR`)
 - Looking up, renaming, and deleting files (`FILES`, `NAME`, `KILL`)
 
 **Stage 17 - Memory & Hardware Emulation (Lessons 17.1-17.4)**
@@ -1809,17 +1659,16 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 
 **How Your Code Is Checked**
 
-- Code is transpiled and executed within the **Emulated Sandbox Environment**, meaning you can experiment safely with even memory commands (`PEEK`, `POKE`) without crashing VS Code.
-- A **Real-Time Semantic Diagnostic engine** continuously reviews your syntax, immediately pinpointing issues like unreachable code, type mismatches, or missing labels (e.g. `GOTO` misroutes) before you even hit run.
-- Internal AST output is captured and compared to expected algorithmic results.
-- Specific requirements are verified programmatically (e.g., "must use a FOR loop or implement `$INCLUDE`").
+- QBNex compiles your program to QIR and it runs in the **Retro CRT** on qb-web, the QBNex VM - a real run, not a simulation.
+- The output of the run - console text and the text screen - is matched against the lesson goal. The **CURRENT OBJECTIVE** HUD in the CRT turns to **LESSON COMPLETE** when it matches.
+- Compile errors come straight from QBNex, so you learn the messages a real compiler gives.
+- The tutorial needs QBNex installed.
+- The Retro CRT has no file access, so programs from the file lessons (for example stages 14-16, 27 and 34) need a native build with **QBasic: Compile & Run** to work with real files.
 
 **Verification Criteria**
 
-- **Correct Output** - Program produces expected text/graphics outputs or memory writes.
-- **Required Constructs** - Uses specified commands/structures appropriately.
-- **Logic Correctness** - Implements algorithms correctly without infinite call-stack crashes (thanks to AST state-machine execution).
-- **No Errors** - Code runs cleanly through all Semantic, Syntax, and Runtime checks.
+- **Correct Output** - Program produces the text the lesson asks for.
+- **No Errors** - Code compiles and runs cleanly.
 
 **Getting Help**
 
@@ -1829,32 +1678,23 @@ The Interactive Tutorial is a guided learning system that teaches you QBasic pro
 - Check the example code provided
 - Look at the hints section
 - Try breaking the problem into smaller steps
-- Experiment in the CRT viewer
+- Experiment in the Retro CRT
 
 **Lesson Navigation**
 
 - You can skip lessons (but not recommended for beginners)
 - Return to previous lessons anytime
 - Lessons can be repeated for practice
-- Progress is saved automatically
+- After **Lesson complete**, **Next Lesson** opens the following lesson
 
 **Tips for Success**
 
 - Read each lesson objective completely before coding
 - Test your code frequently with F5
-- Use the CRT viewer to see immediate results
+- Use the Retro CRT (Shift+F5) to see immediate results
 - Don't rush - understanding is more important than speed
 - Experiment beyond the lesson requirements
 - Review previous lessons if you forget concepts
-
-**Progress Tracking**
-
-Your tutorial progress is saved automatically
-
-- Completed lessons are marked
-- Current stage is remembered
-- You can resume anytime
-- Progress persists across VS Code sessions
 
 **Beyond the Tutorial**
 
@@ -1869,35 +1709,35 @@ After completing the tutorial
 
 ## 🔥 Introducing QBNex Compiler
 
-Looking for a modern, high-performance alternative to **QB64**? Meet **QBNex**, a next-generation QBasic/QuickBASIC compiler by **Thirawat27**.
+Looking for a modern, high-performance alternative to **QB64**? Meet **QBNex**, a next-generation QBasic/QuickBASIC compiler by **Thirawat27** - and the compiler QBasic Nexus 2.0 is built around.
 
-QBNex is a **self-hosting compiler** written entirely in BASIC itself (~26,000 lines), featuring a unique architecture that transpiles your BASIC source code to optimized C++ before compiling to native binaries. This design delivers exceptional performance while maintaining full compatibility with classic QBasic and QB64 syntax.
+QBNex translates BASIC source code into **QIR**, a text intermediate language, and packages it with a Rust runner into a standalone executable for Windows, Linux and macOS. Since 2.0 there is no C or C++ anywhere in the pipeline: the runner and runtime are Rust, the QIR runs on a register VM, and hot loops are compiled to native code with Cranelift. The compiler itself is **self-hosting** - written in QBNex BASIC (about 35,000 lines) and compiled by itself.
 
 **Key Advantages**
 
 - 🚀 **Self-Hosting Architecture** - The compiler is written in BASIC and compiles itself, proving its capability.
-- ⚡ **Transpiles to C++** - Your BASIC code is translated to optimized C++ for maximum performance.
-- 🔌 **Native Binaries** - Produces standalone executables for Windows, Linux, and macOS.
-- 🛡️ **Modern Runtime** - Features OpenGL graphics, miniaudio sound synthesis, and comprehensive file I/O.
-- 📦 **Standard Library** - Built-in modules for collections, strings, I/O, and more via `IMPORT` statements.
-- 🔧 **Active Development** - Regular updates with modern BASIC features and improvements.
+- ⚡ **No C/C++ Toolchain** - BASIC → QIR → standalone executable, with nothing else to install.
+- 🔌 **Standalone Executables** - For Windows x64, Linux, and macOS.
+- 🛡️ **Modern Runtime** - A Rust runtime for windows, graphics (all `SCREEN` modes and QB64 32-bit images), sound, fonts, images, files and TCP/IP.
+- 📦 **Standard Library** - `json`, `url`, collections, strings, I/O, system and Rust-backed `ext.*` modules via `'$IMPORT:'module'`.
+- 🧰 **Developer Tools** - `qb-lsp` (language server), `qb-dap` (debugger), `qb-fmt` (formatter) and `qb-web` (the VM in WebAssembly); QBasic Nexus uses all four.
 
 **QBNex vs QB64 Comparison**
 
-| Feature                | QBNex                    | QB64                  |
-| ---------------------- | ------------------------ | --------------------- |
-| **Implementation**     | BASIC (self-hosting)     | C++                   |
-| **Compilation**        | BASIC → C++ → Native     | BASIC → C++ → Native  |
-| **Compilation Speed**  | Fast                     | Fast                  |
-| **Binary Size**        | ~1-5 MB                  | Varies                |
-| **Platform Support**   | Windows, macOS, Linux    | Windows, macOS, Linux |
-| **QB64 Compatibility** | High (95%+)              | 100% (reference)      |
-| **Modern Features**    | Extended (IMPORT, +=, #) | Limited               |
-| **Active Development** | Yes                      | Yes                   |
+| Feature                    | QBNex                                          | QB64                   |
+| -------------------------- | ---------------------------------------------- | ---------------------- |
+| **Implementation**         | BASIC (self-hosting) + Rust runtime            | C++                    |
+| **Compilation**            | BASIC → QIR → runner (VM + JIT)                | BASIC → C++ → Native   |
+| **C/C++ Toolchain**        | Not needed                                     | Needed                 |
+| **Binary Size**            | About 13 MB (runner included)                  | Varies                 |
+| **Platform Support**       | Windows, macOS, Linux                          | Windows, macOS, Linux  |
+| **Language Server, Debugger** | qb-lsp, qb-dap                              | -                      |
+| **Modern Features**        | Extended (`_IIF`, `TRY`/`CATCH`, `FOR EACH`, `ENUM`) | Limited          |
+| **Active Development**     | Yes                                            | Yes                    |
 
-**Installation**
+### Installation
 
-QBNex requires a one-time setup process similar to QB64. The compiler needs to build its runtime libraries and self-host itself from the provided `qb.exe` (Windows) or `qb` (Linux/macOS) bootstrap.
+QBNex 2.x needs no setup script and no C/C++ compiler when you install a release.
 
 **Step 1 - Download QBNex**
 
@@ -1905,98 +1745,53 @@ QBNex requires a one-time setup process similar to QB64. The compiler needs to b
 
 Download the appropriate package for your operating system:
 
-- Windows - `qbnex_<version>_win-x64.zip`
-- macOS - `qbnex_<version>_osx.tar.gz`
-- Linux - `qbnex_<version>_lnx.tar.gz`
+- Installer (recommended) - `qbnex_<tag>_win-x64-setup.exe`, `qbnex_<tag>_lnx-setup`, `qbnex_<tag>_osx-setup`
+- Archives - `qbnex_<tag>_win-x64.zip`, `qbnex_<tag>_lnx.tar.gz`, `qbnex_<tag>_osx.tar.gz`
 
-**Step 2 - Extract QBNex**
+**Step 2 - Install QBNex**
 
-Extract the downloaded archive to a permanent location **with full write permissions**.
+The installer installs for the current user, without administrator rights:
 
-**Recommended locations**
+- Windows - into `%LOCALAPPDATA%\Programs\QBNex`, added to your `PATH`, the Start menu and "Apps & features"
+- Linux/macOS - into `~/.local/share/qbnex`, with `qb` and `qbnex` linked in `~/.local/bin`
 
-- Windows - `C:\QBNex\` or `C:\Program Files\QBNex\`
-- macOS - `/Applications/QBNex/` or `~/QBNex/`
-- Linux - `~/qbnex/` or `/opt/qbnex/`
+Use `--yes` to install without questions or `--dir <folder>` to choose the folder. With an archive, extract it to a folder you can write to, then add that folder to `PATH` or set `qbasic-nexus.qbnexPath`.
 
-**Step 3 - Run Setup Script (CRITICAL)**
+The installer and `qb` are not code-signed, so SmartScreen (Windows) and Gatekeeper (macOS) may warn on the first run.
 
-This step is **absolutely required** on all platforms. The setup script builds the runtime libraries and recompiles the compiler from source.
+**Step 3 - Configure QBasic Nexus Extension**
 
-**Windows:**
-```cmd
-cd C:\QBNex
-setup_win.cmd
-```
-- Select 64-bit or 32-bit MinGW when prompted
-- The script downloads ~150MB of compiler toolchain
-- Build time: 5-15 minutes depending on your system
+Usually there is nothing to do: QBasic Nexus finds QBNex in the installer folders, on `PATH`, through `QBNEX_HOME` / `QBNEX_PATH`, and in `C:\QBNex`, `/opt/qbnex`, `/usr/local/bin` and `/opt/homebrew/bin`. Otherwise:
 
-**macOS:**
-```bash
-cd /Applications/QBNex
-chmod +x setup_osx.command
-./setup_osx.command
-```
-- Requires Xcode Command Line Tools (`xcode-select --install`)
-- Build time: 3-5 minutes
-
-**Linux:**
-```bash
-cd ~/qbnex
-chmod +x setup_lnx.sh
-./setup_lnx.sh
-```
-- Install dependencies first:
-  ```bash
-  # Debian/Ubuntu
-  sudo apt-get install g++ x11-utils mesa-common-dev libglu1-mesa-dev libasound2-dev zlib1g-dev libncurses-dev
-  
-  # Fedora/RHEL
-  sudo dnf install gcc-c++ xmessage mesa-libGLU-devel alsa-lib-devel zlib-devel ncurses-devel
-  
-  # Arch Linux
-  sudo pacman -S gcc xorg-xmessage glu alsa-lib zlib ncurses
-  ```
-- Build time: 2-4 minutes
-
-**What the Setup Does:**
-1. Downloads/installs C++ compiler (MinGW on Windows, system GCC on Linux/macOS)
-2. Builds LibQB runtime library (graphics, sound, file I/O)
-3. Builds FreeType (font rendering) and FreeGLUT (OpenGL windowing)
-4. Self-hosts the compiler from `source/qbnex.bas` using the bootstrap `qb.exe`
-5. Creates the final `qb.exe` (Windows) or `qb` (Linux/macOS) compiler
-
-**Step 4 - Configure QBasic Nexus Extension**
-
-1. Open VS Code Settings (`Ctrl+,` or `Cmd+,`)
-2. Search for **"QBasic Nexus Compiler Path"**
-3. Enter the path to the QBNex executable:
+1. Run **QBasic: Configure QBNex Path 🛤️**, or open VS Code Settings (`Ctrl+,` or `Cmd+,`) and search for **"QBasic Nexus Qbnex Path"**
+2. Enter the path to the QBNex executable:
 
 **Examples:**
 ```
-Windows  C:\QBNex\qb.exe
-macOS    /Applications/QBNex/qb
-Linux    /home/yourname/qbnex/qb
+Windows  C:\Users\yourname\AppData\Local\Programs\QBNex\qb.exe
+macOS    /Users/yourname/.local/bin/qb
+Linux    /home/yourname/.local/bin/qb
 ```
 
-4. Make sure **Compiler Mode** is set to **"QB64 (Recommended)"**
-5. QBNex will now be used as the compiler
+3. Leave **Compiler Mode** on **"Auto"** (or set it to **"QBNex"**)
+4. The Status Bar shows **QBNex 2.0.0** once it is found
 
-**Step 5 - Verify Installation**
+**Step 4 - Verify Installation**
 
-1. Open a terminal in the QBNex directory
+1. Open a new terminal
 2. Check the compiler version:
    ```bash
    qb --version
    ```
+   You should see `QBNex Compiler 2.0.0`
 3. Create a test file `test.bas`:
    ```basic
    PRINT "Hello from QBNex!"
    ```
 4. Compile and run:
    ```bash
-   qb test.bas -x
+   qb test.bas -o test.exe   # Windows: then run test.exe
+   qb test.bas -o test       # Linux/macOS: then run ./test
    ```
 5. If you see "Hello from QBNex!", the installation is working!
 
@@ -2004,40 +1799,39 @@ Linux    /home/yourname/qbnex/qb
 
 **Compilation**
 
-- Use F5 or "QBasic Compile & Run" command
-- QBNex compiles your code to native executable
-- Compilation is typically faster than QB64
-- Output executable is optimized and smaller
+- Use F5 or "QBasic: Compile & Run" command
+- QBNex compiles your code to a standalone executable
+- A hello world builds in about half a second
+- Check on save and the Retro CRT use `qb file --emit-ir`, which skips the executable
 
-**How QBNex Works**
+### How QBNex Works
 
-QBNex uses a unique 3-stage compilation pipeline that delivers high performance and native binaries:
+QBNex uses a 3-stage pipeline that needs no C/C++ compiler:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Stage 1: Pre-pass (Parsing)                                 │
-│  ├── Process $INCLUDE, $IMPORT directives                   │
-│  ├── Handle conditional compilation ($DEFINE, $IFDEF)       │
-│  ├── Validate syntax and build symbol table                 │
-│  └── Resolve variable types and function signatures         │
+│  Stage 1: Pre-pass                                          │
+│  ├── Process $INCLUDE files and '$IMPORT modules            │
+│  ├── Evaluate $IF / $LET                                    │
+│  ├── Rewrite DEF FN and CLASS into ordinary procedures      │
+│  └── Record variables, procedures and types                 │
 └──────────────────────────┬──────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Stage 2: Code Generation (Transpiler)                       │
-│  ├── Translate BASIC statements to C++                       │
-│  ├── Optimize output (remove redundancy, inline functions)    │
-│  ├── Generate LibQB runtime calls                             │
-│  └── Output to internal/temp/qbx.cpp                         │
+│  Stage 2: QIR Emission                                      │
+│  ├── Check each statement                                   │
+│  ├── Lower it to QIR (typed registers, runtime calls)       │
+│  └── --emit-ir stops here and writes the QIR text           │
 └──────────────────────────┬──────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Stage 3: C++ Compilation                                    │
-│  ├── Invoke g++ (Windows/Linux) or clang++ (macOS)         │
-│  ├── Link against: OpenGL, FreeGLUT, miniaudio, FreeType     │
-│  ├── Static linking for standalone executables              │
-│  └── Produce native binary (yourfile.exe or ./yourfile)     │
+│  Stage 3: Packaging & Execution                             │
+│  ├── Copy the prebuilt Rust runner (qb-exec)                │
+│  ├── Append the QIR to it                                   │
+│  ├── At start-up: validate, lower to bytecode, run on the VM│
+│  └── Hot functions are compiled by the Cranelift JIT        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -2045,12 +1839,12 @@ QBNex uses a unique 3-stage compilation pipeline that delivers high performance 
 
 QBNex is one of the few compilers in the world that is truly self-hosting in BASIC:
 
-- The compiler source code is `source/qbnex.bas` (~26,000 lines of BASIC)
-- The bootstrap `qb.exe` can compile `qbnex.bas` to produce a new `qb.exe`
+- The compiler source code is in `compiler/` (about 35,000 lines of QBNex BASIC)
+- A stage-0 compiler built from `bootstrap/qbnex.qir` compiles `compiler/qbnex.bas` into `qb` / `qb.exe`
 - This proves QBNex is a complete, capable BASIC implementation
-- Modifying the compiler? Edit `source/qbnex.bas` and recompile!
+- Modifying the compiler? Edit `compiler/qbnex.bas` and rebuild with the setup script!
 
-**Compiler Flags**
+### Compiler Flags
 
 QBNex supports various flags for different workflows:
 
@@ -2058,101 +1852,108 @@ QBNex supports various flags for different workflows:
 |------|-------------|---------|
 | `-h`, `--help` | Show help information | `qb -h` |
 | `-v`, `--version` | Show compiler version | `qb -v` |
-| `-o <name>` | Custom output filename | `qb game.bas -o mygame.exe` |
-| `-x` | Compile and run immediately | `qb test.bas -x` |
-| `-z` | Generate C++ only (no binary) | `qb debug.bas -z` |
+| `-o <file>` | Custom output filename (a name ending in `.qir` writes QIR) | `qb game.bas -o mygame.exe` |
+| `--emit-ir` | Write the QIR text instead of an executable | `qb game.bas --emit-ir -o game.qir` |
+| `-x` | Send the compiler's output to the console (does not run the program) | `qb test.bas -x` |
 | `-w` | Show warnings | `qb code.bas -w` |
+| `-Werror` | Treat warnings as errors | `qb code.bas -Werror` |
 | `-e` | Enable OPTION _EXPLICIT | `qb strict.bas -e` |
-| `-q` | Quiet mode (minimal output) | `qb code.bas -q` |
+| `-k` | Compact diagnostics | `qb code.bas -k` |
+| `-q` | Quiet mode (warnings and errors are still shown) | `qb code.bas -q` |
+| `-m` | No colours in the compiler output | `qb code.bas -m` |
 | `-s` | View/edit compiler settings | `qb -s` |
 
-**Standard Library Imports**
+Without `-o` the executable goes to the QBNex folder, as in QB64. QBasic Nexus always passes `-o`, so your program lands beside the source file or in `outputDirectory`.
 
-QBNex extends BASIC with modern library imports:
+### Standard Library Imports
+
+QBNex extends BASIC with standard library modules, imported with the `'$IMPORT:'module'` metacommand:
 
 ```basic
-' Import standard library modules
-IMPORT 'collections.list'
-IMPORT 'strings.text'
-IMPORT 'io.path'
+' Import the full qbnex stdlib core
+'$IMPORT:'qbnex'
 
 ' Now use modern features
-DIM list AS QBNex_List
-List_Init list
-List_Add list, "Hello"
-List_Add list, "World"
-
-PRINT "Items: "; List_Count&(list)
-List_Free list
+DIM myList AS QBNex_List
+List_Init myList
+List_Add myList, "Hello"
+List_Add myList, "World"
 ```
 
-**Compatibility**
+Other modules include `json`, `url`, `sys.env`, `io.path`, `strings.text`, `collections.list`, `math.numeric` and the Rust-backed `ext.*` modules (regex, hash, zip, http, utf8, collections, datetime).
+
+### Compatibility
 
 **Fully Supported**
 
-- All standard QBasic commands
-- Most QB64 extensions
-- Graphics (SCREEN modes)
-- Sound (PLAY, SOUND)
-- File I/O
-- Arrays and data structures
-- SUBs and FUNCTIONs
+- All standard QBasic and QuickBASIC 4.5 commands
+- The QB64 dialect (`_` keywords, `$` metacommands, `_UNSIGNED`, `_INTEGER64`, `_FLOAT`, `_MEM`, `DECLARE LIBRARY`)
+- Graphics (all SCREEN modes 0-13, 32-bit images, `_PUTIMAGE`, `_LOADIMAGE`, TrueType fonts)
+- Sound (`SOUND`, `PLAY`, `BEEP`, `_SND*`)
+- File I/O, TCP/IP (`_OPENHOST`, `_OPENCLIENT`), `SHELL`, `CHAIN`
+- `PEEK`/`POKE`/`DEF SEG` over an emulated 1 MB memory
+- Arrays, TYPEs, SUBs and FUNCTIONs
 
-**Limited Support**
+**Preview**
 
-- Some advanced QB64 libraries
-- OpenGL features (in development)
-- Networking commands (planned)
+- Native executables linked with `rust-lld`
+- High-level 3D (`_LOADMODEL`, `_MESH*`, `_CAMERA`)
+- The WebAssembly runner (used by the Retro CRT)
 
 **Not Yet Supported**
 
 - Inline assembly
-- Some hardware-specific features
+- Planned syntax such as `x += 1`, array literals and `IMPORT module` without the `'$IMPORT:` form
 - Legacy QB64 quirks and bugs (intentionally)
 
-**Troubleshooting QBNex**
+### Troubleshooting QBNex
 
-**"QBNex not found" error**
+**"No compiler was found" / QBNex not detected**
 
-- Check that the compiler path is correct
-- Verify the executable file exists (`qb.exe` on Windows, `qb` on Linux/macOS)
+- Run `qb --version` in a new terminal; it should print `QBNex Compiler 2.0.0`
+- If `qb` is not on `PATH`, set `qbasic-nexus.qbnexPath` to the full path of `qb` / `qb.exe`
 - On macOS/Linux, ensure the file is executable: `chmod +x qb`
-- Verify the setup script completed successfully (run it again if unsure)
+- Run **QBasic: Show Toolchain Info 🧰** to see what the extension found
+
+**QBNex 1.x warning**
+
+- QBasic Nexus 2.0 is made for QBNex 2.x. QBNex 1.x still builds, with a warning; update to 2.x for full support
 
 **Compilation errors**
 
-- Check if your code uses unsupported features
+- The Problems view shows each error at the right file and line; the full QBNex explanation is in the **QBasic Nexus** Output panel
+- `QIR: unsupported: line N: ...` means a statement QBNex does not support yet
 - Try compiling with QB64 to compare
 - Report issues on GitHub with code sample
 
-**Performance issues**
+**Live diagnostics missing**
 
-- QBNex should be faster than QB64
-- If slower, report the issue with details
-- Check system resources (CPU, memory)
+- qb-lsp must be next to the QBNex compiler or on `PATH`, or set `qbasic-nexus.languageServer.path`
+- qb-lsp does not start in untrusted workspaces, or when the official QBNex extension (`qbnex.qbnex`) is installed (that extension runs it itself)
+- Run **QBasic: Restart Language Server 🔁**
 
 **Switching Between QB64 and QBNex**
 
 You can easily switch between QB64 and QBNex
 
-1. Change the **Compiler Path** setting
-2. Point to QB64 or QBNex executable
+1. Run **QBasic: Select Compiler Mode 🧭**
+2. Choose **QBNex**, **QB64**, or **Auto**
 3. Next compilation uses the selected compiler
 
-**Why Choose QBNex?**
+### Why Choose QBNex?
 
 **Choose QBNex if you want**
 
+- Live diagnostics, debugging, `qb-fmt` and the Retro CRT in QBasic Nexus
+- No C/C++ toolchain to install or set up
 - Self-hosting compiler architecture (proves BASIC can build real systems)
-- Modern syntax extensions (`IMPORT`, `+=` operators, `#` comments)
-- Standard library with collections, strings, I/O utilities
-- Smaller executable sizes (~1-5 MB)
+- Modern extensions (`_IIF`, string interpolation, `TRY`/`CATCH`, `FOR EACH`, `ENUM`, `OPTIONAL` parameters)
+- Standard library with JSON, collections, strings, I/O utilities and more
 - Docker support for consistent builds
-- CMake build option for IDE integration
 
 **Stick with QB64 if you need**
 
-- 100% compatibility with existing QB64 code
+- Built for QB64 compatibility: existing QB64 programs are its main target
 - Access to all QB64-specific libraries and extensions
 - Mature, stable reference compiler
 - Extensive community resources and examples
@@ -2183,40 +1984,41 @@ Comprehensive guide to solving common issues with QBasic Nexus.
 
 - No QBasic commands in Command Palette
 - No syntax highlighting for .bas files
-- Status bar doesn't show compile icon
+- Status bar doesn't show the Run button
 
 **Solutions**
 
-1. Check VS Code version - Requires 1.107.0 or higher
+1. Check VS Code version - Requires 1.125.0 or higher
 2. Reload VS Code - Press `Ctrl+Shift+P` > "Developer Reload Window"
 3. Reinstall extension - Uninstall, restart VS Code, reinstall
 4. Check for conflicting extensions - Disable other BASIC extensions
 
-**QB64 Installation Problems**
+**Compiler Installation Problems**
 
-**Error - "Cannot find QB64 executable"**
+**Error - "No compiler was found. Install QBNex 2.0 ... or QB64-PE ..."**
 
 **Causes**
 
-- QB64 not installed
+- Neither QBNex nor QB64 is installed
 - Incorrect path in settings
-- QB64 executable not in expected location
+- The compiler is not in a location the extension searches
 
 **Solutions**
 
-1. Verify QB64 is installed and extracted
-2. Check compiler path setting
-   - Open Settings > Search "QBasic Nexus Compiler Path"
-   - Ensure path points to executable file (not folder)
-   - Windows - Must end with `qb64.exe`
-   - macOS/Linux - Must point to `qb64` file
+1. Verify the compiler is installed
+   - QBNex - `qb --version` should print `QBNex Compiler 2.0.0`
+   - QB64 - QB64 is extracted (and on macOS/Linux, its setup script has run)
+2. Check the path settings
+   - Open Settings > Search "QBasic Nexus"
+   - `qbasic-nexus.qbnexPath` (QBNex) or `qbasic-nexus.compilerPath` (QB64) must point to the executable file (not the folder)
+   - Windows - Must end with `qb.exe`, `qb64pe.exe` or `qb64.exe`
+   - macOS/Linux - Must point to the `qb`, `qb64pe` or `qb64` file
 3. Use auto-detection
-   - Open any .bas file
-   - Extension will search common locations
-   - Click "Save Path" to keep the detected location, or "Continue Once" to use it just for the current session
+   - Run **QBasic: Configure QBNex Path 🛤️** or **QBasic: Configure QB64 Path 🛤️** and choose **Auto-Detect Now**
+   - Click "Save Path" when asked to keep the detected location
 4. Manually set path
-   - Copy full path to QB64 executable
-   - Paste into Compiler Path setting
+   - Copy full path to the compiler executable
+   - Paste into the setting
 
 **Error - "Permission denied" (macOS/Linux)**
 
@@ -2321,57 +2123,65 @@ sh ./setup_lnx.sh
 1. Close other applications
 2. Simplify code (split into modules)
 3. Increase system swap/page file
-4. Use QBasic Nexus mode instead
+4. Try QBNex instead (it needs no C++ compiler)
 
-**QBasic Nexus Mode Problems**
+**QBNex Problems**
 
-**Error - "Transpilation failed"**
+**Error - "QIR: unsupported: line N: ..."**
 
-**Common Causes**
+**Cause**
 
-- Unsupported QB64 features
-- Syntax errors
-- Complex code structures
+- The program uses a statement that QBNex does not support yet
 
 **Solutions**
 
-1. Check error message in Output panel
-2. Simplify problematic code section
-3. Test in CRT viewer first
-4. Use QB64 mode for full compatibility
+1. Check the error in the Problems view and the **QBasic Nexus** Output panel
+2. Rewrite that statement, or build the program with QB64 (`compilerMode` set to `QB64`)
+3. Report it on the [QBNex issues page](https://github.com/thirawat27/QBNex/issues) with a code sample
 
-**Error - "internal packaging failed"**
+**Build Stops After a Long Time**
 
-**Causes**
+**Cause**
 
-- Antivirus blocking
-- Insufficient disk space
-- Node.js issues
+- The compiler ran longer than `qbasic-nexus.externalBuildTimeoutMs` (5 minutes by default) and was stopped
 
 **Solutions**
 
-1. Add workspace folder to antivirus exclusions
-2. Free up disk space (need ~100MB)
-3. Check Output panel for specific error
-4. Try compiling simpler program first
+1. Raise `externalBuildTimeoutMs` for very large programs (`0` disables the timeout)
+2. Check the Output panel for a compiler that waits for input or hangs
 
-**Executable Size Too Large**
+**Executable Size**
 
 **Normal Behavior**
 
-- QBasic Nexus executables are 40-50MB
-- Includes Node.js runtime
-- This is expected and normal
-
-**If Larger Than 50MB**
-
-- May include large embedded resources
-- Check for large DATA sections
-- Consider using external files instead
+- QBNex executables are about 13 MB
+- Each one contains the Rust runner (VM, JIT, graphics, sound, network)
+- A hello world and a graphics program are about the same size
 
 ### Runtime Issues
 
-**Web Runtime (CRT) Issues**
+**Retro CRT Issues**
+
+**Retro CRT Does Not Start**
+
+**Cause**
+
+- QBNex is not installed or not found; the Retro CRT compiles with `qb --emit-ir` first
+
+**Solution**
+
+- Install QBNex 2.x or set `qbasic-nexus.qbnexPath`; QB64-only setups can run programs natively with `F5`
+
+**INKEY$, _KEYHIT or the Mouse Do Not React**
+
+**Cause**
+
+- Live keyboard and mouse input needs a cross-origin isolated webview (`SharedArrayBuffer`), which VS Code normally does not provide
+
+**Solutions**
+
+- Set the `INPUT` answers with **⌨ Set INPUT Answers** in the panel's title bar before running
+- Build natively with `F5` for programs that poll the keyboard or mouse
 
 **No Sound**
 
@@ -2444,42 +2254,24 @@ sh ./setup_lnx.sh
 
 **Causes**
 
-- Unsupported SCREEN mode
 - Complex DRAW commands
-- Browser rendering issues
+- Webview rendering issues
 
 **Solutions**
 
-1. Use SCREEN 13 (best supported)
+1. Compare with a native build (`F5`)
 2. Simplify DRAW macro strings
-3. Test in QB64 mode for comparison
-4. Refresh CRT viewer (close and reopen)
+3. Refresh the Retro CRT (close and reopen)
 
 **File Operations Not Working**
 
-**Causes**
+**Cause**
 
-- Virtual file system limitations
-- Incorrect file operations
-- Storage quota exceeded
+- The Retro CRT has no file access (and no `SHELL`, TCP or HTTP)
 
-**Solutions**
+**Solution**
 
-1. Check file operations syntax
-   ```basic
-   OPEN "test.txt" FOR OUTPUT AS #1
-   PRINT #1, "Hello"
-   CLOSE #1
-   ```
-2. Check storage usage
-   - Open browser DevTools (F12)
-   - Application > Local Storage
-   - Look for `qbasic_vfs_` entries
-3. Clear old files if needed
-   ```basic
-   KILL "oldfile.txt"
-   ```
-4. Stay under 10MB total limit
+- Build and run the program natively with `F5` (QBNex or QB64)
 
 ### Common Runtime Errors
 
@@ -2602,16 +2394,16 @@ END IF
 3. Close other applications
 4. Upgrade hardware (SSD helps)
 
-**QBasic Nexus Mode**
+**QBNex**
 
-- Transpilation + packaging takes time
-- 5-15 seconds is normal
+- A hello world builds in about half a second; a 10,000-line program takes about 15 seconds
+- Check on save uses `--emit-ir` and skips the executable
 
 **Solutions**
 
-1. Use CRT viewer for testing (faster)
-2. Compile to a native executable only when needed
-3. Test code in QB64 mode first
+1. Use check on save or **QBasic: Check for Errors 🩺** to find errors without a full build
+2. Compile to an executable only when you want to run it
+3. Exclude the QBNex folder and your project folder from antivirus scanning
 
 **Slow Execution**
 
@@ -2642,7 +2434,7 @@ END IF
    NEXT
    ```
 
-3. Use QB64 mode for better performance
+3. Build natively (`F5`) instead of using the Retro CRT for heavy programs
 4. Reduce graphics complexity
 
 **High Memory Usage**
@@ -2783,6 +2575,7 @@ chmod -R 755 ~/qb64
    - View > Output
    - Select "QBasic Nexus" from dropdown
    - Look for error messages
+   - Run **QBasic: Show Toolchain Info 🧰** to see which compilers and language server are in use
 
 2. **Enable Debug Logging**
    - Help > Toggle Developer Tools

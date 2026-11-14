@@ -2,6 +2,47 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [2.0.0] - 2026-11-14
+
+QBasic Nexus now builds, checks, runs and debugs with the real compilers only: **QBNex 2.x** and **QB64 / QB64-PE**. The internal JavaScript compiler is gone, so a program behaves in the editor exactly as the compiler builds it.
+
+### ⚠️ Breaking Changes
+
+- **Internal compiler removed**: the `Qbasic Nexus` and `Qbasic Nexus + WASM` modes, the JavaScript transpiler and runtime, `@yao-pkg/pkg` packaging and multi-target builds are removed. Settings removed with them: `internalTargets`, `internalWasmAccelerator`, `compileWorkerMaxQueueSize`, `compileWorkerRequestTimeoutMs`, `lintWorkerMaxQueueSize`, `lintWorkerRequestTimeoutMs`, `lintDelay`. Their commands are removed too.
+- **Compiler modes are now `Auto`, `QBNex` and `QB64`** (`Auto` by default: QBNex 2.x when installed, otherwise QB64). Settings from 1.x are converted on first start: `QB64 (Recommended)` becomes `QB64`, the internal modes become `QBNex`, `internalOutputDir` becomes `outputDirectory`, and the removed settings are deleted.
+- **The real-time linter built on the internal parser is replaced** by the compilers' own diagnostics: qb-lsp as you type (QBNex), and a compiler check on every save (QBNex and QB64).
+- **Retro CRT and the tutorial need QBNex**: programs are compiled by QBNex and run on its VM.
+
+### ✨ QBNex 2.0 Support
+
+- **QBNex detection**: `qbasic-nexus.qbnexPath`, `QBNEX_HOME` / `QBNEX_PATH`, `PATH`, and the QBNex setup folders (`%LOCALAPPDATA%\Programs\QBNex`, `~/.local/bin`, `~/.local/share/qbnex`, `/opt/qbnex`). The compiler is identified by `qb --version`; QBNex 1.x still builds, with a warning.
+- **QBNex diagnostics in the Problems view**: errors and warnings at the right file, line and column, including errors inside `$INCLUDE` files, with QBNex error codes (`E0000`, `E1201`, ...) and detail notes.
+- **Live diagnostics with qb-lsp**: the QBNex language server starts next to the compiler (or from `qbasic-nexus.languageServer.path`). The QBasic Nexus completion, hover and navigation stay in charge, so nothing is listed twice. When the official QBNex extension is installed, it runs qb-lsp and this extension does not start a second one.
+- **Debugging with qb-dap**: debug type `qbasic-nexus` with breakpoints, stepping, call stack and variables (`program`, `qir`, `compiler`, `cwd`, `stopOnEntry`, `input`).
+- **qb-fmt formatter**: choose `qbasic-nexus.formatter: "qb-fmt"`; the built-in formatter stays the default and is the fallback.
+- **Retro CRT on qb-web**: `Run in Retro CRT` (Shift+F5) compiles to QIR with `qb --emit-ir` and runs the program on qb-web, the QBNex VM built for WebAssembly (bundled in `vendor/qb-web`, GPL-3.0). Text and graphics screens, `_DISPLAY`/`_LIMIT`, sound, TIMER and INPUT from prepared answers; live keyboard when the webview is cross-origin isolated. The panel keeps the 1.x look (neon monitor, scanlines, objective HUD); **Set INPUT Answers**, **Run Again** and **Stop Program** are buttons in its title bar.
+- **Tutorial checks with QBNex**: all 150 lessons run in the Retro CRT and are judged on the program's real output.
+
+### ✨ Both Compilers
+
+- **Check on save**: QBNex checks with `qb --emit-ir` (no native build); QB64 generates its C++ without compiling it (`-z`). New command **QBasic: Check for Errors**.
+- **Diagnostics flags**: `showWarnings` (`-w`, on by default), `warningsAsErrors` (`-Werror`, QBNex), `optionExplicit` (`-e`), plus `compilerArgs` for anything else.
+- **Output folder for every build**: `qbasic-nexus.outputDirectory` (was internal-only).
+- **Toolchain info**: **QBasic: Show Toolchain Info** and a status bar item show which compiler, language server and paths are in use.
+- **Untrusted workspaces**: compiler, server, debugger and formatter paths and compiler arguments come only from user settings, and qb-lsp does not start.
+- **Release pipeline**: `.github/workflows/release.yml` publishes to the Visual Studio Marketplace and Open VSX on a `v*` tag; see `docs/PUBLISHING.md`.
+
+### 🐛 Fixes
+
+- The `Warnings as Errors` compiler-args preset passed `-w -e`; `-e` means `OPTION _EXPLICIT`, not warnings as errors. Use the `warningsAsErrors` setting (`-Werror`, QBNex).
+- QBNex was rejected as a compiler: the QB64 check accepted only executables named `qb64`/`qb64pe`.
+- Format on save no longer runs twice when `editor.formatOnSave` is also on.
+
+### ✅ Quality Assurance
+
+- `test/test-toolchain.js`: QBNex and QB64 output parsing, command lines, mode migration, QBNex detection, the process runner (timeout and cancel) and the bundled qb-web VM. Set `QBNEX_TEST_COMPILER` to run it against a real QBNex.
+- Tests of the removed internal compiler, workers and old web runtime are removed.
+
 ## [1.6.2] - 2026-07-22
 
 ### 🛡️ Build Stability

@@ -1,15 +1,10 @@
 /**
- * QBasic Nexus - The Ultimate QBasic/QB64 Environment for VS Code
- * A professional-grade development suite designed to bring QBasic and QB64
- * into the modern era. Features a powerful transpiler, real-time visualization,
- * and comprehensive language support including graphics, sound, and file I/O.
+ * QBasic Nexus - QBasic, QB64 and QBNex development for VS Code
  *
- * Key Capabilities:
- * - Intelligent Code Analysis: Real-time linting, IntelliSense, and symbol navigation
- * - Dual-Engine Execution: Native QB64 compilation + High-performance Web Transpiler
- * - Advanced Visualization: Neon CRT aesthetic with GPU-accelerated graphics
- * - Virtual File System: Persistent file I/O support within the web runtime
- * - Rich Tooling: Formatting, refactoring, and extensive debugging helpers
+ * Builds, checks, runs and debugs programs with the real compilers:
+ * QBNex 2.x (qb, qb-lsp, qb-dap, qb-fmt, qb-web) and QB64 / QB64-PE.
+ * The editor features (completion, hover, navigation, formatting, TODOs,
+ * tutorials, tools) are provided here and work with either compiler.
  *
  * Entry point — wires everything together and delegates to focused sub-modules.
  */
@@ -26,34 +21,27 @@ const {
   throttle,
   invalidateConfigCache,
 } = require('./src/extension/utils');
-const { getCompileWorkerClient } = require('./src/managers/CompileWorkerClient');
-const { getLintWorkerClient } = require('./src/managers/LintWorkerClient');
 const {
+  refreshToolchainStatus,
   updateStatusBar,
   updateCodeStats,
 } = require('./src/extension/statusBar');
-const { lintDocument } = require('./src/extension/linting');
 const { showCodeStatsDetail } = require('./src/extension/codeStats');
-const { executeCompile } = require('./src/extension/compileCommand');
-const { runInCrt } = require('./src/extension/crtRunner');
-const { maybeAutoConfigureQB64 } = require('./src/extension/qb64Compiler');
-const {
-  selectCompileWorkerResilience,
-  selectInternalOutputDir,
-  selectLintWorkerResilience,
-  selectInternalTargets,
-  showInternalBuildQuickActions,
-} = require('./src/extension/internalBuildSettings');
+const { executeCheck, executeCompile } = require('./src/extension/compileCommand');
+const { migrateLegacySettings } = require('./src/extension/migration');
 const {
   showSystemQuickActions,
+  showToolchainInfo,
   selectAutoFormat,
   selectCompilerArgs,
   selectCompilerMode,
   selectCompilerPath,
+  selectDiagnosticFlags,
   selectEnableLinting,
-  selectInternalWasmAccelerator,
+  selectFormatter,
   selectLineNumberSettings,
-  selectLintDelay,
+  selectOutputDirectory,
+  selectQBNexPath,
 } = require('./src/extension/systemSettings');
 const {
   removeLineNumbers,
@@ -63,9 +51,27 @@ const {
   showAsciiChart,
   insertChrFromAsciiChart,
 } = require('./src/extension/asciiChart');
-const { getWebviewManager } = require('./src/extension/lazyModules');
-const { getIncrementalLinter } = require('./src/managers/IncrementalLinter');
 const { workspaceAnalyzer } = require('./src/shared/workspaceAnalysis');
+const { clearToolchainCache } = require('./src/toolchain/resolve');
+const {
+  checkDocument,
+  clearCompilerDiagnostics,
+  disposeChecks,
+} = require('./src/toolchain/problems');
+const {
+  restartLanguageServer,
+  stopLanguageServer,
+} = require('./src/toolchain/languageServer');
+const { registerDebugAdapter } = require('./src/toolchain/debugAdapter');
+const { QBasicFormattingProvider, formatDocumentEdits } = require('./src/toolchain/formatter');
+const {
+  disposeCrt,
+  getLastCrtResult,
+  rerunCrt,
+  runInCrt,
+  setCrtInput,
+  stopCrt,
+} = require('./src/runner/crtPanel');
 
 // ── Language Providers ───────────────────────────────────────────────────────
 const {
@@ -78,7 +84,6 @@ const {
   QBasicDocumentSemanticTokenProvider,
   QBasicSemanticTokensLegend,
   invalidateSemanticTokenCache,
-  QBasicDocumentFormattingEditProvider,
   QBasicFoldingRangeProvider,
   QBasicDocumentHighlightProvider,
   QBasicRenameProvider,
@@ -104,83 +109,57 @@ function isQBasicTarget(target) {
   return /\.(?:bas|bi|bm|inc)$/i.test(fsPath);
 }
 
+/** Settings whose change re-detects the compiler. */
+const TOOLCHAIN_KEYS = [
+  CONFIG.COMPILER_MODE,
+  CONFIG.COMPILER_PATH,
+  CONFIG.QBNEX_PATH,
+];
+
+/** Settings whose change restarts qb-lsp. */
+const LANGUAGE_SERVER_KEYS = [
+  'languageServer',
+  CONFIG.QBNEX_PATH,
+];
+
 // ============================================================================
 // EXTENSION ACTIVATION
 // ============================================================================
 
 async function activate(context) {
-  console.log('[QBasic Nexus] ⚡ Extension activated');
   const startTime = Date.now();
-
   state.extensionContext = context;
 
-  const workerResilienceKeys = [
-    CONFIG.COMPILE_WORKER_MAX_QUEUE_SIZE,
-    CONFIG.COMPILE_WORKER_REQUEST_TIMEOUT_MS,
-    CONFIG.LINT_WORKER_MAX_QUEUE_SIZE,
-    CONFIG.LINT_WORKER_REQUEST_TIMEOUT_MS,
-  ];
+  await migrateLegacySettings();
+  invalidateConfigCache();
 
-  function recycleWorkerClients() {
-    try {
-      getCompileWorkerClient().dispose();
-    } catch {
-      // Ignore failures and let compile path fallback safely.
-    }
-
-    try {
-      getLintWorkerClient().dispose();
-    } catch {
-      // Ignore failures and let lint path fallback safely.
-    }
-
-    setTimeout(() => {
-      try {
-        getCompileWorkerClient().prepare();
-      } catch {
-        // Safe fallback: compile commands still work on the main thread path.
-      }
-
-      try {
-        getLintWorkerClient().prepare?.();
-      } catch {
-        // Safe fallback: lint requests still work via in-process fallback.
-      }
-    }, 0);
-  }
-
-  // Initialize diagnostic collection
+  // Diagnostics reported by the compilers (build, check on save)
   state.diagnosticCollection =
     vscode.languages.createDiagnosticCollection('qbasic-nexus');
   context.subscriptions.push(state.diagnosticCollection);
 
-  // Initialize status bars
+  // Status bar: Run, active toolchain, code stats
   state.statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
     100,
   );
   state.statusBarItem.command = COMMANDS.COMPILE_RUN;
-  context.subscriptions.push(state.statusBarItem);
-
-  state.internalBuildBarItem = vscode.window.createStatusBarItem(
+  state.toolchainBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
     99,
   );
-  state.internalBuildBarItem.command = COMMANDS.SHOW_SYSTEM_QUICK_ACTIONS;
-  context.subscriptions.push(state.internalBuildBarItem);
-
+  state.toolchainBarItem.command = COMMANDS.SHOW_SYSTEM_QUICK_ACTIONS;
   state.statsBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100,
   );
   state.statsBarItem.command = COMMANDS.SHOW_STATS;
-  context.subscriptions.push(state.statsBarItem);
+  context.subscriptions.push(state.statusBarItem, state.toolchainBarItem, state.statsBarItem);
 
   // ── Register language providers ──────────────────────────────────────────
   const selector = { language: CONFIG.LANGUAGE_ID };
 
   context.subscriptions.push(
-    // Core providers
     vscode.languages.registerDocumentSymbolProvider(
       selector,
       new QBasicDocumentSymbolProvider(),
@@ -191,7 +170,7 @@ async function activate(context) {
     ),
     vscode.languages.registerDocumentFormattingEditProvider(
       selector,
-      new QBasicDocumentFormattingEditProvider(),
+      new QBasicFormattingProvider(),
     ),
     vscode.languages.registerCompletionItemProvider(
       selector,
@@ -210,8 +189,6 @@ async function activate(context) {
       new QBasicDocumentSemanticTokenProvider(),
       QBasicSemanticTokensLegend,
     ),
-
-    // Enhanced providers
     vscode.languages.registerFoldingRangeProvider(
       selector,
       new QBasicFoldingRangeProvider(),
@@ -247,11 +224,11 @@ async function activate(context) {
       selector,
       new QBasicColorProvider(),
     ),
-
   );
 
-  // ── Activate custom internal decorators ──────────────────────────────────
   activateDecorators(context);
+  registerDebugAdapter(context);
+  let officialQBNexInstalled = !!vscode.extensions.getExtension(CONFIG.QBNEX_EXTENSION_ID);
 
   // ── Register Todo Tree View ──────────────────────────────────────────────
   const todoProvider = new QBasicTodoProvider();
@@ -261,7 +238,7 @@ async function activate(context) {
   context.subscriptions.push(
     qbasicFileWatcher,
     vscode.window.registerTreeDataProvider('qbasic-todo', todoProvider),
-    vscode.commands.registerCommand('qbasic-nexus.refreshTodo', () => todoProvider.refresh()),
+    vscode.commands.registerCommand(COMMANDS.REFRESH_TODO, () => todoProvider.refresh()),
     qbasicFileWatcher.onDidChange((uri) => {
       workspaceAnalyzer.invalidateFile(uri);
       void workspaceAnalyzer.warmFile(uri);
@@ -274,93 +251,52 @@ async function activate(context) {
     qbasicFileWatcher.onDidDelete((uri) => {
       workspaceAnalyzer.invalidateFile(uri);
       todoProvider.remove(uri);
+      clearCompilerDiagnostics(uri.fsPath);
     }),
   );
 
   // ── Register commands ────────────────────────────────────────────────────
+  const commands = {
+    [COMMANDS.COMPILE]: () => executeCompile(false),
+    [COMMANDS.COMPILE_RUN]: () => {
+      // A tutorial lesson is an untitled editor: run it where it is checked.
+      const doc = vscode.window.activeTextEditor?.document;
+      if (doc?.isUntitled && getTutorialManager().getCurrentLesson()) {
+        return runInCrt(doc);
+      }
+      return executeCompile(true);
+    },
+    [COMMANDS.CHECK]: executeCheck,
+    [COMMANDS.RUN_CRT]: () => runInCrt(),
+    [COMMANDS.CRT_RERUN]: rerunCrt,
+    [COMMANDS.CRT_STOP]: stopCrt,
+    [COMMANDS.CRT_INPUT]: setCrtInput,
+    [COMMANDS.START_TUTORIAL]: () => getTutorialManager().startTutorial(state.extensionContext),
+    [COMMANDS.SHOW_STATS]: showCodeStatsDetail,
+    [COMMANDS.REMOVE_LINE_NUMBERS]: removeLineNumbers,
+    [COMMANDS.RENUMBER_LINES]: renumberLines,
+    [COMMANDS.SHOW_ASCII_CHART]: () => showAsciiChart(context.extensionUri),
+    [COMMANDS.INSERT_CHR_FROM_ASCII]: insertChrFromAsciiChart,
+    [COMMANDS.SHOW_SYSTEM_QUICK_ACTIONS]: showSystemQuickActions,
+    [COMMANDS.SHOW_TOOLCHAIN_INFO]: showToolchainInfo,
+    [COMMANDS.SELECT_COMPILER_MODE]: selectCompilerMode,
+    [COMMANDS.SELECT_COMPILER_PATH]: selectCompilerPath,
+    [COMMANDS.SELECT_QBNEX_PATH]: selectQBNexPath,
+    [COMMANDS.SELECT_COMPILER_ARGS]: selectCompilerArgs,
+    [COMMANDS.SELECT_OUTPUT_DIRECTORY]: selectOutputDirectory,
+    [COMMANDS.SELECT_DIAGNOSTIC_FLAGS]: selectDiagnosticFlags,
+    [COMMANDS.SELECT_FORMATTER]: selectFormatter,
+    [COMMANDS.SELECT_ENABLE_LINTING]: selectEnableLinting,
+    [COMMANDS.SELECT_AUTO_FORMAT]: selectAutoFormat,
+    [COMMANDS.SELECT_LINE_NUMBER_SETTINGS]: selectLineNumberSettings,
+    [COMMANDS.RESTART_LANGUAGE_SERVER]: () => restartLanguageServer(),
+  };
+  for (const [id, handler] of Object.entries(commands)) {
+    context.subscriptions.push(vscode.commands.registerCommand(id, handler));
+  }
+  // Not contributed (hidden from the palette): lets tests and other tools read the last Retro CRT run.
   context.subscriptions.push(
-    vscode.commands.registerCommand(COMMANDS.COMPILE, () =>
-      executeCompile(false),
-    ),
-    vscode.commands.registerCommand(COMMANDS.COMPILE_RUN, () =>
-      executeCompile(true),
-    ),
-    vscode.commands.registerCommand(COMMANDS.RUN_CRT, runInCrt),
-    vscode.commands.registerCommand(COMMANDS.START_TUTORIAL, () => {
-      // Lazy-wire on first use: load both modules and connect them
-      const tm = getTutorialManager();
-      tm.setWebviewManager(getWebviewManager());
-      return tm.startTutorial(state.extensionContext);
-    }),
-    vscode.commands.registerCommand(COMMANDS.SHOW_STATS, showCodeStatsDetail),
-    vscode.commands.registerCommand(
-      COMMANDS.REMOVE_LINE_NUMBERS,
-      removeLineNumbers,
-    ),
-    vscode.commands.registerCommand(COMMANDS.RENUMBER_LINES, renumberLines),
-    vscode.commands.registerCommand(COMMANDS.SHOW_ASCII_CHART, () =>
-      showAsciiChart(context.extensionUri),
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.INSERT_CHR_FROM_ASCII,
-      insertChrFromAsciiChart,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SHOW_SYSTEM_QUICK_ACTIONS,
-      showSystemQuickActions,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_COMPILER_MODE,
-      selectCompilerMode,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_COMPILER_PATH,
-      selectCompilerPath,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_COMPILER_ARGS,
-      selectCompilerArgs,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SHOW_INTERNAL_BUILD_QUICK_ACTIONS,
-      showInternalBuildQuickActions,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_INTERNAL_TARGETS,
-      selectInternalTargets,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_INTERNAL_OUTPUT_DIR,
-      selectInternalOutputDir,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR,
-      selectInternalWasmAccelerator,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_COMPILE_WORKER_RESILIENCE,
-      selectCompileWorkerResilience,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_LINT_WORKER_RESILIENCE,
-      selectLintWorkerResilience,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_ENABLE_LINTING,
-      selectEnableLinting,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_LINT_DELAY,
-      selectLintDelay,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_AUTO_FORMAT,
-      selectAutoFormat,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_LINE_NUMBER_SETTINGS,
-      selectLineNumberSettings,
-    ),
+    vscode.commands.registerCommand('qbasic-nexus._lastCrtResult', getLastCrtResult),
   );
 
   // ── Event handlers ───────────────────────────────────────────────────────
@@ -371,79 +307,87 @@ async function activate(context) {
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       debouncedStatusUpdate();
       if (editor) {
-        void maybeAutoConfigureQB64(editor);
         if (editor.document.languageId === CONFIG.LANGUAGE_ID) {
           void workspaceAnalyzer.prepareWorkspace(editor.document);
         }
-        lintDocument(editor.document);
         throttledStatsUpdate(editor.document);
-      } else {
-        if (state.statsBarItem) state.statsBarItem.hide();
+      } else if (state.statsBarItem) {
+        state.statsBarItem.hide();
       }
     }),
     vscode.workspace.onDidChangeTextDocument((e) => {
-      // Invalidate cache
       invalidateCache(e.document.uri);
       invalidateSemanticTokenCache(e.document.uri);
-
-      // Lint and update stats
-      lintDocument(e.document);
       throttledStatsUpdate(e.document);
+      // qb-lsp reports the edited text; the last build's results are stale.
+      if (
+        state.languageServerRunning &&
+        e.contentChanges.length > 0 &&
+        e.document.languageId === CONFIG.LANGUAGE_ID
+      ) {
+        state.diagnosticCollection?.delete(e.document.uri);
+      }
     }),
     vscode.workspace.onWillSaveTextDocument((e) => {
+      if (e.document.languageId !== CONFIG.LANGUAGE_ID) return;
+      // An explicit editor.formatOnSave already formats through our provider.
+      const editorFormatOnSave = vscode.workspace
+        .getConfiguration('editor', e.document)
+        .get('formatOnSave', false);
       const autoFormat = vscode.workspace
-        .getConfiguration(CONFIG.SECTION)
+        .getConfiguration(CONFIG.SECTION, e.document)
         .get(CONFIG.AUTO_FORMAT, true);
-      if (autoFormat && e.document.languageId === CONFIG.LANGUAGE_ID) {
-        try {
-          const editor = vscode.window.activeTextEditor;
-          const tabSize =
-            editor && editor.document === e.document
-              ? editor.options.tabSize
-              : 4;
-          const insertSpaces =
-            editor && editor.document === e.document
-              ? editor.options.insertSpaces
-              : true;
+      if (!autoFormat || editorFormatOnSave) return;
 
-          const formatter = new QBasicDocumentFormattingEditProvider();
-          const edits = formatter.provideDocumentFormattingEdits(e.document, {
-            tabSize,
-            insertSpaces,
-          });
-          if (edits && edits.length > 0) {
-            e.waitUntil(Promise.resolve(edits));
-          }
-        } catch (err) {
-          console.error('Format on save failed:', err);
-        }
-      }
+      const editor = vscode.window.activeTextEditor;
+      const sameEditor = editor && editor.document === e.document;
+      e.waitUntil(
+        Promise.resolve(
+          formatDocumentEdits(e.document, {
+            tabSize: sameEditor ? editor.options.tabSize : 4,
+            insertSpaces: sameEditor ? editor.options.insertSpaces : true,
+          }),
+        ).catch((err) => {
+          console.error('[QBasic Nexus] format on save failed:', err);
+          return [];
+        }),
+      );
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (doc.languageId === CONFIG.LANGUAGE_ID) {
-        workspaceAnalyzer.invalidateFile(doc);
-        void workspaceAnalyzer.warmFile(doc);
-        todoProvider.refresh(doc.uri);
-        invalidateSemanticTokenCache(doc.uri);
-      }
-      lintDocument(doc);
+      if (doc.languageId !== CONFIG.LANGUAGE_ID) return;
+      workspaceAnalyzer.invalidateFile(doc);
+      void workspaceAnalyzer.warmFile(doc);
+      todoProvider.refresh(doc.uri);
+      invalidateSemanticTokenCache(doc.uri);
       updateCodeStats(doc);
+      void checkDocument(doc);
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       // Drop the cached settings snapshot first so every downstream handler
       // below reads post-change values.
       invalidateConfigCache();
 
-      const workerResilienceChanged = workerResilienceKeys.some((key) =>
-        e.affectsConfiguration(`${CONFIG.SECTION}.${key}`),
-      );
-
-      if (workerResilienceChanged) {
-        recycleWorkerClients();
+      if (TOOLCHAIN_KEYS.some((key) => e.affectsConfiguration(`${CONFIG.SECTION}.${key}`))) {
+        clearToolchainCache();
+        state.activeToolchain = undefined;
+        void refreshToolchainStatus();
       }
-
+      if (LANGUAGE_SERVER_KEYS.some((key) => e.affectsConfiguration(`${CONFIG.SECTION}.${key}`))) {
+        void restartLanguageServer();
+      }
       if (e.affectsConfiguration(CONFIG.SECTION)) {
         updateStatusBar();
+      }
+    }),
+    vscode.workspace.onDidGrantWorkspaceTrust(() => {
+      void restartLanguageServer();
+    }),
+    vscode.extensions.onDidChange(() => {
+      // The official QBNex extension runs its own qb-lsp; follow its install state.
+      const installed = !!vscode.extensions.getExtension(CONFIG.QBNEX_EXTENSION_ID);
+      if (installed !== officialQBNexInstalled) {
+        officialQBNexInstalled = installed;
+        void restartLanguageServer();
       }
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -463,6 +407,7 @@ async function activate(context) {
         workspaceAnalyzer.invalidateFile(file);
         todoProvider.remove(file);
         invalidateSemanticTokenCache(file);
+        clearCompilerDiagnostics(file.fsPath);
       }
     }),
     vscode.workspace.onDidRenameFiles((event) => {
@@ -471,6 +416,7 @@ async function activate(context) {
           workspaceAnalyzer.invalidateFile(oldUri);
           todoProvider.remove(oldUri);
           invalidateSemanticTokenCache(oldUri);
+          clearCompilerDiagnostics(oldUri.fsPath);
         }
         if (isQBasicTarget(newUri)) {
           void workspaceAnalyzer.warmFile(newUri);
@@ -485,9 +431,7 @@ async function activate(context) {
         state.terminalCwd = null;
       }
     }),
-    // Memory leak fix: remove incremental linter state when doc is closed
     vscode.workspace.onDidCloseTextDocument((doc) => {
-      getIncrementalLinter().removeDocument(doc.uri.toString());
       invalidateCache(doc.uri);
       invalidateSemanticTokenCache(doc.uri);
     }),
@@ -495,54 +439,46 @@ async function activate(context) {
 
   // ── Initial setup ────────────────────────────────────────────────────────
   updateStatusBar();
+  void refreshToolchainStatus();
+  void restartLanguageServer();
   if (vscode.window.activeTextEditor) {
     const doc = vscode.window.activeTextEditor.document;
-    void maybeAutoConfigureQB64(vscode.window.activeTextEditor);
     if (doc.languageId === CONFIG.LANGUAGE_ID) {
       void workspaceAnalyzer.prepareWorkspace(doc);
     }
-    lintDocument(doc);
     updateCodeStats(doc);
   }
 
-  recycleWorkerClients();
-
-  const activationTime = Date.now() - startTime;
-  console.log(`[QBasic Nexus] ✅ Ready in ${activationTime}ms`);
+  console.log(`[QBasic Nexus] Ready in ${Date.now() - startTime}ms`);
 }
 
 // ============================================================================
 // EXTENSION DEACTIVATION
 // ============================================================================
 
-function deactivate() {
-  console.log('[QBasic Nexus] Extension deactivated');
-
-  // Drop cached settings so a later reactivation starts from a clean read
+async function deactivate() {
   invalidateConfigCache();
-
-  // Dispose the incremental linter (cancels all pending timers)
-  getIncrementalLinter().dispose();
-  getCompileWorkerClient().dispose();
+  disposeChecks();
+  disposeCrt();
   workspaceAnalyzer.dispose();
 
-  // Dispose VS Code resources
   state.statusBarItem?.dispose();
-  state.internalBuildBarItem?.dispose();
+  state.toolchainBarItem?.dispose();
   state.statsBarItem?.dispose();
   state.outputChannel?.dispose();
   state.diagnosticCollection?.dispose();
   state.terminal?.dispose();
 
-  // Clear references
   state.statusBarItem = null;
-  state.internalBuildBarItem = null;
+  state.toolchainBarItem = null;
   state.statsBarItem = null;
   state.outputChannel = null;
   state.diagnosticCollection = null;
   state.terminal = null;
   state.terminalCwd = null;
   state.extensionContext = null;
+
+  await stopLanguageServer();
 }
 
 module.exports = { activate, deactivate };

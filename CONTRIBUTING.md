@@ -14,10 +14,11 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 ### Prerequisites
 - Node.js 22.x or higher
 - npm 9.x or higher
-- VS Code 1.107.0 or higher
+- VS Code 1.125.0 or higher
 - Git 2.x or higher
 - Basic knowledge of JavaScript and QBasic
 - ESLint 10.x (installed via npm)
+- For manual testing: QBNex 2.x (https://github.com/thirawat27/QBNex) and/or QB64-PE (https://qb64phoenix.com/). The extension builds, runs and checks programs only with these real compilers
 
 ### Setup Development Environment
 
@@ -35,9 +36,6 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 3. **Verify Setup**
    ```bash
    npm run lint           # Lint the project
-   npm run test:compiler  # Compiler smoke suite
-   npm run test:variables # Runtime behavior suite
-   npm run test:features  # Editor feature suite
    npm test               # Full CI-equivalent suite (includes pretest lint)
    ```
 
@@ -75,17 +73,10 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 3. **Test Your Changes**
    ```bash
    npm run lint              # Check code style
-   npm run test:compiler     # Run transpiler tests
-   npm run test:run          # Run compile-and-run smoke tests
-   npm run test:variables    # Run runtime behavior tests
-   npm run test:features     # Run editor feature tests
-   npm run test:integration  # Run compiler integration tests
-   npm run test:autodetect   # Run QB64 autodetect tests
-   npm run test:workspace    # Run multi-workspace analysis tests
-   npm run test:webview      # Run webview manager tests
-   npm run test:todo         # Run TODO provider tests
    npm test                  # Run full suite (same command used in CI)
-   npm run benchmark         # Run performance benchmarks (optional)
+   npm run test:vscode       # End-to-end tests in a real VS Code (needs QBNEX_TEST_COMPILER)
+   node test/test-toolchain.js  # Run one suite on its own (any test/test-*.js file)
+   npm run benchmark         # Run editor performance benchmarks (optional)
    ```
 
 4. **Commit Your Changes**
@@ -128,12 +119,19 @@ function compile(source) {
 ### File Organization
 ```
 src/
-├── compiler/       # Compilation engine
+├── toolchain/      # QBNex/QB64 detection, builds, diagnostics, qb-lsp, qb-dap, qb-fmt
+├── runner/         # Retro CRT panel and the qb-web loader
 ├── providers/      # Language providers
-├── managers/       # State managers
-├── extension/      # Extension features
-└── webview/        # CRT runtime
+├── managers/       # State managers (tutorial, TODOs, ...)
+├── extension/      # Extension features, commands, settings migration from 1.x
+├── shared/         # Shared helpers (keyword catalog, document analysis)
+├── tutorials/      # The 150 lessons
+└── webview/        # Retro CRT and ASCII chart webviews
+vendor/
+└── qb-web/         # QBNex VM built to WebAssembly (GPL-3.0, refreshed with npm run sync:qb-web)
 ```
+
+The extension never interprets BASIC itself: anything that compiles, runs or checks a program goes through `src/toolchain/` and a real compiler.
 
 ### Naming Conventions
 - Files: `kebab-case.js`
@@ -152,12 +150,16 @@ src/
 
 ### Example Test
 ```javascript
-function testTranspiler() {
-  const source = 'PRINT "Hello"';
-  const result = transpile(source);
+const { parseCompilerOutput } = require('../src/toolchain/diagnostics');
 
-  if (!result.includes('console.log')) {
-    throw new Error('PRINT not transpiled correctly');
+function testQb64Warning() {
+  const [d] = parseCompilerOutput('game.bas:12:5: warning: unused variable (x)', {
+    sourcePath: SRC,
+    compiler: 'qb64',
+  });
+
+  if (d.line !== 11 || d.severity !== 'warning') {
+    throw new Error('QB64 warning not parsed correctly');
   }
 
   console.log('✅ Test passed');
@@ -167,18 +169,21 @@ function testTranspiler() {
 ### Running Tests
 ```bash
 npm test                    # Full suite (includes lint via pretest)
-npm run test:compiler       # Transpiler tests
-npm run test:run            # Compile-and-run smoke tests
-npm run test:variables      # Runtime behavior tests
-npm run test:features       # Editor feature tests
-npm run test:integration    # Integration tests
-npm run test:autodetect     # Autodetect tests
-npm run test:workspace      # Workspace analysis tests
-npm run test:webview        # Webview manager tests
-npm run test:todo           # TODO provider tests
-npm run benchmark           # Performance benchmarks
-npm run test:all            # All tests + benchmarks
+npm run test:vscode         # End-to-end tests in a real VS Code (needs QBNEX_TEST_COMPILER)
+npm run benchmark           # Editor performance benchmarks
+npm run sync:qb-web <path>  # Refresh vendor/qb-web from a QBNex checkout
 ```
+
+`npm test` runs these suites in order: `test-toolchain`, `test-editor-features`, `test-deep`, `test-qb64-autodetect`, `test-workspace-multi`, `test-tutorial-manager`, `test-todo-provider`, `test-executable-utils`, `test-system-settings`, `test-hot-path-caches`, `test-config-cache` and `test-process-timeout` (all in `test/`).
+
+Set `QBNEX_TEST_COMPILER` to the path of a QBNex `qb` to also run a test against the real compiler:
+
+```bash
+QBNEX_TEST_COMPILER=/path/to/qb npm test          # Linux/macOS
+$env:QBNEX_TEST_COMPILER = "C:\path\to\qb.exe"; npm test   # PowerShell
+```
+
+`npm run test:vscode` runs end-to-end tests inside a real VS Code. It needs `QBNEX_TEST_COMPILER`; set `QBNEX_TEST_LSP` and `QBNEX_TEST_DAP` (paths to `qb-lsp` and `qb-dap`) to cover the language server and the debugger too, and `VSCODE_TEST_EXECUTABLE` to use an installed VS Code instead of downloading one.
 
 ## Documentation
 
@@ -236,19 +241,17 @@ Brief description of changes
 ## Areas for Contribution
 
 ### High Priority
-- [ ] Increase test coverage across compiler/runtime/editor suites
+- [ ] Increase test coverage across toolchain/editor suites
 - [ ] Add more interactive tutorials (currently 150 lessons)
-- [ ] Improve error messages and diagnostics
-- [ ] Performance optimizations (cache, linting)
+- [ ] Improve how compiler errors and warnings are mapped into the Problems view
+- [ ] Performance optimizations (editor providers, caches)
 - [ ] Documentation improvements and translations
 - [ ] Add more code snippets
-- [ ] Improve QB64 auto-detection
+- [ ] Improve QBNex and QB64 auto-detection
 
 ### Feature Requests
-- [ ] Additional QB64 compatibility features
-- [ ] More graphics modes support
-- [ ] Debugging support with breakpoints
-- [ ] Source maps for better error tracking
+- [ ] More Retro CRT capabilities (qb-web), such as live keyboard input
+- [ ] Better QB64 support in the editor features
 - [ ] TypeScript migration (gradual)
 - [ ] Multi-file project support
 - [ ] Refactoring tools
@@ -301,10 +304,13 @@ Brief description of changes
 1. Update version in package.json
 2. Update CHANGELOG.md
 3. Run all tests
-4. Create git tag
-5. Build package: `npm run package`
-6. Test package locally
-7. Publish: `npm run publish`
+4. Build package: `npm run package`
+5. Test package locally (install the `.vsix` in VS Code)
+6. Commit, then create and push a `v*` git tag matching the version (for example `v2.0.0`)
+7. CI publishes the release to the VS Code Marketplace and Open VSX and attaches the `.vsix` to a GitHub release
+
+### Releasing
+The one-time setup (the `VSCE_PAT` and `OVSX_PAT` tokens) and the full release steps are in [docs/PUBLISHING.md](./docs/PUBLISHING.md). `npm run publish:vsce` and `npm run publish:ovsx` publish by hand when CI cannot.
 
 ## Getting Help
 
@@ -329,6 +335,8 @@ Contributors will be:
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
+
+`vendor/qb-web` is not part of that: it is the QBNex VM built to WebAssembly, licensed under GPL-3.0. Change it in the [QBNex repository](https://github.com/thirawat27/QBNex) and refresh the copy with `npm run sync:qb-web <QBNex checkout>`.
 
 ---
 

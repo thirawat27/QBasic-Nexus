@@ -4,9 +4,8 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.5.x   | :white_check_mark: |
-| 1.4.x   | :white_check_mark: |
-| < 1.4   | :x:                |
+| 2.0.x   | :white_check_mark: |
+| < 2.0   | :x:                |
 
 ## Security Features
 
@@ -23,11 +22,12 @@
 - Safe path construction
 
 ### Resource Limits
-- VFS size limit: 10MB
-- Image buffer limits: 50 buffers, 500K pixels
-- Audio oscillator limits: 8 concurrent
-- Span pool limits: 500 total
-- Iteration limits in graphics operations
+- Compiler runs are stopped after `qbasic-nexus.externalBuildTimeoutMs` (default 5 minutes; `0` disables the guard)
+- The Retro CRT runs programs on qb-web inside a webview, with no access to files, other programs or the network
+
+### Untrusted Workspaces
+- Compiler, language server, debugger and formatter paths and `compilerArgs` are read from user settings only, never from the workspace
+- The qb-lsp language server is not started
 
 ### Memory Management
 - Automatic cleanup on document close
@@ -61,7 +61,8 @@ If you discover a security vulnerability, please report it by:
 ### For Users
 - Keep the extension updated
 - Use latest VS Code version
-- Review QB64 compiler path settings
+- Review QBNex and QB64 compiler path settings
+- Trust a workspace only when you trust its `.vscode/settings.json`
 - Don't run untrusted QBasic code
 - Check file permissions
 
@@ -75,23 +76,19 @@ If you discover a security vulnerability, please report it by:
 
 ## Known Security Considerations
 
-### QB64 Mode
-- Executes native code on your system
-- Has full system access
-- Only use trusted QB64 installations
-- Verify compiler path is correct
+### QBNex and QB64 Builds
+- The extension runs the compiler you installed (QBNex or QB64) and then the program it built
+- Built programs execute natively on your system with full system access (files, network, `SHELL`)
+- Only use trusted QBNex and QB64 installations
+- Verify compiler paths are correct
+- The QBNex tools qb-lsp, qb-dap and qb-fmt run as local processes, found next to the compiler or on `PATH`
 
-### Internal Transpiler Mode
-- Sandboxed JavaScript execution
-- Limited system access
-- Virtual file system only
-- Safe for untrusted code
-
-### CRT Viewer Mode
-- Runs in webview sandbox
-- No system access
+### Retro CRT
+- Runs the program's QIR on qb-web (the QBNex VM built to WebAssembly) in a webview sandbox
+- No file, `SHELL` or network access
 - Safe for demonstrations
-- Limited to browser capabilities
+- Limited to webview capabilities
+- Still compiles with your local QBNex first (`qb --emit-ir`)
 
 ## Security Audit Results
 
@@ -123,21 +120,23 @@ If you discover a security vulnerability, please report it by:
 
 ### Production Dependencies
 All production dependencies are actively maintained and regularly updated:
-- **@yao-pkg/pkg** (6.14.1): Cross-platform executable packaging
-- **moo** (0.5.3): High-performance lexer (no known vulnerabilities)
+- **vscode-languageclient** (11.0.0): Language Server Protocol client for qb-lsp
 - **flru** (1.0.2): Fast LRU cache (no known vulnerabilities)
-- **magic-string** (0.30.21): Source code manipulation (no known vulnerabilities)
 - **mitt** (3.0.1): Lightweight event emitter (no known vulnerabilities)
-- **defu** (6.1.4): Configuration merging (no known vulnerabilities)
+- **defu** (6.1.7): Configuration merging (no known vulnerabilities)
+
+### Bundled Components
+- **qb-web** (`vendor/qb-web`, GPL-3.0): the QBNex VM built to WebAssembly, used by the Retro CRT; refreshed from QBNex with `npm run sync:qb-web`
 
 ### Dev Dependencies
 Development dependencies are isolated and not included in production builds:
 - **@eslint/js** (10.0.1): Linting rules
-- **eslint** (10.0.3): Code quality checker
-- **globals** (17.4.0): Global variables definitions
-- **@types/node** (25.x): TypeScript definitions
-- **@types/vscode** (1.107.0): VS Code API types
-- **@types/mocha** (10.0.10): Testing framework types
+- **eslint** (10.15.0): Code quality checker
+- **globals** (17.14.0): Global variables definitions
+- **@types/node** (26.x): TypeScript definitions
+- **@types/vscode** (1.125.0): VS Code API types
+- **@vscode/vsce** (4.1.0) and **ovsx** (1.4.0): Packaging and publishing
+- **tinybench** (6.2.3): Editor benchmarks
 
 ### Vulnerability Monitoring
 - Regular `npm audit` checks (currently: 0 vulnerabilities)
@@ -152,11 +151,12 @@ Development dependencies are isolated and not included in production builds:
 ### Data Privacy
 - No telemetry or tracking
 - No data collection
-- No external network requests (except QB64 downloads)
+- No external network requests (compilers are installed by you; qb-web ships inside the extension)
 - All data stays local
 
 ### License Compliance
-- MIT License
+- MIT License for the extension
+- `vendor/qb-web` is GPL-3.0, distributed separately from the MIT-licensed extension code
 - All dependencies properly licensed
 - No license conflicts
 - Attribution provided

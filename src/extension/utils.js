@@ -15,18 +15,21 @@ const { state } = require('./state');
 
 // Default values for every known config key
 const CONFIG_DEFAULTS = Object.freeze({
+  [CONFIG.COMPILER_MODE]: CONFIG.MODE_AUTO,
   [CONFIG.COMPILER_PATH]: null,
-  [CONFIG.COMPILER_MODE]: CONFIG.MODE_QB64,
+  [CONFIG.QBNEX_PATH]: null,
   [CONFIG.COMPILER_ARGS]: '',
-  [CONFIG.INTERNAL_TARGETS]: 'host',
-  [CONFIG.INTERNAL_OUTPUT_DIR]: '',
-  [CONFIG.COMPILE_WORKER_MAX_QUEUE_SIZE]: 64,
-  [CONFIG.COMPILE_WORKER_REQUEST_TIMEOUT_MS]: 30000,
-  [CONFIG.LINT_WORKER_MAX_QUEUE_SIZE]: 96,
-  [CONFIG.LINT_WORKER_REQUEST_TIMEOUT_MS]: 15000,
+  [CONFIG.OUTPUT_DIRECTORY]: '',
+  [CONFIG.SHOW_WARNINGS]: true,
+  [CONFIG.WARNINGS_AS_ERRORS]: false,
+  [CONFIG.EXPLICIT]: false,
   [CONFIG.EXTERNAL_BUILD_TIMEOUT_MS]: 300000,
   [CONFIG.ENABLE_LINT]: true,
-  [CONFIG.LINT_DELAY]: 500,
+  [CONFIG.LANGUAGE_SERVER_ENABLED]: true,
+  [CONFIG.LANGUAGE_SERVER_PATH]: '',
+  [CONFIG.DEBUG_ADAPTER_PATH]: '',
+  [CONFIG.FORMATTER]: CONFIG.FORMATTER_BUILTIN,
+  [CONFIG.FORMATTER_PATH]: '',
   [CONFIG.AUTO_FORMAT]: true,
   [CONFIG.LINE_NUMBER_START]: 1,
   [CONFIG.LINE_NUMBER_STEP]: 1,
@@ -223,7 +226,7 @@ function splitCommandLineArgs(value) {
 /**
  * Guard a spawned child process against hanging forever.
  *
- * External build tools (QB64, the packager CLI) can wedge — waiting on a
+ * External build tools (QBNex, QB64) can wedge — waiting on a
  * prompt, stuck in a backend compile, or deadlocked. Without a guard the
  * wrapping Promise never settles, which leaves state.isCompiling === true and
  * disables Compile/Run until the window is reloaded.

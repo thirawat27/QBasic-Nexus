@@ -1,0 +1,111 @@
+name: Release
+
+# Publishes the extension to the Visual Studio Marketplace and the Open VSX
+# Registry, and attaches the .vsix to a GitHub release.
+#
+# Trigger: push a tag that matches package.json's version, e.g.
+#   git tag v2.0.0 && git push origin v2.0.0
+# or run it by hand from the Actions tab (workflow_dispatch).
+#
+# Secrets (Settings > Secrets and variables > Actions):
+#   VSCE_PAT  Azure DevOps personal access token, scope Marketplace > Manage
+#   OVSX_PAT  Open VSX access token (open-vsx.org > Settings > Access Tokens)
+# A registry whose secret is missing is skipped, so the other one still publishes.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      pre_release:
+        description: Publish as a pre-release
+        type: boolean
+        default: false
+      dry_run:
+        description: Build and test only, publish nothing
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      PRE_RELEASE: ${{ inputs.pre_release && '--pre-release' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+
+      - name: Check the tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
+            exit 1
+          fi
+
+      - name: Package
+        id: package
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          file="qbasic-nexus-${version}.vsix"
+          npx vsce package $PRE_RELEASE --out "$file"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: ${{ steps.package.outputs.file }}
+
+      - name: Publish to the Visual Studio Marketplace
+        if: env.VSCE_PAT != '' && inputs.dry_run != true
+        run: npx vsce publish $PRE_RELEASE --packagePath "${{ steps.package.outputs.file }}" --pat "$VSCE_PAT"
+
+      - name: Publish to Open VSX
+        if: env.OVSX_PAT != '' && inputs.dry_run != true
+        run: npx ovsx publish "${{ steps.package.outputs.file }}" $PRE_RELEASE --pat "$OVSX_PAT"
+
+      - name: Warn about missing tokens
+        if: env.VSCE_PAT == '' || env.OVSX_PAT == ''
+        run: |
+          [ -n "$VSCE_PAT" ] || echo "::warning::VSCE_PAT is not set: skipped the Visual Studio Marketplace"
+          [ -n "$OVSX_PAT" ] || echo "::warning::OVSX_PAT is not set: skipped Open VSX"
+
+      - name: GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "${{ steps.package.outputs.file }}" \
+            --title "QBasic Nexus ${{ steps.package.outputs.version }}" \
+            --notes "See CHANGELOG.md for the changes in this release." \
+            || gh release upload "$GITHUB_REF_NAME" "${{ steps.package.outputs.file }}" --clobber

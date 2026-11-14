@@ -10,7 +10,8 @@ export default [
             "coverage/**",
             "dist/**",
             "out/**",
-            "*.vsix"
+            "*.vsix",
+            "vendor/**"
         ]
     },
     js.configs.recommended,
@@ -51,5 +52,13 @@ export default [
             "valid-typeof": "warn",
         },
         ignores: ["**/*.d.ts"]
+    },
+    {
+        files: ["src/webview/**/*.js"],
+        languageOptions: {
+            globals: {
+                ...globals.browser,
+            },
+        },
     }
 ];

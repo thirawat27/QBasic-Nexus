@@ -1,0 +1,23 @@
+/*
+ * QBasic Nexus CRT - the 1.x look (crt.css) with the program drawn by qb-web.
+ * qb-web draws text and graphics into one canvas, so the canvas takes the
+ * whole screen, keeps its aspect ratio, and receives the keyboard and mouse.
+ */
+
+#gfx-layer {
+  object-fit: contain;
+  pointer-events: auto;
+  outline: none;
+}
+
+#screen {
+  pointer-events: none;
+}
+
+#screen:empty {
+  display: none;
+}
+
+#quest-hud.visible {
+  display: block;
+}
