@@ -1,7 +1,7 @@
 /**
  * QBasic Nexus - Configuration Snapshot Cache Tests
  *
- * getConfig() sits on the keystroke path (lintDocument reads it per edit), so
+ * getConfig() sits on the keystroke path (the status bar and every check read it), so
  * the merged settings snapshot is cached. These tests prove the cache is both
  * fast (no repeated getConfiguration calls) and correct (invalidation works).
  */
@@ -71,11 +71,11 @@ function loadUtils(initialSettings = {}) {
 const { CONFIG } = require('../src/extension/constants');
 
 test('Repeated reads query VS Code configuration only once', () => {
-  const { utils, stats } = loadUtils({ [CONFIG.LINT_DELAY]: 250 });
+  const { utils, stats } = loadUtils({ [CONFIG.EXTERNAL_BUILD_TIMEOUT_MS]: 250 });
 
   for (let i = 0; i < 50; i++) {
     assert(
-      utils.getConfig(CONFIG.LINT_DELAY, 500) === 250,
+      utils.getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS, 500) === 250,
       'Configured value should be returned',
     );
   }
@@ -90,7 +90,7 @@ test('Defaults still apply for keys the user has not set', () => {
   const { utils } = loadUtils({});
 
   assert(
-    utils.getConfig(CONFIG.LINT_DELAY) === 500,
+    utils.getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS) === 300000,
     'Unset key should fall back to its declared default',
   );
   assert(
@@ -110,19 +110,19 @@ test('An explicit fallback wins when the resolved value is null', () => {
 });
 
 test('invalidateConfigCache makes the next read see updated settings', () => {
-  const { utils, stats, settings } = loadUtils({ [CONFIG.LINT_DELAY]: 250 });
+  const { utils, stats, settings } = loadUtils({ [CONFIG.EXTERNAL_BUILD_TIMEOUT_MS]: 250 });
 
-  assert(utils.getConfig(CONFIG.LINT_DELAY) === 250, 'Initial read');
+  assert(utils.getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS) === 250, 'Initial read');
 
-  settings[CONFIG.LINT_DELAY] = 900;
+  settings[CONFIG.EXTERNAL_BUILD_TIMEOUT_MS] = 900;
   assert(
-    utils.getConfig(CONFIG.LINT_DELAY) === 250,
+    utils.getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS) === 250,
     'Cached snapshot should still serve the old value before invalidation',
   );
 
   utils.invalidateConfigCache();
   assert(
-    utils.getConfig(CONFIG.LINT_DELAY) === 900,
+    utils.getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS) === 900,
     'Post-invalidation read must see the new value',
   );
   assert(
@@ -135,7 +135,7 @@ test('Unknown keys bypass the snapshot and read through', () => {
   const { utils, settings, stats } = loadUtils({});
   settings['qbasic-nexus.unknownKey'] = 'a';
 
-  utils.getConfig(CONFIG.LINT_DELAY); // populate the snapshot
+  utils.getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS); // populate the snapshot
   const before = stats.getConfigurationCalls;
 
   utils.getConfig('unknownKey');

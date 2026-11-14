@@ -1,77 +1,53 @@
 'use strict';
 
 const vscode = require('vscode');
-const { CONFIG } = require('./constants');
+const { CONFIG, normalizeCompilerMode } = require('./constants');
 const { state } = require('./state');
 const {
   expandHomePath,
   getConfig,
+  getOutputChannel,
   invalidateConfigCache,
 } = require('./utils');
-const {
-  getPreferredConfigTarget,
-} = require('./internalBuildSettings');
-const {
-  findQB64,
-  verifyQB64,
-} = require('./qb64AutoDetect');
+const { findQB64, verifyQB64 } = require('./qb64AutoDetect');
 const { getSystemQuickActionItems } = require('./systemSettingsShared');
+const { findQBNex, verifyQBNex } = require('../toolchain/detect');
+const {
+  clearToolchainCache,
+  resolveQB64,
+  resolveQBNex,
+} = require('../toolchain/resolve');
 
 const COMPILER_MODE_ITEMS = Object.freeze([
   {
-    label: 'QB64 (Recommended)',
-    detail: 'Native compilation through an external QB64 installation',
-    value: CONFIG.MODE_QB64,
-  },
-  {
-    label: 'Qbasic Nexus',
-    detail: 'Internal transpiler and packaged executable flow',
-    value: CONFIG.MODE_INTERNAL,
-  },
-]);
-
-const INTERNAL_WASM_ACCELERATOR_ITEMS = Object.freeze([
-  {
     label: 'Auto',
-    detail: 'Use the WASM accelerator when available, with JavaScript fallback',
-    value: CONFIG.WASM_ACCELERATOR_AUTO,
+    detail: 'QBNex 2.x when it is installed, otherwise QB64 / QB64-PE',
+    value: CONFIG.MODE_AUTO,
   },
   {
-    label: 'On',
-    detail: 'Force the internal compiler to emit the WASM accelerator path',
-    value: CONFIG.WASM_ACCELERATOR_ON,
+    label: 'QBNex',
+    detail: 'Build with the QBNex compiler (qb / qbnex)',
+    value: CONFIG.MODE_QBNEX,
   },
   {
-    label: 'Off',
-    detail: 'Use the pure JavaScript internal runtime',
-    value: CONFIG.WASM_ACCELERATOR_OFF,
+    label: 'QB64',
+    detail: 'Build with QB64 / QB64-PE (qb64pe / qb64)',
+    value: CONFIG.MODE_QB64,
   },
 ]);
 
 const COMPILER_ARGS_PRESETS = Object.freeze([
   {
     label: 'None',
-    detail: 'No extra QB64 flags',
+    detail: 'No extra flags (warnings and OPTION _EXPLICIT have their own settings)',
     value: '',
   },
   {
-    label: 'Warnings',
-    detail: 'Pass -w to show QB64 warnings',
-    value: '-w',
-  },
-  {
-    label: 'Warnings + Debug',
-    detail: 'Pass -w -g for warnings and debug information',
-    value: '-w -g',
-  },
-  {
-    label: 'Warnings as Errors',
-    detail: 'Pass -w -e for stricter builds',
-    value: '-w -e',
+    label: 'Compact diagnostics (QBNex)',
+    detail: 'Pass -k to hide the extra detail notes',
+    value: '-k',
   },
 ]);
-
-const LINT_DELAY_PRESETS = Object.freeze([250, 500, 1000, 2000]);
 
 const LINE_NUMBER_PRESETS = Object.freeze([
   {
@@ -98,12 +74,21 @@ function getStatusBarModule() {
   return require('./statusBar');
 }
 
-function getWorkspacePath() {
+function getPreferredWorkspaceFolder() {
   const activeUri = vscode.window.activeTextEditor?.document?.uri;
-  const activeFolder = activeUri
-    ? vscode.workspace.getWorkspaceFolder(activeUri)
-    : null;
-  return (activeFolder || vscode.workspace.workspaceFolders?.[0])?.uri.fsPath || '';
+  return (activeUri ? vscode.workspace.getWorkspaceFolder(activeUri) : null) ||
+    vscode.workspace.workspaceFolders?.[0] ||
+    null;
+}
+
+function getWorkspacePath() {
+  return getPreferredWorkspaceFolder()?.uri.fsPath || '';
+}
+
+function getPreferredConfigTarget() {
+  return getPreferredWorkspaceFolder()
+    ? vscode.ConfigurationTarget.WorkspaceFolder
+    : vscode.ConfigurationTarget.Global;
 }
 
 async function updateSetting(key, value, target = getPreferredConfigTarget()) {
@@ -122,35 +107,23 @@ function normalizePositiveInteger(value, fallback, minimum = 1) {
 async function showSystemQuickActions() {
   const picked = await vscode.window.showQuickPick(
     getSystemQuickActionItems({
-      compilerMode: getConfig(CONFIG.COMPILER_MODE, CONFIG.MODE_QB64),
+      activeToolchain: state.activeToolchain,
+      compilerMode: getConfig(CONFIG.COMPILER_MODE),
       compilerPath: getConfig(CONFIG.COMPILER_PATH, null),
+      qbnexPath: getConfig(CONFIG.QBNEX_PATH, null),
       autoDetectedCompilerPath: state.autoDetectedCompilerPath,
       compilerArgs: getConfig(CONFIG.COMPILER_ARGS, ''),
-      internalTargets: getConfig(CONFIG.INTERNAL_TARGETS, 'host'),
-      internalOutputDir: getConfig(CONFIG.INTERNAL_OUTPUT_DIR, ''),
-      internalWasmAccelerator: getConfig(
-        CONFIG.INTERNAL_WASM_ACCELERATOR,
-        CONFIG.WASM_ACCELERATOR_AUTO,
-      ),
+      outputDirectory: getConfig(CONFIG.OUTPUT_DIRECTORY, ''),
       workspacePath: getWorkspacePath(),
-      compileWorkerMaxQueueSize: getConfig(
-        CONFIG.COMPILE_WORKER_MAX_QUEUE_SIZE,
-        64,
-      ),
-      compileWorkerRequestTimeoutMs: getConfig(
-        CONFIG.COMPILE_WORKER_REQUEST_TIMEOUT_MS,
-        30_000,
-      ),
-      lintWorkerMaxQueueSize: getConfig(CONFIG.LINT_WORKER_MAX_QUEUE_SIZE, 96),
-      lintWorkerRequestTimeoutMs: getConfig(
-        CONFIG.LINT_WORKER_REQUEST_TIMEOUT_MS,
-        15_000,
-      ),
+      showWarnings: getConfig(CONFIG.SHOW_WARNINGS),
+      warningsAsErrors: getConfig(CONFIG.WARNINGS_AS_ERRORS),
+      optionExplicit: getConfig(CONFIG.EXPLICIT),
       enableLinting: getConfig(CONFIG.ENABLE_LINT, true),
-      lintDelay: getConfig(CONFIG.LINT_DELAY, 500),
+      formatter: getConfig(CONFIG.FORMATTER),
       autoFormatOnSave: getConfig(CONFIG.AUTO_FORMAT, true),
       lineNumberStart: getConfig(CONFIG.LINE_NUMBER_START, 1),
       lineNumberStep: getConfig(CONFIG.LINE_NUMBER_STEP, 1),
+      languageServerRunning: state.languageServerRunning,
     }),
     {
       title: 'QBasic Nexus: Configure System',
@@ -163,8 +136,34 @@ async function showSystemQuickActions() {
   await vscode.commands.executeCommand(picked.command);
 }
 
+async function showToolchainInfo() {
+  clearToolchainCache();
+  const [qbnex, qb64] = await Promise.all([resolveQBNex(), resolveQB64()]);
+  const { resolveToolchain } = require('../toolchain/resolve');
+  const active = await resolveToolchain();
+  state.activeToolchain = active || null;
+  getStatusBarModule().updateStatusBar();
+
+  const channel = getOutputChannel();
+  const describe = (toolchain, hint) => {
+    if (!toolchain) return `not found (${hint})`;
+    const notes = [];
+    if (toolchain.autoDetected) notes.push('auto-detected');
+    if (!toolchain.supported) notes.push('older than 2.0: update for full support');
+    return `${toolchain.label} at ${toolchain.path}${notes.length ? ` [${notes.join(', ')}]` : ''}`;
+  };
+  channel.appendLine('QBasic Nexus toolchain');
+  channel.appendLine(`  Mode:            ${normalizeCompilerMode(getConfig(CONFIG.COMPILER_MODE))}`);
+  channel.appendLine(`  Active:          ${active ? active.label : 'none'}`);
+  channel.appendLine(`  QBNex:           ${describe(qbnex, 'set qbasic-nexus.qbnexPath')}`);
+  channel.appendLine(`  QB64:            ${describe(qb64, 'set qbasic-nexus.compilerPath')}`);
+  channel.appendLine(`  Language server: ${state.languageServerRunning ? 'qb-lsp running' : 'not running'}`);
+  channel.appendLine('');
+  channel.show(true);
+}
+
 async function selectCompilerMode() {
-  const currentMode = getConfig(CONFIG.COMPILER_MODE, CONFIG.MODE_QB64);
+  const currentMode = normalizeCompilerMode(getConfig(CONFIG.COMPILER_MODE));
   const picked = await vscode.window.showQuickPick(
     COMPILER_MODE_ITEMS.map((item) => ({
       ...item,
@@ -172,7 +171,7 @@ async function selectCompilerMode() {
     })),
     {
       title: 'QBasic Nexus: Compiler Mode',
-      placeHolder: 'Choose the active compilation mode',
+      placeHolder: 'Choose the compiler used to build and check programs',
       ignoreFocusOut: true,
     },
   );
@@ -183,66 +182,44 @@ async function selectCompilerMode() {
   vscode.window.showInformationMessage(`Compiler mode set to ${picked.value}`);
 }
 
-async function selectCompilerPath() {
-  const currentPath = String(getConfig(CONFIG.COMPILER_PATH, '') || '').trim();
-  const autoDetectedPath = state.autoDetectedCompilerPath;
-  const quickPickItems = [];
-
-  if (autoDetectedPath) {
-    quickPickItems.push({
-      label: 'Save Auto-Detected QB64',
-      detail: autoDetectedPath,
-      value: '__save_detected__',
-    });
+/**
+ * Shared flow for choosing a compiler executable.
+ * @param {{ key: string, name: string, find: () => Promise<string|null>, verify: (p: string) => Promise<boolean>, autoDetected?: string|null }} spec
+ */
+async function selectExecutablePath(spec) {
+  const currentPath = String(getConfig(spec.key, '') || '').trim();
+  const items = [];
+  if (spec.autoDetected) {
+    items.push({ label: `Save Auto-Detected ${spec.name}`, detail: spec.autoDetected, value: '__save_detected__' });
   }
-
-  quickPickItems.push(
-    {
-      label: 'Auto-Detect QB64 Now',
-      detail: 'Search common install locations and PATH',
-      value: '__detect__',
-    },
-    {
-      label: 'Choose Executable…',
-      detail: 'Pick qb64.exe / qb64 from disk',
-      value: '__pick__',
-    },
-    {
-      label: 'Custom Path…',
-      detail: 'Type a full path or ~/ home-relative path',
-      value: '__custom__',
-    },
-    {
-      label: 'Clear Saved Path',
-      detail: 'Return to on-demand auto-detection',
-      value: '__clear__',
-    },
+  items.push(
+    { label: `Auto-Detect ${spec.name} Now`, detail: 'Search PATH and common install locations', value: '__detect__' },
+    { label: 'Choose Executable...', detail: `Pick the ${spec.name} executable from disk`, value: '__pick__' },
+    { label: 'Custom Path...', detail: 'Type a full path or ~/ home-relative path', value: '__custom__' },
+    { label: 'Clear Saved Path', detail: 'Return to auto-detection', value: '__clear__' },
   );
 
-  const picked = await vscode.window.showQuickPick(quickPickItems, {
-    title: 'QBasic Nexus: QB64 Compiler Path',
-    placeHolder: 'Choose how to configure QB64',
+  const picked = await vscode.window.showQuickPick(items, {
+    title: `QBasic Nexus: ${spec.name} Compiler Path`,
+    placeHolder: `Choose how to configure ${spec.name}`,
     ignoreFocusOut: true,
   });
-
   if (!picked) return;
 
   if (picked.value === '__clear__') {
-    await updateSetting(CONFIG.COMPILER_PATH, null, vscode.ConfigurationTarget.Global);
-    vscode.window.showInformationMessage('Cleared saved QB64 compiler path.');
+    await updateSetting(spec.key, null, vscode.ConfigurationTarget.Global);
+    clearToolchainCache();
+    vscode.window.showInformationMessage(`Cleared saved ${spec.name} compiler path.`);
     return;
   }
 
   let nextPath = null;
-
   if (picked.value === '__save_detected__') {
-    nextPath = autoDetectedPath;
+    nextPath = spec.autoDetected;
   } else if (picked.value === '__detect__') {
-    nextPath = await findQB64();
+    nextPath = await spec.find();
     if (!nextPath) {
-      vscode.window.showWarningMessage(
-        'QB64 was not found. Choose the executable manually or install QB64 first.',
-      );
+      vscode.window.showWarningMessage(`${spec.name} was not found. Choose the executable manually or install it first.`);
       return;
     }
   } else if (picked.value === '__pick__') {
@@ -250,38 +227,53 @@ async function selectCompilerPath() {
       canSelectFiles: true,
       canSelectFolders: false,
       canSelectMany: false,
-      openLabel: 'Use QB64 Executable',
+      openLabel: `Use ${spec.name} Executable`,
     });
     nextPath = selected?.[0]?.fsPath || null;
   } else if (picked.value === '__custom__') {
     const input = await vscode.window.showInputBox({
-      title: 'QBasic Nexus: QB64 Compiler Path',
-      prompt: 'Enter the full path to qb64.exe / qb64',
-      value: currentPath || autoDetectedPath || '',
+      title: `QBasic Nexus: ${spec.name} Compiler Path`,
+      prompt: `Enter the full path to the ${spec.name} executable`,
+      value: currentPath || spec.autoDetected || '',
       ignoreFocusOut: true,
-      async validateInput(value) {
-        const normalizedPath = expandHomePath(value);
-        if (!normalizedPath) {
-          return 'Path is required.';
-        }
-        return (await verifyQB64(normalizedPath))
-          ? null
-          : 'That path does not look like a valid QB64 executable.';
-      },
     });
     if (input === undefined) return;
-    nextPath = expandHomePath(input);
+    nextPath = input;
   }
 
   nextPath = expandHomePath(nextPath);
-  if (!nextPath || !(await verifyQB64(nextPath))) {
-    vscode.window.showErrorMessage('The selected QB64 path is invalid or not executable.');
+  if (!nextPath || !(await spec.verify(nextPath))) {
+    vscode.window.showErrorMessage(`The selected path is not a working ${spec.name} executable.`);
     return;
   }
 
-  state.autoDetectedCompilerPath = null;
-  await updateSetting(CONFIG.COMPILER_PATH, nextPath, vscode.ConfigurationTarget.Global);
-  vscode.window.showInformationMessage(`QB64 compiler path set to ${nextPath}`);
+  await updateSetting(spec.key, nextPath, vscode.ConfigurationTarget.Global);
+  clearToolchainCache();
+  state.activeToolchain = undefined;
+  getStatusBarModule().updateStatusBar();
+  vscode.window.showInformationMessage(`${spec.name} compiler path set to ${nextPath}`);
+}
+
+async function selectCompilerPath() {
+  await selectExecutablePath({
+    key: CONFIG.COMPILER_PATH,
+    name: 'QB64',
+    find: findQB64,
+    verify: verifyQB64,
+    autoDetected: state.autoDetectedCompilerPath,
+  });
+}
+
+async function selectQBNexPath() {
+  await selectExecutablePath({
+    key: CONFIG.QBNEX_PATH,
+    name: 'QBNex',
+    find: async () => (await findQBNex())?.path || null,
+    verify: async (candidate) => !!(await verifyQBNex(candidate)),
+    autoDetected: state.activeToolchain?.kind === 'qbnex' && state.activeToolchain.autoDetected
+      ? state.activeToolchain.path
+      : null,
+  });
 }
 
 async function selectCompilerArgs() {
@@ -293,13 +285,13 @@ async function selectCompilerArgs() {
         description: item.value === currentArgs ? 'Current' : '',
       })),
       {
-        label: 'Custom…',
-        detail: 'Enter your own QB64 flags',
+        label: 'Custom...',
+        detail: 'Enter your own compiler flags',
         value: '__custom__',
       },
     ],
     {
-      title: 'QBasic Nexus: QB64 Compiler Args',
+      title: 'QBasic Nexus: Extra Compiler Args',
       placeHolder: 'Choose a preset or enter custom arguments',
       ignoreFocusOut: true,
     },
@@ -310,8 +302,8 @@ async function selectCompilerArgs() {
   let nextArgs = picked.value;
   if (picked.value === '__custom__') {
     const input = await vscode.window.showInputBox({
-      title: 'QBasic Nexus: QB64 Compiler Args',
-      prompt: 'Enter extra QB64 command-line arguments',
+      title: 'QBasic Nexus: Extra Compiler Args',
+      prompt: 'Extra command-line arguments passed to QBNex or QB64',
       value: currentArgs,
       ignoreFocusOut: true,
     });
@@ -320,35 +312,83 @@ async function selectCompilerArgs() {
   }
 
   await updateSetting(CONFIG.COMPILER_ARGS, nextArgs);
-  const label = nextArgs || 'none';
-  vscode.window.showInformationMessage(`QB64 compiler args set to ${label}`);
+  vscode.window.showInformationMessage(`Extra compiler args set to ${nextArgs || 'none'}`);
 }
 
-async function selectInternalWasmAccelerator() {
-  const currentValue = String(
-    getConfig(
-      CONFIG.INTERNAL_WASM_ACCELERATOR,
-      CONFIG.WASM_ACCELERATOR_AUTO,
-    ) || CONFIG.WASM_ACCELERATOR_AUTO,
-  ).toLowerCase();
-  const picked = await vscode.window.showQuickPick(
-    INTERNAL_WASM_ACCELERATOR_ITEMS.map((item) => ({
-      ...item,
-      description: item.value === currentValue ? 'Current' : '',
-    })),
+async function selectDiagnosticFlags() {
+  const items = [
     {
-      title: 'QBasic Nexus: Internal WASM Accelerator',
-      placeHolder: 'Choose how the internal compiler uses WASM acceleration',
+      label: 'Show warnings',
+      detail: 'Pass -w (QBNex and QB64)',
+      key: CONFIG.SHOW_WARNINGS,
+    },
+    {
+      label: 'Warnings as errors',
+      detail: 'Pass -Werror (QBNex only; QB64 has no such switch)',
+      key: CONFIG.WARNINGS_AS_ERRORS,
+    },
+    {
+      label: 'OPTION _EXPLICIT',
+      detail: 'Pass -e: every variable must be declared',
+      key: CONFIG.EXPLICIT,
+    },
+  ].map((item) => ({ ...item, picked: !!getConfig(item.key) }));
+
+  const picked = await vscode.window.showQuickPick(items, {
+    title: 'QBasic Nexus: Diagnostics Flags',
+    placeHolder: 'Choose the flags every build and check uses',
+    canPickMany: true,
+    ignoreFocusOut: true,
+  });
+  if (!picked) return;
+
+  for (const item of items) {
+    await updateSetting(item.key, picked.includes(item));
+  }
+  vscode.window.showInformationMessage('Diagnostics flags updated.');
+}
+
+async function selectOutputDirectory() {
+  const current = String(getConfig(CONFIG.OUTPUT_DIRECTORY, '') || '').trim();
+  const workspacePath = getWorkspacePath();
+  const picked = await vscode.window.showQuickPick(
+    [
+      { label: 'Beside the source file', detail: 'Default', value: '' },
+      ...(workspacePath ? [{ label: 'bin in the workspace', detail: 'bin', value: 'bin' }] : []),
+      { label: 'Choose Folder...', detail: 'Pick any folder', value: '__pick__' },
+      { label: 'Custom Path...', detail: 'Absolute, ~/..., or relative to the workspace', value: '__custom__' },
+    ].map((item) => ({ ...item, description: item.value === current ? 'Current' : '' })),
+    {
+      title: 'QBasic Nexus: Output Folder',
+      placeHolder: 'Where compiled programs are written',
       ignoreFocusOut: true,
     },
   );
-
   if (!picked) return;
 
-  await updateSetting(CONFIG.INTERNAL_WASM_ACCELERATOR, picked.value);
-  vscode.window.showInformationMessage(
-    `Internal WASM accelerator set to ${picked.label}.`,
-  );
+  let next = picked.value;
+  if (next === '__pick__') {
+    const selected = await vscode.window.showOpenDialog({
+      canSelectFiles: false,
+      canSelectFolders: true,
+      canSelectMany: false,
+      openLabel: 'Use Folder',
+    });
+    if (!selected?.[0]) return;
+    next = selected[0].fsPath;
+  } else if (next === '__custom__') {
+    const input = await vscode.window.showInputBox({
+      title: 'QBasic Nexus: Output Folder',
+      prompt: 'Output folder for compiled programs',
+      value: current,
+      ignoreFocusOut: true,
+    });
+    if (input === undefined) return;
+    next = String(input).trim();
+  }
+
+  await updateSetting(CONFIG.OUTPUT_DIRECTORY, next);
+  vscode.window.showInformationMessage(`Output folder set to ${next || 'beside the source file'}`);
 }
 
 async function selectEnableLinting() {
@@ -357,12 +397,12 @@ async function selectEnableLinting() {
     [
       {
         label: 'Enabled',
-        detail: 'Real-time syntax diagnostics stay on',
+        detail: 'Check each saved file with the compiler (QBNex: as you type through qb-lsp)',
         value: true,
       },
       {
         label: 'Disabled',
-        detail: 'Turn off editor lint diagnostics',
+        detail: 'Report errors only when you compile',
         value: false,
       },
     ].map((item) => ({
@@ -370,8 +410,8 @@ async function selectEnableLinting() {
       description: item.value === currentValue ? 'Current' : '',
     })),
     {
-      title: 'QBasic Nexus: Enable Linting',
-      placeHolder: 'Choose whether linting should run in the editor',
+      title: 'QBasic Nexus: Check On Save',
+      placeHolder: 'Choose whether saved files are checked by the compiler',
       ignoreFocusOut: true,
     },
   );
@@ -380,66 +420,34 @@ async function selectEnableLinting() {
 
   await updateSetting(CONFIG.ENABLE_LINT, picked.value);
   vscode.window.showInformationMessage(
-    `Linting ${picked.value ? 'enabled' : 'disabled'}.`,
+    `Check on save ${picked.value ? 'enabled' : 'disabled'}.`,
   );
 }
 
-async function selectLintDelay() {
-  const currentDelay = normalizePositiveInteger(
-    getConfig(CONFIG.LINT_DELAY, 500),
-    500,
-    100,
-  );
+async function selectFormatter() {
+  const current = getConfig(CONFIG.FORMATTER);
   const picked = await vscode.window.showQuickPick(
     [
-      ...LINT_DELAY_PRESETS.map((value) => ({
-        label: `${value}ms`,
-        detail:
-          value === 250
-            ? 'Fast feedback'
-            : value === 500
-              ? 'Balanced default'
-              : value === 1000
-                ? 'Lower CPU usage'
-                : 'Large-file friendly',
-        description: value === currentDelay ? 'Current' : '',
-        value,
-      })),
       {
-        label: 'Custom…',
-        detail: 'Choose any value from 100 to 3000 ms',
-        value: '__custom__',
+        label: 'Built-in',
+        detail: 'QBasic Nexus formatter: indentation and keyword case',
+        value: CONFIG.FORMATTER_BUILTIN,
       },
-    ],
+      {
+        label: 'qb-fmt',
+        detail: 'The QBNex formatter (qb-fmt next to the compiler, or on PATH)',
+        value: CONFIG.FORMATTER_QB_FMT,
+      },
+    ].map((item) => ({ ...item, description: item.value === current ? 'Current' : '' })),
     {
-      title: 'QBasic Nexus: Lint Delay',
-      placeHolder: 'Choose how long the editor waits before linting',
+      title: 'QBasic Nexus: Formatter',
+      placeHolder: 'Choose the formatter for Format Document and format on save',
       ignoreFocusOut: true,
     },
   );
-
   if (!picked) return;
-
-  let nextDelay = picked.value;
-  if (picked.value === '__custom__') {
-    const input = await vscode.window.showInputBox({
-      title: 'QBasic Nexus: Lint Delay',
-      prompt: 'Enter a delay in milliseconds (100-3000)',
-      value: String(currentDelay),
-      ignoreFocusOut: true,
-      validateInput(value) {
-        const parsed = normalizePositiveInteger(value, -1, 100);
-        return parsed >= 100 && parsed <= 3000
-          ? null
-          : 'Lint delay must be an integer between 100 and 3000.';
-      },
-    });
-    if (input === undefined) return;
-    nextDelay = normalizePositiveInteger(input, currentDelay, 100);
-  }
-
-  await updateSetting(CONFIG.LINT_DELAY, nextDelay);
-  vscode.window.showInformationMessage(`Lint delay set to ${nextDelay}ms`);
+  await updateSetting(CONFIG.FORMATTER, picked.value);
+  vscode.window.showInformationMessage(`Formatter set to ${picked.label}.`);
 }
 
 async function selectAutoFormat() {
@@ -550,13 +558,17 @@ async function selectLineNumberSettings() {
 }
 
 module.exports = {
+  getPreferredConfigTarget,
   showSystemQuickActions,
+  showToolchainInfo,
   selectAutoFormat,
   selectCompilerArgs,
   selectCompilerMode,
   selectCompilerPath,
+  selectDiagnosticFlags,
   selectEnableLinting,
-  selectInternalWasmAccelerator,
+  selectFormatter,
   selectLineNumberSettings,
-  selectLintDelay,
+  selectOutputDirectory,
+  selectQBNexPath,
 };

@@ -1,14 +1,13 @@
 'use strict';
 
-const path = require('path');
-
 const { CONFIG, COMMANDS } = require('../src/extension/constants');
 const {
   formatCompilerArgsLabel,
   formatCompilerPathLabel,
-  formatInternalTargetsLabel,
+  formatDiagnosticFlagsLabel,
   formatLineNumberSettingsLabel,
-  formatWasmAcceleratorLabel,
+  formatOutputDirectoryLabel,
+  formatToolchainLabel,
   getSystemQuickActionItems,
 } = require('../src/extension/systemSettingsShared');
 
@@ -44,13 +43,6 @@ test('Compiler args label reports None when empty', () => {
   assert(formatCompilerArgsLabel('') === 'None', 'Expected empty compiler args to render as None');
 });
 
-test('Internal target labels normalize valid target lists', () => {
-  assert(
-    formatInternalTargetsLabel('host,linux-x64') === 'host, linux-x64',
-    'Expected normalized target labels',
-  );
-});
-
 test('Line number labels summarize start and step', () => {
   assert(
     formatLineNumberSettingsLabel(10, 10) === 'Start 10 | Step 10',
@@ -58,85 +50,75 @@ test('Line number labels summarize start and step', () => {
   );
 });
 
-test('WASM accelerator labels normalize supported values', () => {
-  assert(formatWasmAcceleratorLabel('auto') === 'Auto', 'Expected auto label');
-  assert(formatWasmAcceleratorLabel('on') === 'On', 'Expected on label');
-  assert(formatWasmAcceleratorLabel('off') === 'Off', 'Expected off label');
-  assert(formatWasmAcceleratorLabel('bad') === 'Auto', 'Expected invalid values to fall back to Auto');
+test('Diagnostics flag labels list the active flags', () => {
+  assert(formatDiagnosticFlagsLabel({}) === 'None', 'Expected None without flags');
+  assert(
+    formatDiagnosticFlagsLabel({ showWarnings: true, optionExplicit: true }) === 'warnings, OPTION _EXPLICIT',
+    'Expected the enabled flags in order',
+  );
 });
 
-test('System quick actions cover all top-level configurable settings', () => {
+test('Output folder labels describe the default and relative folders', () => {
+  assert(formatOutputDirectoryLabel('') === 'Beside the source file', 'Expected the default label');
+  assert(
+    formatOutputDirectoryLabel('bin', 'C:\\Work\\Game') === 'bin (in Game)',
+    'Expected relative folders to name the workspace',
+  );
+});
+
+test('Toolchain labels cover detecting, missing and found', () => {
+  assert(formatToolchainLabel(undefined) === 'Detecting...', 'Expected detecting label');
+  assert(formatToolchainLabel(null) === 'None found', 'Expected missing label');
+  assert(
+    formatToolchainLabel({ label: 'QBNex 2.0.0', path: '/opt/qbnex/qb' }) === 'QBNex 2.0.0 (/opt/qbnex/qb)',
+    'Expected label with path',
+  );
+});
+
+test('System quick actions cover every configurable setting', () => {
   const items = getSystemQuickActionItems({
-    compilerMode: CONFIG.MODE_INTERNAL,
+    compilerMode: CONFIG.MODE_AUTO,
     compilerPath: '',
-    autoDetectedCompilerPath: 'C:\\QB64\\qb64.exe',
-    compilerArgs: '-w',
-    internalTargets: 'host,linux-x64',
-    internalOutputDir: 'dist',
-    internalWasmAccelerator: 'auto',
-    workspacePath: 'C:\\Workspace\\QBasic-Nexus',
-    compileWorkerMaxQueueSize: 64,
-    compileWorkerRequestTimeoutMs: 30000,
-    lintWorkerMaxQueueSize: 96,
-    lintWorkerRequestTimeoutMs: 15000,
+    qbnexPath: '',
+    autoDetectedCompilerPath: 'C:\\QB64\\qb64pe.exe',
+    compilerArgs: '-k',
+    outputDirectory: 'bin',
+    workspacePath: 'C:\\Workspace\\Game',
+    showWarnings: true,
     enableLinting: true,
-    lintDelay: 500,
+    formatter: CONFIG.FORMATTER_BUILTIN,
     autoFormatOnSave: true,
     lineNumberStart: 10,
     lineNumberStep: 10,
   });
 
-  assert(items.length === 12, 'Expected one quick action per top-level configurable setting');
-  assert(
-    items.some((item) => item.command === COMMANDS.SELECT_COMPILER_MODE),
-    'Expected compiler mode quick action',
-  );
-  assert(
-    items.some((item) => item.command === COMMANDS.SELECT_COMPILER_PATH),
-    'Expected compiler path quick action',
-  );
-  assert(
-    items.some((item) => item.command === COMMANDS.SELECT_INTERNAL_TARGETS),
-    'Expected internal target quick action',
-  );
-  assert(
-    items.some((item) => item.command === COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR),
-    'Expected internal WASM accelerator quick action',
-  );
-  assert(
-    items.some((item) => item.command === COMMANDS.SELECT_LINE_NUMBER_SETTINGS),
-    'Expected line number quick action',
-  );
-  const outputItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_OUTPUT_DIR);
-  assert(
-    outputItem && outputItem.detail.includes(path.join('C:\\Workspace\\QBasic-Nexus', 'dist')),
-    'Expected workspace-relative output folders to resolve in details',
-  );
+  const commands = items.map((item) => item.command);
+  for (const command of [
+    COMMANDS.SHOW_TOOLCHAIN_INFO,
+    COMMANDS.SELECT_COMPILER_MODE,
+    COMMANDS.SELECT_QBNEX_PATH,
+    COMMANDS.SELECT_COMPILER_PATH,
+    COMMANDS.SELECT_DIAGNOSTIC_FLAGS,
+    COMMANDS.SELECT_COMPILER_ARGS,
+    COMMANDS.SELECT_OUTPUT_DIRECTORY,
+    COMMANDS.SELECT_ENABLE_LINTING,
+    COMMANDS.SELECT_FORMATTER,
+    COMMANDS.SELECT_AUTO_FORMAT,
+    COMMANDS.SELECT_LINE_NUMBER_SETTINGS,
+    COMMANDS.RESTART_LANGUAGE_SERVER,
+  ]) {
+    assert(commands.includes(command), `Expected a quick action for ${command}`);
+  }
+  const output = items.find((item) => item.command === COMMANDS.SELECT_OUTPUT_DIRECTORY);
+  assert(output.detail.includes('bin (in Game)'), 'Expected the output folder detail');
 });
 
-test('WASM internal compiler mode keeps internal build settings active', () => {
-  const items = getSystemQuickActionItems({
-    compilerMode: CONFIG.MODE_INTERNAL_WASM,
-    internalTargets: 'host',
-    internalOutputDir: '',
-    internalWasmAccelerator: 'on',
-    compileWorkerMaxQueueSize: 64,
-    compileWorkerRequestTimeoutMs: 30000,
-    lintWorkerMaxQueueSize: 96,
-    lintWorkerRequestTimeoutMs: 15000,
-    enableLinting: true,
-    lintDelay: 500,
-    autoFormatOnSave: true,
-    lineNumberStart: 1,
-    lineNumberStep: 1,
-  });
-
-  const targetItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_TARGETS);
-  const outputItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_OUTPUT_DIR);
-  const wasmItem = items.find((item) => item.command === COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR);
-  assert(targetItem?.description === 'Active in internal mode', 'Expected targets to be active for WASM mode');
-  assert(outputItem?.description === 'Active in internal mode', 'Expected output folder to be active for WASM mode');
-  assert(wasmItem?.description === 'Active in internal mode', 'Expected WASM setting to be active for legacy WASM mode');
+test('Quick actions show legacy modes as their replacement', () => {
+  const items = getSystemQuickActionItems({ compilerMode: 'QB64 (Recommended)' });
+  const mode = items.find((item) => item.command === COMMANDS.SELECT_COMPILER_MODE);
+  assert(mode.detail === 'Current: QB64', 'Expected the 1.x QB64 mode to read as QB64');
+  const qbnex = items.find((item) => item.command === COMMANDS.SELECT_QBNEX_PATH);
+  assert(qbnex.description === 'Unused in QB64 mode', 'Expected the QBNex path to be marked unused');
 });
 
 async function run() {

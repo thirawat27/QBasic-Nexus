@@ -9,13 +9,16 @@
 // across all modules that import this.
 const state = {
   statusBarItem: null,
-  internalBuildBarItem: null,
+  toolchainBarItem: null,
   statsBarItem: null,
   outputChannel: null,
   terminal: null,
   terminalCwd: null,
   terminalKey: null,
   autoDetectedCompilerPath: null,
+  /** undefined: not resolved yet; null: none found; else the active toolchain */
+  activeToolchain: undefined,
+  languageServerRunning: false,
   diagnosticCollection: null,
   isCompiling: false,
   extensionContext: null,

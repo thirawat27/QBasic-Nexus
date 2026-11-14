@@ -1,0 +1,142 @@
+QIR 1
+global $__SINGLE_I f32
+func main
+local $~T1 f64
+local $~T2 f64
+local $~T3 f64
+line 1
+const.i32 %0 0
+const.u32 %1 0
+const.i32 %2 0
+rt sub_cls %0 %1 %2
+line 2
+const.i32 %3 14
+const.i32 %4 0
+const.i32 %5 0
+const.i32 %6 1
+rt qbg_sub_color %3 %4 %5 %6
+line 3
+const.str %7 x48656C6C6F2066726F6D2051424E657820696E20796F75722062726F7773657221
+const.i32 %8 0
+rt PRINTS %8 %7
+const.i32 %9 0
+rt PRINTNL %9
+line 4
+const.i32 %10 7
+const.i32 %11 0
+const.i32 %12 0
+const.i32 %13 1
+rt qbg_sub_color %10 %11 %12 %13
+line 5
+const.i32 %14 0
+rt PRINTNL %14
+line 6
+const.i32 %15 1
+cvt.f64.i32 %16 %15
+store.f64 $~T1 %16
+const.i32 %17 10
+cvt.f64.i32 %18 %17
+store.f64 $~T2 %18
+const.i32 %19 1
+cvt.f64.i32 %20 %19
+store.f64 $~T3 %20
+jmp ~F3.E
+label ~F3.T
+load.f32 %21 $__SINGLE_I
+cvt.f64.f32 %22 %21
+load.f64 %23 $~T3
+add.f64 %24 %23 %22
+store.f64 $~T1 %24
+label ~F3.E
+load.f64 %25 $~T1
+cvt.f32.f64 %26 %25
+store.f32 $__SINGLE_I %26
+load.f64 %27 $~T3
+const.f64 %28 0
+lt.f64 %29 %27 %28
+jz %29 ~F3.P
+load.f64 %30 $~T2
+lt.f64 %31 %25 %30
+jnz %31 ~F3.X
+jmp ~F3.B
+label ~F3.P
+load.f64 %32 $~T2
+gt.f64 %33 %25 %32
+jnz %33 ~F3.X
+label ~F3.B
+line 7
+const.i32 %34 9
+load.f32 %35 $__SINGLE_I
+const.i32 %36 6
+cvt.i64.f32 %37 %35
+cvt.i64.i32 %38 %36
+mod.i64 %39 %37 %38
+cvt.i64.i32 %40 %34
+add.i64 %41 %40 %39
+cvt.i32.i64 %42 %41
+const.i32 %43 0
+const.i32 %44 0
+const.i32 %45 1
+rt qbg_sub_color %42 %43 %44 %45
+line 8
+const.str %46 x4C696E65
+const.i32 %47 0
+rt PRINTS %47 %46
+load.f32 %48 $__SINGLE_I
+rt %49 STR$.f32 %48
+const.str %50 x20
+concat %51 %49 %50
+const.i32 %52 0
+rt PRINTS %52 %51
+const.str %53 x2D2073717561726564206973
+const.i32 %54 0
+rt PRINTS %54 %53
+load.f32 %55 $__SINGLE_I
+load.f32 %56 $__SINGLE_I
+mul.f32 %57 %55 %56
+rt %58 STR$.f32 %57
+const.str %59 x20
+concat %60 %58 %59
+const.i32 %61 0
+rt PRINTS %61 %60
+const.i32 %62 0
+rt PRINTNL %62
+line 9
+label ~F3.C
+jmp ~F3.T
+label ~F3.X
+line 10
+const.i32 %63 7
+const.i32 %64 0
+const.i32 %65 0
+const.i32 %66 1
+rt qbg_sub_color %63 %64 %65 %66
+line 11
+const.i32 %67 0
+rt PRINTNL %67
+line 12
+const.str %68 x54494D45522073617973
+const.i32 %69 0
+rt PRINTS %69 %68
+rt %70 TIMER
+rt %71 INT.f64 %70
+cvt.f32.f64 %72 %71
+rt %73 STR$.f32 %72
+const.str %74 x20
+concat %75 %73 %74
+const.i32 %76 0
+rt PRINTS %76 %75
+const.str %77 x7365636F6E64732073696E6365206D69646E69676874202855544329
+const.i32 %78 0
+rt PRINTS %78 %77
+const.i32 %79 0
+rt PRINTNL %79
+line 13
+rt BEEP
+call SUB_QBNEX_TOPLEVEL_RUNTIME0
+end
+endfunc
+func SUB_QBNEX_TOPLEVEL_RUNTIME0
+label ~EXIT
+ret
+endfunc

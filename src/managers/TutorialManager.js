@@ -7,10 +7,17 @@
 
 const vscode = require('vscode');
 const lessons = require('../tutorials/data');
-const { normalizeCrtText } = require('../webview/crtText');
-const { eventToText } = require('../webview/crtTranscript');
 
 const MAX_OUTPUT_HISTORY = 200000;
+
+/** Program output as lessons match it: LF line ends, no trailing spaces. */
+function normalizeOutput(text) {
+  return String(text ?? '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\s+$/, ''))
+    .join('\n');
+}
 
 /**
  * Manages interactive QBasic tutorials.
@@ -19,19 +26,8 @@ class TutorialManager {
   /** @type {Object | null} Current active lesson */
   static currentLesson = null;
 
-  /** @type {Object | null} Reference to WebviewManager (set externally to avoid circular deps) */
-  static _webviewManager = null;
-
   /** @type {vscode.ExtensionContext | null} Stored extension context for reuse */
   static _extensionContext = null;
-
-  /**
-   * Sets the WebviewManager reference (called during extension activation).
-   * @param {Object} wm - The WebviewManager class.
-   */
-  static setWebviewManager(wm) {
-    TutorialManager._webviewManager = wm;
-  }
 
   /**
    * Starts the interactive tutorial by showing a lesson picker.
@@ -124,8 +120,18 @@ class TutorialManager {
   }
 
   /**
-   * Checks if the output matches the current lesson's goal.
-   * @param {string} output - The output from the CRT (chunk).
+   * Checks program output against the current lesson's goal.
+   * @param {string} output - Output of one run (console text and text screen).
+   * @returns {boolean} True if passed.
+   */
+  static checkOutput(output) {
+    TutorialManager._outputHistory = '';
+    return TutorialManager.checkResult(output);
+  }
+
+  /**
+   * Adds output to the lesson history and checks it.
+   * @param {string} output
    * @returns {boolean} True if passed.
    */
   static checkResult(output) {
@@ -134,7 +140,7 @@ class TutorialManager {
     const lesson = TutorialManager.currentLesson;
 
     // Accumulate output
-    const normalizedOutput = normalizeCrtText(output);
+    const normalizedOutput = normalizeOutput(output);
     TutorialManager._outputHistory += normalizedOutput;
     if (TutorialManager._outputHistory.length > MAX_OUTPUT_HISTORY) {
       TutorialManager._outputHistory =
@@ -157,30 +163,6 @@ class TutorialManager {
     }
 
     return false;
-  }
-
-  /**
-   * Checks a structured CRT runtime event against the active lesson.
-   * @param {object} event
-   * @param {{text?: string}=} transcript
-   * @returns {boolean}
-   */
-  static checkRuntimeEvent(event, transcript = null) {
-    const textChunk = eventToText(event);
-    if (!textChunk) {
-      return false;
-    }
-
-    if (transcript && typeof transcript.text === 'string') {
-      TutorialManager._outputHistory = normalizeCrtText(transcript.text);
-      if (TutorialManager._outputHistory.length > MAX_OUTPUT_HISTORY) {
-        TutorialManager._outputHistory =
-          TutorialManager._outputHistory.slice(-MAX_OUTPUT_HISTORY);
-      }
-      return TutorialManager.checkResult('');
-    }
-
-    return TutorialManager.checkResult(textChunk);
   }
 
   /**
@@ -222,7 +204,7 @@ class TutorialManager {
       '```',
       '',
       '---',
-      '_Write your solution in the editor on the left, then press **F5** to run it._',
+      '_Write your solution in the editor on the left, then press **F5** (or **Shift+F5**) to run it in the Retro CRT with QBNex._',
       '_When your output matches the objective, the lesson is automatically marked complete!_ 🏆',
     ].join('\n');
   }

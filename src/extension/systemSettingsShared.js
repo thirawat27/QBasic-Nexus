@@ -1,11 +1,7 @@
 'use strict';
 
-const {
-  formatInternalOutputDirLabel,
-  formatWorkerResilienceLabel,
-} = require('./internalBuildSettings');
-const { COMMANDS, CONFIG } = require('./constants');
-const { validatePackagerTargets } = require('./executableUtils');
+const path = require('path');
+const { COMMANDS, CONFIG, normalizeCompilerMode } = require('./constants');
 
 function formatCompilerPathLabel(compilerPath, autoDetectedCompilerPath = null) {
   const configuredPath = String(compilerPath || '').trim();
@@ -27,39 +23,49 @@ function formatLineNumberSettingsLabel(start, step) {
   return `Start ${start} | Step ${step}`;
 }
 
-function formatInternalTargetsLabel(targets) {
-  try {
-    return validatePackagerTargets(targets || 'host').join(', ');
-  } catch (error) {
-    return `Invalid (${error.message})`;
+function formatOutputDirectoryLabel(outputDir, workspacePath = '') {
+  const value = String(outputDir || '').trim();
+  if (!value) return 'Beside the source file';
+  if (!path.isAbsolute(value) && workspacePath) {
+    return `${value} (in ${path.basename(workspacePath)})`;
   }
+  return value;
 }
 
-function normalizeWasmAccelerator(value) {
-  const normalized = String(value || CONFIG.WASM_ACCELERATOR_AUTO).toLowerCase();
-  if (normalized === CONFIG.WASM_ACCELERATOR_ON) return CONFIG.WASM_ACCELERATOR_ON;
-  if (normalized === CONFIG.WASM_ACCELERATOR_OFF) return CONFIG.WASM_ACCELERATOR_OFF;
-  return CONFIG.WASM_ACCELERATOR_AUTO;
+function formatDiagnosticFlagsLabel(options = {}) {
+  const flags = [];
+  if (options.showWarnings) flags.push('warnings');
+  if (options.warningsAsErrors) flags.push('warnings as errors');
+  if (options.optionExplicit) flags.push('OPTION _EXPLICIT');
+  return flags.length > 0 ? flags.join(', ') : 'None';
 }
 
-function formatWasmAcceleratorLabel(value) {
-  const normalized = normalizeWasmAccelerator(value);
-  if (normalized === CONFIG.WASM_ACCELERATOR_ON) return 'On';
-  if (normalized === CONFIG.WASM_ACCELERATOR_OFF) return 'Off';
-  return 'Auto';
+function formatToolchainLabel(toolchain) {
+  if (toolchain === undefined) return 'Detecting...';
+  if (!toolchain) return 'None found';
+  return `${toolchain.label} (${toolchain.path})`;
 }
 
 function getSystemQuickActionItems(options = {}) {
-  const mode = options.compilerMode || CONFIG.MODE_QB64;
-  const isInternalMode =
-    mode === CONFIG.MODE_INTERNAL || mode === CONFIG.MODE_INTERNAL_WASM;
+  const mode = normalizeCompilerMode(options.compilerMode);
   const workspacePath = options.workspacePath || '';
 
   return [
     {
+      label: 'Toolchain Info',
+      detail: `Active: ${formatToolchainLabel(options.activeToolchain)}`,
+      command: COMMANDS.SHOW_TOOLCHAIN_INFO,
+    },
+    {
       label: 'Compiler Mode',
       detail: `Current: ${mode}`,
       command: COMMANDS.SELECT_COMPILER_MODE,
+    },
+    {
+      label: 'QBNex Compiler Path',
+      detail: `Current: ${formatCompilerPathLabel(options.qbnexPath)}`,
+      description: mode === CONFIG.MODE_QB64 ? 'Unused in QB64 mode' : '',
+      command: COMMANDS.SELECT_QBNEX_PATH,
     },
     {
       label: 'QB64 Compiler Path',
@@ -67,64 +73,33 @@ function getSystemQuickActionItems(options = {}) {
         options.compilerPath,
         options.autoDetectedCompilerPath,
       )}`,
+      description: mode === CONFIG.MODE_QBNEX ? 'Unused in QBNex mode' : '',
       command: COMMANDS.SELECT_COMPILER_PATH,
     },
     {
-      label: 'QB64 Compiler Args',
+      label: 'Diagnostics Flags',
+      detail: `Current: ${formatDiagnosticFlagsLabel(options)}`,
+      command: COMMANDS.SELECT_DIAGNOSTIC_FLAGS,
+    },
+    {
+      label: 'Extra Compiler Args',
       detail: `Current: ${formatCompilerArgsLabel(options.compilerArgs)}`,
       command: COMMANDS.SELECT_COMPILER_ARGS,
     },
     {
-      label: 'Internal Build Targets',
-      detail: `Current: ${formatInternalTargetsLabel(options.internalTargets)}`,
-      description:
-        isInternalMode ? 'Active in internal mode' : 'Used when internal mode is selected',
-      command: COMMANDS.SELECT_INTERNAL_TARGETS,
+      label: 'Output Folder',
+      detail: `Current: ${formatOutputDirectoryLabel(options.outputDirectory, workspacePath)}`,
+      command: COMMANDS.SELECT_OUTPUT_DIRECTORY,
     },
     {
-      label: 'Internal Output Folder',
-      detail: `Current: ${formatInternalOutputDirLabel(
-        options.internalOutputDir,
-        workspacePath,
-      )}`,
-      description:
-        isInternalMode ? 'Active in internal mode' : 'Used when internal mode is selected',
-      command: COMMANDS.SELECT_INTERNAL_OUTPUT_DIR,
-    },
-    {
-      label: 'Internal WASM Accelerator',
-      detail: `Current: ${formatWasmAcceleratorLabel(
-        options.internalWasmAccelerator,
-      )}`,
-      description:
-        isInternalMode ? 'Active in internal mode' : 'Used when internal mode is selected',
-      command: COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR,
-    },
-    {
-      label: 'Compile Worker Resilience',
-      detail: `Current: ${formatWorkerResilienceLabel(
-        options.compileWorkerMaxQueueSize,
-        options.compileWorkerRequestTimeoutMs,
-      )}`,
-      command: COMMANDS.SELECT_COMPILE_WORKER_RESILIENCE,
-    },
-    {
-      label: 'Lint Worker Resilience',
-      detail: `Current: ${formatWorkerResilienceLabel(
-        options.lintWorkerMaxQueueSize,
-        options.lintWorkerRequestTimeoutMs,
-      )}`,
-      command: COMMANDS.SELECT_LINT_WORKER_RESILIENCE,
-    },
-    {
-      label: 'Enable Linting',
+      label: 'Check On Save',
       detail: `Current: ${formatBooleanLabel(options.enableLinting)}`,
       command: COMMANDS.SELECT_ENABLE_LINTING,
     },
     {
-      label: 'Lint Delay',
-      detail: `Current: ${options.lintDelay}ms`,
-      command: COMMANDS.SELECT_LINT_DELAY,
+      label: 'Formatter',
+      detail: `Current: ${options.formatter === CONFIG.FORMATTER_QB_FMT ? 'qb-fmt (QBNex)' : 'Built-in'}`,
+      command: COMMANDS.SELECT_FORMATTER,
     },
     {
       label: 'Auto Format On Save',
@@ -139,6 +114,11 @@ function getSystemQuickActionItems(options = {}) {
       )}`,
       command: COMMANDS.SELECT_LINE_NUMBER_SETTINGS,
     },
+    {
+      label: 'Restart Language Server',
+      detail: `qb-lsp: ${options.languageServerRunning ? 'running' : 'not running'}`,
+      command: COMMANDS.RESTART_LANGUAGE_SERVER,
+    },
   ];
 }
 
@@ -146,9 +126,9 @@ module.exports = {
   formatBooleanLabel,
   formatCompilerArgsLabel,
   formatCompilerPathLabel,
-  formatInternalTargetsLabel,
+  formatDiagnosticFlagsLabel,
   formatLineNumberSettingsLabel,
-  formatWasmAcceleratorLabel,
+  formatOutputDirectoryLabel,
+  formatToolchainLabel,
   getSystemQuickActionItems,
-  normalizeWasmAccelerator,
 };

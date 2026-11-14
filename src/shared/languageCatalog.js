@@ -3,7 +3,7 @@
 const {
   KEYWORDS: COMPILER_KEYWORDS,
   BUILTIN_FUNCS,
-} = require('../compiler/constants');
+} = require('./keywordCatalog');
 
 const DATA_TYPE_KEYWORDS = new Set([
   'INTEGER',
