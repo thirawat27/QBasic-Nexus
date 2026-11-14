@@ -110,7 +110,7 @@ async function buildDocument(document, toolchain, token) {
   );
   await ensureOutputDirectoryReady(fs, outputDir);
   const outputPath = getExecutableOutputPath(sourcePath, process.platform, outputDir);
-  const args = buildCompileArgs(toolchain.kind, sourcePath, outputPath, compilerFlagOptions());
+  const args = buildCompileArgs(toolchain.kind, sourcePath, outputPath, compilerFlagOptions(toolchain.kind));
 
   channel.appendLine(`QBasic Nexus - ${toolchain.label}`);
   channel.appendLine(`  Source:   ${sourcePath}`);

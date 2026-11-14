@@ -9,7 +9,7 @@ QBasic Nexus now builds, checks, runs and debugs with the real compilers only: *
 ### ⚠️ Breaking Changes
 
 - **Internal compiler removed**: the `Qbasic Nexus` and `Qbasic Nexus + WASM` modes, the JavaScript transpiler and runtime, `@yao-pkg/pkg` packaging and multi-target builds are removed. Settings removed with them: `internalTargets`, `internalWasmAccelerator`, `compileWorkerMaxQueueSize`, `compileWorkerRequestTimeoutMs`, `lintWorkerMaxQueueSize`, `lintWorkerRequestTimeoutMs`, `lintDelay`. Their commands are removed too.
-- **Compiler modes are now `Auto`, `QBNex` and `QB64`** (`Auto` by default: QBNex 2.x when installed, otherwise QB64). Settings from 1.x are converted on first start: `QB64 (Recommended)` becomes `QB64`, the internal modes become `QBNex`, `internalOutputDir` becomes `outputDirectory`, and the removed settings are deleted.
+- **Compiler modes are now `Auto`, `QBNex` and `QB64`** (`Auto` by default: QBNex 2.x when installed, otherwise QB64). Settings from 1.x are converted on first start: `QB64 (Recommended)` becomes `QB64`, the internal modes become `QBNex`, `internalOutputDir` becomes `outputDirectory`, and the removed settings are deleted. A QB64 path saved in `compilerPath` keeps `Auto` on QB64, and when `Auto` picks QBNex while QB64 is also installed you are told once and can switch.
 - **The real-time linter built on the internal parser is replaced** by the compilers' own diagnostics: qb-lsp as you type (QBNex), and a compiler check on every save (QBNex and QB64).
 - **Retro CRT and the tutorial need QBNex**: programs are compiled by QBNex and run on its VM.
 
@@ -25,9 +25,10 @@ QBasic Nexus now builds, checks, runs and debugs with the real compilers only: *
 
 ### ✨ Both Compilers
 
-- **Check on save**: QBNex checks with `qb --emit-ir` (no native build); QB64 generates its C++ without compiling it (`-z`). New command **QBasic: Check for Errors**.
-- **Diagnostics flags**: `showWarnings` (`-w`, on by default), `warningsAsErrors` (`-Werror`, QBNex), `optionExplicit` (`-e`), plus `compilerArgs` for anything else.
+- **Check on save**: QBNex checks with `qb --emit-ir` (no native build); QB64 generates its C++ without compiling it (`-x -z`) only when `qbasic-nexus.qb64CheckOnSave` is on (off by default, like 1.x). New command **QBasic: Check for Errors** works with both.
+- **Diagnostics flags**: `showWarnings` (`-w`, on by default for QBNex; QB64 gets `-w` only when you set it yourself, so 1.x builds keep the same command line), `warningsAsErrors` (`-Werror`, QBNex), `optionExplicit` (`-e`), plus `compilerArgs` for anything else.
 - **Output folder for every build**: `qbasic-nexus.outputDirectory` (was internal-only).
+- **Tested with real QB64**: QB64-PE 4.7.0, QB64 2.0.2 and QB64 1.3 - build, run, syntax and include errors, `-w` warnings and `-x -z` checks.
 - **Toolchain info**: **QBasic: Show Toolchain Info** and a status bar item show which compiler, language server and paths are in use.
 - **Untrusted workspaces**: compiler, server, debugger and formatter paths and compiler arguments come only from user settings, and qb-lsp does not start.
 - **Release pipeline**: `.github/workflows/release.yml` publishes to the Visual Studio Marketplace and Open VSX on a `v*` tag; see `docs/PUBLISHING.md`.

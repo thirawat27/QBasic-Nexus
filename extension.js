@@ -28,7 +28,7 @@ const {
 } = require('./src/extension/statusBar');
 const { showCodeStatsDetail } = require('./src/extension/codeStats');
 const { executeCheck, executeCompile } = require('./src/extension/compileCommand');
-const { migrateLegacySettings } = require('./src/extension/migration');
+const { announceAutoChoice, migrateLegacySettings } = require('./src/extension/migration');
 const {
   showSystemQuickActions,
   showToolchainInfo,
@@ -441,6 +441,7 @@ async function activate(context) {
   updateStatusBar();
   void refreshToolchainStatus();
   void restartLanguageServer();
+  void announceAutoChoice(context);
   if (vscode.window.activeTextEditor) {
     const doc = vscode.window.activeTextEditor.document;
     if (doc.languageId === CONFIG.LANGUAGE_ID) {

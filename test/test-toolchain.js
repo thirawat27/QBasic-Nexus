@@ -119,6 +119,20 @@ test('QB64 error in an included file', () => {
   assertEqual([path.basename(d.file), d.line, d.message], ['lib.bi', 3, 'Syntax error']);
 });
 
+test('QB64-PE 4.7 include error: control character dropped, points at the include', () => {
+  // Captured from qb64pe 4.7.0 (-x -c) with an error on line 2 of lib.bi.
+  const lib = path.join(SRC_DIR, 'lib.bi');
+  const output = [
+    '[.............................                     ] 58%',
+    '',
+    `Expected variable/value after '*'\u0001 in line 2 of ${lib} included`,
+    'Caused by (or after):Y = 2 *',
+    'LINE 1:y = 2 *',
+  ].join('\r\n');
+  const [d] = parseCompilerOutput(output, { sourcePath: SRC, compiler: 'qb64' });
+  assertEqual([d.file, d.line, d.message], [lib, 1, "Expected variable/value after '*'"]);
+});
+
 test('ANSI colour codes are ignored and duplicates collapse', () => {
   const line = `\x1b[38;5;211m[!!]\x1b[0m QBNex :: Fatal [E0000]  Bad\n  [@] ${SRC}(1)\n`;
   assert(stripAnsi('\x1b[1mX\x1b[0m') === 'X', 'stripAnsi');

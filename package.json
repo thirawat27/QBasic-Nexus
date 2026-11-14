@@ -29,7 +29,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "node test/test-toolchain.js && node test/test-editor-features.js && node test/test-deep.js && node test/test-qb64-autodetect.js && node test/test-workspace-multi.js && node test/test-tutorial-manager.js && node test/test-todo-provider.js && node test/test-executable-utils.js && node test/test-system-settings.js && node test/test-hot-path-caches.js && node test/test-config-cache.js && node test/test-process-timeout.js",
+        "test": "node test/test-toolchain.js && node test/test-qb64-defaults.js && node test/test-editor-features.js && node test/test-deep.js && node test/test-qb64-autodetect.js && node test/test-workspace-multi.js && node test/test-tutorial-manager.js && node test/test-todo-provider.js && node test/test-executable-utils.js && node test/test-system-settings.js && node test/test-hot-path-caches.js && node test/test-config-cache.js && node test/test-process-timeout.js",
         "benchmark": "node test/benchmark-editor.js",
         "generate:snippets": "node scripts/generate-snippets.js",
         "sync:qb-web": "node scripts/sync-qb-web.js",
@@ -398,7 +398,7 @@
                         "QB64"
                     ],
                     "enumDescriptions": [
-                        "QBNex 2.x when it is installed, otherwise QB64 / QB64-PE.",
+                        "QBNex 2.x when it is installed, otherwise QB64 / QB64-PE. A saved qbasic-nexus.compilerPath (QB64) keeps QB64.",
                         "Build and check with QBNex (qb / qbnex).",
                         "Build and check with QB64 / QB64-PE."
                     ],
@@ -427,7 +427,7 @@
                 "qbasic-nexus.showWarnings": {
                     "type": "boolean",
                     "default": true,
-                    "markdownDescription": "Pass `-w` so the compiler reports warnings (unused variables and more) in the Problems view.",
+                    "markdownDescription": "Pass `-w` so the compiler reports warnings (unused variables and more) in the Problems view. QBNex gets it by default; QB64 only when you turn this on in your settings, because older QB64 releases do not know `-w`.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.warningsAsErrors": {
@@ -464,7 +464,13 @@
                 "qbasic-nexus.enableLinting": {
                     "type": "boolean",
                     "default": true,
-                    "markdownDescription": "Check each saved file with the active compiler and show its errors and warnings. QBNex runs `qb --emit-ir` (no native build); QB64 generates its C++ without compiling it (`-z`). While qb-lsp runs, QBNex diagnostics come from it as you type.",
+                    "markdownDescription": "Check each saved file with the active compiler and show its errors and warnings. QBNex runs `qb --emit-ir` (no native build); while qb-lsp runs, QBNex diagnostics come from it as you type. For QB64 see `qbasic-nexus.qb64CheckOnSave`.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.qb64CheckOnSave": {
+                    "type": "boolean",
+                    "default": false,
+                    "markdownDescription": "Also check saved files when the compiler is **QB64 / QB64-PE**. QB64 has no check-only mode, so this generates its C++ (`-x -z`) on every save; off by default. **QBasic: Check for Errors** works either way.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.languageServer.enabled": {

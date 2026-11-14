@@ -91,6 +91,9 @@ function parseCompilerOutput(output, options) {
   const seen = new Set();
 
   const push = (diagnostic) => {
+    // QB64 embeds control characters in messages (CHR$(1) before " in line n of").
+    // eslint-disable-next-line no-control-regex
+    diagnostic.message = diagnostic.message.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '').trim();
     const key = [
       diagnostic.file.toLowerCase(),
       diagnostic.line,

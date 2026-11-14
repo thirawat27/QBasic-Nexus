@@ -90,7 +90,7 @@ QBasic Nexus builds, runs and checks your programs with a real compiler - it nev
 | ---------------------------------------------------- | --------- | -------------- |
 | Compile, Compile & Run, Check for Errors             | ✅        | ✅             |
 | Errors and warnings in the Problems view             | ✅        | ✅             |
-| Check on save                                        | ✅        | ✅             |
+| Check on save                                        | ✅        | ✅ (opt-in: `qb64CheckOnSave`) |
 | IntelliSense, hover, outline, rename, snippets       | ✅        | ✅             |
 | Live diagnostics as you type (qb-lsp)                | ✅        | -              |
 | Debugging with breakpoints (qb-dap)                  | ✅        | -              |
@@ -326,7 +326,7 @@ QB64 is searched in this order
 
 - A QBNex candidate is verified by running `qb --version`, which reports `QBNex Compiler` followed by its version; older QBNex releases still work, with a warning
 - A QB64 candidate must exist, be executable, and look like a real QB64/QB64PE binary
-- In `Auto` mode, QBNex is used when it is found, otherwise QB64
+- In `Auto` mode, QBNex is used when it is found, otherwise QB64. A QB64 path saved in `compilerPath` (from 1.x or later) keeps `Auto` on QB64
 
 **If Multiple Installations Exist**
 
@@ -435,7 +435,7 @@ You can switch compilers anytime
 
 1. Run **QBasic: Select Compiler Mode 🧭**, or open Settings (`Ctrl+,` or `Cmd+,`) and search for **"QBasic Nexus Compiler Mode"**
 2. Choose your preferred mode
-   - **"Auto"** (default) - QBNex when it is installed, otherwise QB64
+   - **"Auto"** (default) - QBNex when it is installed, otherwise QB64 (a saved QB64 `compilerPath` keeps QB64)
    - **"QBNex"** - Always build and check with QBNex
    - **"QB64"** - Always build and check with QB64 / QB64-PE
 
@@ -600,7 +600,7 @@ These settings control how your QBasic code is compiled and executed.
 - **Type** - Dropdown selection
 - **Default** - `Auto`
 - **Options**
-  - `Auto` - QBNex when it is installed, otherwise QB64 / QB64-PE
+  - `Auto` - QBNex when it is installed, otherwise QB64 / QB64-PE. A QB64 path saved in `compilerPath` keeps QB64
   - `QBNex` - Build and check with QBNex (`qb` / `qbnex`)
   - `QB64` - Build and check with QB64 / QB64-PE
 
@@ -681,9 +681,10 @@ Linux    /home/yourname/qb64/qb64pe
 
 | Setting                          | Default | Flag      | What it does                                   |
 | -------------------------------- | ------- | --------- | ---------------------------------------------- |
-| `qbasic-nexus.showWarnings`      | `true`  | `-w`      | Report compiler warnings                       |
+| `qbasic-nexus.showWarnings`      | `true`  | `-w`      | Report compiler warnings (QB64: only when you set it yourself) |
 | `qbasic-nexus.warningsAsErrors`  | `false` | `-Werror` | Treat warnings as errors (QBNex only)          |
 | `qbasic-nexus.optionExplicit`    | `false` | `-e`      | Compile as if `OPTION _EXPLICIT` were set      |
+| `qbasic-nexus.qb64CheckOnSave`  | `false` | `-z`      | Check with QB64 on save (QBNex always checks) |
 
 Toggle all three from the Command Palette via **QBasic: Configure Diagnostics Flags 🩺**.
 
@@ -717,7 +718,7 @@ Toggle all three from the Command Palette via **QBasic: Configure Diagnostics Fl
 
 ```
 QBNex  qb <file> -o <exe> -q -m [-w] [-Werror] [-e] [compilerArgs]
-QB64   qb64pe -x -c <file> -o <exe> [-w] [-e] [compilerArgs]
+QB64   qb64pe -x -c <file> -o <exe> [-w only if showWarnings is set] [-e] [compilerArgs]
 ```
 
 **Note** - Most users can leave this empty. You can also change it via **QBasic: Configure Extra Compiler Args 🧪**.
@@ -1008,7 +1009,7 @@ QBasic Nexus doesn't guess what a compiler would say - every build, run and chec
 3. It runs the build
    ```
    QBNex  qb <file> -o <exe> -q -m [-w] [-Werror] [-e] [compilerArgs]
-   QB64   qb64pe -x -c <file> -o <exe> [-w] [-e] [compilerArgs]
+   QB64   qb64pe -x -c <file> -o <exe> [-w only if showWarnings is set] [-e] [compilerArgs]
    ```
 4. Compiler messages go to the **QBasic Nexus** Output panel and the Problems view
 5. If the build succeeds, the program starts in the integrated terminal

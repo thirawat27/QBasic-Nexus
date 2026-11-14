@@ -25,6 +25,7 @@ const CONFIG_DEFAULTS = Object.freeze({
   [CONFIG.EXPLICIT]: false,
   [CONFIG.EXTERNAL_BUILD_TIMEOUT_MS]: 300000,
   [CONFIG.ENABLE_LINT]: true,
+  [CONFIG.QB64_CHECK_ON_SAVE]: false,
   [CONFIG.LANGUAGE_SERVER_ENABLED]: true,
   [CONFIG.LANGUAGE_SERVER_PATH]: '',
   [CONFIG.DEBUG_ADAPTER_PATH]: '',
@@ -341,6 +342,25 @@ function getConfig(key, fallback = undefined) {
 }
 
 /**
+ * Whether the user set a setting at any level (user, workspace, folder),
+ * as opposed to it taking its default.
+ * @param {string} key
+ * @returns {boolean}
+ */
+function isConfigExplicitlySet(key) {
+  const info = vscode.workspace.getConfiguration(CONFIG.SECTION).inspect(key);
+  if (!info) return false;
+  return [
+    'globalValue',
+    'workspaceValue',
+    'workspaceFolderValue',
+    'globalLanguageValue',
+    'workspaceLanguageValue',
+    'workspaceFolderLanguageValue',
+  ].some((field) => info[field] !== undefined);
+}
+
+/**
  * Get ALL extension configuration values at once, merged with defaults.
  * Useful when multiple settings are needed in one call.
  * @returns {Record<string, any>}
@@ -377,5 +397,6 @@ module.exports = {
   getConfig,
   getAllConfig,
   invalidateConfigCache,
+  isConfigExplicitlySet,
   log,
 };

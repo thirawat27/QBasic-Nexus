@@ -17,6 +17,7 @@ const CONFIG = Object.freeze({
   EXPLICIT: 'optionExplicit',
   EXTERNAL_BUILD_TIMEOUT_MS: 'externalBuildTimeoutMs',
   ENABLE_LINT: 'enableLinting',
+  QB64_CHECK_ON_SAVE: 'qb64CheckOnSave',
   LANGUAGE_SERVER_ENABLED: 'languageServer.enabled',
   LANGUAGE_SERVER_PATH: 'languageServer.path',
   DEBUG_ADAPTER_PATH: 'debugAdapterPath',

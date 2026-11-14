@@ -100,6 +100,11 @@ async function resolveToolchain(mode = getConfig(CONFIG.COMPILER_MODE)) {
   const normalized = normalizeCompilerMode(mode);
   if (normalized === CONFIG.MODE_QBNEX) return resolveQBNex();
   if (normalized === CONFIG.MODE_QB64) return resolveQB64();
+  // A QB64 path the user saved (in 1.x or since) keeps them on QB64 in Auto.
+  if (expandHomePath(getConfig(CONFIG.COMPILER_PATH))) {
+    const qb64 = await resolveQB64();
+    if (qb64 && !qb64.configuredInvalid) return qb64;
+  }
   const qbnex = await resolveQBNex();
   if (qbnex && qbnex.supported) return qbnex;
   return (await resolveQB64()) || qbnex;

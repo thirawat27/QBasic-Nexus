@@ -11,9 +11,9 @@ const os = require('os');
 const path = require('path');
 const { CONFIG } = require('../extension/constants');
 const { state } = require('../extension/state');
-const { getConfig, splitCommandLineArgs } = require('../extension/utils');
+const { getConfig, isConfigExplicitlySet, splitCommandLineArgs } = require('../extension/utils');
 const { parseCompilerOutput, diagnosticSpan } = require('./diagnostics');
-const { buildCheckArgs, runTool, KIND_QBNEX } = require('./build');
+const { buildCheckArgs, runTool, KIND_QB64, KIND_QBNEX } = require('./build');
 const { resolveToolchain } = require('./resolve');
 
 /** Source file -> the files its last compiler run reported diagnostics in. */
@@ -44,10 +44,18 @@ function lineTextOf(filePath, line) {
   }
 }
 
-/** Options for the compiler flags every run shares. */
-function compilerFlagOptions() {
+/**
+ * Options for the compiler flags every run shares.
+ * QB64 gets `-w` only when the user turned showWarnings on themselves: old
+ * QB64 releases do not know the switch, and 1.x never passed it.
+ * @param {'qbnex'|'qb64'} [kind]
+ */
+function compilerFlagOptions(kind = KIND_QBNEX) {
+  const warnings = kind === KIND_QB64
+    ? isConfigExplicitlySet(CONFIG.SHOW_WARNINGS) && !!getConfig(CONFIG.SHOW_WARNINGS)
+    : !!getConfig(CONFIG.SHOW_WARNINGS);
   return {
-    warnings: !!getConfig(CONFIG.SHOW_WARNINGS),
+    warnings,
     warningsAsErrors: !!getConfig(CONFIG.WARNINGS_AS_ERRORS),
     explicit: !!getConfig(CONFIG.EXPLICIT),
     extraArgs: splitCommandLineArgs(getConfig(CONFIG.COMPILER_ARGS)),
@@ -123,6 +131,10 @@ async function checkDocument(document, options = {}) {
   if (!options.force && toolchain.kind === KIND_QBNEX && state.languageServerRunning) {
     return null;
   }
+  // A QB64 check generates the whole C++ translation; it is opt-in on save.
+  if (!options.force && toolchain.kind === KIND_QB64 && !getConfig(CONFIG.QB64_CHECK_ON_SAVE)) {
+    return null;
+  }
 
   const sourcePath = document.uri.fsPath;
   const key = fileKey(sourcePath);
@@ -140,7 +152,7 @@ async function checkDocument(document, options = {}) {
   try {
     const result = await runTool(
       toolchain.path,
-      buildCheckArgs(toolchain.kind, sourcePath, qirPath, compilerFlagOptions()),
+      buildCheckArgs(toolchain.kind, sourcePath, qirPath, compilerFlagOptions(toolchain.kind)),
       {
         cwd: path.dirname(sourcePath),
         timeoutMs: getConfig(CONFIG.EXTERNAL_BUILD_TIMEOUT_MS),

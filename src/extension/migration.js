@@ -64,4 +64,37 @@ async function migrateLegacySettings() {
   return changed;
 }
 
-module.exports = { migrateLegacySettings };
+const AUTO_CHOICE_SHOWN = 'qbasic-nexus.autoChoiceShown';
+
+/**
+ * Once per machine: when Auto mode picks QBNex although QB64 is installed
+ * too, say so and offer to stay on QB64 (what 1.x always used).
+ * @param {vscode.ExtensionContext} context
+ */
+async function announceAutoChoice(context) {
+  try {
+    if (context.globalState.get(AUTO_CHOICE_SHOWN)) return;
+    const { isConfigExplicitlySet } = require('./utils');
+    if (isConfigExplicitlySet(CONFIG.COMPILER_MODE)) return;
+
+    const { resolveQB64, resolveQBNex, resolveToolchain } = require('../toolchain/resolve');
+    const [active, qb64, qbnex] = await Promise.all([resolveToolchain(), resolveQB64(), resolveQBNex()]);
+    if (!active || !qb64 || !qbnex || active.kind !== 'qbnex') return;
+
+    await context.globalState.update(AUTO_CHOICE_SHOWN, true);
+    const choice = await vscode.window.showInformationMessage(
+      `QBasic Nexus now builds with ${qbnex.label} when it is installed. ${qb64.label} is installed too: keep building with QBNex, or stay on ${qb64.label}?`,
+      'Keep QBNex',
+      `Use ${qb64.label}`,
+    );
+    if (choice === `Use ${qb64.label}`) {
+      await vscode.workspace
+        .getConfiguration(CONFIG.SECTION)
+        .update(CONFIG.COMPILER_MODE, CONFIG.MODE_QB64, vscode.ConfigurationTarget.Global);
+    }
+  } catch (error) {
+    console.error('[QBasic Nexus] compiler choice notice failed:', error);
+  }
+}
+
+module.exports = { announceAutoChoice, migrateLegacySettings };
