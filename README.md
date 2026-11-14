@@ -16,7 +16,6 @@
   </p>
   <p>
      <img src="https://img.shields.io/open-vsx/v/thirawat27/qbasic-nexus" alt="Version" />
-    <img src="https://img.shields.io/badge/VS%20Code-1.125.0+-green.svg" alt="VS Code" />
     <img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="License" />
     
   </p>
@@ -24,7 +23,7 @@
 
 <br>
 
-**QBasic Nexus** transforms VS Code into an immensely powerful retro-coding station. Version 2.0 builds, runs and checks your programs with the real compilers - **QBNex 2.x** and **QB64 / QB64-PE** - so the editor reports exactly what the compiler reports. Errors land in the Problems view at the right line (even inside `$INCLUDE` files), QBNex adds live diagnostics as you type, a real debugger and the Retro CRT, and everything works on Windows, macOS, and Linux. Whether you're a veteran developer reviving classic code or a newcomer learning the roots of programming, QBasic Nexus provides an unmatched, modern experience for **QBasic**, **QB64** and **QBNex**.
+**QBasic Nexus** transforms VS Code into an immensely powerful retro-coding station. It builds, runs and checks your programs with the real compilers - **QBNex** and **QB64 / QB64-PE** - so the editor reports exactly what the compiler reports. Errors land in the Problems view at the right line (even inside `$INCLUDE` files), QBNex adds live diagnostics as you type, a real debugger and the Retro CRT, and everything works on Windows, macOS, and Linux. Whether you're a veteran developer reviving classic code or a newcomer learning the roots of programming, QBasic Nexus provides an unmatched, modern experience for **QBasic**, **QB64** and **QBNex**.
 
 ---
 
@@ -32,14 +31,14 @@
 
 - [📖 Table of Contents](#-table-of-contents)
 - [⚙️ Prerequisites](#️-prerequisites)
-  - [Option 1 - QBNex 2.x (Recommended)](#option-1---qbnex-2x-recommended)
+  - [Option 1 - QBNex (Recommended)](#option-1---qbnex-recommended)
   - [Option 2 - QB64 / QB64-PE](#option-2---qb64--qb64-pe)
 - [🚀 Getting Started](#-getting-started)
   - [Step 1 - Install a Compiler](#step-1---install-a-compiler)
   - [Step 2 - Install QBasic Nexus Extension](#step-2---install-qbasic-nexus-extension)
   - [Step 3 - Configure Compiler Path](#step-3---configure-compiler-path)
   - [Step 4 - Start Coding](#step-4---start-coding)
-- [🔁 Migrating from 1.x](#-migrating-from-1x)
+- [🔁 Migrating from Earlier Versions](#-migrating-from-earlier-versions)
 - [🛠️ Configuration Guide](#️-configuration-guide)
   - [Compiler Settings](#compiler-settings)
   - [Language Server \& Debugger Settings](#language-server--debugger-settings)
@@ -87,7 +86,7 @@
 
 QBasic Nexus builds, runs and checks your programs with a real compiler - it never interprets BASIC itself. You need **at least one** of the two compilers below. With both installed, the default `Auto` mode uses QBNex.
 
-| What you get                                         | QBNex 2.x | QB64 / QB64-PE |
+| What you get                                         | QBNex | QB64 / QB64-PE |
 | ---------------------------------------------------- | --------- | -------------- |
 | Compile, Compile & Run, Check for Errors             | ✅        | ✅             |
 | Errors and warnings in the Problems view             | ✅        | ✅             |
@@ -98,7 +97,7 @@ QBasic Nexus builds, runs and checks your programs with a real compiler - it nev
 | `qb-fmt` formatter                                   | ✅        | -              |
 | Retro CRT and the Interactive Tutorial               | ✅        | -              |
 
-### Option 1 - QBNex 2.x (Recommended)
+### Option 1 - QBNex (Recommended)
 
 **Download QBNex** - [QBNex Releases on GitHub](https://github.com/thirawat27/QBNex/releases)
 
@@ -158,7 +157,7 @@ Follow these steps to get QBasic Nexus up and running.
 
 Install QBNex, QB64-PE, or both (see [Prerequisites](#️-prerequisites) for what each one adds).
 
-**Option A - Install QBNex 2.x (Recommended)**
+**Option A - Install QBNex (Recommended)**
 
 1. Download the one-file installer for your system from [QBNex Releases](https://github.com/thirawat27/QBNex/releases) - `qbnex_<tag>_win-x64-setup.exe`, `qbnex_<tag>_lnx-setup` or `qbnex_<tag>_osx-setup`
 2. Run it. It installs for the current user, without administrator rights
@@ -168,7 +167,7 @@ Install QBNex, QB64-PE, or both (see [Prerequisites](#️-prerequisites) for wha
    ```bash
    qb --version
    ```
-   You should see `QBNex Compiler 2.0.0`
+   You should see `QBNex Compiler` followed by its version
 
 No setup script and no C/C++ compiler are needed. QBasic Nexus finds QBNex in these folders automatically, and finds `qb-lsp`, `qb-dap` and `qb-fmt` next to the compiler. More details (archives, installer options) are in [Introducing QBNex Compiler](#-introducing-qbnex-compiler).
 
@@ -325,7 +324,7 @@ QB64 is searched in this order
 
 **Detection Process**
 
-- A QBNex candidate is verified by running `qb --version`, which reports `QBNex Compiler 2.0.0`; QBNex 1.x still works, with a warning
+- A QBNex candidate is verified by running `qb --version`, which reports `QBNex Compiler` followed by its version; older QBNex releases still work, with a warning
 - A QB64 candidate must exist, be executable, and look like a real QB64/QB64PE binary
 - In `Auto` mode, QBNex is used when it is found, otherwise QB64
 
@@ -340,7 +339,7 @@ QB64 is searched in this order
 The first time you build with an auto-detected compiler, you'll see a notification like
 
 ```
-"Using QBNex 2.0.0 found at [path]. Save this path?"
+"Using QBNex found at [path]. Save this path?"
 ```
 
 - Click **"Save Path"** - The path is saved to your user settings
@@ -426,7 +425,7 @@ After setting the path
 
 1. Open or create a `.bas` file
 2. Check the Status Bar at the bottom
-3. You should see the toolchain item (for example **QBNex 2.0.0**) and a **Run** button instead of the warning
+3. You should see the toolchain item (for example **QBNex**) and a **Run** button instead of the warning
 4. Run **QBasic: Show Toolchain Info 🧰** to see the mode, the active compiler, both compiler paths, and whether the language server is running
 5. The extension is now ready to use!
 
@@ -436,7 +435,7 @@ You can switch compilers anytime
 
 1. Run **QBasic: Select Compiler Mode 🧭**, or open Settings (`Ctrl+,` or `Cmd+,`) and search for **"QBasic Nexus Compiler Mode"**
 2. Choose your preferred mode
-   - **"Auto"** (default) - QBNex 2.x when it is installed, otherwise QB64
+   - **"Auto"** (default) - QBNex when it is installed, otherwise QB64
    - **"QBNex"** - Always build and check with QBNex
    - **"QB64"** - Always build and check with QB64 / QB64-PE
 
@@ -559,11 +558,11 @@ Each way of running produces different results. Here's a detailed comparison to 
 
 ---
 
-## 🔁 Migrating from 1.x
+## 🔁 Migrating from Earlier Versions
 
-QBasic Nexus 2.0 removed the internal JavaScript compiler: every build, run and check now goes through QBNex or QB64. Your settings are converted automatically the first time 2.0 starts.
+QBasic Nexus no longer has the internal JavaScript compiler: every build, run and check now goes through QBNex or QB64. Your settings are converted automatically the first time the extension starts.
 
-| 1.x setting or value                                       | In 2.0                        |
+| Old setting or value                                       | Now                           |
 | ---------------------------------------------------------- | ----------------------------- |
 | `compilerMode`: `"QB64 (Recommended)"`                     | `compilerMode`: `"QB64"`      |
 | `compilerMode`: `"Qbasic Nexus"` or `"Qbasic Nexus + WASM"` | `compilerMode`: `"QBNex"`     |
@@ -601,11 +600,11 @@ These settings control how your QBasic code is compiled and executed.
 - **Type** - Dropdown selection
 - **Default** - `Auto`
 - **Options**
-  - `Auto` - QBNex 2.x when it is installed, otherwise QB64 / QB64-PE
+  - `Auto` - QBNex when it is installed, otherwise QB64 / QB64-PE
   - `QBNex` - Build and check with QBNex (`qb` / `qbnex`)
   - `QB64` - Build and check with QB64 / QB64-PE
 
-Values from 1.x (`QB64 (Recommended)`, `Qbasic Nexus`, `Qbasic Nexus + WASM`) are converted automatically - see [Migrating from 1.x](#-migrating-from-1x).
+Values from earlier versions (`QB64 (Recommended)`, `Qbasic Nexus`, `Qbasic Nexus + WASM`) are converted automatically - see [Migrating from Earlier Versions](#-migrating-from-earlier-versions).
 
 **When to use QBNex mode**
 
@@ -994,8 +993,8 @@ QBasic Nexus provides full language support, syntax highlighting, and dedicated 
 
 QBasic Nexus doesn't guess what a compiler would say - every build, run and check goes through the real compiler, so the editor reports exactly what the compiler reports.
 
-- **Two Real Compilers** - Build with **QBNex 2.x** (BASIC → QIR → standalone executable with a Rust runner) or **QB64 / QB64-PE** (BASIC → C++ → native). `Auto` mode picks QBNex when it is installed.
-- **Errors Where They Belong** - Errors and warnings from either compiler appear in the Problems view at the right file, line and column, including errors inside `$INCLUDE` files. QBNex 2.x diagnostic blocks (`[!!] QBNex :: Fatal [E0000] ...` with `[@] file(line,col)`), gcc-style `file.bas:12: warning: ...` lines and QB64 `LINE n:` errors are all understood.
+- **Two Real Compilers** - Build with **QBNex** (BASIC → QIR → standalone executable with a Rust runner) or **QB64 / QB64-PE** (BASIC → C++ → native). `Auto` mode picks QBNex when it is installed.
+- **Errors Where They Belong** - Errors and warnings from either compiler appear in the Problems view at the right file, line and column, including errors inside `$INCLUDE` files. QBNex diagnostic blocks (`[!!] QBNex :: Fatal [E0000] ...` with `[@] file(line,col)`), gcc-style `file.bas:12: warning: ...` lines and QB64 `LINE n:` errors are all understood.
 - **Check on Save** - Saving runs a fast check without a native build: `qb file --emit-ir` for QBNex (about 0.25 s), `-x -z` (C++ generation only) for QB64. Run it on demand with **QBasic: Check for Errors 🩺**.
 - **Live Diagnostics as You Type** - With QBNex installed, **qb-lsp** checks your code while you type.
 - **Diagnostics Flags** - Warnings (`-w`), warnings as errors (`-Werror`, QBNex) and `OPTION _EXPLICIT` (`-e`) are plain settings.
@@ -1060,12 +1059,12 @@ qb-dap is looked for next to the QBNex compiler, then on `PATH`; set `qbasic-nex
 Press `Shift+F5` (**QBasic: Run in Retro CRT 📺**) to run your program in a VS Code panel designed to look and feel exactly like the 90s.
 
 - **The Real VM** - QBNex compiles your program to QIR (`qb --emit-ir`) and it runs on **qb-web**, the QBNex VM built to WebAssembly - the same QIR that your QBNex executables run.
-- **Retro CRT Aesthetic** - The panel ("QBasic CRT 📺 <file>", in editor column 2) is a neon monitor with scanlines and a vignette, just like 1.x.
-- **Same Screen as 1.x** - The neon monitor, scanlines, vignette and objective HUD are unchanged; nothing is drawn over the program. The controls live in the panel's title bar: **⌨ Set INPUT Answers**, **↻ Run Again** (compiles and runs again) and **■ Stop Program**. Runtime errors and the run time appear as VS Code notifications.
+- **Retro CRT Aesthetic** - The panel ("QBasic CRT 📺 <file>", in editor column 2) is a neon monitor with scanlines and a vignette, as in earlier versions.
+- **Same Screen as Before** - The neon monitor, scanlines, vignette and objective HUD are unchanged; nothing is drawn over the program. The controls live in the panel's title bar: **⌨ Set INPUT Answers**, **↻ Run Again** (compiles and runs again) and **■ Stop Program**. Runtime errors and the run time appear as VS Code notifications.
 - **Objective HUD** - During the Interactive Tutorial, the **CURRENT OBJECTIVE** HUD (top right) shows the lesson objective and turns to **LESSON COMPLETE** when you pass.
 - **Text and Graphics** - `PRINT`, `CLS`, `LOCATE`, `COLOR`, `SCREEN 0`, `SCREEN 13` and other graphics modes, with `_DISPLAY`, `_LIMIT` and `_DELAY`.
 - **High-Fidelity Audio** - `SOUND`, `BEEP`, `PLAY` and `_SND*` through WebAudio.
-- **Input and Console** - `INPUT` and `LINE INPUT` read the answers from **⌨ Set INPUT Answers**; console output (`$CONSOLE`) appears as text on the screen, as in 1.x.
+- **Input and Console** - `INPUT` and `LINE INPUT` read the answers from **⌨ Set INPUT Answers**; console output (`$CONSOLE`) appears as text on the screen, as before.
 - **Requires QBNex** - QB64-only setups cannot use the Retro CRT; they run programs natively with `F5`.
 
 qb-web ships with the extension in `vendor/qb-web` under the GPL-3.0 license, separate from the extension's MIT license. See [Retro CRT Capabilities](#-retro-crt-capabilities) for the full list and the limits.
@@ -1709,9 +1708,9 @@ After completing the tutorial
 
 ## 🔥 Introducing QBNex Compiler
 
-Looking for a modern, high-performance alternative to **QB64**? Meet **QBNex**, a next-generation QBasic/QuickBASIC compiler by **Thirawat27** - and the compiler QBasic Nexus 2.0 is built around.
+Looking for a modern, high-performance alternative to **QB64**? Meet **QBNex**, a next-generation QBasic/QuickBASIC compiler by **Thirawat27** - and the compiler QBasic Nexus is built around.
 
-QBNex translates BASIC source code into **QIR**, a text intermediate language, and packages it with a Rust runner into a standalone executable for Windows, Linux and macOS. Since 2.0 there is no C or C++ anywhere in the pipeline: the runner and runtime are Rust, the QIR runs on a register VM, and hot loops are compiled to native code with Cranelift. The compiler itself is **self-hosting** - written in QBNex BASIC (about 35,000 lines) and compiled by itself.
+QBNex translates BASIC source code into **QIR**, a text intermediate language, and packages it with a Rust runner into a standalone executable for Windows, Linux and macOS. There is no C or C++ anywhere in the pipeline: the runner and runtime are Rust, the QIR runs on a register VM, and hot loops are compiled to native code with Cranelift. The compiler itself is **self-hosting** - written in QBNex BASIC (about 35,000 lines) and compiled by itself.
 
 **Key Advantages**
 
@@ -1737,7 +1736,7 @@ QBNex translates BASIC source code into **QIR**, a text intermediate language, a
 
 ### Installation
 
-QBNex 2.x needs no setup script and no C/C++ compiler when you install a release.
+QBNex needs no setup script and no C/C++ compiler when you install a release.
 
 **Step 1 - Download QBNex**
 
@@ -1774,7 +1773,7 @@ Linux    /home/yourname/.local/bin/qb
 ```
 
 3. Leave **Compiler Mode** on **"Auto"** (or set it to **"QBNex"**)
-4. The Status Bar shows **QBNex 2.0.0** once it is found
+4. The Status Bar shows **QBNex** once it is found
 
 **Step 4 - Verify Installation**
 
@@ -1783,7 +1782,7 @@ Linux    /home/yourname/.local/bin/qb
    ```bash
    qb --version
    ```
-   You should see `QBNex Compiler 2.0.0`
+   You should see `QBNex Compiler` followed by its version
 3. Create a test file `test.bas`:
    ```basic
    PRINT "Hello from QBNex!"
@@ -1910,14 +1909,14 @@ Other modules include `json`, `url`, `sys.env`, `io.path`, `strings.text`, `coll
 
 **"No compiler was found" / QBNex not detected**
 
-- Run `qb --version` in a new terminal; it should print `QBNex Compiler 2.0.0`
+- Run `qb --version` in a new terminal; it should print `QBNex Compiler` followed by its version
 - If `qb` is not on `PATH`, set `qbasic-nexus.qbnexPath` to the full path of `qb` / `qb.exe`
 - On macOS/Linux, ensure the file is executable: `chmod +x qb`
 - Run **QBasic: Show Toolchain Info 🧰** to see what the extension found
 
-**QBNex 1.x warning**
+**Older QBNex warning**
 
-- QBasic Nexus 2.0 is made for QBNex 2.x. QBNex 1.x still builds, with a warning; update to 2.x for full support
+- QBasic Nexus is made for the current QBNex. An older QBNex still builds, with a warning; update QBNex for full support
 
 **Compilation errors**
 
@@ -1988,14 +1987,14 @@ Comprehensive guide to solving common issues with QBasic Nexus.
 
 **Solutions**
 
-1. Check VS Code version - Requires 1.125.0 or higher
+1. Check that VS Code is up to date
 2. Reload VS Code - Press `Ctrl+Shift+P` > "Developer Reload Window"
 3. Reinstall extension - Uninstall, restart VS Code, reinstall
 4. Check for conflicting extensions - Disable other BASIC extensions
 
 **Compiler Installation Problems**
 
-**Error - "No compiler was found. Install QBNex 2.0 ... or QB64-PE ..."**
+**Error - "No compiler was found. Install QBNex ... or QB64-PE ..."**
 
 **Causes**
 
@@ -2006,7 +2005,7 @@ Comprehensive guide to solving common issues with QBasic Nexus.
 **Solutions**
 
 1. Verify the compiler is installed
-   - QBNex - `qb --version` should print `QBNex Compiler 2.0.0`
+   - QBNex - `qb --version` should print `QBNex Compiler` followed by its version
    - QB64 - QB64 is extracted (and on macOS/Linux, its setup script has run)
 2. Check the path settings
    - Open Settings > Search "QBasic Nexus"
@@ -2170,7 +2169,7 @@ sh ./setup_lnx.sh
 
 **Solution**
 
-- Install QBNex 2.x or set `qbasic-nexus.qbnexPath`; QB64-only setups can run programs natively with `F5`
+- Install QBNex or set `qbasic-nexus.qbnexPath`; QB64-only setups can run programs natively with `F5`
 
 **INKEY$, _KEYHIT or the Mouse Do Not React**
 

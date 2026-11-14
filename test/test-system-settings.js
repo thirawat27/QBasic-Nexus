@@ -1,6 +1,11 @@
 'use strict';
 
+const path = require('path');
+
 const { CONFIG, COMMANDS } = require('../src/extension/constants');
+
+// A workspace folder written the host's way, so the tests pass on every OS.
+const WORKSPACE = path.join(path.parse(process.cwd()).root, 'Work', 'Game');
 const {
   formatCompilerArgsLabel,
   formatCompilerPathLabel,
@@ -61,7 +66,7 @@ test('Diagnostics flag labels list the active flags', () => {
 test('Output folder labels describe the default and relative folders', () => {
   assert(formatOutputDirectoryLabel('') === 'Beside the source file', 'Expected the default label');
   assert(
-    formatOutputDirectoryLabel('bin', 'C:\\Work\\Game') === 'bin (in Game)',
+    formatOutputDirectoryLabel('bin', WORKSPACE) === 'bin (in Game)',
     'Expected relative folders to name the workspace',
   );
 });
@@ -83,7 +88,7 @@ test('System quick actions cover every configurable setting', () => {
     autoDetectedCompilerPath: 'C:\\QB64\\qb64pe.exe',
     compilerArgs: '-k',
     outputDirectory: 'bin',
-    workspacePath: 'C:\\Workspace\\Game',
+    workspacePath: WORKSPACE,
     showWarnings: true,
     enableLinting: true,
     formatter: CONFIG.FORMATTER_BUILTIN,
