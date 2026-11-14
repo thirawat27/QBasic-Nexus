@@ -626,5 +626,8 @@
                 "qbasic-nexus.formatterPath"
             ]
         }
+    },
+    "overrides": {
+        "minimatch": "^11.0.5"
     }
 }
