@@ -39,19 +39,14 @@ const { runInCrt } = require('./src/extension/crtRunner');
 const { maybeAutoConfigureQB64 } = require('./src/extension/qb64Compiler');
 const {
   selectCompileWorkerResilience,
-  selectInternalOutputDir,
   selectLintWorkerResilience,
-  selectInternalTargets,
-  showInternalBuildQuickActions,
-} = require('./src/extension/internalBuildSettings');
+} = require('./src/extension/workerSettings');
 const {
   showSystemQuickActions,
   selectAutoFormat,
   selectCompilerArgs,
-  selectCompilerMode,
   selectCompilerPath,
   selectEnableLinting,
-  selectInternalWasmAccelerator,
   selectLineNumberSettings,
   selectLintDelay,
 } = require('./src/extension/systemSettings');
@@ -310,32 +305,12 @@ async function activate(context) {
       showSystemQuickActions,
     ),
     vscode.commands.registerCommand(
-      COMMANDS.SELECT_COMPILER_MODE,
-      selectCompilerMode,
-    ),
-    vscode.commands.registerCommand(
       COMMANDS.SELECT_COMPILER_PATH,
       selectCompilerPath,
     ),
     vscode.commands.registerCommand(
       COMMANDS.SELECT_COMPILER_ARGS,
       selectCompilerArgs,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SHOW_INTERNAL_BUILD_QUICK_ACTIONS,
-      showInternalBuildQuickActions,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_INTERNAL_TARGETS,
-      selectInternalTargets,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_INTERNAL_OUTPUT_DIR,
-      selectInternalOutputDir,
-    ),
-    vscode.commands.registerCommand(
-      COMMANDS.SELECT_INTERNAL_WASM_ACCELERATOR,
-      selectInternalWasmAccelerator,
     ),
     vscode.commands.registerCommand(
       COMMANDS.SELECT_COMPILE_WORKER_RESILIENCE,

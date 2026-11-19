@@ -103,14 +103,10 @@ function isSafeJavaScriptIdentifier(name) {
   );
 }
 module.exports = {
-  _init(tokens, target = 'node', options = {}) {
+  _init(tokens, target = 'node', _options = {}) {
     this.tokens = tokens;
     const normalizedTarget = String(target || 'node').toLowerCase();
     this.target = normalizedTarget.startsWith('web') ? 'web' : 'node';
-    this.wasmAccelerator =
-      Boolean(options.wasmAccelerator) ||
-      normalizedTarget === 'node-wasm' ||
-      normalizedTarget === 'web-wasm';
 
     this.pos = 0;
     this.indent = 0;
@@ -3555,38 +3551,6 @@ function _qbNormalizeRuntimeError(error, fallbackLine) {
   _qbRememberRuntimeError(numericCode, sourceLine);
   return normalizedError;
 }
-const _qbWasmAcceleratorEnabled = ${this.wasmAccelerator ? 'true' : 'false'};
-let _qbWasm = null;
-function _qbDecodeBase64ToBytes(base64) {
-  if (typeof Buffer !== 'undefined') {
-    return new Uint8Array(Buffer.from(base64, 'base64'));
-  }
-  if (typeof atob === 'function') {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index++) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    return bytes;
-  }
-  return null;
-}
-function _qbInitWasmAccelerator() {
-  if (!_qbWasmAcceleratorEnabled || typeof WebAssembly !== 'object') {
-    return;
-  }
-  try {
-    const bytes = _qbDecodeBase64ToBytes(
-      'AGFzbQEAAAABDAJgAn9/AX9gAX8BfwMGBQAAAAEABy0FBmkzMmFuZAAABWkzMm9yAAEGaTMyeG9yAAIGaTMybm90AAMGaTMybW9kAAQKKQUHACAAIAFxCwcAIAAgAXILBwAgACABcwsHACAAQX9zCwcAIAAgAW8L',
-    );
-    if (!bytes) return;
-    const module = new WebAssembly.Module(bytes);
-    _qbWasm = new WebAssembly.Instance(module, {}).exports;
-  } catch (_error) {
-    _qbWasm = null;
-  }
-}
-_qbInitWasmAccelerator();
 function _qbNumber(value) {
   if (typeof value === 'boolean') {
     return value ? -1 : 0;
@@ -3790,28 +3754,22 @@ function _qbGe(left, right) {
 }
 function _qbNot(value) {
   const operand = _qbBitwiseOperand(value);
-  return _qbWasm?.i32not ? _qbWasm.i32not(operand) : ~operand;
+  return ~operand;
 }
 function _qbAnd(left, right) {
   const leftOperand = _qbBitwiseOperand(left);
   const rightOperand = _qbBitwiseOperand(right);
-  return _qbWasm?.i32and
-    ? _qbWasm.i32and(leftOperand, rightOperand)
-    : leftOperand & rightOperand;
+  return leftOperand & rightOperand;
 }
 function _qbOr(left, right) {
   const leftOperand = _qbBitwiseOperand(left);
   const rightOperand = _qbBitwiseOperand(right);
-  return _qbWasm?.i32or
-    ? _qbWasm.i32or(leftOperand, rightOperand)
-    : leftOperand | rightOperand;
+  return leftOperand | rightOperand;
 }
 function _qbXor(left, right) {
   const leftOperand = _qbBitwiseOperand(left);
   const rightOperand = _qbBitwiseOperand(right);
-  return _qbWasm?.i32xor
-    ? _qbWasm.i32xor(leftOperand, rightOperand)
-    : leftOperand ^ rightOperand;
+  return leftOperand ^ rightOperand;
 }
 function _qbEqv(left, right) {
   return _qbNot(_qbXor(left, right));
@@ -3875,14 +3833,7 @@ function _qbMod(left, right) {
     throw _qbMakeRuntimeError(11, undefined, _currentSourceLine);
   }
   const dividend = _fix(left);
-  const canUseI32Mod =
-    dividend >= -2147483648 &&
-    dividend <= 2147483647 &&
-    divisor >= -2147483648 &&
-    divisor <= 2147483647;
-  return _qbWasm?.i32mod && canUseI32Mod
-    ? _qbWasm.i32mod(dividend, divisor)
-    : dividend % divisor;
+  return dividend % divisor;
 }
 function _qbTrackSourceLine(sourceLine) {
   const numericLine = Number(sourceLine);

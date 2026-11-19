@@ -9,8 +9,18 @@ const nodeFs = require('fs');
 const fs = nodeFs.promises;
 const path = require('path');
 const os = require('os');
+const { execFile } = require('child_process');
+
+// Any QB64-family compiler (QB64, QB64-PE, or a fork built from them) prints a
+// banner such as "QB64 Compiler V2.1" or "QB64-PE Compiler V3.14" for `-?`.
+const QB64_BANNER_PATTERN = /\bQB64\b[^\r\n]*\bCompiler\b/i;
+const BANNER_PROBE_TIMEOUT_MS = 5000;
+const bannerProbeCache = new Map();
 
 const QB64_ENV_HINTS = [
+  // Full path to any QB64-family compiler executable, including forks with
+  // their own executable name (verified through the `-?` banner).
+  'QB64_COMPILER',
   'QB64_PATH',
   'QB64_HOME',
   'QB64PE_PATH',
@@ -170,12 +180,86 @@ async function isExecutable(filePath, platform = process.platform) {
 }
 
 /**
- * Verify QB64 executable by checking if it looks like a real QB64 binary
+ * Pick the QB64-family banner line ("QB64-PE Compiler V3.14.1") out of
+ * compiler output.
+ * @param {string} output
+ * @returns {string|null}
+ */
+function extractQB64Banner(output) {
+  const match = QB64_BANNER_PATTERN.exec(String(output || ''));
+  if (!match) return null;
+  const start = output.lastIndexOf('\n', match.index) + 1;
+  const end = output.indexOf('\n', match.index);
+  return output.slice(start, end === -1 ? undefined : end).trim();
+}
+
+/**
+ * Run `<exe> -?` and return its QB64-family banner line, or null.
+ * Results are cached per path, size and modification time.
+ * @param {string} filePath
+ * @param {import('fs').Stats} stats
+ * @returns {Promise<string|null>}
+ */
+function readCompilerBanner(filePath, stats) {
+  const key = `${filePath}|${stats.size}|${stats.mtimeMs}`;
+  if (!bannerProbeCache.has(key)) {
+    bannerProbeCache.set(
+      key,
+      new Promise((resolve) => {
+        try {
+          execFile(
+            filePath,
+            ['-?'],
+            {
+              cwd: path.dirname(filePath),
+              timeout: BANNER_PROBE_TIMEOUT_MS,
+              windowsHide: true,
+              maxBuffer: 256 * 1024,
+            },
+            (_error, stdout, stderr) => {
+              resolve(extractQB64Banner(`${stdout || ''}\n${stderr || ''}`));
+            },
+          );
+        } catch {
+          resolve(null);
+        }
+      }),
+    );
+  }
+  return bannerProbeCache.get(key);
+}
+
+async function probeQB64Banner(filePath, stats) {
+  return (await readCompilerBanner(filePath, stats)) !== null;
+}
+
+/**
+ * Name and version of a QB64-family compiler, e.g. "QB64-PE Compiler V3.14.1".
+ * @param {string} filePath
+ * @returns {Promise<string|null>} null when the banner cannot be read
+ */
+async function getCompilerIdentity(filePath) {
+  try {
+    const normalizedPath = normalizeCandidatePath(filePath);
+    if (!normalizedPath) return null;
+    const stats = await fs.stat(normalizedPath);
+    return await readCompilerBanner(normalizedPath, stats);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verify that a path is a QB64-family compiler executable.
+ * Files named qb64 / qb64pe (or inside a qb64* folder) are accepted directly;
+ * any other executable is accepted when its `-?` banner identifies it as a
+ * QB64-family compiler, so forks and renamed builds work too.
  * @param {string} filePath
  * @param {NodeJS.Platform} [platform]
+ * @param {{ probe?: (filePath: string, stats: import('fs').Stats) => Promise<boolean> }} [options]
  * @returns {Promise<boolean>}
  */
-async function verifyQB64(filePath, platform = process.platform) {
+async function verifyQB64(filePath, platform = process.platform, options = {}) {
   try {
     const normalizedPath = normalizeCandidatePath(filePath);
     if (!normalizedPath) return false;
@@ -191,8 +275,12 @@ async function verifyQB64(filePath, platform = process.platform) {
 
     const baseName = path.basename(normalizedPath).toLowerCase();
     const parentName = path.basename(path.dirname(normalizedPath)).toLowerCase();
+    if (/^qb64(pe)?(?:\.exe)?$/.test(baseName) || parentName.includes('qb64')) {
+      return true;
+    }
 
-    return /^qb64(pe)?(?:\.exe)?$/.test(baseName) || parentName.includes('qb64');
+    const probe = options.probe || probeQB64Banner;
+    return await probe(normalizedPath, stats);
   } catch {
     return false;
   }
@@ -308,4 +396,7 @@ module.exports = {
   QB64_SEARCH_PATHS,
   QB64_ENV_HINTS,
   getQB64ExecutableNames,
+  QB64_BANNER_PATTERN,
+  extractQB64Banner,
+  getCompilerIdentity,
 };

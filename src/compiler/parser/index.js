@@ -22,17 +22,8 @@ class Parser {
 
 function normalizeTranspileTarget(target = 'web') {
   const normalized = String(target || 'web').toLowerCase();
-  if (normalized === 'node-wasm' || normalized === 'web-wasm') {
-    return {
-      parserTarget: normalized.startsWith('web') ? 'web' : 'node',
-      wasmAccelerator: true,
-      cacheTarget: normalized,
-    };
-  }
-
   return {
     parserTarget: normalized === 'node' ? 'node' : 'web',
-    wasmAccelerator: false,
     cacheTarget: normalized === 'node' ? 'node' : 'web',
   };
 }
@@ -111,10 +102,7 @@ class InternalTranspiler {
         return '// No tokens generated';
       }
 
-      const parser = new Parser(tokens, targetInfo.parserTarget, {
-        ...options,
-        wasmAccelerator: options.wasmAccelerator || targetInfo.wasmAccelerator,
-      });
+      const parser = new Parser(tokens, targetInfo.parserTarget, options);
       const result = parser.parse();
       const blockingErrors = getBlockingParserErrors(parser.errors);
       if (blockingErrors.length > 0) {
@@ -145,10 +133,7 @@ class InternalTranspiler {
     }
     const targetInfo = normalizeTranspileTarget(target);
     try {
-      const parser = new Parser(tokens, targetInfo.parserTarget, {
-        ...options,
-        wasmAccelerator: options.wasmAccelerator || targetInfo.wasmAccelerator,
-      });
+      const parser = new Parser(tokens, targetInfo.parserTarget, options);
       const code = parser.parse();
       return { code, errors: parser.errors || [] };
     } catch (e) {

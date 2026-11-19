@@ -6,6 +6,10 @@
 'use strict';
 
 const { buildLanguageCatalog } = require('./src/shared/languageCatalog');
+const {
+    QB64PE_FUNCTIONS,
+    QB64PE_KEYWORDS,
+} = require('./src/shared/qb64peCatalog');
 
 // ============================================================================
 // KEYWORDS
@@ -486,8 +490,8 @@ const CURATED_FUNCTIONS = {
 // ============================================================================
 
 const { KEYWORDS, FUNCTIONS } = buildLanguageCatalog({
-    curatedKeywords: CURATED_KEYWORDS,
-    curatedFunctions: CURATED_FUNCTIONS,
+    curatedKeywords: { ...QB64PE_KEYWORDS, ...CURATED_KEYWORDS },
+    curatedFunctions: { ...QB64PE_FUNCTIONS, ...CURATED_FUNCTIONS },
 });
 
 module.exports = { KEYWORDS, FUNCTIONS };

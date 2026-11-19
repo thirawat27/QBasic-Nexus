@@ -13,9 +13,7 @@ const { printStats, runBenchmarkTasks } = require('./benchmarkHarness');
 
 const COMPILE_TARGETS = Object.freeze([
     { name: 'web', target: 'web' },
-    { name: 'web-wasm', target: 'web-wasm' },
-    { name: 'node', target: 'node' },
-    { name: 'node-wasm', target: 'node-wasm' }
+    { name: 'node', target: 'node' }
 ]);
 
 // Sample QBasic programs for benchmarking
@@ -127,8 +125,7 @@ async function benchmarkCompile(source, time = 150) {
                 fn: () => {
                     const compiler = new Compiler({
                         target,
-                        cache: false,
-                        wasmAccelerator: target.endsWith('-wasm')
+                        cache: false
                     });
                     const result = compiler.compile(source);
                     if (!result.isSuccess()) {
@@ -177,14 +174,6 @@ async function runBenchmarks() {
         const throughputKilobytes = (source.length * stats.transpile.opsPerSecond) / 1024;
         console.log(`\n⚡ Compiler throughput: ${throughputKilobytes.toFixed(2)} KB/s`);
         console.log(`   Relative margin of error: ${stats.transpile.relativeMarginOfError.toFixed(2)}%`);
-        if (stats.targets.web && stats.targets['web-wasm']) {
-            const ratio = stats.targets['web-wasm'].opsPerSecond / stats.targets.web.opsPerSecond;
-            console.log(`   web-wasm compile speed vs web: ${(ratio * 100).toFixed(1)}%`);
-        }
-        if (stats.targets.node && stats.targets['node-wasm']) {
-            const ratio = stats.targets['node-wasm'].opsPerSecond / stats.targets.node.opsPerSecond;
-            console.log(`   node-wasm compile speed vs node: ${(ratio * 100).toFixed(1)}%`);
-        }
     }
     
     console.log('\n' + '='.repeat(70));

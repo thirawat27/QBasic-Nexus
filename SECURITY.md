@@ -81,12 +81,6 @@ If you discover a security vulnerability, please report it by:
 - Only use trusted QB64 installations
 - Verify compiler path is correct
 
-### Internal Transpiler Mode
-- Sandboxed JavaScript execution
-- Limited system access
-- Virtual file system only
-- Safe for untrusted code
-
 ### CRT Viewer Mode
 - Runs in webview sandbox
 - No system access
@@ -123,10 +117,7 @@ If you discover a security vulnerability, please report it by:
 
 ### Production Dependencies
 All production dependencies are actively maintained and regularly updated:
-- **@yao-pkg/pkg** (6.14.1): Cross-platform executable packaging
-- **moo** (0.5.3): High-performance lexer (no known vulnerabilities)
 - **flru** (1.0.2): Fast LRU cache (no known vulnerabilities)
-- **magic-string** (0.30.21): Source code manipulation (no known vulnerabilities)
 - **mitt** (3.0.1): Lightweight event emitter (no known vulnerabilities)
 - **defu** (6.1.4): Configuration merging (no known vulnerabilities)
 
