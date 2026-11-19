@@ -1,3 +1,4 @@
+// @ts-nocheck -- tests mock vscode and poke at internals.
 'use strict';
 
 const { KEYWORDS } = require('../languageData');

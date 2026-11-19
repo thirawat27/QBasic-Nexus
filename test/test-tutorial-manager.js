@@ -1,3 +1,4 @@
+// @ts-nocheck -- tests mock vscode and poke at internals.
 /**
  * QBasic Nexus - TutorialManager Tests
  */

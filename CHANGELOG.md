@@ -40,9 +40,36 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 - **Inlay hints**: parameter names at calls to your procedures and to built-in functions with two or more parameters (`qbasic-nexus.inlayHints.parameterNames`, default `true`), plus optional suffix type hints such as `count%` → `INTEGER` (`qbasic-nexus.inlayHints.variableTypes`, default `false`).
 - **Build tasks**: **Terminal → Run Build Task** offers **qb64: Build current file**. A `qb64` task type in `tasks.json` accepts `file` and `args`, and a `$qb64` problem matcher is available for your own shell tasks.
 
+### 🧠 On-Device Code Insights
+
+Lightweight algorithms that run locally, with no model download and no network:
+
+- **"Did you mean" typo detection**: an edit-distance check (Damerau–Levenshtein) flags misspelled statements, built-in functions and `SUB` / `FUNCTION` names (`PIRNT` → `PRINT`, `Lenn` → `LEN`, `DrawPlyer` → `DrawPlayer`) with a quick fix. Only names with a close known match are reported, and `$NOPREFIX` programs are understood. Setting `qbasic-nexus.analysis.typos`.
+- **Unused procedures**: `SUB`s and `FUNCTION`s that nothing in the workspace calls are faded out, using the call graph behind CodeLens and Call Hierarchy. Setting `qbasic-nexus.analysis.unusedProcedures`.
+- **Complexity CodeLens**: `complexity N` (McCabe cyclomatic complexity) above procedures at or above `qbasic-nexus.codeLens.complexityThreshold` (default `10`).
+- **Duplicate code detection**: windows of normalized code lines are hashed to find blocks repeated in the same file or across files, with a link to the other copy. Settings `qbasic-nexus.analysis.duplicateCode` and `qbasic-nexus.analysis.duplicateMinLines` (default `6`).
+- **GOTO → DO...LOOP refactor**: backward `GOTO` loops are marked and can be rewritten as `DO ... LOOP` / `LOOP WHILE condition`. Only offered when the label is used once, the loop stays inside one block, and no other code jumps into it. Setting `qbasic-nexus.analysis.gotoLoops`.
+- **Learned completion ranking**: a small n-gram model learns from the workspace's own `.bas` files which word usually comes next and moves those completions to the top, marked ★. Counts live in memory and never leave the machine. Setting `qbasic-nexus.completion.learnedRanking`.
+
+### 🟦 TypeScript
+
+- The extension is now built with the TypeScript compiler into `out/`. `src/shared`, `src/providers`, `src/debug`, `src/extension` and `src/commands` (about 70 modules) are TypeScript; the compiler, parser, managers, workers and the CRT webview are still JavaScript and are type-checked with `checkJs`. `npm run compile` builds, `npm test` compiles first, and packaging runs the build through `vscode:prepublish`.
+
 ### 🐛 Fixes
 
 - **`'$INCLUDE: 'file.bi'` is now followed for cross-file IntelliSense**: only the bare `$INCLUDE:` form was recognised, so symbols from files included with the usual comment form (`'$INCLUDE:` or `REM $INCLUDE:`) were found only when the workspace scan happened to reach them.
+
+Found by running real `.bas` programs end to end (see Quality Assurance), all in the built-in compiler used by linting and **Run in Retro CRT**:
+
+- **Line numbers work as jump targets**: `GOTO 10`, `GOSUB 1000`, `ON n GOTO 100, 200`, `IF x THEN 100 ELSE 200`, `ON ERROR GOTO 900`, `RESUME 100` and `RESTORE 200` were reported as *Expected label* or ignored. A number at the start of a line is now a label, as in QBasic.
+- **GOTO loops no longer reset their variables**: a variable first assigned inside a backward `GOTO` loop without `DIM` (`I = I + 1` … `IF I < 3 THEN GOTO top`) was set back to 0 on every pass, so the loop never ended.
+- **SUB calls without CALL**: `DrawBoard 3, "x"` was compiled as the assignment `DrawBoard = 3` and failed with *already been declared*. A statement that starts with a name and has no `=` is now a SUB call, as in QBasic. `Foo (a), b` passes both arguments.
+- **`DIM SHARED` declared nothing**: the `SHARED` keyword ended the declaration loop, so `DIM SHARED total AS INTEGER` left `total` undeclared and SUBs could not see it. `REDIM SHARED` had the same bug.
+- **`SHARED x` inside a SUB / FUNCTION** is now supported; its names were parsed as a statement of their own.
+- **Typed and array parameters**: in `SUB Hanoi (n AS INTEGER, from$, to$)` only `n` was read and the rest broke the header. Parameters now accept `BYVAL` / `BYREF`, `AS type` (values are converted to the declared type, so `2.6` passed `AS INTEGER` becomes `3`) and `name()` arrays.
+- **Passing a whole array**: `CALL Sort(scores())` failed with *Subscript out of range*; `name()` with empty parentheses now passes the array.
+- **`RESTORE label`** now continues `READ` from the `DATA` after that label or line number; before, the label was ignored and `READ` restarted from the first `DATA` item. An unknown label is reported.
+- The GOTO → DO...LOOP refactor only treats `IF x THEN label` as a jump for line numbers, matching QBasic, and handles numbered jump lines (`50 IF I <= 3 THEN 30` → `50 LOOP WHILE I <= 3`).
 
 ### 🔒 Kept
 
@@ -66,6 +93,8 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 
 - Added `test/test-qb64pe-support.js` (QB64-PE catalog, metacommand lexing, `$RESIZE:ON` regression) and `test/test-worker-settings.js`.
 - Extended `test/test-qb64-autodetect.js` (fork banner detection, `QB64_COMPILER`) and `test/test-qb64-compiler.js` (error-block parsing, progress bars, ANSI stripping, warning de-duplication).
+- Added `test/test-bas-programs.js` with 16 `.bas` programs in `test/fixtures/programs` (line numbers, GOSUB, ON GOTO, ON ERROR / RESUME, DATA / RESTORE, labels, SUB / FUNCTION, recursion, TYPE, arrays, strings, SELECT CASE, WHILE / WEND). Each one must lint clean, print its expected output (run in a child process with a timeout), raise no false typo warning, and print the same output after every offered GOTO → DO...LOOP rewrite.
+- Added `test/test-code-insights.js` (edit distance, typo detection, unused procedures, complexity, duplicate blocks, safe and unsafe GOTO loops, n-gram counting and prediction).
 - Added `test/test-language-features.js` ($INCLUDE parsing and resolution, symbol search, QB64-PE-only detection, range formatting, call graph, inlay hints, build-task file resolution) and `test/test-qb64-debugger.js` (vWATCH framing and handshake, plus a full debug session against a fake `$DEBUG` program over TCP).
 - Removed `test/test-internal-build-settings.js` and the packaging cases of `test/test-executable-utils.js` along with the code they covered.
 
@@ -86,6 +115,7 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 
 - `src/extension/internalBuildSettings.js` became `src/extension/workerSettings.js` and now holds only the compile/lint worker-resilience settings.
 - `src/extension/executableUtils.js` keeps only the output-path, terminal-launch and executable-permission helpers; the packager target helpers were removed.
+- `package.json` `main` is now `./out/extension.js`. Tests are compiled too and run from `out/test`. `jsconfig.json` was replaced by `tsconfig.json`.
 
 ## [1.6.2] - 2026-07-22
 

@@ -20,11 +20,10 @@ const NUMERIC_TYPES = new Set([
 module.exports = {
 _parseDim(options = {}) {
     let isShared = Boolean(options.forceShared);
+    if (!options.forceShared && this._matchKw('SHARED')) {
+      isShared = true;
+    }
     do {
-      if (!options.forceShared && this._matchKw('SHARED')) {
-        isShared = true;
-        continue;
-      }
 
       const id = this._consume(TokenType.IDENTIFIER);
       if (!id) break;
@@ -70,12 +69,11 @@ _parseConst() {
 _parseRedim() {
     const preserve = this._matchKw('PRESERVE');
     let isShared = false;
+    if (this._matchKw('SHARED')) {
+      isShared = true;
+    }
 
     do {
-      if (this._matchKw('SHARED')) {
-        isShared = true;
-        continue;
-      }
 
       const id = this._consume(TokenType.IDENTIFIER);
       if (!id) break;

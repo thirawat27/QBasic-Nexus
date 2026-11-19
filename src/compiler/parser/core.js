@@ -143,6 +143,8 @@ module.exports = {
 
     /** @type {Set<string>} Collected labels for GOTO/GOSUB support */
     this.labels = new Set();
+    // Label (or line number) → index of the first DATA item after it, for RESTORE.
+    this.dataLabelIndex = new Map();
 
     /** @type {Map<string, string[]>} Label code blocks for GOTO state machine */
     this.labelBlocks = new Map();
@@ -464,7 +466,9 @@ module.exports = {
               ? this._defaultInitializerForName(name)
               : (name.endsWith('$') ? '""' : '0')),
         );
-      this._emit(`var ${storageName} = ${initializer};`);
+      // Keep the value when a GOTO jumps back over this statement: `var` is
+      // hoisted, so only the first run sees `undefined`.
+      this._emit(`var ${storageName} = ${storageName} === undefined ? ${initializer} : ${storageName};`);
     } else if (isArrayElement) {
       if (resolvedMetadata?.kind === 'array' && resolvedMetadata.autoArray) {
         this._emit(
@@ -622,6 +626,7 @@ module.exports = {
     const length = tokens.length;
     const labels = this.labels;
     const dataValues = this.dataValues;
+    const dataLabelIndex = this.dataLabelIndex;
     // Scans from the current position and leaves this.pos untouched, matching
     // the original save/restore behaviour without mutating parser state.
     let i = this.pos;
@@ -639,7 +644,20 @@ module.exports = {
           next.value === ':'
         ) {
           labels.add(token.value);
+          if (!dataLabelIndex.has(token.value)) {
+            dataLabelIndex.set(token.value, dataValues.length);
+          }
         }
+      }
+
+      // A line number at the start of a line is a RESTORE target too.
+      if (
+        token.type === TokenType.NUMBER &&
+        /^\d+$/.test(String(token.value)) &&
+        (i === 0 || tokens[i - 1]?.type === TokenType.NEWLINE)
+      ) {
+        const name = String(token.value);
+        if (!dataLabelIndex.has(name)) dataLabelIndex.set(name, dataValues.length);
       }
 
       if (token.type !== TokenType.KEYWORD || token.value !== 'DATA') {
@@ -735,7 +753,8 @@ module.exports = {
   },
 
   _raiseSyntaxError(message, token = this._peek(), category = 'syntax') {
-    const error = new Error(message);
+    const error = /** @type {Error & {line?: number, column?: number,
+      severity?: string, category?: string}} */ (new Error(message));
     error.line = (token?.line || 1) - 1;
     error.column = token?.col || 0;
     error.severity = 'error';
@@ -2041,8 +2060,8 @@ function _read() {
   return _DATA[_DATA_PTR++];
 }
 
-function _restore() {
-  _DATA_PTR = 0;
+function _restore(index = 0) {
+  _DATA_PTR = index;
 }
 
 // Random number generator with seeding support

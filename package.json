@@ -19,7 +19,7 @@
         "node": ">=22.0.0",
         "vscode": "^1.125.0"
     },
-    "main": "./extension.js",
+    "main": "./out/extension.js",
     "activationEvents": [
         "onLanguage:qbasic",
         "onView:qbasic-todo",
@@ -31,38 +31,45 @@
     "scripts": {
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
-        "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:languagefeatures && npm run test:debugger && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout",
+        "pretest": "npm run lint && npm run compile",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:languagefeatures && npm run test:debugger && npm run test:insights && npm run test:programs && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
-        "benchmark:compiler": "node test/benchmark-compiler.js",
-        "benchmark:editor": "node test/benchmark-editor.js",
-        "test:compiler": "node test/test-transpiler.js",
-        "test:run": "node test/test-compile-and-run.js",
-        "test:variables": "node test/test-variable-declaration.js",
-        "test:features": "node test/test-editor-features.js",
-        "test:integration": "node test/test-integration.js",
-        "test:deep": "node test/test-deep.js",
-        "test:autodetect": "node test/test-qb64-autodetect.js",
-        "test:qb64diagnostics": "node test/test-qb64-compiler.js",
-        "test:workspace": "node test/test-workspace-multi.js",
-        "test:webview": "node test/test-webview-manager.js",
-        "test:todo": "node test/test-todo-provider.js",
-        "test:tutorial": "node test/test-tutorial-manager.js",
-        "test:optimizations": "node test/test-optimization-managers.js",
-        "test:executables": "node test/test-executable-utils.js",
-        "test:systemsettings": "node test/test-system-settings.js",
-        "test:hotpath": "node test/test-hot-path-caches.js",
-        "test:configcache": "node test/test-config-cache.js",
-        "test:cacheintegrity": "node test/test-compiler-cache-integrity.js",
-        "test:processtimeout": "node test/test-process-timeout.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:languagefeatures && npm run test:debugger && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout && npm run benchmark",
+        "benchmark:compiler": "node out/test/benchmark-compiler.js",
+        "benchmark:editor": "node out/test/benchmark-editor.js",
+        "test:compiler": "node out/test/test-transpiler.js",
+        "test:run": "node out/test/test-compile-and-run.js",
+        "test:variables": "node out/test/test-variable-declaration.js",
+        "test:features": "node out/test/test-editor-features.js",
+        "test:integration": "node out/test/test-integration.js",
+        "test:deep": "node out/test/test-deep.js",
+        "test:autodetect": "node out/test/test-qb64-autodetect.js",
+        "test:qb64diagnostics": "node out/test/test-qb64-compiler.js",
+        "test:workspace": "node out/test/test-workspace-multi.js",
+        "test:webview": "node out/test/test-webview-manager.js",
+        "test:todo": "node out/test/test-todo-provider.js",
+        "test:tutorial": "node out/test/test-tutorial-manager.js",
+        "test:optimizations": "node out/test/test-optimization-managers.js",
+        "test:executables": "node out/test/test-executable-utils.js",
+        "test:systemsettings": "node out/test/test-system-settings.js",
+        "test:hotpath": "node out/test/test-hot-path-caches.js",
+        "test:configcache": "node out/test/test-config-cache.js",
+        "test:cacheintegrity": "node out/test/test-compiler-cache-integrity.js",
+        "test:processtimeout": "node out/test/test-process-timeout.js",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:languagefeatures && npm run test:debugger && npm run test:insights && npm run test:programs && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish",
-        "test:workersettings": "node test/test-worker-settings.js",
-        "test:qb64pe": "node test/test-qb64pe-support.js",
-        "test:languagefeatures": "node test/test-language-features.js",
-        "test:debugger": "node test/test-qb64-debugger.js"
+        "test:workersettings": "node out/test/test-worker-settings.js",
+        "test:qb64pe": "node out/test/test-qb64pe-support.js",
+        "test:languagefeatures": "node out/test/test-language-features.js",
+        "test:debugger": "node out/test/test-qb64-debugger.js",
+        "typecheck": "tsc -p . --noEmit",
+        "compile": "tsc -p .",
+        "watch": "tsc -p . --watch",
+        "vscode:prepublish": "npm run compile",
+        "prebenchmark": "npm run compile",
+        "test:insights": "node out/test/test-code-insights.js",
+        "test:programs": "node out/test/test-bas-programs.js"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
@@ -70,7 +77,8 @@
         "@types/vscode": "^1.125.0",
         "eslint": "^10.7.0",
         "globals": "^17.7.0",
-        "tinybench": "6.0.2"
+        "tinybench": "6.0.2",
+        "typescript": "7.0.2"
     },
     "dependencies": {
         "defu": "^6.1.7",
@@ -434,6 +442,50 @@
                     "type": "boolean",
                     "default": false,
                     "markdownDescription": "Show the type implied by a variable's suffix (for example `count%` → `INTEGER`) at its first use.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.analysis.typos": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Warn about words that look like a misspelled statement, function or `SUB` (for example `PIRNT` → `PRINT`) and offer a quick fix. Only names with a close known match are reported.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.analysis.unusedProcedures": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Fade out `SUB`s and `FUNCTION`s that nothing in the workspace calls.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.analysis.duplicateCode": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Point out blocks of code that are repeated elsewhere in the workspace.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.analysis.duplicateMinLines": {
+                    "type": "number",
+                    "default": 6,
+                    "minimum": 3,
+                    "markdownDescription": "Smallest number of code lines (comments and blank lines ignored) that counts as a duplicated block.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.analysis.gotoLoops": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Mark backward `GOTO` loops that can be rewritten as `DO...LOOP` and offer the rewrite.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.codeLens.complexityThreshold": {
+                    "type": "number",
+                    "default": 10,
+                    "minimum": 0,
+                    "markdownDescription": "Show `complexity N` above a `SUB` / `FUNCTION` whose cyclomatic complexity is at least this value. `0` turns it off.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.completion.learnedRanking": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Rank completions with a small model that learns, on this machine, which word usually comes next in your own QBasic files (for example `CLS` after `SCREEN 12`). Nothing is sent anywhere.",
                     "scope": "resource"
                 }
             }

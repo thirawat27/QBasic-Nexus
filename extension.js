@@ -98,6 +98,11 @@ const {
   disposeCompatDiagnostics,
 } = require('./src/extension/compatDiagnostics');
 const { QB64TaskProvider } = require('./src/extension/buildTask');
+const {
+  updateInsightDiagnostics,
+  removeInsightDiagnostics,
+  disposeInsightDiagnostics,
+} = require('./src/extension/codeInsightDiagnostics');
 const { registerDebugger } = require('./src/debug/debugAdapter');
 
 // ── Lazy-loaded modules ──────────────────────────────────────────────────────
@@ -166,6 +171,9 @@ async function activate(context) {
   state.compatDiagnosticCollection =
     vscode.languages.createDiagnosticCollection('qbasic-nexus-compat');
   context.subscriptions.push(state.compatDiagnosticCollection);
+  state.insightDiagnosticCollection =
+    vscode.languages.createDiagnosticCollection('qbasic-nexus-insights');
+  context.subscriptions.push(state.insightDiagnosticCollection);
 
   // Initialize status bars
   state.statusBarItem = vscode.window.createStatusBarItem(
@@ -246,6 +254,7 @@ async function activate(context) {
         providedCodeActionKinds: [
           vscode.CodeActionKind.QuickFix,
           vscode.CodeActionKind.RefactorExtract,
+          vscode.CodeActionKind.RefactorRewrite,
         ],
       },
     ),
@@ -390,6 +399,7 @@ async function activate(context) {
         }
         lintDocument(editor.document);
         updateCompatDiagnostics(editor.document, { immediate: true });
+        updateInsightDiagnostics(editor.document);
         throttledStatsUpdate(editor.document);
       } else {
         if (state.statsBarItem) state.statsBarItem.hide();
@@ -403,6 +413,7 @@ async function activate(context) {
       // Lint and update stats
       lintDocument(e.document);
       updateCompatDiagnostics(e.document);
+      updateInsightDiagnostics(e.document);
       throttledStatsUpdate(e.document);
     }),
     vscode.workspace.onWillSaveTextDocument((e) => {
@@ -440,6 +451,10 @@ async function activate(context) {
         void workspaceAnalyzer.warmFile(doc);
         todoProvider.refresh(doc.uri);
         invalidateSemanticTokenCache(doc.uri);
+        // Unused-procedure and duplicate results depend on other files.
+        for (const editor of vscode.window.visibleTextEditors) {
+          updateInsightDiagnostics(editor.document);
+        }
       }
       lintDocument(doc);
       updateCodeStats(doc);
@@ -461,6 +476,9 @@ async function activate(context) {
         updateStatusBar();
         codeLensProvider.refresh();
         inlayHintsProvider.refresh();
+        for (const doc of vscode.workspace.textDocuments) {
+          updateInsightDiagnostics(doc);
+        }
       }
 
       if (
@@ -517,6 +535,7 @@ async function activate(context) {
     vscode.workspace.onDidCloseTextDocument((doc) => {
       getIncrementalLinter().removeDocument(doc.uri.toString());
       removeCompatDiagnostics(doc.uri);
+      removeInsightDiagnostics(doc.uri);
       invalidateCache(doc.uri);
       invalidateSemanticTokenCache(doc.uri);
     }),
@@ -554,6 +573,7 @@ function deactivate() {
   // Dispose the incremental linter (cancels all pending timers)
   getIncrementalLinter().dispose();
   disposeCompatDiagnostics();
+  disposeInsightDiagnostics();
   getCompileWorkerClient().dispose();
   workspaceAnalyzer.dispose();
 
@@ -564,6 +584,7 @@ function deactivate() {
   state.outputChannel?.dispose();
   state.diagnosticCollection?.dispose();
   state.compatDiagnosticCollection?.dispose();
+  state.insightDiagnosticCollection?.dispose();
   state.terminal?.dispose();
 
   // Clear references
@@ -573,6 +594,7 @@ function deactivate() {
   state.outputChannel = null;
   state.diagnosticCollection = null;
   state.compatDiagnosticCollection = null;
+  state.insightDiagnosticCollection = null;
   state.terminal = null;
   state.terminalCwd = null;
   state.extensionContext = null;

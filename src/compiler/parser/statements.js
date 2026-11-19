@@ -99,6 +99,7 @@ const STATEMENT_DISPATCH = Object.freeze({
   ON: (parser) => { parser._advance(); return parser._parseOnStatement(); },
   RESUME: (parser) => { parser._advance(); return parser._parseResume(); },
   CALL: (parser) => { parser._advance(); return parser._parseCall(); },
+  SHARED: (parser) => { parser._advance(); return parser._parseSharedStatement(); },
   SUB: (parser) => { parser._advance(); return parser._parseSub(); },
   FUNCTION: (parser) => { parser._advance(); return parser._parseFunction(); },
   RANDOMIZE: (parser) => { parser._advance(); return parser._parseRandomize(); },
@@ -243,10 +244,117 @@ _parseStatement() {
       if (next?.type === TokenType.PUNCTUATION && next?.value === ':') {
         return this._parseLabel();
       }
+      // `DrawBoard 3, "x"` calls a SUB without CALL, as QBasic allows.
+      if (this._isImplicitSubCall()) {
+        return this._parseCall();
+      }
       return this._parseAssignment();
     }
 
     this._advance();
+  },
+
+  /**
+   * Parse `(a, BYVAL b AS INTEGER, c$, arr() AS SINGLE)` after a SUB or
+   * FUNCTION name. Returns each parameter with the metadata of its declared
+   * scalar or string type (null when untyped or a UDT), or array metadata for
+   * `name()` parameters, which are passed through without coercion.
+   * @returns {Array<{name: string, metadata: object|null, isArray: boolean}>}
+   */
+  _parseProcedureParameterList() {
+    const params = [];
+    if (!this._matchPunc('(')) return params;
+    if (this._matchPunc(')')) return params;
+
+    const isComma = () => this._peek()?.type === TokenType.PUNCTUATION && this._peek().value === ',';
+    const isClose = () => this._peek()?.type === TokenType.PUNCTUATION && this._peek().value === ')';
+
+    do {
+      if (!this._matchKw('BYVAL')) this._matchKw('BYREF');
+      const arg = this._consume(TokenType.IDENTIFIER);
+      if (!arg) break;
+
+      let isArray = false;
+      if (this._matchPunc('(')) {
+        this._matchPunc(')');
+        isArray = true;
+      }
+
+      let metadata = null;
+      const hasType = this._checkKw('AS');
+      const typeSpec = this._parseDeclaredTypeSpec(arg.value);
+      // Skip what is left of a multi-word type such as _UNSIGNED LONG.
+      while (!this._isStmtEnd() && !isComma() && !isClose()) this._advance();
+
+      if (isArray) {
+        metadata = this._getTypeMetadata(typeSpec, true);
+      } else if (hasType) {
+        const declared = this._getTypeMetadata(typeSpec, false);
+        if (
+          declared &&
+          (declared.kind === 'scalar' || declared.kind === 'string' || declared.kind === 'fixedString')
+        ) {
+          metadata = declared;
+        }
+      }
+
+      params.push({ name: arg.value, metadata, isArray });
+    } while (this._matchPunc(','));
+
+    this._matchPunc(')');
+    return params;
+  },
+
+  /**
+   * `SHARED a, b() AS INTEGER` inside a SUB / FUNCTION: use the module-level
+   * variables of those names instead of new locals.
+   */
+  _parseSharedStatement() {
+    do {
+      const id = this._consume(TokenType.IDENTIFIER);
+      if (!id) break;
+      this.sharedVars.add(id.value);
+      if (this._matchPunc('(')) this._matchPunc(')');
+      if (this._matchKw('AS')) {
+        // Skip the type name (it may be several words, e.g. _UNSIGNED LONG).
+        while (
+          !this._isStmtEnd() &&
+          !(this._peek()?.type === TokenType.PUNCTUATION && this._peek().value === ',')
+        ) {
+          this._advance();
+        }
+      }
+    } while (this._matchPunc(','));
+  },
+
+  /**
+   * An identifier that starts a statement is an assignment when `=` follows
+   * it, its `.field`, or its `(index)`; otherwise it is a SUB call.
+   */
+  _isImplicitSubCall() {
+    let index = this.pos + 1;
+    let token = this.tokens[index];
+    const isAssignOrField = (t) =>
+      (t?.type === TokenType.OPERATOR && t.value === '=') ||
+      (t?.type === TokenType.PUNCTUATION && t.value === '.');
+
+    if (isAssignOrField(token)) return false;
+    if (token?.type === TokenType.PUNCTUATION && token.value === '(') {
+      let depth = 0;
+      for (; index < this.tokens.length; index++) {
+        token = this.tokens[index];
+        if (!token || token.type === TokenType.NEWLINE || token.type === TokenType.EOF) {
+          return true;
+        }
+        if (token.type === TokenType.PUNCTUATION && token.value === '(') depth++;
+        if (token.type === TokenType.PUNCTUATION && token.value === ')') {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      return !isAssignOrField(this.tokens[index + 1]);
+    }
+    return true;
   },
 
 _parseLabel() {
@@ -596,16 +704,9 @@ _parseSub() {
     const name = id.value;
     const storageName = this._resolveStorageName(name);
 
-    let args = [];
-    if (this._matchPunc('(')) {
-      if (!this._matchPunc(')')) {
-        do {
-          const arg = this._consume(TokenType.IDENTIFIER);
-          if (arg) args.push(arg.value);
-        } while (this._matchPunc(','));
-        this._matchPunc(')');
-      }
-    }
+    const params = this._parseProcedureParameterList();
+    const args = params.map((param) => param.name);
+    const declaredMetadata = new Map(params.map((param) => [param.name, param.metadata]));
     const argStorageNames = args.map((argName) => this._resolveStorageName(argName));
 
     const staticStore = this._encodeStorageName(`static_${name}`);
@@ -618,11 +719,13 @@ _parseSub() {
       this._addVar(a);
       this._setStorageOverride(a, argStorageNames[index]);
       const metadata =
-        typeof this._defaultMetadataForName === 'function'
+        declaredMetadata.get(a) ||
+        (typeof this._defaultMetadataForName === 'function'
           ? this._defaultMetadataForName(a, false)
-          : null;
+          : null);
       if (metadata) {
         this._setVarMetadata(a, metadata);
+        if (metadata.kind === 'array') return;
         this._emit(
           `${argStorageNames[index]} = _coerceTypedValue(${this._metadataToRuntimeLiteral(metadata)}, ${argStorageNames[index]});`,
         );
@@ -636,16 +739,9 @@ _parseFunction() {
     const name = id.value;
     const storageName = this._resolveStorageName(name);
 
-    let args = [];
-    if (this._matchPunc('(')) {
-      if (!this._matchPunc(')')) {
-        do {
-          const arg = this._consume(TokenType.IDENTIFIER);
-          if (arg) args.push(arg.value);
-        } while (this._matchPunc(','));
-        this._matchPunc(')');
-      }
-    }
+    const params = this._parseProcedureParameterList();
+    const args = params.map((param) => param.name);
+    const declaredMetadata = new Map(params.map((param) => [param.name, param.metadata]));
     const argStorageNames = args.map((argName) => this._resolveStorageName(argName));
 
     const staticStore = this._encodeStorageName(`static_${name}`);
@@ -658,11 +754,13 @@ _parseFunction() {
       this._addVar(a);
       this._setStorageOverride(a, argStorageNames[index]);
       const metadata =
-        typeof this._defaultMetadataForName === 'function'
+        declaredMetadata.get(a) ||
+        (typeof this._defaultMetadataForName === 'function'
           ? this._defaultMetadataForName(a, false)
-          : null;
+          : null);
       if (metadata) {
         this._setVarMetadata(a, metadata);
+        if (metadata.kind === 'array') return;
         this._emit(
           `${argStorageNames[index]} = _coerceTypedValue(${this._metadataToRuntimeLiteral(metadata)}, ${argStorageNames[index]});`,
         );

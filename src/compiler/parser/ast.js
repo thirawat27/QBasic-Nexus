@@ -733,7 +733,7 @@ module.exports = {
       this._matchPunc(':');
       return {
         kind: 'Label',
-        name: labelToken.value,
+        name: String(labelToken.value),
         line: labelToken.line,
         column: labelToken.col,
       };
@@ -751,6 +751,16 @@ module.exports = {
     return this._captureAstRawStatement();
   },
 
+  /** After THEN / ELSE a bare line number means GOTO that line. */
+  _parseAstImplicitGotoOrStatement(context) {
+    if (this._isLineNumberToken(this._peek())) {
+      const location = this._astLoc();
+      const target = this._advance();
+      return { kind: 'Goto', label: String(target.value), ...location };
+    }
+    return this._parseAstStatement(context);
+  },
+
   _parseAstIf(context = {}) {
     const location = this._astLoc(this._prev());
     const prelude = [];
@@ -760,11 +770,11 @@ module.exports = {
     this._consumeKw('THEN');
 
     if (!this._isStmtEnd()) {
-      const thenBody = normalizeNodes(this._parseAstStatement(context));
+      const thenBody = normalizeNodes(this._parseAstImplicitGotoOrStatement(context));
       let elseBody = [];
 
       if (this._matchKw('ELSE')) {
-        elseBody = normalizeNodes(this._parseAstStatement(context));
+        elseBody = normalizeNodes(this._parseAstImplicitGotoOrStatement(context));
       }
 
       return [
@@ -1178,15 +1188,9 @@ module.exports = {
     const argStorageNames = [];
     const argMetadataLiterals = [];
 
-    if (this._matchPunc('(')) {
-      if (!this._matchPunc(')')) {
-        do {
-          const arg = this._consume(TokenType.IDENTIFIER);
-          if (arg) args.push(arg.value);
-        } while (this._matchPunc(','));
-        this._matchPunc(')');
-      }
-    }
+    const params = this._parseProcedureParameterList();
+    const declaredMetadata = new Map(params.map((param) => [param.name, param.metadata]));
+    args.push(...params.map((param) => param.name));
 
     this._skipNewlines();
     this._enterScope();
@@ -1204,12 +1208,16 @@ module.exports = {
     args.forEach((arg) => {
       const argStorageName = this._resolveStorageName(arg);
       const argMetadata =
-        typeof this._defaultMetadataForName === 'function'
+        declaredMetadata.get(arg) ||
+        (typeof this._defaultMetadataForName === 'function'
           ? this._defaultMetadataForName(arg, false)
-          : null;
+          : null);
       argStorageNames.push(argStorageName);
+      // Arrays are passed by reference without coercion.
       argMetadataLiterals.push(
-        argMetadata ? this._metadataToRuntimeLiteral(argMetadata) : null,
+        argMetadata && argMetadata.kind !== 'array'
+          ? this._metadataToRuntimeLiteral(argMetadata)
+          : null,
       );
       this._addVar(arg);
       this._setStorageOverride(arg, argStorageName);
@@ -1256,7 +1264,7 @@ module.exports = {
 
   _parseAstGoto() {
     const location = this._astLoc();
-    const label = this._consume(TokenType.IDENTIFIER);
+    const label = this._consumeAstLabelRef();
     if (!label) {
       this._raiseSyntaxError('Expected label after GOTO');
     }
@@ -1270,7 +1278,7 @@ module.exports = {
 
   _parseAstGosub() {
     const location = this._astLoc();
-    const label = this._consume(TokenType.IDENTIFIER);
+    const label = this._consumeAstLabelRef();
     if (!label) {
       this._raiseSyntaxError('Expected label after GOSUB');
     }
@@ -1321,7 +1329,7 @@ module.exports = {
 
     const labels = [];
     do {
-      const label = this._consume(TokenType.IDENTIFIER);
+      const label = this._consumeAstLabelRef();
       if (!label) {
         this._raiseSyntaxError(`Expected label after ON ${mode}`);
       }
@@ -1474,10 +1482,32 @@ module.exports = {
   },
 
   _peekAstLabel() {
+    // Classic line numbers: `10 PRINT "HI"` defines label 10.
+    if (this._isLineNumberToken(this._peek())) {
+      const prev = this.tokens[this.pos - 1];
+      if (this.pos === 0 || prev?.type === TokenType.NEWLINE) return this._peek();
+    }
     if (!this._check(TokenType.IDENTIFIER)) return null;
     const next = this.tokens[this.pos + 1];
     if (next?.type === TokenType.PUNCTUATION && next?.value === ':') {
       return this._peek();
+    }
+    return null;
+  },
+
+  _isLineNumberToken(token) {
+    return token?.type === TokenType.NUMBER && /^\d+$/.test(String(token.value));
+  },
+
+  /**
+   * Consume a jump target: an alphanumeric label or a line number.
+   * @returns {{value: string}|null}
+   */
+  _consumeAstLabelRef() {
+    if (this._check(TokenType.IDENTIFIER)) return this._advance();
+    if (this._isLineNumberToken(this._peek())) {
+      const token = this._advance();
+      return { ...token, value: String(token.value) };
     }
     return null;
   },
@@ -1672,7 +1702,8 @@ module.exports = {
         statement.mode === 'GOTO' &&
         statement.target &&
         statement.target !== '0' &&
-        statement.targetType === TokenType.IDENTIFIER
+        (statement.targetType === TokenType.IDENTIFIER ||
+          statement.targetType === TokenType.NUMBER)
       ) {
         if (!body.labels.has(statement.target)) {
           this._reportAstDiagnostic(
@@ -1688,7 +1719,9 @@ module.exports = {
         statement.kind === 'Resume' &&
         statement.mode === 'TARGET' &&
         statement.target &&
-        statement.targetType === TokenType.IDENTIFIER
+        (statement.targetType === TokenType.IDENTIFIER ||
+          statement.targetType === TokenType.NUMBER) &&
+        statement.target !== '0'
       ) {
         if (!body.labels.has(statement.target)) {
           this._reportAstDiagnostic(

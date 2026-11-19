@@ -37,7 +37,9 @@
   const vscode = acquireVsCodeApi();
   const monitor = document.getElementById('monitor');
   const screen = document.getElementById('screen');
-  const canvas = document.getElementById('gfx-layer');
+  const canvas = /** @type {HTMLCanvasElement} */ (
+    document.getElementById('gfx-layer')
+  );
   const crtText = globalThis.QBasicCrtText || {};
   const crtTranscript = globalThis.QBasicCrtTranscript || {};
   const crtOutputBuffer = globalThis.QBasicCrtOutputBuffer || {};
@@ -376,9 +378,11 @@
     constructor() {
       this.octave = 4;
       this.noteLength = 4;
+      /** @type {number} */
       this.tempo = AUDIO_CONSTANTS.DEFAULT_TEMPO;
       this.mode = 0.875; // 7/8 pre-computed
       this.foreground = true;
+      /** @type {OscillatorType} */
       this.type = 'square';
       this._audioContext = null;
       this._gainNode = null; // Reusable gain node for simple sounds
@@ -558,7 +562,9 @@
       }
 
       const currentTime = ctx.currentTime;
-      const o = ctx.createOscillator();
+      const o = /** @type {OscillatorNode & {_ended?: boolean}} */ (
+        ctx.createOscillator()
+      );
       const g = ctx.createGain();
 
       // Track oscillator and gain node for cleanup
@@ -2863,7 +2869,9 @@
   }
 
   function _ensureRuntimeFavicon() {
-    let link = document.querySelector('link[rel="icon"][data-qbasic-runtime="true"]');
+    let link = /** @type {HTMLLinkElement|null} */ (
+      document.querySelector('link[rel="icon"][data-qbasic-runtime="true"]')
+    );
     if (!link) {
       link = document.createElement('link');
       link.rel = 'icon';
@@ -3478,6 +3486,7 @@
   // WINDOW COORDINATE SYSTEM (QBJS/QB64 Compatibility)
   // =========================================================================
 
+  /** @type {[boolean|number, number, number]} */
   let _windowAspect = [false, 1, 1]; // [active, factorX, orientY*factorY]
   let _windowDef = [0, 0, 0, 0]; // [x0, y0, x1, y1]
 
@@ -4121,7 +4130,9 @@
 
   // Global click handler to maintain focus on input fields
   document.addEventListener('click', () => {
-    const activeInput = document.querySelector('input.cmd-input');
+    const activeInput = /** @type {HTMLInputElement|null} */ (
+      document.querySelector('input.cmd-input')
+    );
     if (activeInput && document.activeElement !== activeInput) {
       activeInput.focus();
     }
@@ -4129,7 +4140,9 @@
 
   // Re-focus input when the webview regains focus from VSCode
   window.addEventListener('focus', () => {
-    const activeInput = document.querySelector('input.cmd-input');
+    const activeInput = /** @type {HTMLInputElement|null} */ (
+      document.querySelector('input.cmd-input')
+    );
     if (activeInput) {
       activeInput.focus();
     }

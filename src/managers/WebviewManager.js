@@ -12,7 +12,9 @@
 'use strict';
 
 const vscode = require('vscode');
-const mitt = require('mitt');
+const mitt = /** @type {typeof import('mitt').default} */ (
+  /** @type {unknown} */ (require('mitt'))
+);
 const {
   appendTranscriptState,
   createTranscriptEvent,
@@ -36,7 +38,7 @@ const emitter = mitt();
 /**
  * Subscribe to internal WebviewManager events.
  * @param {WebviewEvent} event
- * @param {Function} handler
+ * @param {(payload: any) => void} handler
  */
 function onWebviewEvent(event, handler) {
   emitter.on(event, handler);
@@ -45,7 +47,7 @@ function onWebviewEvent(event, handler) {
 /**
  * Unsubscribe from internal WebviewManager events.
  * @param {WebviewEvent} event
- * @param {Function} handler
+ * @param {(payload: any) => void} handler
  */
 function offWebviewEvent(event, handler) {
   emitter.off(event, handler);
@@ -528,6 +530,7 @@ class WebviewManager {
   }
 }
 
-module.exports = WebviewManager;
-module.exports.onWebviewEvent = onWebviewEvent;
-module.exports.offWebviewEvent = offWebviewEvent;
+module.exports = Object.assign(WebviewManager, {
+  onWebviewEvent,
+  offWebviewEvent,
+});

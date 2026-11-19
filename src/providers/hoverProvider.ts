@@ -1,0 +1,86 @@
+/**
+ * QBasic Nexus - Provider: Hover
+ * Hover documentation for keywords, built-in functions, and user-defined SUB/FUNCTIONs
+ */
+
+import vscode = require('vscode');
+import path = require('path');
+import { KEYWORDS, FUNCTIONS } from '../../languageData';
+import { PATTERNS } from './patterns';
+import { buildKeywordSearchEntries, findKeywordEntryAtPosition } from '../shared/keywordLookup';
+import { SYMBOL_KIND, findDefinitionInAnalysis } from '../shared/documentAnalysis';
+import { workspaceAnalyzer } from '../shared/workspaceAnalysis';
+
+const KEYWORD_SEARCH_ENTRIES = buildKeywordSearchEntries(KEYWORDS);
+
+const USER_SYMBOL_LABELS = Object.freeze({
+  [SYMBOL_KIND.FUNCTION]: 'function',
+  [SYMBOL_KIND.METHOD]: 'sub',
+  [SYMBOL_KIND.STRUCT]: 'type',
+  [SYMBOL_KIND.CONSTANT]: 'constant',
+  [SYMBOL_KIND.EVENT]: 'label',
+  variable: 'variable',
+});
+
+class QBasicHoverProvider {
+  async provideHover(document, position) {
+    const lineText = document.lineAt(position.line).text;
+    const keywordMatch = findKeywordEntryAtPosition(
+      lineText,
+      position.character,
+      KEYWORD_SEARCH_ENTRIES,
+    );
+    const range = document.getWordRangeAtPosition(
+      position,
+      PATTERNS.IDENTIFIER,
+    );
+    const originalWord = range ? document.getText(range) : '';
+    const word = originalWord.toUpperCase();
+
+    if (keywordMatch && /[\s#]/.test(keywordMatch.label)) {
+      const keywordDoc = keywordMatch.entry.documentation || keywordMatch.entry.detail;
+      return new vscode.Hover(
+        new vscode.MarkdownString(keywordDoc),
+      );
+    }
+
+    // Function
+    if (FUNCTIONS[word]) {
+      const f = FUNCTIONS[word];
+      return new vscode.Hover(
+        new vscode.MarkdownString(f.documentation),
+      );
+    }
+
+    // Keyword
+    if (keywordMatch) {
+      const k = keywordMatch.entry;
+      const keywordDoc = k.documentation || k.detail;
+      return new vscode.Hover(
+        new vscode.MarkdownString(keywordDoc),
+      );
+    }
+
+    if (!range) return null;
+
+    const analysis = await workspaceAnalyzer.getWorkspaceAnalysis(document, {
+      awaitWorkspace: false,
+    });
+    const definition = findDefinitionInAnalysis(analysis, originalWord);
+    if (!definition) {
+      return null;
+    }
+
+    const symbolLabel = USER_SYMBOL_LABELS[definition.kind] || 'symbol';
+    const fileBase = path.basename(definition.file || document.uri.fsPath);
+    return new vscode.Hover(
+      new vscode.MarkdownString(
+        `**${originalWord}** *(${symbolLabel})*\n\nDefined at line ${definition.line + 1} (*File: ${fileBase}*)`,
+      ),
+    );
+  }
+}
+
+export {
+  QBasicHoverProvider,
+};

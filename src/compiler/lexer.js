@@ -317,5 +317,4 @@ class Lexer {
   }
 }
 
-module.exports = Lexer;
-module.exports.TokenPool = TokenPool;
+module.exports = Object.assign(Lexer, { TokenPool });

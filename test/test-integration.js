@@ -1,3 +1,4 @@
+// @ts-nocheck -- tests mock vscode and poke at internals.
 'use strict';
 /**
  * Final integration test - all Phase 1-3 components
@@ -548,7 +549,8 @@ test('Suffix identifiers use safe storage names in generated code', () => {
   const t = new InternalTranspiler();
   const code = t.transpile('a% = 2.5\nFUNCTION Add%(x)\nAdd% = x\nEND FUNCTION\nPRINT Add%(a%)', 'web');
 
-  if (!code.includes('var __qb_a_pct = 0;')) {
+  // The implicit declaration keeps its value when a GOTO jumps back over it.
+  if (!code.includes('var __qb_a_pct = __qb_a_pct === undefined ? 0 : __qb_a_pct;')) {
     throw new Error('Expected suffix variables to compile through encoded JS storage names');
   }
 

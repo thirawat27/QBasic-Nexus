@@ -1,0 +1,36 @@
+{
+	"compilerOptions": {
+		"module": "node16",
+		"moduleResolution": "node16",
+		"target": "ES2022",
+		"lib": [
+			"ES2022",
+			"DOM"
+		],
+		"types": [
+			"node",
+			"vscode"
+		],
+		"rootDir": ".",
+		"outDir": "out",
+		"allowJs": true,
+		"checkJs": true,
+		"strict": false,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"maxNodeModuleJsDepth": 0
+	},
+	"include": [
+		"extension.js",
+		"languageData.js",
+		"providers.js",
+		"src/**/*",
+		"test/**/*"
+	],
+	"exclude": [
+		"node_modules",
+		"out",
+		"dist"
+	]
+}

@@ -11,13 +11,31 @@ const {
   preprocessSource,
 } = require('../preprocessor');
 
+/**
+ * Parser methods live in core.js, ast.js, ... and are mixed into the
+ * prototype below, so the class body alone does not declare them.
+ * @typedef {Parser & {parse(): string, errors: Array<any>,
+ *   _init(tokens: any[], target: string, options: object): void}} MixedParser
+ */
+
 class Parser {
   constructor(tokens, target = 'node', options = {}) {
     // Call the initialized method that we mapped from core.js
-    if (this._init) {
-      this._init(tokens, target, options);
+    const self = /** @type {MixedParser} */ (/** @type {unknown} */ (this));
+    if (self._init) {
+      self._init(tokens, target, options);
     }
   }
+}
+
+/**
+ * @param {any[]} tokens
+ * @param {string} [target]
+ * @param {object} [options]
+ * @returns {MixedParser}
+ */
+function createParser(tokens, target, options) {
+  return /** @type {MixedParser} */ (new Parser(tokens, target, options));
 }
 
 function normalizeTranspileTarget(target = 'web') {
@@ -102,7 +120,7 @@ class InternalTranspiler {
         return '// No tokens generated';
       }
 
-      const parser = new Parser(tokens, targetInfo.parserTarget, options);
+      const parser = createParser(tokens, targetInfo.parserTarget, options);
       const result = parser.parse();
       const blockingErrors = getBlockingParserErrors(parser.errors);
       if (blockingErrors.length > 0) {
@@ -133,7 +151,7 @@ class InternalTranspiler {
     }
     const targetInfo = normalizeTranspileTarget(target);
     try {
-      const parser = new Parser(tokens, targetInfo.parserTarget, options);
+      const parser = createParser(tokens, targetInfo.parserTarget, options);
       const code = parser.parse();
       return { code, errors: parser.errors || [] };
     } catch (e) {
@@ -153,7 +171,7 @@ class InternalTranspiler {
   lintTokens(tokens) {
     if (!Array.isArray(tokens) || tokens.length === 0) return [];
     try {
-      const parser = new Parser(tokens, 'node');
+      const parser = createParser(tokens, 'node');
       parser.parse();
       return parser.errors || [];
     } catch (e) {
