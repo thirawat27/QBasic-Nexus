@@ -41,6 +41,7 @@
   - [Compiler Settings](#compiler-settings)
    - [Worker Resilience Settings](#worker-resilience-settings)
   - [Editor Settings](#editor-settings)
+  - [Language Feature Settings](#language-feature-settings)
   - [Line Number Settings](#line-number-settings)
 - [📂 Supported File Types \& Icons](#-supported-file-types--icons)
 - [✨ Unrivaled Features](#-unrivaled-features)
@@ -48,6 +49,8 @@
   - [📺 Advanced Web Runtime](#-advanced-web-runtime)
   - [📊 Professional IDE Tools](#-professional-ide-tools)
   - [🔧 Advanced Code Tools](#-advanced-code-tools)
+  - [🐞 Debugging with QB64-PE](#-debugging-with-qb64-pe)
+  - [🏗️ Build Tasks](#️-build-tasks)
 - [📦 Available Commands](#-available-commands)
 - [🎬 Web Runtime Capabilities](#-web-runtime-capabilities)
 - [🧩 Snippets Reference](#-snippets-reference)
@@ -701,6 +704,17 @@ Older computer, large files   1000ms
 - Working with auto-generated code that shouldn't be modified
 - Collaborating on code with specific style requirements
 
+### Language Feature Settings
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `qbasic-nexus.warnQB64PEOnly` | `true` | Warn about QB64-PE-only keywords when the compiler in use is the original QB64 |
+| `qbasic-nexus.codeLens.references` | `true` | Show the call count above each `SUB` / `FUNCTION` |
+| `qbasic-nexus.inlayHints.parameterNames` | `true` | Show parameter names at call sites |
+| `qbasic-nexus.inlayHints.variableTypes` | `false` | Show the type implied by a variable's suffix at its first use |
+
+VS Code's own `editor.inlayHints.enabled` and `editor.codeLens` settings also apply.
+
 ### Line Number Settings
 
 These settings control the line numbering tools for legacy QBasic code.
@@ -1023,6 +1037,13 @@ Write code faster, with fewer bugs, using tooling typically reserved for modern 
 - **Code Folding** - Collapse and expand SUBs, FUNCTIONs, and control structures for better code organization.
 - **Hover Information** - Rich inline reference for keywords, built-ins, and symbols, including generated syntax and examples for multi-word commands such as `LINE INPUT`, `ON ERROR`, `PRINT #`, plus advanced legacy/QB64 commands like `INTERRUPT`, `IOCTL`, `_MEMCOPY`, and `_SNDLEN`.
 - **Find All References** - Locate all usages of variables, SUBs, and FUNCTIONs throughout your code.
+- **Clickable `$INCLUDE`** - Ctrl+click the file name in `'$INCLUDE: 'lib.bi'` to open it.
+- **Go to Symbol in Workspace (Ctrl+T)** - Jump to any `SUB`, `FUNCTION`, `TYPE`, `CONST` or label in any file of the workspace.
+- **Reference CodeLens** - Every `SUB` and `FUNCTION` shows how many places call it; click to list them.
+- **Call Hierarchy (Shift+Alt+H)** - See who calls a procedure and what it calls, across files. Module-level code shows up as `(module) file.bas`.
+- **Inlay Hints** - Parameter names appear at calls to your procedures and to built-in functions with two or more parameters. Optional type hints show the type a suffix implies (`count%` → `INTEGER`).
+- **Format Selection** - Format only the selected lines; indentation still follows the blocks around them.
+- **QB64-PE Compatibility Warnings** - When the compiler in use is the original QB64, keywords that only QB64-PE has (`_IIF`, `_READFILE$`, `$EMBED`, ...) get a warning before you build.
 
 ### 🔧 Advanced Code Tools
 
@@ -1033,6 +1054,42 @@ Powerful utilities to manage and enhance your QBasic code.
 - **Code Statistics Analyzer** - Get instant breakdown of codebase structure, modules, LOC, and loops using `QBasic Show Code Statistics 📊` (Ctrl+Shift+I).
 - **Auto-Format on Save** - Automatically capitalize keywords and standardize indentation (mimicking classic QBasic IDE behavior).
 - **Code Actions** - Quick fixes and refactoring suggestions directly in the editor.
+
+### 🐞 Debugging with QB64-PE
+
+Press **F5** in a `.bas` file (or add a **QB64-PE: Debug program** configuration to `launch.json`). QBasic Nexus compiles the file with QB64-PE and connects to it through QB64-PE's own `$DEBUG` (vWATCH) channel, the same one the QB64-PE IDE uses.
+
+- The program needs a `$DEBUG` line. If it is missing you are offered to add it at the top of the file.
+- Supported: breakpoints, Continue, Pause, Step Over / Into / Out, the call stack, and stopping on runtime errors.
+- Not supported yet: reading or changing variable values (QB64-PE keeps the variable table inside its own IDE, not on the debug channel).
+- Breakpoints work in the main `.bas` file only. QB64-PE does not instrument `$INCLUDE`d code or blocks under `$CHECKING:OFF`, so those lines run without stopping.
+- Requires QB64-PE (or a QB64 build with `$DEBUG`, v2.0 or later).
+
+```json
+{
+    "type": "qb64",
+    "request": "launch",
+    "name": "Debug QB64-PE program",
+    "program": "${file}",
+    "stopOnEntry": false
+}
+```
+
+### 🏗️ Build Tasks
+
+**Terminal → Run Build Task** (Ctrl+Shift+B) offers **qb64: Build current file**. Output streams into the task terminal and errors go to the Problems panel. To pin a file or add compiler arguments, add a task to `tasks.json`:
+
+```json
+{
+    "type": "qb64",
+    "file": "src/game.bas",
+    "args": ["-w"],
+    "group": { "kind": "build", "isDefault": true },
+    "label": "Build game"
+}
+```
+
+For your own shell tasks, the `$qb64` problem matcher reads `file.bas:12: warning: ...` lines.
 
 ---
 

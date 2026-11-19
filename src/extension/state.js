@@ -17,6 +17,8 @@ const state = {
   terminalKey: null,
   autoDetectedCompilerPath: null,
   diagnosticCollection: null,
+  compatDiagnosticCollection: null,
+  compilerIdentity: null,
   isCompiling: false,
   extensionContext: null,
 };

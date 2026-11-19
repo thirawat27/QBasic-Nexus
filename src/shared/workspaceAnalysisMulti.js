@@ -17,9 +17,9 @@ const fs = require('fs');
 const path = require('path');
 const { getDocumentAnalysis, analyzeQBasicText, findIdentifierMatchesInAnalysis } = require('./documentAnalysis');
 const { BoundedCache } = require('./boundedCache');
+const { findIncludeDirectives, resolveIncludePath } = require('./includeDirectives');
 
 const WORKSPACE_PARSE_YIELD_INTERVAL = 25;
-const INCLUDE_PATTERN = /^\s*\$INCLUDE\s*:\s*(?:['"])(.+?)(?:['"])/i;
 
 function yieldToEventLoop() {
   return new Promise((resolve) => setImmediate(resolve));
@@ -178,23 +178,14 @@ class WorkspaceAnalysis {
       ? vscode.workspace.getWorkspaceFolder(document.uri)
       : null;
 
-    for (const line of localAnalysis.lines) {
-      const match = INCLUDE_PATTERN.exec(line);
-      if (match) {
-        const includePath = match[1];
-        let fullPath;
-        if (path.isAbsolute(includePath)) {
-          fullPath = includePath;
-        } else {
-          fullPath = path.resolve(path.dirname(document.uri.fsPath), includePath);
-          if (!fs.existsSync(fullPath) && workspaceFolder) {
-            fullPath = path.resolve(workspaceFolder.uri.fsPath, includePath);
-          }
-        }
-        if (fs.existsSync(fullPath) && !includedFileSet.has(fullPath)) {
-          includedFiles.push(fullPath);
-          includedFileSet.add(fullPath);
-        }
+    for (const directive of findIncludeDirectives(localAnalysis.lines)) {
+      const fullPath = resolveIncludePath(directive.path, {
+        documentDir: path.dirname(document.uri.fsPath),
+        workspaceDir: workspaceFolder ? workspaceFolder.uri.fsPath : null,
+      });
+      if (fullPath && !includedFileSet.has(fullPath)) {
+        includedFiles.push(fullPath);
+        includedFileSet.add(fullPath);
       }
     }
 
@@ -298,6 +289,31 @@ class WorkspaceAnalysis {
   }
 
   /**
+   * Per-file analyses for the workspace, with `document` (live, possibly
+   * unsaved) first and every other parsed file after it.
+   * @param {vscode.TextDocument|null} document
+   * @param {{awaitWorkspace?: boolean}} [options]
+   * @returns {Promise<Array<{file: string, analysis: object}>>}
+   */
+  async getFileAnalyses(document, options = {}) {
+    if (options.awaitWorkspace !== false && !this._hasParsedWorkspace) {
+      await this.parseWorkspaceSymbols();
+    } else {
+      this.prepareWorkspace();
+    }
+
+    const result = [];
+    const currentPath = document?.uri?.fsPath || null;
+    if (document) {
+      result.push({ file: currentPath, analysis: getDocumentAnalysis(document) });
+    }
+    for (const [filePath, analysis] of this.symbolCache.entries()) {
+      if (filePath !== currentPath) result.push({ file: filePath, analysis });
+    }
+    return result;
+  }
+
+  /**
    * Invalidate one cached file inside this workspace.
    * @param {string} filePath
    */
@@ -380,6 +396,16 @@ class WorkspaceAnalysisManager {
     for (const analyzer of this.analyzers.values()) {
       analyzer.invalidateFile(filePath);
     }
+  }
+
+  /**
+   * URIs of the open workspace folders (empty outside VS Code).
+   * @returns {Array<vscode.Uri>}
+   */
+  getWorkspaceFolderUris() {
+    return vscode?.workspace?.workspaceFolders
+      ? vscode.workspace.workspaceFolders.map((folder) => folder.uri)
+      : [];
   }
 
   /**

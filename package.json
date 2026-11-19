@@ -2,7 +2,7 @@
     "name": "qbasic-nexus",
     "displayName": "QBasic Nexus",
     "description": "The Most Advanced, Lightning-Fast QBasic & QB64 Development Environment Ever Built for VS Code 🚀.",
-    "version": "1.6.2",
+    "version": "2.0.0",
     "publisher": "Thirawat27",
     "author": "Thirawat27",
     "license": "MIT",
@@ -22,13 +22,17 @@
     "main": "./extension.js",
     "activationEvents": [
         "onLanguage:qbasic",
-        "onView:qbasic-todo"
+        "onView:qbasic-todo",
+        "onDebugResolve:qb64",
+        "onDebugDynamicConfigurations:qb64",
+        "onTaskType:qb64",
+        "workspaceContains:**/*.bas"
     ],
     "scripts": {
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:languagefeatures && npm run test:debugger && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -51,12 +55,14 @@
         "test:configcache": "node test/test-config-cache.js",
         "test:cacheintegrity": "node test/test-compiler-cache-integrity.js",
         "test:processtimeout": "node test/test-process-timeout.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout && npm run benchmark",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:languagefeatures && npm run test:debugger && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
         "publish": "vsce publish",
         "test:workersettings": "node test/test-worker-settings.js",
-        "test:qb64pe": "node test/test-qb64pe-support.js"
+        "test:qb64pe": "node test/test-qb64pe-support.js",
+        "test:languagefeatures": "node test/test-language-features.js",
+        "test:debugger": "node test/test-qb64-debugger.js"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
@@ -405,6 +411,30 @@
                     "minimum": 1,
                     "markdownDescription": "Increment used by **QBasic: Renumber Lines**.",
                     "scope": "resource"
+                },
+                "qbasic-nexus.warnQB64PEOnly": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Warn when the program uses a keyword that only **QB64-PE** has (such as `_IIF` or `$EMBED`) while the compiler in use is the original QB64, which cannot build it.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.codeLens.references": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Show the number of call sites above every `SUB` and `FUNCTION`. Click it to list them.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.inlayHints.parameterNames": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Show parameter names at calls to your `SUB`s / `FUNCTION`s and to built-in functions with two or more parameters. VS Code's `editor.inlayHints.enabled` also applies.",
+                    "scope": "resource"
+                },
+                "qbasic-nexus.inlayHints.variableTypes": {
+                    "type": "boolean",
+                    "default": false,
+                    "markdownDescription": "Show the type implied by a variable's suffix (for example `count%` → `INTEGER`) at its first use.",
+                    "scope": "resource"
                 }
             }
         },
@@ -416,6 +446,98 @@
                     "icon": "assets/QBasicNexus.png"
                 }
             ]
-        }
+        },
+        "taskDefinitions": [
+            {
+                "type": "qb64",
+                "required": [],
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "description": "The .bas file to build. Defaults to ${file} (the active editor). Relative paths resolve from the workspace folder."
+                    },
+                    "args": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Extra QB64 compiler arguments, added after qbasic-nexus.compilerArgs."
+                    }
+                }
+            }
+        ],
+        "problemMatchers": [
+            {
+                "name": "qb64",
+                "owner": "qb64",
+                "source": "QB64",
+                "fileLocation": [
+                    "autoDetect",
+                    "${workspaceFolder}"
+                ],
+                "pattern": {
+                    "regexp": "^(.+.(?:bas|bi|bm|inc)):(d+):s*(?:(error|warning)s*:s*)?(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "severity": 3,
+                    "message": 4
+                }
+            }
+        ],
+        "breakpoints": [
+            {
+                "language": "qbasic"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "qb64",
+                "label": "QB64-PE",
+                "languages": [
+                    "qbasic"
+                ],
+                "configurationAttributes": {
+                    "launch": {
+                        "required": [
+                            "program"
+                        ],
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "The .bas file to compile with $DEBUG and debug.",
+                                "default": "${file}"
+                            },
+                            "stopOnEntry": {
+                                "type": "boolean",
+                                "description": "Pause on the first line.",
+                                "default": false
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "qb64",
+                        "request": "launch",
+                        "name": "Debug QB64-PE program",
+                        "program": "${file}",
+                        "stopOnEntry": false
+                    }
+                ],
+                "configurationSnippets": [
+                    {
+                        "label": "QB64-PE: Debug program",
+                        "description": "Compile the current file with QB64-PE and debug it",
+                        "body": {
+                            "type": "qb64",
+                            "request": "launch",
+                            "name": "Debug QB64-PE program",
+                            "program": "^\"${file}\"",
+                            "stopOnEntry": false
+                        }
+                    }
+                ]
+            }
+        ]
     }
 }
