@@ -298,13 +298,20 @@ Brief description of changes
 - Patch: Bug fixes (1.5.1)
 
 ### Release Checklist
-1. Update version in package.json
-2. Update CHANGELOG.md
-3. Run all tests
-4. Create git tag
-5. Build package: `npm run package`
-6. Test package locally
-7. Publish: `npm run publish`
+Publishing is automated by `.github/workflows/release.yml`, which builds one `.vsix` and publishes it to both the VS Code Marketplace and Open VSX, then attaches it to a GitHub Release.
+
+1. Bump `version` in `package.json` (e.g. `npm version patch --no-git-tag-version`)
+2. Add a `## [x.y.z] - YYYY-MM-DD` section to CHANGELOG.md (used as the release notes)
+3. Run `npm test` and optionally `npx @vscode/vsce package` to try the `.vsix` locally
+4. Commit and push to `main`
+5. Tag and push the tag — the tag must equal `v` + the `package.json` version:
+   ```bash
+   git tag v1.6.3
+   git push origin v1.6.3
+   ```
+6. Watch the **Release** workflow in the Actions tab. To re-run for an existing tag, use **Run workflow** and enter the tag.
+
+Required repository secrets: `VSCE_PAT` (Marketplace) and `OVSX_PAT` (Open VSX). If one is missing, that registry is skipped with a warning; already-published versions are skipped, so re-runs are safe.
 
 ## Getting Help
 

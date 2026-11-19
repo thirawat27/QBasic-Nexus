@@ -1,0 +1,171 @@
+name: Release
+
+# Publishes the extension to the VS Code Marketplace and Open VSX.
+#
+# Triggers:
+#   - pushing a tag like v1.6.3 (the tag must match package.json "version")
+#   - manually (Actions > Release > Run workflow) with an existing tag
+#
+# Secrets (Settings > Secrets and variables > Actions):
+#   VSCE_PAT  - Azure DevOps PAT with Marketplace "Manage" scope
+#   OVSX_PAT  - open-vsx.org access token
+# A registry whose secret is missing is skipped with a warning.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release (e.g. v1.6.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  VSCE_VERSION: 4.1.1
+  OVSX_VERSION: 1.4.0
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      vsix: ${{ steps.pack.outputs.vsix }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Check tag matches package.json version
+        id: meta
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$RELEASE_TAG" != "v$VERSION" ]; then
+            echo "::error::Tag '$RELEASE_TAG' does not match package.json version 'v$VERSION'. Bump package.json or fix the tag."
+            exit 1
+          fi
+          echo "Releasing v$VERSION"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint and test
+        run: npm test # pretest runs lint
+
+      - name: Build .vsix
+        id: pack
+        run: |
+          VSIX="qbasic-nexus-${{ steps.meta.outputs.version }}.vsix"
+          npx --yes "@vscode/vsce@${VSCE_VERSION}" package --out "$VSIX"
+          echo "vsix=$VSIX" >> "$GITHUB_OUTPUT"
+
+      - name: Upload .vsix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: ${{ steps.pack.outputs.vsix }}
+          if-no-files-found: error
+
+  publish-marketplace:
+    name: Publish to VS Code Marketplace
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Publish
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VSIX: ${{ needs.build.outputs.vsix }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "::warning::VSCE_PAT secret is not set - skipping VS Code Marketplace."
+            echo "### VS Code Marketplace: skipped (VSCE_PAT not set)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          npx --yes "@vscode/vsce@${VSCE_VERSION}" publish --packagePath "$VSIX" --skip-duplicate -p "$VSCE_PAT"
+          echo "### VS Code Marketplace: published $VSIX" >> "$GITHUB_STEP_SUMMARY"
+
+  publish-openvsx:
+    name: Publish to Open VSX
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Publish
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          VSIX: ${{ needs.build.outputs.vsix }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "::warning::OVSX_PAT secret is not set - skipping Open VSX."
+            echo "### Open VSX: skipped (OVSX_PAT not set)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          npx --yes "ovsx@${OVSX_VERSION}" publish "$VSIX" --skip-duplicate -p "$OVSX_PAT"
+          echo "### Open VSX: published $VSIX" >> "$GITHUB_STEP_SUMMARY"
+
+  github-release:
+    name: Attach .vsix to GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          VSIX: ${{ needs.build.outputs.vsix }}
+        run: |
+          # Use this version's CHANGELOG section as release notes, if present.
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ -s notes.md ]; then NOTES=(--notes-file notes.md); else NOTES=(--generate-notes); fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$VSIX" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$VSIX" --title "$RELEASE_TAG" --verify-tag "${NOTES[@]}"
+          fi
