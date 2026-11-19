@@ -59,6 +59,8 @@ Lightweight algorithms that run locally, with no model download and no network:
 
 - **`'$INCLUDE: 'file.bi'` is now followed for cross-file IntelliSense**: only the bare `$INCLUDE:` form was recognised, so symbols from files included with the usual comment form (`'$INCLUDE:` or `REM $INCLUDE:`) were found only when the workspace scan happened to reach them.
 
+- **Compile no longer waits for the "Save this path?" notification**: when QB64 was auto-detected, Compile and Compile & Run waited for an answer to *Found QB64 at … Save this path?* and never started if the notification was dismissed unanswered. The build now uses the detected compiler at once while the notification stays available; the *Continue Once* button is gone.
+
 Found by running real `.bas` programs end to end (see Quality Assurance), all in the built-in compiler used by linting and **Run in Retro CRT**:
 
 - **Line numbers work as jump targets**: `GOTO 10`, `GOSUB 1000`, `ON n GOTO 100, 200`, `IF x THEN 100 ELSE 200`, `ON ERROR GOTO 900`, `RESUME 100` and `RESTORE 200` were reported as *Expected label* or ignored. A number at the start of a line is now a label, as in QBasic.
@@ -93,6 +95,7 @@ Found by running real `.bas` programs end to end (see Quality Assurance), all in
 
 - Added `test/test-qb64pe-support.js` (QB64-PE catalog, metacommand lexing, `$RESIZE:ON` regression) and `test/test-worker-settings.js`.
 - Extended `test/test-qb64-autodetect.js` (fork banner detection, `QB64_COMPILER`) and `test/test-qb64-compiler.js` (error-block parsing, progress bars, ANSI stripping, warning de-duplication).
+- Added `npm run test:vscode` (`test/vscode/`): 28 integration tests that run inside a real VS Code with the extension in development mode and a throwaway profile. They cover activation, every command, hover, completion and learned ranking, signature help, definition into `$INCLUDE` files, links, symbols, references, rename, CodeLens, call hierarchy, inlay hints, formatting, folding, semantic tokens, the code-insight diagnostics and their quick fixes, the QB64-PE-only warning, a real QB64 build through the task and the Compile command, a debug session that stops at a breakpoint, and Run in Retro CRT. Set `QB64_PATH` to run the build and debugger tests against a real compiler.
 - Added `test/test-bas-programs.js` with 16 `.bas` programs in `test/fixtures/programs` (line numbers, GOSUB, ON GOTO, ON ERROR / RESUME, DATA / RESTORE, labels, SUB / FUNCTION, recursion, TYPE, arrays, strings, SELECT CASE, WHILE / WEND). Each one must lint clean, print its expected output (run in a child process with a timeout), raise no false typo warning, and print the same output after every offered GOTO → DO...LOOP rewrite.
 - Added `test/test-code-insights.js` (edit distance, typo detection, unused procedures, complexity, duplicate blocks, safe and unsafe GOTO loops, n-gram counting and prediction).
 - Added `test/test-language-features.js` ($INCLUDE parsing and resolution, symbol search, QB64-PE-only detection, range formatting, call graph, inlay hints, build-task file resolution) and `test/test-qb64-debugger.js` (vWATCH framing and handshake, plus a full debug session against a fake `$DEBUG` program over TCP).

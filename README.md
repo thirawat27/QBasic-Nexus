@@ -278,8 +278,9 @@ You'll see a notification popup asking
 ```
 
 - Click **"Save Path"** - The path will be saved automatically
-- Click **"Continue Once"** - Compilation uses the detected path for the current session
 - Click **"Not Now"** - You can set the path manually later (see below)
+
+The build does not wait for your answer: it uses the detected compiler right away.
 
 **3.2 If Auto-Detection Fails (Manual Configuration)**
 
@@ -1785,7 +1786,7 @@ Comprehensive guide to solving common issues with QBasic Nexus.
 3. Use auto-detection
    - Open any .bas file
    - Extension will search common locations
-   - Click "Save Path" to keep the detected location, or "Continue Once" to use it just for the current session
+   - Click "Save Path" to keep the detected location; builds already use it even if you don't answer
 4. Manually set path
    - Copy full path to QB64 executable
    - Paste into Compiler Path setting

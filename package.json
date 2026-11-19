@@ -69,7 +69,8 @@
         "vscode:prepublish": "npm run compile",
         "prebenchmark": "npm run compile",
         "test:insights": "node out/test/test-code-insights.js",
-        "test:programs": "node out/test/test-bas-programs.js"
+        "test:programs": "node out/test/test-bas-programs.js",
+        "test:vscode": "npm run compile && node out/test/vscode/run.js"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

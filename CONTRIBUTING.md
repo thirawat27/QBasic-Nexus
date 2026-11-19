@@ -37,6 +37,8 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
    npm run lint           # Lint the project
    npm run compile        # Build TypeScript + JavaScript into out/
    npm run test:compiler  # Compiler smoke suite (run after compile)
+   npm run test:vscode    # Integration tests in a real VS Code (opens a window;
+                          # set QB64_PATH to include build and debugger tests)
    npm run test:variables # Runtime behavior suite
    npm run test:features  # Editor feature suite
    npm test               # Full CI-equivalent suite (includes pretest lint)

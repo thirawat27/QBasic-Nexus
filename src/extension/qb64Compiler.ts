@@ -79,32 +79,25 @@ async function saveCompilerPath(compilerPath) {
   updateStatusBar();
 }
 
-async function promptToSaveDetectedPath(
-  detectedPath,
-  message,
-  includeContinueOnce = false,
-) {
+/**
+ * Ask once per path whether to save an auto-detected compiler. Callers must
+ * not await this before building: the notification can stay unanswered.
+ */
+async function promptToSaveDetectedPath(detectedPath: string, message: string) {
   if (!detectedPath) return 'skipped';
   if (autoDetectPromptState.dismissedPaths.has(detectedPath)) return 'skipped';
   if (autoDetectPromptState.inFlight) return autoDetectPromptState.inFlight;
 
   autoDetectPromptState.inFlight = (async () => {
-    const buttons = ['Save Path'];
-    if (includeContinueOnce) buttons.push('Continue Once');
-    buttons.push('Not Now');
-
     const choice = await vscode.window.showInformationMessage(
       message,
-      ...buttons,
+      'Save Path',
+      'Not Now',
     );
 
     if (choice === 'Save Path') {
       await saveCompilerPath(detectedPath);
       return 'saved';
-    }
-
-    if (choice === 'Continue Once') {
-      return 'continue';
     }
 
     autoDetectPromptState.dismissedPaths.add(detectedPath);
@@ -287,17 +280,17 @@ async function runQB64Compiler(document, shouldRun) {
     );
     channel.appendLine(`ℹ Falling back to auto-detected QB64: ${compilerPath}`);
     channel.appendLine('');
-    await promptToSaveDetectedPath(
+    // Offer to save the path without holding up the build: an unanswered
+    // notification would otherwise block Compile forever.
+    void promptToSaveDetectedPath(
       compilerPath,
       `Configured QB64 path is invalid. Save the detected QB64 path instead?\n${compilerPath}`,
-      true,
     );
   } else if (autoDetected) {
     setAutoDetectedCompilerPath(autoDetectDiscoveryState.cachedPath);
-    await promptToSaveDetectedPath(
+    void promptToSaveDetectedPath(
       compilerPath,
       `Found QB64 at ${compilerPath}. Save this path for future builds?`,
-      true,
     );
   }
 
