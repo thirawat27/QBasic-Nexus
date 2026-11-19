@@ -22,7 +22,7 @@ let selectedCode = 218;
 
 const grid = document.getElementById('grid');
 const filtersRoot = document.getElementById('filters');
-const search = document.getElementById('search');
+const search = /** @type {HTMLInputElement} */ (document.getElementById('search'));
 const previewChar = document.getElementById('previewChar');
 const meta = document.getElementById('meta');
 
@@ -84,7 +84,9 @@ function updateDetails() {
     )
     .join('');
 
-  for (const card of grid.querySelectorAll('.ascii-card')) {
+  for (const card of /** @type {NodeListOf<HTMLElement>} */ (
+    grid.querySelectorAll('.ascii-card')
+  )) {
     card.classList.toggle('is-selected', Number(card.dataset.code) === selectedCode);
   }
 }
@@ -130,7 +132,9 @@ function copySelectedCharacter() {
 }
 
 filtersRoot.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-filter]');
+  const button = /** @type {HTMLElement|null} */ (
+    /** @type {Element} */ (event.target).closest('[data-filter]')
+  );
   if (!button) return;
 
   activeFilter = button.dataset.filter;
@@ -146,7 +150,9 @@ search.addEventListener('input', () => {
 });
 
 grid.addEventListener('click', (event) => {
-  const card = event.target.closest('[data-code]');
+  const card = /** @type {HTMLElement|null} */ (
+    /** @type {Element} */ (event.target).closest('[data-code]')
+  );
   if (!card) return;
 
   selectedCode = Number(card.dataset.code);

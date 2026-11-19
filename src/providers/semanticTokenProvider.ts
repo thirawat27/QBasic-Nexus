@@ -1,0 +1,91 @@
+import vscode = require('vscode');
+import { buildSemanticTokenSpans } from '../shared/semanticTokens';
+import { BoundedCache } from '../shared/boundedCache';
+
+const TOKEN_TYPES = Object.freeze([
+  'variable',
+  'function',
+  'parameter',
+  'struct',
+  'label',
+  'property',
+]);
+
+const TOKEN_MODIFIERS = Object.freeze([
+  'declaration',
+  'readonly',
+  'global',
+  'local',
+  'array',
+  'typeMember',
+]);
+
+const MODIFIER_BITS = Object.freeze(
+  TOKEN_MODIFIERS.reduce((acc, modifier, index) => {
+    acc[modifier] = 1 << index;
+    return acc;
+  }, {}),
+);
+
+const QBasicSemanticTokensLegend = new vscode.SemanticTokensLegend(
+  [...TOKEN_TYPES],
+  [...TOKEN_MODIFIERS],
+);
+
+// Bounded: each entry holds a built SemanticTokens buffer for one document
+// version. Entries are recomputable, so evicting the coldest is always safe.
+const SEMANTIC_TOKEN_CACHE_LIMIT = 24;
+const semanticTokenCache = new BoundedCache(SEMANTIC_TOKEN_CACHE_LIMIT);
+
+class QBasicDocumentSemanticTokenProvider {
+  provideDocumentSemanticTokens(document) {
+    const cacheKey = document.uri.toString();
+    const cached = semanticTokenCache.get(cacheKey);
+    if (cached && cached.version === document.version) {
+      return cached.tokens;
+    }
+
+    const builder = new vscode.SemanticTokensBuilder(
+      QBasicSemanticTokensLegend,
+    );
+
+    for (const span of buildSemanticTokenSpans(document.getText())) {
+      const tokenType = TOKEN_TYPES.indexOf(span.type);
+      if (tokenType < 0) continue;
+
+      let modifierMask = 0;
+      for (const modifier of span.modifiers || []) {
+        modifierMask |= MODIFIER_BITS[modifier] || 0;
+      }
+
+      builder.push(
+        span.line,
+        span.start,
+        span.length,
+        tokenType,
+        modifierMask,
+      );
+    }
+
+    const tokens = builder.build();
+    semanticTokenCache.set(cacheKey, {
+      version: document.version,
+      tokens,
+    });
+    return tokens;
+  }
+}
+
+function invalidateSemanticTokenCache(uri) {
+  if (!uri) {
+    return;
+  }
+
+  semanticTokenCache.delete(typeof uri === 'string' ? uri : uri.toString());
+}
+
+export {
+  QBasicDocumentSemanticTokenProvider,
+  QBasicSemanticTokensLegend,
+  invalidateSemanticTokenCache,
+};

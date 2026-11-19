@@ -1,0 +1,253 @@
+const KNOWN_SNIPPET_VARIABLES = new Set([
+  'BLOCK_COMMENT_END',
+  'BLOCK_COMMENT_START',
+  'CLIPBOARD',
+  'CURRENT_DATE',
+  'CURRENT_DAY_NAME',
+  'CURRENT_DAY_NAME_SHORT',
+  'CURRENT_HOUR',
+  'CURRENT_MINUTE',
+  'CURRENT_MONTH',
+  'CURRENT_MONTH_NAME',
+  'CURRENT_MONTH_NAME_SHORT',
+  'CURRENT_SECOND',
+  'CURRENT_SECONDS_UNIX',
+  'CURRENT_TIMEZONE_OFFSET',
+  'CURRENT_YEAR',
+  'CURRENT_YEAR_SHORT',
+  'CURSOR_INDEX',
+  'CURSOR_NUMBER',
+  'DIRECTORY',
+  'FILEPATH',
+  'FILENAME',
+  'FILENAME_BASE',
+  'LINE_COMMENT',
+  'LINE_INDEX',
+  'LINE_NUMBER',
+  'RANDOM',
+  'RANDOM_HEX',
+  'RELATIVE_FILEPATH',
+  'SELECTED_TEXT',
+  'TM_CURRENT_LINE',
+  'TM_CURRENT_WORD',
+  'TM_DIRECTORY',
+  'TM_FILEPATH',
+  'TM_FILENAME',
+  'TM_FILENAME_BASE',
+  'TM_LINE_INDEX',
+  'TM_LINE_NUMBER',
+  'TM_SELECTED_TEXT',
+  'UUID',
+  'WORKSPACE_FOLDER',
+  'WORKSPACE_NAME',
+]);
+
+function isIdentifierStart(char) {
+  const c = char ? char.charCodeAt(0) : -1;
+  return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95; // A-Z, a-z, _
+}
+
+function isIdentifierChar(char) {
+  const c = char ? char.charCodeAt(0) : -1;
+  return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 95;
+}
+
+function readIdentifier(text, start) {
+  let index = start;
+  while (index < text.length && isIdentifierChar(text[index])) {
+    index++;
+  }
+  return {
+    value: text.slice(start, index),
+    end: index - 1,
+  };
+}
+
+function readDigits(text, start) {
+  let index = start;
+  const len = text.length;
+  while (index < len) {
+    const c = text.charCodeAt(index);
+    if (c < 48 || c > 57) break; // '0'-'9'
+    index++;
+  }
+  return {
+    value: text.slice(start, index),
+    end: index - 1,
+  };
+}
+
+function readBracedExpression(text, start) {
+  let depth = 1;
+  let index = start + 2;
+  let inner = '';
+
+  while (index < text.length) {
+    const char = text[index];
+    if (char === '\\') {
+      inner += char;
+      if (index + 1 < text.length) {
+        inner += text[index + 1];
+        index += 2;
+        continue;
+      }
+      index++;
+      continue;
+    }
+
+    if (char === '{') {
+      depth++;
+      inner += char;
+      index++;
+      continue;
+    }
+
+    if (char === '}') {
+      depth--;
+      if (depth === 0) {
+        return { inner, end: index };
+      }
+      inner += char;
+      index++;
+      continue;
+    }
+
+    inner += char;
+    index++;
+  }
+
+  return null;
+}
+
+function sanitizeLiteralText(text: string, options: { escapeClosingBrace?: boolean } = {}): string {
+  const { escapeClosingBrace = false } = options;
+  const out = [];
+
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index];
+
+    if (char === '\\') {
+      out.push(char);
+      if (index + 1 < text.length) {
+        out.push(text[index + 1]);
+        index++;
+      }
+      continue;
+    }
+
+    if (char === '$') {
+      out.push('\\$');
+      continue;
+    }
+
+    if (escapeClosingBrace && char === '}') {
+      out.push('\\}');
+      continue;
+    }
+
+    out.push(char);
+  }
+
+  return out.join('');
+}
+
+function sanitizeSnippetExpression(expression) {
+  const choiceMatch = /^([0-9]+)\|([\s\S]*)\|$/.exec(expression);
+  if (choiceMatch) {
+    return `${choiceMatch[1]}|${sanitizeLiteralText(choiceMatch[2], {
+      escapeClosingBrace: true,
+    })}|`;
+  }
+
+  const defaultMatch = /^([0-9]+|[A-Za-z_][A-Za-z0-9_]*):(.*)$/s.exec(expression);
+  if (defaultMatch) {
+    return `${defaultMatch[1]}:${sanitizeSnippetText(defaultMatch[2], {
+      escapeClosingBrace: true,
+    })}`;
+  }
+
+  return expression;
+}
+
+function sanitizeSnippetText(text: string, options: { escapeClosingBrace?: boolean } = {}): string {
+  const { escapeClosingBrace = false } = options;
+  const out = [];
+
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index];
+
+    if (char === '\\') {
+      out.push(char);
+      if (index + 1 < text.length) {
+        out.push(text[index + 1]);
+        index++;
+      }
+      continue;
+    }
+
+    if (char === '$') {
+      const next = text[index + 1];
+
+      if (/[0-9]/.test(next || '')) {
+        const digits = readDigits(text, index + 1);
+        out.push('$', digits.value);
+        index = digits.end;
+        continue;
+      }
+
+      if (next === '{') {
+        const braced = readBracedExpression(text, index);
+        if (!braced) {
+          out.push('\\$');
+          continue;
+        }
+
+        out.push('${', sanitizeSnippetExpression(braced.inner), '}');
+        index = braced.end;
+        continue;
+      }
+
+      if (isIdentifierStart(next)) {
+        const identifier = readIdentifier(text, index + 1);
+        if (KNOWN_SNIPPET_VARIABLES.has(identifier.value)) {
+          out.push('$', identifier.value);
+        } else {
+          out.push('\\$', identifier.value);
+        }
+        index = identifier.end;
+        continue;
+      }
+
+      out.push('\\$');
+      continue;
+    }
+
+    if (escapeClosingBrace && char === '}') {
+      out.push('\\}');
+      continue;
+    }
+
+    out.push(char);
+  }
+
+  return out.join('');
+}
+
+function sanitizeSnippetBody(body) {
+  if (Array.isArray(body)) {
+    return body.map((line) =>
+      typeof line === 'string' ? sanitizeSnippetText(line) : line,
+    );
+  }
+
+  if (typeof body === 'string') {
+    return sanitizeSnippetText(body);
+  }
+
+  return body;
+}
+
+export {
+  sanitizeSnippetBody,
+  sanitizeSnippetText,
+};

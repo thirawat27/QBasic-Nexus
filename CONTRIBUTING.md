@@ -35,7 +35,8 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 3. **Verify Setup**
    ```bash
    npm run lint           # Lint the project
-   npm run test:compiler  # Compiler smoke suite
+   npm run compile        # Build TypeScript + JavaScript into out/
+   npm run test:compiler  # Compiler smoke suite (run after compile)
    npm run test:variables # Runtime behavior suite
    npm run test:features  # Editor feature suite
    npm test               # Full CI-equivalent suite (includes pretest lint)
@@ -102,7 +103,13 @@ Thank you for your interest in contributing to QBasic Nexus! This document provi
 
 ## Coding Standards
 
-### JavaScript Style
+### TypeScript and JavaScript
+- New code goes in TypeScript (`.ts`). `src/shared`, `src/providers`, `src/debug`, `src/extension` and `src/commands` are TypeScript; the compiler, parser, managers, workers and `src/webview` are still JavaScript, type-checked through `checkJs`.
+- `tsc` compiles everything into `out/` (`npm run compile`, or `npm run watch` while developing). The extension runs from `out/extension.js`, and tests run from `out/test`.
+- The CRT and ASCII chart webviews load their HTML, CSS and scripts straight from `src/webview`, so those files are not bundled.
+- Prefer pure modules with no `vscode` import for logic (see `src/shared`), so tests can run them directly.
+
+### Style
 - Use ES6+ features
 - 2 spaces for indentation
 - Single quotes for strings

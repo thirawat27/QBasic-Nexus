@@ -11,3 +11,19 @@ vsc-extension-quickstart.md
 .github/**
 .nvmrc
 SECURITY.md
+
+# Sources are compiled to out/; the CRT and ASCII chart webviews load
+# their HTML, CSS and scripts straight from src/webview.
+src/**
+!src/webview/*.js
+!src/webview/*.html
+!src/webview/*.css
+out/test/**
+**/*.ts
+tsconfig.json
+test/**
+extension.js
+languageData.js
+providers.js
+# Old local bundle output; the extension runs from out/.
+dist/**

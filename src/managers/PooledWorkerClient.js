@@ -589,6 +589,12 @@ class PooledWorkerClient {
     return (Number(pending?.priority) || 0) + agingBoost;
   }
 
+  /**
+   * Turn a worker reply into a result. Subclasses override this.
+   * @param {any} _pending
+   * @param {any} _message
+   * @returns {{value?: any, useFallback?: boolean, pending?: any}}
+   */
   _resolveWorkerMessage(_pending, _message) {
     return { value: undefined };
   }

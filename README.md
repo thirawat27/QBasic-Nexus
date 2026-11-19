@@ -49,6 +49,7 @@
   - [📺 Advanced Web Runtime](#-advanced-web-runtime)
   - [📊 Professional IDE Tools](#-professional-ide-tools)
   - [🔧 Advanced Code Tools](#-advanced-code-tools)
+  - [🧠 Code Insights (On-Device)](#-code-insights-on-device)
   - [🐞 Debugging with QB64-PE](#-debugging-with-qb64-pe)
   - [🏗️ Build Tasks](#️-build-tasks)
 - [📦 Available Commands](#-available-commands)
@@ -712,6 +713,13 @@ Older computer, large files   1000ms
 | `qbasic-nexus.codeLens.references` | `true` | Show the call count above each `SUB` / `FUNCTION` |
 | `qbasic-nexus.inlayHints.parameterNames` | `true` | Show parameter names at call sites |
 | `qbasic-nexus.inlayHints.variableTypes` | `false` | Show the type implied by a variable's suffix at its first use |
+| `qbasic-nexus.analysis.typos` | `true` | "Did you mean" warnings and quick fixes for misspelled statements, functions and `SUB`s |
+| `qbasic-nexus.analysis.unusedProcedures` | `true` | Fade out `SUB`s / `FUNCTION`s nothing calls |
+| `qbasic-nexus.analysis.duplicateCode` | `true` | Point out repeated blocks of code |
+| `qbasic-nexus.analysis.duplicateMinLines` | `6` | Smallest repeated block that is reported |
+| `qbasic-nexus.analysis.gotoLoops` | `true` | Offer to rewrite backward `GOTO` loops as `DO...LOOP` |
+| `qbasic-nexus.codeLens.complexityThreshold` | `10` | Show `complexity N` above procedures at or above this value (`0` = off) |
+| `qbasic-nexus.completion.learnedRanking` | `true` | Rank completions with the on-device model trained on your own files |
 
 VS Code's own `editor.inlayHints.enabled` and `editor.codeLens` settings also apply.
 
@@ -1054,6 +1062,17 @@ Powerful utilities to manage and enhance your QBasic code.
 - **Code Statistics Analyzer** - Get instant breakdown of codebase structure, modules, LOC, and loops using `QBasic Show Code Statistics 📊` (Ctrl+Shift+I).
 - **Auto-Format on Save** - Automatically capitalize keywords and standardize indentation (mimicking classic QBasic IDE behavior).
 - **Code Actions** - Quick fixes and refactoring suggestions directly in the editor.
+
+### 🧠 Code Insights (On-Device)
+
+Small algorithms that run inside VS Code on your machine. No AI service, no download, nothing sent anywhere.
+
+- **Did you mean...?** - `PIRNT 1` gets a warning *Did you mean 'PRINT'?* with a one-click fix. The same works for built-in functions (`Lenn(a$)` → `LEN`) and your own `SUB`s (`DrawPlyer` → `DrawPlayer`). Only names with a close known match are reported, so calls into libraries outside the workspace are left alone. `$NOPREFIX` programs are understood.
+- **Unused procedures** - `SUB`s and `FUNCTION`s that nothing in the workspace calls are faded out.
+- **Complexity CodeLens** - procedures with many decisions (IF, CASE, loops, AND/OR) show `complexity N`, a hint to split them.
+- **Duplicate code** - blocks of 6 or more code lines that also appear elsewhere get an information marker that links to the other copy.
+- **GOTO → DO...LOOP** - a backward `GOTO` loop (`top:` ... `IF i < 5 THEN GOTO top`) is marked and can be rewritten as `DO` ... `LOOP WHILE i < 5` from the light-bulb menu. The rewrite is only offered when it is safe: the label is used once and no other code jumps into the loop.
+- **Learned completion ranking** - a tiny n-gram model counts which word follows which in your own QBasic files, then moves the most likely next words to the top of IntelliSense, marked ★ (for example `INPUT` after `OPEN f$ FOR`, or `CLS` on the line after `SCREEN 12`).
 
 ### 🐞 Debugging with QB64-PE
 

@@ -59,7 +59,7 @@ function addDiagnosticSuggestions(diagnostic, message) {
     [/Division by zero/i, 'Guard the divisor before /, \\, or MOD operations.'],
   ];
 
-  for (const [pattern, suggestion] of rules) {
+  for (const [pattern, suggestion] of /** @type {Array<[RegExp, string]>} */ (rules)) {
     if (pattern.test(text)) {
       diagnostic.addSuggestion(suggestion);
     }
@@ -302,6 +302,7 @@ class Compiler {
    * Get compiler statistics
    */
   getStats() {
+    /** @type {Record<string, any>} */
     const stats = { ...this.stats };
     if (this.cache) {
       stats.cache = this.cache.getStats();

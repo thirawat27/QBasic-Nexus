@@ -1,7 +1,8 @@
+// @ts-nocheck -- tests mock vscode and poke at internals.
 'use strict';
 
 const { KEYWORDS, FUNCTIONS } = require('../languageData');
-const SNIPPETS = require('../snippets/qbasic.json');
+const SNIPPETS = require('../../snippets/qbasic.json'); // run from out/test
 const {
   removeLineNumbersFromText,
   renumberLinesFromText,

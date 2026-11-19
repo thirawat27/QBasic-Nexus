@@ -13,7 +13,9 @@
 'use strict';
 
 // flru: blazing-fast LRU cache, zero dependencies
-const flru = require('flru');
+const flru = /** @type {typeof import('flru').default} */ (
+  /** @type {unknown} */ (require('flru'))
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FNV-1a 32-bit hash – ~100x faster than SHA-256 for short strings

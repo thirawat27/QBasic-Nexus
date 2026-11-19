@@ -11,8 +11,12 @@ _parseCall() {
 
     let args = [];
     if (this._matchPunc('(')) {
-      args = this._parseArgs().split(', ');
+      args = this._parseArgs().split(', ').filter((arg) => arg !== '');
       this._matchPunc(')');
+      // `Foo (a), b`: a parenthesized first argument followed by more.
+      while (this._matchPunc(',')) {
+        args.push(this._parseExpr());
+      }
     } else {
       while (!this._isStmtEnd()) {
         args.push(this._parseExpr());
@@ -217,6 +221,10 @@ _parsePrimary() {
       !isCurrentFunctionName
     ) {
       this._matchPunc('(');
+      // `arr()` passes the whole array, e.g. `CALL Sort(scores())`.
+      if (this._matchPunc(')')) {
+        return storageName;
+      }
       const indices = [];
       do {
         indices.push(this._parseExpr());
@@ -280,7 +288,11 @@ _parsePrimary() {
         typeof this._defaultInitializerForName === 'function'
           ? this._defaultInitializerForName(name)
           : (name.endsWith('$') ? '""' : '0');
-      this._emit(`var ${storageName} = ${defaultValue}; // Auto-declared`);
+      // Auto-declared. Keep the value when a GOTO jumps back over this
+      // statement: `var` is hoisted, so only the first run sees `undefined`.
+      this._emit(
+        `var ${storageName} = ${storageName} === undefined ? ${defaultValue} : ${storageName};`,
+      );
     }
 
     return builtin ? fnName : storageName;

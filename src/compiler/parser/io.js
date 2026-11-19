@@ -150,8 +150,20 @@ _parseRead() {
   },
 
 _parseRestore() {
-    if (this._check(TokenType.IDENTIFIER)) {
-      this._advance(); // Consume label (ignored for now)
+    // RESTORE label / RESTORE 100: continue READ from the first DATA item
+    // after that label or line number.
+    const target = this._check(TokenType.IDENTIFIER) ||
+      (this._check(TokenType.NUMBER) && /^\d+$/.test(String(this._peek().value)))
+      ? this._advance()
+      : null;
+    if (target) {
+      const index = this.dataLabelIndex?.get(String(target.value));
+      if (index === undefined) {
+        this._recordError(`RESTORE ${target.value}: Label not defined.`);
+      } else {
+        this._emit(`_restore(${index});`);
+        return;
+      }
     }
     this._emit('_restore();');
   },
