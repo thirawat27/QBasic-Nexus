@@ -2,6 +2,31 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
+## [Unreleased]
+
+### 💥 Breaking Changes
+
+- **Removed the internal "Qbasic Nexus" build mode**: Compile and Compile & Run now always use an external QB64 / QB64-PE compiler. The JavaScript-to-executable packaging path (`@yao-pkg/pkg`) and its WASM-accelerator variant are gone, so the extension no longer installs the packager and its ~200 transitive packages.
+- **Removed settings**: `qbasic-nexus.compilerMode`, `qbasic-nexus.internalTargets`, `qbasic-nexus.internalOutputDir`, `qbasic-nexus.internalWasmAccelerator`. Existing values are ignored.
+- **Removed commands**: QBasic Select Compiler Mode, QBasic Internal Build Quick Actions, QBasic Select Internal Build Targets, QBasic Select Internal Output Folder, QBasic Select Internal WASM Accelerator.
+
+- **Removed the WebAssembly accelerator** from the built-in transpiler (the `web-wasm` / `node-wasm` targets). Only the removed build mode used it.
+- **Removed the QBNex compiler section** from the README and the unused Rust-to-WASM compiler design document.
+
+### ✨ QB64 / QB64-PE Support
+
+- **Every QB64 compiler error is now reported**: build output is parsed by QB64's error-block structure (`message` / `Caused by (or after):` / `LINE n:`) instead of a fixed list of message prefixes. Errors such as `FOR without NEXT` were silently dropped before. ANSI colours and progress bars no longer break parsing, `-w` warnings are reported once and include their detail line, and full Windows paths in `file.bas:12: warning:` lines are matched.
+- **QB64 forks are accepted**: a compiler executable with a non-standard name is accepted when its `-?` banner identifies it as a QB64-family compiler. The result is cached per file.
+- **New `QB64_COMPILER` environment variable** points auto-detection at a specific QB64-family executable, such as a fork with its own executable name.
+- **Build output names the compiler**: the output panel shows the detected compiler and version (for example `QB64-PE Compiler V3.14.1`) before each build.
+- **QB64-PE language support**: completion, hover and signature help now cover QB64-PE additions such as `_IIF`, `_ANDALSO`/`_ORELSE`/`_NEGATE`, `_UPRINTSTRING`, `_READFILE$`/`_WRITEFILE`, `_SAVEIMAGE`, `_MESSAGEBOX`/`_INPUTBOX$`/file dialogs, `_LOG*`, `_MIN`/`_MAX`/`_CLAMP`, hashing, Base64/URL and compression helpers, plus metacommands such as `$NOPREFIX`, `$EMBED`, `$UNSTABLE`, `$EXEICON`, `$VERSIONINFO` and `$INCLUDEONCE`.
+- **Metacommands no longer cause false lint errors**: `$RESIZE:ON` was read as an `ON ... GOTO` statement. Whole-line metacommands are now skipped by the lexer; `$IF/$ELSE/$END IF/$LET` keep their existing behaviour. Bare `$METACOMMAND` lines are also highlighted.
+
+### 🔒 Kept
+
+- The built-in parser still powers real-time diagnostics, **Run in Retro CRT** and the interactive tutorial; none of these need QB64.
+- When QB64 is not found, the warning now offers **Run in Retro CRT** instead of switching to the removed internal mode.
+
 ## [1.6.2] - 2026-07-22
 
 ### 🛡️ Build Stability

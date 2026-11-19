@@ -13,6 +13,7 @@ const { CONFIG } = require('./constants');
 const {
   ensureExecutableReady,
   getExecutableOutputPath,
+  getTerminalLaunchSpec,
 } = require('./executableUtils');
 const { state } = require('./state');
 const {
@@ -21,18 +22,51 @@ const {
   expandHomePath,
   splitCommandLineArgs,
   attachProcessTimeout,
+  getTerminal,
 } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
 const {
-  runExecutable,
-  runInternalTranspiler,
-  BuildCanceledError,
-} = require('./internalTranspiler');
-const {
   findQB64,
+  getCompilerIdentity,
   getInstallInstructions,
   verifyQB64,
 } = require('./qb64AutoDetect');
+
+/** Thrown when the user cancels an in-progress build. */
+class BuildCanceledError extends Error {
+  constructor(message = 'Build canceled') {
+    super(message);
+    this.name = 'BuildCanceledError';
+    this.canceled = true;
+  }
+}
+
+/**
+ * Run a compiled executable inside a deterministic integrated terminal shell
+ * @param {string} exePath - Full path to the executable
+ */
+async function runExecutable(exePath) {
+  const channel = getOutputChannel();
+  const launchSpec = getTerminalLaunchSpec(exePath);
+
+  try {
+    await ensureExecutableReady(fs, exePath);
+  } catch (err) {
+    channel.appendLine(`  ⚠ Could not launch executable: ${err.message}`);
+    throw err;
+  }
+
+  const term = getTerminal({
+    cwd: launchSpec.cwd,
+    shellPath: launchSpec.shellPath,
+    shellArgs: launchSpec.shellArgs,
+  });
+  term.show(true);
+  term.sendText(launchSpec.commandText, true);
+  channel.appendLine(
+    `  ➤ Running in integrated terminal: ${exePath} (cwd: ${launchSpec.cwd})`,
+  );
+}
 
 const autoDetectPromptState = {
   inFlight: null,
@@ -42,46 +76,6 @@ const autoDetectDiscoveryState = {
   inFlight: null,
   cachedPath: null,
 };
-
-const QB64_ERROR_PREFIXES = Object.freeze([
-  'ILLEGAL ',
-  'DIM: ',
-  'CANNOT ',
-  'UNDEFINE ',
-  'UNDEFINED ',
-  'EXPECTED',
-  'FILE ',
-  'SYNTAX ',
-  'RETURN ',
-  'TYPE ',
-  'NAME ',
-  'UNEXPECTED ',
-  'INVALID EXPRESSION',
-  'ELEMENT NOT DEFINED',
-  'UNKNOWN ',
-  'MISSING ',
-  '_DEFINE: ',
-  'COMMAND ',
-  '2ND SUB ARGUMENT',
-  'INVALID ',
-  'VARIABLE ',
-  'ARRAY',
-  'THEN ',
-  'INCORRECT ',
-  '1ST ',
-  'STRING ',
-  'END IF ',
-  'STATEMENT ',
-  'LABEL \'',
-  'USER DEFINED TYPES',
-  'IF WITHOUT END IF',
-  'SUB ',
-  'TYPE ',
-  'ONLY ',
-  'NUMBER REQUIRED FOR FUNCTION',
-  'CVL ',
-  'EXPECTED IF EXPRESSION THEN/GOTO',
-]);
 
 function setAutoDetectedCompilerPath(compilerPath) {
   const nextPath = compilerPath || null;
@@ -201,8 +195,7 @@ async function detectQB64ForSession() {
 
 async function maybeAutoConfigureQB64(editor) {
   if (!editor || editor.document.languageId !== CONFIG.LANGUAGE_ID) return;
-  if (getConfig(CONFIG.COMPILER_MODE) !== CONFIG.MODE_QB64) return;
-
+  
   const configuredPath = expandHomePath(getConfig(CONFIG.COMPILER_PATH));
   if (configuredPath) return;
 
@@ -239,7 +232,7 @@ async function runQB64Compiler(document, shouldRun) {
     const choice = await vscode.window.showWarningMessage(
       missingPathMessage,
       'Open Settings',
-      'Use Internal Mode',
+      'Run in Retro CRT',
     );
 
     if (choice === 'Open Settings') {
@@ -247,11 +240,8 @@ async function runQB64Compiler(document, shouldRun) {
         'workbench.action.openSettings',
         `${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`,
       );
-    } else if (choice === 'Use Internal Mode') {
-      await vscode.workspace
-        .getConfiguration(CONFIG.SECTION)
-        .update(CONFIG.COMPILER_MODE, CONFIG.MODE_INTERNAL, true);
-      await runInternalTranspiler(document, shouldRun);
+    } else if (choice === 'Run in Retro CRT') {
+      await vscode.commands.executeCommand(CONFIG.CMD_RETRO);
     }
     return;
   }
@@ -270,6 +260,11 @@ async function runQB64Compiler(document, shouldRun) {
 
   channel.clear();
   channel.show();
+  const compilerIdentity = await getCompilerIdentity(compilerPath);
+  channel.appendLine(
+    `🧬 Compiler: ${compilerIdentity || 'QB64-family compiler'} (${compilerPath})`,
+  );
+  channel.appendLine('');
   if (configuredPath && !configuredPathValid && autoDetected) {
     channel.appendLine(
       `⚠ Configured QB64 path is invalid or not found: ${configuredPath}`,
@@ -461,112 +456,149 @@ function compileWithQB64(document, compilerPath, channel, token = null) {
   });
 }
 
+// eslint-disable-next-line no-control-regex -- ESC starts ANSI colour codes in compiler output
+const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*[A-Za-z]/g;
+const PROGRESS_PREFIX_PATTERN = /^(?:\s*\[[^\]]*\]\s*\d+%)+/;
+const QB64_LINE_PATTERN = /^LINE\s+(\d+)\s*:(.*)$/i;
+const CAUSED_BY_PATTERN = /^Caused by(?: \(or after\))?\s*:/i;
+const LOCATED_DIAGNOSTIC_PATTERN =
+  /^\s*(?:.*[\\/])?([^\\/:]+\.(?:bas|bi|bm|inc))(?::(\d+)|\((\d+)\))(?::\d+)?\s*:?\s*(?:(error|warning)\s*:)?\s*(.*)$/i;
+const SEVERITY_PREFIX_PATTERN = /^(error|warning)\s*:\s*/i;
+
+function cleanOutputLine(line) {
+  return String(line || '')
+    .replace(ANSI_ESCAPE_PATTERN, '')
+    .replace(PROGRESS_PREFIX_PATTERN, '')
+    .trimEnd();
+}
+
+function splitSeverity(message, fallback = 'error') {
+  const match = SEVERITY_PREFIX_PATTERN.exec(message);
+  if (!match) return { severity: fallback, message };
+  return {
+    severity: match[1].toLowerCase(),
+    message: message.slice(match[0].length).trim(),
+  };
+}
+
+/**
+ * Parse QB64 / QB64-PE compiler output into plain diagnostics.
+ *
+ * Two formats are recognised:
+ * - The QB64 error block, whatever the message text is:
+ *     <message>
+ *     Caused by (or after):<code>     (optional)
+ *     LINE <n>:<source line>
+ * - Located lines such as `file.bas:12: warning: unused variable`,
+ *   optionally followed by indented detail lines.
+ *
+ * @param {string} output
+ * @param {string} fileName - base name of the compiled source file
+ * @returns {Array<{line: number, message: string, severity: 'error'|'warning', code: string}>}
+ */
+function parseQB64Output(output, fileName) {
+  const lines = String(output || '').split(/\r\n|\r|\n/).map(cleanOutputLine);
+  const targetName = String(fileName || '').toLowerCase();
+  const results = [];
+  const seen = new Set();
+  const add = (entry) => {
+    if (!entry.message) return;
+    const key = `${entry.line}|${entry.severity}|${entry.message}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push(entry);
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const text = lines[i];
+    if (!text.trim()) continue;
+
+    const lineMatch = QB64_LINE_PATTERN.exec(text.trim());
+    if (lineMatch) {
+      let j = i - 1;
+      let causedBy = '';
+      if (j >= 0 && CAUSED_BY_PATTERN.test(lines[j].trim())) {
+        causedBy = lines[j].trim().replace(CAUSED_BY_PATTERN, '').trim();
+        // QB64 reports its injected debugger stub instead of user code here.
+        if (/^SUB\s+VWATCH\b/i.test(causedBy)) causedBy = '';
+        j--;
+      }
+      while (j >= 0 && !lines[j].trim()) j--;
+      const rawMessage = j >= 0 ? lines[j].trim() : '';
+      const { severity, message } = splitSeverity(
+        rawMessage || 'QB64 compilation error',
+      );
+      add({
+        line: Math.max(0, Number(lineMatch[1]) - 1),
+        message: causedBy ? `${message}\nCaused by (or after): ${causedBy}` : message,
+        severity,
+        code: lineMatch[2].trim(),
+      });
+      continue;
+    }
+
+    const located = LOCATED_DIAGNOSTIC_PATTERN.exec(text);
+    if (!located || located[1].toLowerCase() !== targetName) continue;
+
+    const detail = [];
+    while (i + 1 < lines.length && /^\s+\S/.test(lines[i + 1])) {
+      detail.push(lines[i + 1].trim().replace(/\s+/g, ' '));
+      i++;
+    }
+    const baseMessage = located[5].trim();
+    add({
+      line: Math.max(0, Number(located[2] || located[3]) - 1),
+      message: [baseMessage, ...detail].filter(Boolean).join(': '),
+      severity: (located[4] || 'error').toLowerCase(),
+      code: '',
+    });
+  }
+
+  return results;
+}
+
 /**
  * Parse QB64 compiler output for errors and populate the diagnosticCollection
  * @param {string} output
  * @param {vscode.Uri} uri
  */
 function parseCompilerErrors(output, uri) {
-  const diagnostics = [];
-  const diagnosticKeys = new Set();
-  const filename = path.basename(uri.fsPath).toLowerCase();
-  const addDiagnostic = (diagnostic) => {
-    const range = diagnostic.range;
-    const key = [
-      range.start.line,
-      range.start.character,
-      range.end.line,
-      range.end.character,
-      diagnostic.message,
-    ].join('|');
-    if (diagnosticKeys.has(key)) return;
-    diagnosticKeys.add(key);
-    diagnostics.push(diagnostic);
-  };
+  const document = vscode.workspace.textDocuments.find(
+    (d) => d.uri.toString() === uri.toString(),
+  );
+  const sourceLines = document ? document.getText().split(/\r?\n/) : [];
 
-  // Pattern: filename.bas:line: error message
-  const pattern =
-    /([^\\/]+\.(?:bas|bi|bm|inc))[:(](\d+)(?:[:)])?\s*(?:\d+:)?\s*(?:(error|warning))?:?\s*(.+)/gi;
-
-  let match;
-  while ((match = pattern.exec(output)) !== null) {
-    const [, file, lineStr, level, message] = match;
-
-    if (file.toLowerCase() === filename) {
-      const line = Math.max(0, parseInt(lineStr, 10) - 1);
-      const severity = String(level || '').toLowerCase() === 'warning'
-        ? vscode.DiagnosticSeverity.Warning
-        : vscode.DiagnosticSeverity.Error;
-
+  const diagnostics = parseQB64Output(output, path.basename(uri.fsPath)).map(
+    (entry) => {
+      const sourceLine = sourceLines[entry.line];
+      let range = new vscode.Range(
+        entry.line,
+        0,
+        entry.line,
+        sourceLine === undefined ? Number.MAX_SAFE_INTEGER : sourceLine.length,
+      );
+      if (entry.code && sourceLine !== undefined) {
+        const column = sourceLine.toLowerCase().indexOf(entry.code.toLowerCase());
+        if (column >= 0) {
+          range = new vscode.Range(
+            entry.line,
+            column,
+            entry.line,
+            column + entry.code.length,
+          );
+        }
+      }
       const diagnostic = new vscode.Diagnostic(
-        new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
-        message.trim(),
-        severity,
+        range,
+        entry.message,
+        entry.severity === 'warning'
+          ? vscode.DiagnosticSeverity.Warning
+          : vscode.DiagnosticSeverity.Error,
       );
       diagnostic.source = 'QB64';
-      addDiagnostic(diagnostic);
-    }
-  }
-
-  // qb64pe-vscode-main robust output parsing
-  const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
-  const sourceCode = document ? document.getText().split(/\r?\n/) : [];
-  const lines = output.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const lintLine = lines[i];
-    if (!lintLine || lintLine.startsWith('[')) continue;
-    const upperLintLine = lintLine.toUpperCase();
-    if (QB64_ERROR_PREFIXES.some(prefix => upperLintLine.startsWith(prefix))) {
-      let errorLineNumber = -1;
-      let code = '';
-      for (let x = i; x < lines.length; x++) {
-        if (lines[x].startsWith('LINE ')) {
-          const parts = lines[x].split(':');
-          if (parts.length > 0) {
-             const lineToken = parts[0].split(' ').pop();
-             errorLineNumber = Math.max(0, Number(lineToken) - 1);
-             code = parts.slice(1).join(':').trim();
-             if (!code || code.length < 1) code = lintLine;
-          }
-          break;
-        }
-      }
-      if (errorLineNumber >= 0) {
-        let range = new vscode.Range(errorLineNumber, 0, errorLineNumber, Number.MAX_SAFE_INTEGER);
-        if (code && errorLineNumber < sourceCode.length) {
-          try {
-            const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp('(' + escapedCode + ')', 'i');
-            const codeMatch = sourceCode[errorLineNumber].match(regex);
-            if (codeMatch && codeMatch.index !== undefined) {
-               range = new vscode.Range(errorLineNumber, codeMatch.index, errorLineNumber, codeMatch.index + codeMatch[0].length);
-            }
-          } catch (_e) {
-            // ignore regex failure
-          }
-        }
-        const nextLine = (i + 1 < lines.length) ? lines[i+1].trim() : '';
-        const message = lintLine + (nextLine && !nextLine.startsWith('LINE ') ? '\n' + nextLine : '');
-        const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
-        diagnostic.source = 'QB64';
-        addDiagnostic(diagnostic);
-      }
-    } else if (lintLine.toLowerCase().includes('warning')) {
-        const tokens = lintLine.split(':');
-        if (tokens.length >= 4 && tokens[0].trim().toLowerCase() === filename) {
-            const errorLineNumber = Math.max(0, Number(tokens[1]) - 1);
-            const lineLen = errorLineNumber < sourceCode.length ? sourceCode[errorLineNumber].length : Number.MAX_SAFE_INTEGER;
-            const message = tokens.slice(3).join(':').trim();
-            const diagnostic = new vscode.Diagnostic(
-                new vscode.Range(errorLineNumber, 0, errorLineNumber, lineLen), 
-                message, 
-                vscode.DiagnosticSeverity.Warning
-            );
-            diagnostic.source = 'QB64';
-            addDiagnostic(diagnostic);
-        }
-    }
-  }
+      return diagnostic;
+    },
+  );
 
   state.diagnosticCollection.set(uri, diagnostics);
 }
@@ -575,5 +607,6 @@ module.exports = {
   runQB64Compiler,
   compileWithQB64,
   parseCompilerErrors,
+  parseQB64Output,
   maybeAutoConfigureQB64,
 };

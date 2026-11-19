@@ -8,8 +8,6 @@
 const vscode = require('vscode');
 const { CONFIG } = require('./constants');
 const { state } = require('./state');
-const { getConfig } = require('./utils');
-const { runInternalTranspiler } = require('./internalTranspiler');
 const { runQB64Compiler } = require('./qb64Compiler');
 
 /**
@@ -48,14 +46,7 @@ async function executeCompile(shouldRun) {
   state.isCompiling = true;
 
   try {
-    // Get compiler mode
-    const mode = getConfig(CONFIG.COMPILER_MODE);
-
-    if (mode === CONFIG.MODE_INTERNAL || mode === CONFIG.MODE_INTERNAL_WASM) {
-      await runInternalTranspiler(document, shouldRun);
-    } else {
-      await runQB64Compiler(document, shouldRun);
-    }
+    await runQB64Compiler(document, shouldRun);
   } finally {
     // Always reset flag, even if compilation fails
     state.isCompiling = false;

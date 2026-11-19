@@ -8,22 +8,12 @@
 const vscode = require('vscode');
 const { CONFIG, COMMANDS } = require('./constants');
 const { getDocumentAnalysis } = require('../shared/documentAnalysis');
-const {
-  getNativeExecutableLabel,
-  normalizePackagerTargets,
-  validatePackagerTargets,
-} = require('./executableUtils');
-const {
-  formatCompilerPathLabel,
-  formatWasmAcceleratorLabel,
-} = require('./systemSettingsShared');
-const { formatInternalOutputDirLabel } = require('./internalBuildSettings');
+const { formatCompilerPathLabel } = require('./systemSettingsShared');
 const { state } = require('./state');
 const { getConfig } = require('./utils');
 
 function updateStatusBar() {
   const editor = vscode.window.activeTextEditor;
-  const internalBuildLabel = getNativeExecutableLabel();
 
   if (!state.statusBarItem) return; // Guard: disposed during deactivation
 
@@ -33,90 +23,23 @@ function updateStatusBar() {
     return;
   }
 
-  const mode = getConfig(CONFIG.COMPILER_MODE);
-  const isInternalMode =
-    mode === CONFIG.MODE_INTERNAL || mode === CONFIG.MODE_INTERNAL_WASM;
   const compilerPath = getConfig(CONFIG.COMPILER_PATH);
-  const internalOutputDir = getConfig(CONFIG.INTERNAL_OUTPUT_DIR, '');
-  const internalWasmAccelerator = getConfig(
-    CONFIG.INTERNAL_WASM_ACCELERATOR,
-    CONFIG.WASM_ACCELERATOR_AUTO,
-  );
   const autoDetectedCompilerPath = state.autoDetectedCompilerPath;
-  const workspaceFolder =
-    vscode.workspace.getWorkspaceFolder(editor.document.uri) ||
-    vscode.workspace.workspaceFolders?.[0] ||
-    null;
-  const workspacePath = workspaceFolder?.uri.fsPath || '';
-  let internalTargets = [];
-  let internalTargetError = null;
-
-  if (isInternalMode) {
-    try {
-      internalTargets = validatePackagerTargets(getConfig(CONFIG.INTERNAL_TARGETS));
-    } catch (error) {
-      internalTargets = normalizePackagerTargets(getConfig(CONFIG.INTERNAL_TARGETS));
-      internalTargetError = error;
-    }
-  }
 
   if (state.internalBuildBarItem) {
-    const tooltipLines = ['QBasic Nexus system quick actions', `Mode: ${mode}`];
-
-    if (isInternalMode) {
-      const targetSummary = internalTargets.length > 0
-        ? internalTargets.join(', ')
-        : 'host';
-      const outputSummary = formatInternalOutputDirLabel(
-        internalOutputDir,
-        workspacePath,
-      );
-      tooltipLines.push(
-        `Targets: ${targetSummary}`,
-        `Output: ${outputSummary}`,
-        `WASM: ${formatWasmAcceleratorLabel(internalWasmAccelerator)}`,
-      );
-    } else {
-      tooltipLines.push(
-        `QB64: ${formatCompilerPathLabel(compilerPath, autoDetectedCompilerPath)}`,
-      );
-    }
-
-    state.internalBuildBarItem.text = internalTargetError
-      ? '$(warning) Config'
-      : '$(settings-gear) Config';
-    state.internalBuildBarItem.tooltip = internalTargetError
-      ? `${internalTargetError.message}\nClick to fix build or system settings.`
-      : tooltipLines.join('\n');
+    state.internalBuildBarItem.text = '$(settings-gear) Config';
+    state.internalBuildBarItem.tooltip = [
+      'QBasic Nexus system quick actions',
+      `QB64: ${formatCompilerPathLabel(compilerPath, autoDetectedCompilerPath)}`,
+    ].join('\n');
     state.internalBuildBarItem.command = COMMANDS.SHOW_SYSTEM_QUICK_ACTIONS;
-    state.internalBuildBarItem.backgroundColor = internalTargetError
-      ? new vscode.ThemeColor('statusBarItem.warningBackground')
-      : undefined;
+    state.internalBuildBarItem.backgroundColor = undefined;
     state.internalBuildBarItem.show();
   }
 
   if (state.isCompiling) {
     state.statusBarItem.text = '$(sync~spin) Compiling...';
     state.statusBarItem.tooltip = 'Compilation in progress';
-    state.statusBarItem.command = COMMANDS.COMPILE_RUN;
-    state.statusBarItem.backgroundColor = undefined;
-  } else if (isInternalMode && internalTargetError) {
-    state.statusBarItem.text = '$(warning) Internal Target Error';
-    state.statusBarItem.tooltip = `${internalTargetError.message}\nClick to open the internal target setting.`;
-    state.statusBarItem.command = {
-      command: 'workbench.action.openSettings',
-      arguments: [`${CONFIG.SECTION}.${CONFIG.INTERNAL_TARGETS}`],
-    };
-    state.statusBarItem.backgroundColor = new vscode.ThemeColor(
-      'statusBarItem.warningBackground',
-    );
-  } else if (isInternalMode) {
-    const targetLabel =
-      internalTargets.length === 1
-        ? internalTargets[0]
-        : `${internalTargets.length} targets`;
-    state.statusBarItem.text = `$(package) Build ${targetLabel} ⚡`;
-    state.statusBarItem.tooltip = `Compile with QBasic Nexus (@yao-pkg/pkg -> ${internalBuildLabel}; targets: ${internalTargets.join(', ')}; WASM: ${formatWasmAcceleratorLabel(internalWasmAccelerator)})`;
     state.statusBarItem.command = COMMANDS.COMPILE_RUN;
     state.statusBarItem.backgroundColor = undefined;
   } else if (!compilerPath && autoDetectedCompilerPath) {

@@ -28,7 +28,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "pretest": "npm run lint",
-        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout",
+        "test": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout",
         "benchmark": "npm run benchmark:compiler && npm run benchmark:editor",
         "benchmark:compiler": "node test/benchmark-compiler.js",
         "benchmark:editor": "node test/benchmark-editor.js",
@@ -46,16 +46,17 @@
         "test:tutorial": "node test/test-tutorial-manager.js",
         "test:optimizations": "node test/test-optimization-managers.js",
         "test:executables": "node test/test-executable-utils.js",
-        "test:buildsettings": "node test/test-internal-build-settings.js",
         "test:systemsettings": "node test/test-system-settings.js",
         "test:hotpath": "node test/test-hot-path-caches.js",
         "test:configcache": "node test/test-config-cache.js",
         "test:cacheintegrity": "node test/test-compiler-cache-integrity.js",
         "test:processtimeout": "node test/test-process-timeout.js",
-        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:buildsettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout && npm run benchmark",
+        "test:all": "npm run test:compiler && npm run test:run && npm run test:variables && npm run test:features && npm run test:integration && npm run test:deep && npm run test:autodetect && npm run test:qb64diagnostics && npm run test:qb64pe && npm run test:workspace && npm run test:webview && npm run test:tutorial && npm run test:todo && npm run test:optimizations && npm run test:executables && npm run test:workersettings && npm run test:systemsettings && npm run test:hotpath && npm run test:configcache && npm run test:cacheintegrity && npm run test:processtimeout && npm run benchmark",
         "generate:snippets": "node scripts/generate-snippets.js",
         "package": "vsce package",
-        "publish": "vsce publish"
+        "publish": "vsce publish",
+        "test:workersettings": "node test/test-worker-settings.js",
+        "test:qb64pe": "node test/test-qb64pe-support.js"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
@@ -66,10 +67,8 @@
         "tinybench": "6.0.2"
     },
     "dependencies": {
-        "@yao-pkg/pkg": "6.21.0",
         "defu": "^6.1.7",
         "flru": "^1.0.2",
-        "magic-string": "^1.0.0",
         "mitt": "^3.0.1"
     },
     "categories": [
@@ -115,11 +114,6 @@
                 "command": "qbasic-nexus.configureSystem",
                 "title": "QBasic Configure System ⚙️",
                 "icon": "$(settings-gear)"
-            },
-            {
-                "command": "qbasic-nexus.selectCompilerMode",
-                "title": "QBasic Select Compiler Mode 🧭",
-                "icon": "$(compass)"
             },
             {
                 "command": "qbasic-nexus.selectCompilerPath",
@@ -180,26 +174,6 @@
                 "command": "qbasic-nexus.refreshTodo",
                 "title": "Refresh TODOs 🔄",
                 "icon": "$(refresh)"
-            },
-            {
-                "command": "qbasic-nexus.showInternalBuildQuickActions",
-                "title": "QBasic Internal Build Quick Actions ⚙️",
-                "icon": "$(settings-gear)"
-            },
-            {
-                "command": "qbasic-nexus.selectInternalTargets",
-                "title": "QBasic Select Internal Build Targets 🎯",
-                "icon": "$(package)"
-            },
-            {
-                "command": "qbasic-nexus.selectInternalOutputDir",
-                "title": "QBasic Select Internal Output Folder 📂",
-                "icon": "$(folder-opened)"
-            },
-            {
-                "command": "qbasic-nexus.selectInternalWasmAccelerator",
-                "title": "QBasic Select Internal WASM Accelerator ⚡",
-                "icon": "$(rocket)"
             },
             {
                 "command": "qbasic-nexus.selectCompileWorkerResilience",
@@ -357,52 +331,10 @@
                     "markdownDescription": "Full path to your **QB64** executable.\n\n**Examples:**\n- Windows: `C:\\QB64\\qb64.exe`\n- macOS: `/Applications/QB64/qb64`\n- Linux: `~/qb64/qb64`\n\nLeave empty for auto-detection.",
                     "scope": "machine"
                 },
-                "qbasic-nexus.compilerMode": {
-                    "type": "string",
-                    "enum": [
-                        "QB64 (Recommended)",
-                        "Qbasic Nexus"
-                    ],
-                    "enumDescriptions": [
-                        "Compile with QB64 for native executable (best compatibility and performance)",
-                        "Transpile QBasic to JavaScript via the internal engine, then package one or more standalone executables using @yao-pkg/pkg"
-                    ],
-                    "default": "QB64 (Recommended)",
-                    "markdownDescription": "Select the compilation mode.",
-                    "scope": "resource"
-                },
                 "qbasic-nexus.compilerArgs": {
                     "type": "string",
                     "default": "",
                     "markdownDescription": "Additional arguments for the QB64 compiler.\n\n**Examples:** `-w` (warnings), `-g` (debug)",
-                    "scope": "resource"
-                },
-                "qbasic-nexus.internalTargets": {
-                    "type": "string",
-                    "default": "host",
-                    "markdownDescription": "Packager target(s) for **Qbasic Nexus** internal builds.\n\nUse `host` for the current machine, or a comma-separated list such as `win-x64`, `linux-x64`, `macos-arm64`, or `host,linux-x64`.\n\nCommon aliases like `windows-x64`, `darwin-arm64`, `osx-arm64`, `amd64`, `aarch64`, and `current` are normalized automatically.\n\nWhen multiple targets are specified, outputs are written into the configured internal output folder and **Compile & Run** skips auto-run unless you switch back to a single host target.",
-                    "scope": "resource"
-                },
-                "qbasic-nexus.internalOutputDir": {
-                    "type": "string",
-                    "default": "",
-                    "markdownDescription": "Output directory for **Qbasic Nexus** internal builds.\n\nLeave empty to write beside the source file. Relative paths resolve from the workspace folder when available; absolute paths and `~/...` home-relative paths are also supported.\n\nSingle-target builds write the executable into this folder. Multi-target builds write all generated binaries there.",
-                    "scope": "resource"
-                },
-                "qbasic-nexus.internalWasmAccelerator": {
-                    "type": "string",
-                    "enum": [
-                        "auto",
-                        "on",
-                        "off"
-                    ],
-                    "enumDescriptions": [
-                        "Use the WebAssembly accelerator when available, with JavaScript fallback.",
-                        "Force the internal compiler to emit the WebAssembly accelerator path.",
-                        "Use the pure JavaScript internal runtime."
-                    ],
-                    "default": "auto",
-                    "markdownDescription": "Controls the optional WebAssembly accelerator used by **Qbasic Nexus** internal builds.",
                     "scope": "resource"
                 },
                 "qbasic-nexus.compileWorkerMaxQueueSize": {

@@ -8,45 +8,12 @@ const {
   getConfig,
   invalidateConfigCache,
 } = require('./utils');
-const {
-  getPreferredConfigTarget,
-} = require('./internalBuildSettings');
+const { getPreferredConfigTarget } = require('./workerSettings');
 const {
   findQB64,
   verifyQB64,
 } = require('./qb64AutoDetect');
 const { getSystemQuickActionItems } = require('./systemSettingsShared');
-
-const COMPILER_MODE_ITEMS = Object.freeze([
-  {
-    label: 'QB64 (Recommended)',
-    detail: 'Native compilation through an external QB64 installation',
-    value: CONFIG.MODE_QB64,
-  },
-  {
-    label: 'Qbasic Nexus',
-    detail: 'Internal transpiler and packaged executable flow',
-    value: CONFIG.MODE_INTERNAL,
-  },
-]);
-
-const INTERNAL_WASM_ACCELERATOR_ITEMS = Object.freeze([
-  {
-    label: 'Auto',
-    detail: 'Use the WASM accelerator when available, with JavaScript fallback',
-    value: CONFIG.WASM_ACCELERATOR_AUTO,
-  },
-  {
-    label: 'On',
-    detail: 'Force the internal compiler to emit the WASM accelerator path',
-    value: CONFIG.WASM_ACCELERATOR_ON,
-  },
-  {
-    label: 'Off',
-    detail: 'Use the pure JavaScript internal runtime',
-    value: CONFIG.WASM_ACCELERATOR_OFF,
-  },
-]);
 
 const COMPILER_ARGS_PRESETS = Object.freeze([
   {
@@ -98,14 +65,6 @@ function getStatusBarModule() {
   return require('./statusBar');
 }
 
-function getWorkspacePath() {
-  const activeUri = vscode.window.activeTextEditor?.document?.uri;
-  const activeFolder = activeUri
-    ? vscode.workspace.getWorkspaceFolder(activeUri)
-    : null;
-  return (activeFolder || vscode.workspace.workspaceFolders?.[0])?.uri.fsPath || '';
-}
-
 async function updateSetting(key, value, target = getPreferredConfigTarget()) {
   await vscode.workspace.getConfiguration(CONFIG.SECTION).update(key, value, target);
   // onDidChangeConfiguration is not guaranteed to have fired yet, so drop the
@@ -122,17 +81,9 @@ function normalizePositiveInteger(value, fallback, minimum = 1) {
 async function showSystemQuickActions() {
   const picked = await vscode.window.showQuickPick(
     getSystemQuickActionItems({
-      compilerMode: getConfig(CONFIG.COMPILER_MODE, CONFIG.MODE_QB64),
       compilerPath: getConfig(CONFIG.COMPILER_PATH, null),
       autoDetectedCompilerPath: state.autoDetectedCompilerPath,
       compilerArgs: getConfig(CONFIG.COMPILER_ARGS, ''),
-      internalTargets: getConfig(CONFIG.INTERNAL_TARGETS, 'host'),
-      internalOutputDir: getConfig(CONFIG.INTERNAL_OUTPUT_DIR, ''),
-      internalWasmAccelerator: getConfig(
-        CONFIG.INTERNAL_WASM_ACCELERATOR,
-        CONFIG.WASM_ACCELERATOR_AUTO,
-      ),
-      workspacePath: getWorkspacePath(),
       compileWorkerMaxQueueSize: getConfig(
         CONFIG.COMPILE_WORKER_MAX_QUEUE_SIZE,
         64,
@@ -161,26 +112,6 @@ async function showSystemQuickActions() {
 
   if (!picked) return;
   await vscode.commands.executeCommand(picked.command);
-}
-
-async function selectCompilerMode() {
-  const currentMode = getConfig(CONFIG.COMPILER_MODE, CONFIG.MODE_QB64);
-  const picked = await vscode.window.showQuickPick(
-    COMPILER_MODE_ITEMS.map((item) => ({
-      ...item,
-      description: item.value === currentMode ? 'Current' : '',
-    })),
-    {
-      title: 'QBasic Nexus: Compiler Mode',
-      placeHolder: 'Choose the active compilation mode',
-      ignoreFocusOut: true,
-    },
-  );
-
-  if (!picked) return;
-
-  await updateSetting(CONFIG.COMPILER_MODE, picked.value);
-  vscode.window.showInformationMessage(`Compiler mode set to ${picked.value}`);
 }
 
 async function selectCompilerPath() {
@@ -322,33 +253,6 @@ async function selectCompilerArgs() {
   await updateSetting(CONFIG.COMPILER_ARGS, nextArgs);
   const label = nextArgs || 'none';
   vscode.window.showInformationMessage(`QB64 compiler args set to ${label}`);
-}
-
-async function selectInternalWasmAccelerator() {
-  const currentValue = String(
-    getConfig(
-      CONFIG.INTERNAL_WASM_ACCELERATOR,
-      CONFIG.WASM_ACCELERATOR_AUTO,
-    ) || CONFIG.WASM_ACCELERATOR_AUTO,
-  ).toLowerCase();
-  const picked = await vscode.window.showQuickPick(
-    INTERNAL_WASM_ACCELERATOR_ITEMS.map((item) => ({
-      ...item,
-      description: item.value === currentValue ? 'Current' : '',
-    })),
-    {
-      title: 'QBasic Nexus: Internal WASM Accelerator',
-      placeHolder: 'Choose how the internal compiler uses WASM acceleration',
-      ignoreFocusOut: true,
-    },
-  );
-
-  if (!picked) return;
-
-  await updateSetting(CONFIG.INTERNAL_WASM_ACCELERATOR, picked.value);
-  vscode.window.showInformationMessage(
-    `Internal WASM accelerator set to ${picked.label}.`,
-  );
 }
 
 async function selectEnableLinting() {
@@ -553,10 +457,8 @@ module.exports = {
   showSystemQuickActions,
   selectAutoFormat,
   selectCompilerArgs,
-  selectCompilerMode,
   selectCompilerPath,
   selectEnableLinting,
-  selectInternalWasmAccelerator,
   selectLineNumberSettings,
   selectLintDelay,
 };

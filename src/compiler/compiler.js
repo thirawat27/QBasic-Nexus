@@ -23,7 +23,7 @@ const {
  * Compiler options
  */
 const DEFAULT_OPTIONS = {
-  target: 'web',          // 'web', 'node', 'web-wasm', or 'node-wasm'
+  target: 'web',          // 'web' or 'node'
   cache: true,            // Enable compilation cache
   strictMode: false,      // Strict error checking
   optimizationLevel: 2,   // 0=none, 1=basic, 2=aggressive

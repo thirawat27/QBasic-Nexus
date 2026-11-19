@@ -47,6 +47,10 @@ function normalise(source) {
 const SCAN_RE =
   /([ \t]+)|(\r?\n)|((?:'|(?:[Rr][Ee][Mm](?=[ \t\n]|$)))[^\n]*)|(&[Hh][0-9A-Fa-f]+)|(\d+(?:\.\d*)?(?:[eE][+-]?\d+)?[#!&%]?|\.\d+[#!&%]?)|("(?:[^"\n]|"")*"?)|([A-Za-z_][A-Za-z0-9_]*[$%&!#]?)|(<=|>=|<>|[+\-*/^=<>\\])|([(),;:#.])|([^\s])/y;
 
+// Word right after a line-leading `$` (metacommand name).
+const METACOMMAND_RE = /([A-Za-z][A-Za-z0-9_]*)/y;
+const PRECOMPILER_WORDS = new Set(['IF', 'ELSEIF', 'ELSE', 'END', 'LET']);
+
 // Scanner-rule identifiers (match SCAN_RE group order).
 const RULE_WS = 1;
 const RULE_NEWLINE = 2;
@@ -219,10 +223,31 @@ class Lexer {
       let value;
 
       switch (rule) {
+        case RULE_UNKNOWN: {
+          // A QB64 metacommand ($RESIZE:ON, $CONSOLE:ONLY, $NOPREFIX,
+          // $EMBED:'f','h', ...) owns its whole line. Skip it so its `:ARG`
+          // is not read as a statement separator plus a statement (`ON`).
+          // The precompiler lines ($IF/$ELSEIF/$ELSE/$END IF/$LET) still flow
+          // through as tokens.
+          if (
+            raw === '$' &&
+            (count === 0 || tokens[count - 1].type === TokenType.NEWLINE)
+          ) {
+            METACOMMAND_RE.lastIndex = pos;
+            const meta = METACOMMAND_RE.exec(src);
+            if (meta && !PRECOMPILER_WORDS.has(meta[1].toUpperCase())) {
+              const lineEnd = src.indexOf('\n', pos);
+              const end = lineEnd === -1 ? srcLength : lineEnd;
+              col += end - pos;
+              pos = end;
+            }
+          }
+          continue;
+        }
+
         case RULE_WS:
         case RULE_COMMENT:
-        case RULE_UNKNOWN:
-          // Silently skip whitespace, comments, and unknown chars.
+          // Silently skip whitespace and comments.
           continue;
 
         case RULE_NEWLINE:

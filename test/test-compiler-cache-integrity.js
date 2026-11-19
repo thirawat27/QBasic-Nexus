@@ -98,7 +98,7 @@ test('The same source compiled for different targets does not share an entry', (
     'Node entry must be stored separately',
   );
   assert(
-    cache.getCode(source, 'web-wasm') === null,
+    cache.getCode(source, 'unwritten-target') === null,
     'An unwritten target must miss',
   );
 });
