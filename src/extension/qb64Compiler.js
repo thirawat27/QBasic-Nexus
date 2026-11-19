@@ -25,6 +25,7 @@ const {
   getTerminal,
 } = require('./utils');
 const { updateStatusBar } = require('./statusBar');
+const { refreshAllCompatDiagnostics } = require('./compatDiagnostics');
 const {
   findQB64,
   getCompilerIdentity,
@@ -209,6 +210,35 @@ async function maybeAutoConfigureQB64(editor) {
 }
 
 /**
+ * Record the compiler banner and recheck QB64-PE-only keyword warnings when it
+ * changes.
+ * @param {string|null} identity
+ */
+function setCompilerIdentity(identity) {
+  const next = identity || null;
+  if (state.compilerIdentity === next) return;
+  state.compilerIdentity = next;
+  refreshAllCompatDiagnostics();
+}
+
+/**
+ * Find the compiler that a build would use, without prompting, and record its
+ * banner. Called at activation and when the compiler path setting changes.
+ */
+async function refreshCompilerIdentity() {
+  try {
+    const { compilerPath } = await resolveCompilerPath(
+      getConfig(CONFIG.COMPILER_PATH),
+    );
+    setCompilerIdentity(
+      compilerPath ? await getCompilerIdentity(compilerPath) : null,
+    );
+  } catch {
+    setCompilerIdentity(null);
+  }
+}
+
+/**
  * Entry point: validate config then drive the QB64 compilation
  * @param {vscode.TextDocument} document
  * @param {boolean} shouldRun
@@ -261,6 +291,7 @@ async function runQB64Compiler(document, shouldRun) {
   channel.clear();
   channel.show();
   const compilerIdentity = await getCompilerIdentity(compilerPath);
+  setCompilerIdentity(compilerIdentity);
   channel.appendLine(
     `🧬 Compiler: ${compilerIdentity || 'QB64-family compiler'} (${compilerPath})`,
   );
@@ -329,7 +360,7 @@ async function runQB64Compiler(document, shouldRun) {
  * @param {vscode.OutputChannel} channel
  * @returns {Promise<string>} resolved output path on success
  */
-function compileWithQB64(document, compilerPath, channel, token = null) {
+function compileWithQB64(document, compilerPath, channel, token = null, options = {}) {
   return new Promise((resolve, reject) => {
     const sourcePath = document.uri.fsPath;
     const sourceDir = path.dirname(sourcePath);
@@ -338,7 +369,15 @@ function compileWithQB64(document, compilerPath, channel, token = null) {
     // Build arguments
     const extraArgs = splitCommandLineArgs(getConfig(CONFIG.COMPILER_ARGS));
 
-    const args = ['-x', '-c', sourcePath, '-o', outputPath, ...extraArgs];
+    const args = [
+      '-x',
+      '-c',
+      sourcePath,
+      '-o',
+      outputPath,
+      ...extraArgs,
+      ...(options.extraArgs || []),
+    ];
 
     // Log
     channel.appendLine('╔══════════════════════════════════════════════════╗');
@@ -605,6 +644,9 @@ function parseCompilerErrors(output, uri) {
 
 module.exports = {
   runQB64Compiler,
+  resolveCompilerPath,
+  refreshCompilerIdentity,
+  BuildCanceledError,
   compileWithQB64,
   parseCompilerErrors,
   parseQB64Output,

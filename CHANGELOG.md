@@ -2,14 +2,15 @@
 
 All notable changes to "QBasic Nexus" extension will be documented in this file.
 
-## [Unreleased]
+## [2.0.0] - 2026-11-19
 
 ### 💥 Breaking Changes
 
 - **Removed the internal "Qbasic Nexus" build mode**: Compile and Compile & Run now always use an external QB64 / QB64-PE compiler. The JavaScript-to-executable packaging path (`@yao-pkg/pkg`) and its WASM-accelerator variant are gone, so the extension no longer installs the packager and its ~200 transitive packages.
 - **Removed settings**: `qbasic-nexus.compilerMode`, `qbasic-nexus.internalTargets`, `qbasic-nexus.internalOutputDir`, `qbasic-nexus.internalWasmAccelerator`. Existing values are ignored.
 - **Removed commands**: QBasic Select Compiler Mode, QBasic Internal Build Quick Actions, QBasic Select Internal Build Targets, QBasic Select Internal Output Folder, QBasic Select Internal WASM Accelerator.
-
+- **Minimum VS Code version is now 1.125.0** (was 1.107.0). Older VS Code builds will not install this release.
+- **No more cross-platform executables from one machine**: the internal mode could package `win-x64`, `linux-x64` and `macos-arm64` binaries from a single host. QB64 builds only for the platform it runs on, so build on each target OS instead.
 - **Removed the WebAssembly accelerator** from the built-in transpiler (the `web-wasm` / `node-wasm` targets). Only the removed build mode used it.
 - **Removed the QBNex compiler section** from the README and the unused Rust-to-WASM compiler design document.
 
@@ -22,10 +23,69 @@ All notable changes to "QBasic Nexus" extension will be documented in this file.
 - **QB64-PE language support**: completion, hover and signature help now cover QB64-PE additions such as `_IIF`, `_ANDALSO`/`_ORELSE`/`_NEGATE`, `_UPRINTSTRING`, `_READFILE$`/`_WRITEFILE`, `_SAVEIMAGE`, `_MESSAGEBOX`/`_INPUTBOX$`/file dialogs, `_LOG*`, `_MIN`/`_MAX`/`_CLAMP`, hashing, Base64/URL and compression helpers, plus metacommands such as `$NOPREFIX`, `$EMBED`, `$UNSTABLE`, `$EXEICON`, `$VERSIONINFO` and `$INCLUDEONCE`.
 - **Metacommands no longer cause false lint errors**: `$RESIZE:ON` was read as an `ON ... GOTO` statement. Whole-line metacommands are now skipped by the lexer; `$IF/$ELSE/$END IF/$LET` keep their existing behaviour. Bare `$METACOMMAND` lines are also highlighted.
 
+### 🐞 QB64-PE Debugger
+
+- **Debug QB64-PE programs in VS Code (F5)**: a new `qb64` debug type compiles the current file with QB64-PE and connects to it through QB64-PE's `$DEBUG` (vWATCH) channel, the same one the QB64-PE IDE uses. Supports breakpoints, Continue, Pause, Step Over / Into / Out, the call stack, and stopping on runtime errors.
+- If the file has no `$DEBUG` line, you are offered to add it before the launch.
+- Limits: variable values cannot be read yet, and breakpoints only work in the main `.bas` file, because QB64-PE does not instrument `$INCLUDE`d code or `$CHECKING:OFF` blocks.
+
+### 🧭 New Editor Features
+
+- **Clickable `$INCLUDE`**: Ctrl+click the file name in `'$INCLUDE: 'lib.bi'` to open the included file.
+- **Go to Symbol in Workspace (Ctrl+T)**: searches `SUB`, `FUNCTION`, `TYPE`, `CONST` and labels in every QBasic file of the workspace, including unsaved changes in open editors.
+- **QB64-PE compatibility warnings**: when the detected compiler is the original QB64, QB64-PE-only keywords such as `_IIF`, `_READFILE$`, `_MESSAGEBOX` and `$EMBED` get a warning before you build. New setting `qbasic-nexus.warnQB64PEOnly` (default `true`).
+- **Format Selection**: format only the selected lines; indentation still follows the blocks opened above the selection.
+- **Reference CodeLens**: every `SUB` and `FUNCTION` shows how many places call it; click to list them. New setting `qbasic-nexus.codeLens.references` (default `true`).
+- **Call Hierarchy (Shift+Alt+H)**: incoming and outgoing calls between procedures across files; module-level code appears as `(module) file.bas`.
+- **Inlay hints**: parameter names at calls to your procedures and to built-in functions with two or more parameters (`qbasic-nexus.inlayHints.parameterNames`, default `true`), plus optional suffix type hints such as `count%` → `INTEGER` (`qbasic-nexus.inlayHints.variableTypes`, default `false`).
+- **Build tasks**: **Terminal → Run Build Task** offers **qb64: Build current file**. A `qb64` task type in `tasks.json` accepts `file` and `args`, and a `$qb64` problem matcher is available for your own shell tasks.
+
+### 🐛 Fixes
+
+- **`'$INCLUDE: 'file.bi'` is now followed for cross-file IntelliSense**: only the bare `$INCLUDE:` form was recognised, so symbols from files included with the usual comment form (`'$INCLUDE:` or `REM $INCLUDE:`) were found only when the workspace scan happened to reach them.
+
 ### 🔒 Kept
 
 - The built-in parser still powers real-time diagnostics, **Run in Retro CRT** and the interactive tutorial; none of these need QB64.
 - When QB64 is not found, the warning now offers **Run in Retro CRT** instead of switching to the removed internal mode.
+
+### 🎛️ UI Changes
+
+- **Status bar and Configure System are QB64-only**: the status-bar tooltip shows the QB64 path instead of mode, targets, output folder and WASM state, and the **QBasic Configure System ⚙️** picker no longer lists compiler mode, internal targets, output folder or WASM accelerator.
+
+### 📦 Dependencies
+
+- Removed runtime dependencies `@yao-pkg/pkg` and `magic-string`. The extension now ships with three small runtime dependencies: `defu`, `flru` and `mitt`.
+
+### 🚀 Release & Distribution
+
+- **Published to both VS Code Marketplace and Open VSX**: pushing a `v*` tag builds one `.vsix`, checks that the tag matches the `package.json` version, runs lint and tests, then publishes to the Marketplace and Open VSX and attaches the `.vsix` to a GitHub Release. VSCodium, Gitpod and other Open VSX-based editors can now install the extension from their own registry.
+- CI now builds the `.vsix` on every run and uploads it as a build artifact.
+
+### ✅ Quality Assurance
+
+- Added `test/test-qb64pe-support.js` (QB64-PE catalog, metacommand lexing, `$RESIZE:ON` regression) and `test/test-worker-settings.js`.
+- Extended `test/test-qb64-autodetect.js` (fork banner detection, `QB64_COMPILER`) and `test/test-qb64-compiler.js` (error-block parsing, progress bars, ANSI stripping, warning de-duplication).
+- Added `test/test-language-features.js` ($INCLUDE parsing and resolution, symbol search, QB64-PE-only detection, range formatting, call graph, inlay hints, build-task file resolution) and `test/test-qb64-debugger.js` (vWATCH framing and handshake, plus a full debug session against a fake `$DEBUG` program over TCP).
+- Removed `test/test-internal-build-settings.js` and the packaging cases of `test/test-executable-utils.js` along with the code they covered.
+
+### 📝 Documentation
+
+- README rewritten around the QB64 / QB64-PE workflow.
+- `SECURITY.md` no longer describes the internal transpiler mode or the removed packaging dependencies.
+- `CONTRIBUTING.md` documents the tag-based release process.
+
+### 🧭 Upgrading from 1.x
+
+1. Install [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe) (or QB64) if you used the internal mode.
+2. Leave `qbasic-nexus.compilerPath` empty for auto-detection, set it to the compiler executable, or set the `QB64_COMPILER` environment variable for a fork with a non-standard executable name.
+3. Delete `compilerMode`, `internalTargets`, `internalOutputDir` and `internalWasmAccelerator` from your `settings.json`. They are ignored, but VS Code marks them as unknown settings.
+4. To run a program without any compiler installed, use **Run in Retro CRT**.
+
+### 🔧 Internal
+
+- `src/extension/internalBuildSettings.js` became `src/extension/workerSettings.js` and now holds only the compile/lint worker-resilience settings.
+- `src/extension/executableUtils.js` keeps only the output-path, terminal-launch and executable-permission helpers; the packager target helpers were removed.
 
 ## [1.6.2] - 2026-07-22
 

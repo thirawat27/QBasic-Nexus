@@ -36,7 +36,10 @@ const { lintDocument } = require('./src/extension/linting');
 const { showCodeStatsDetail } = require('./src/extension/codeStats');
 const { executeCompile } = require('./src/extension/compileCommand');
 const { runInCrt } = require('./src/extension/crtRunner');
-const { maybeAutoConfigureQB64 } = require('./src/extension/qb64Compiler');
+const {
+  maybeAutoConfigureQB64,
+  refreshCompilerIdentity,
+} = require('./src/extension/qb64Compiler');
 const {
   selectCompileWorkerResilience,
   selectLintWorkerResilience,
@@ -83,7 +86,19 @@ const {
   QBasicColorProvider,
   activateDecorators,
   QBasicTodoProvider,
+  QBasicDocumentLinkProvider,
+  QBasicWorkspaceSymbolProvider,
+  QBasicCodeLensProvider,
+  QBasicCallHierarchyProvider,
+  QBasicInlayHintsProvider,
 } = require('./src/providers/index');
+const {
+  updateCompatDiagnostics,
+  removeCompatDiagnostics,
+  disposeCompatDiagnostics,
+} = require('./src/extension/compatDiagnostics');
+const { QB64TaskProvider } = require('./src/extension/buildTask');
+const { registerDebugger } = require('./src/debug/debugAdapter');
 
 // ── Lazy-loaded modules ──────────────────────────────────────────────────────
 let _TutorialManager = null;
@@ -148,6 +163,9 @@ async function activate(context) {
   state.diagnosticCollection =
     vscode.languages.createDiagnosticCollection('qbasic-nexus');
   context.subscriptions.push(state.diagnosticCollection);
+  state.compatDiagnosticCollection =
+    vscode.languages.createDiagnosticCollection('qbasic-nexus-compat');
+  context.subscriptions.push(state.compatDiagnosticCollection);
 
   // Initialize status bars
   state.statusBarItem = vscode.window.createStatusBarItem(
@@ -173,6 +191,8 @@ async function activate(context) {
 
   // ── Register language providers ──────────────────────────────────────────
   const selector = { language: CONFIG.LANGUAGE_ID };
+  const codeLensProvider = new QBasicCodeLensProvider();
+  const inlayHintsProvider = new QBasicInlayHintsProvider();
 
   context.subscriptions.push(
     // Core providers
@@ -242,8 +262,26 @@ async function activate(context) {
       selector,
       new QBasicColorProvider(),
     ),
-
+    vscode.languages.registerDocumentRangeFormattingEditProvider(
+      selector,
+      new QBasicDocumentFormattingEditProvider(),
+    ),
+    vscode.languages.registerDocumentLinkProvider(
+      selector,
+      new QBasicDocumentLinkProvider(),
+    ),
+    vscode.languages.registerWorkspaceSymbolProvider(
+      new QBasicWorkspaceSymbolProvider(),
+    ),
+    vscode.languages.registerCodeLensProvider(selector, codeLensProvider),
+    vscode.languages.registerCallHierarchyProvider(
+      selector,
+      new QBasicCallHierarchyProvider(),
+    ),
+    vscode.languages.registerInlayHintsProvider(selector, inlayHintsProvider),
+    vscode.tasks.registerTaskProvider(CONFIG.TASK_TYPE, new QB64TaskProvider()),
   );
+  registerDebugger(context);
 
   // ── Activate custom internal decorators ──────────────────────────────────
   activateDecorators(context);
@@ -351,6 +389,7 @@ async function activate(context) {
           void workspaceAnalyzer.prepareWorkspace(editor.document);
         }
         lintDocument(editor.document);
+        updateCompatDiagnostics(editor.document, { immediate: true });
         throttledStatsUpdate(editor.document);
       } else {
         if (state.statsBarItem) state.statsBarItem.hide();
@@ -363,6 +402,7 @@ async function activate(context) {
 
       // Lint and update stats
       lintDocument(e.document);
+      updateCompatDiagnostics(e.document);
       throttledStatsUpdate(e.document);
     }),
     vscode.workspace.onWillSaveTextDocument((e) => {
@@ -419,6 +459,19 @@ async function activate(context) {
 
       if (e.affectsConfiguration(CONFIG.SECTION)) {
         updateStatusBar();
+        codeLensProvider.refresh();
+        inlayHintsProvider.refresh();
+      }
+
+      if (
+        e.affectsConfiguration(`${CONFIG.SECTION}.${CONFIG.COMPILER_PATH}`) ||
+        e.affectsConfiguration(`${CONFIG.SECTION}.${CONFIG.WARN_QB64PE_ONLY}`)
+      ) {
+        void refreshCompilerIdentity().then(() => {
+          for (const doc of vscode.workspace.textDocuments) {
+            updateCompatDiagnostics(doc, { immediate: true });
+          }
+        });
       }
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -463,6 +516,7 @@ async function activate(context) {
     // Memory leak fix: remove incremental linter state when doc is closed
     vscode.workspace.onDidCloseTextDocument((doc) => {
       getIncrementalLinter().removeDocument(doc.uri.toString());
+      removeCompatDiagnostics(doc.uri);
       invalidateCache(doc.uri);
       invalidateSemanticTokenCache(doc.uri);
     }),
@@ -481,6 +535,7 @@ async function activate(context) {
   }
 
   recycleWorkerClients();
+  void refreshCompilerIdentity();
 
   const activationTime = Date.now() - startTime;
   console.log(`[QBasic Nexus] ✅ Ready in ${activationTime}ms`);
@@ -498,6 +553,7 @@ function deactivate() {
 
   // Dispose the incremental linter (cancels all pending timers)
   getIncrementalLinter().dispose();
+  disposeCompatDiagnostics();
   getCompileWorkerClient().dispose();
   workspaceAnalyzer.dispose();
 
@@ -507,6 +563,7 @@ function deactivate() {
   state.statsBarItem?.dispose();
   state.outputChannel?.dispose();
   state.diagnosticCollection?.dispose();
+  state.compatDiagnosticCollection?.dispose();
   state.terminal?.dispose();
 
   // Clear references
@@ -515,6 +572,7 @@ function deactivate() {
   state.statsBarItem = null;
   state.outputChannel = null;
   state.diagnosticCollection = null;
+  state.compatDiagnosticCollection = null;
   state.terminal = null;
   state.terminalCwd = null;
   state.extensionContext = null;

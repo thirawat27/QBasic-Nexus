@@ -19,6 +19,32 @@ const workspaceAnalyzer = {
       .findWorkspaceIdentifierMatches(document, identifier, options);
   },
 
+  async getFileAnalyses(document, options = {}) {
+    return workspaceAnalysisManager
+      .getAnalyzer(document?.uri || options.uri)
+      .getFileAnalyses(document, options);
+  },
+
+  /**
+   * Analyses of every QBasic file in every workspace folder.
+   * @returns {Promise<Array<{file: string, analysis: object}>>}
+   */
+  async getAllFileAnalyses() {
+    const folders = workspaceAnalysisManager.getWorkspaceFolderUris();
+    const seen = new Set();
+    const result = [];
+    for (const folderUri of folders) {
+      for (const entry of await workspaceAnalysisManager
+        .getAnalyzer(folderUri)
+        .getFileAnalyses(null)) {
+        if (seen.has(entry.file)) continue;
+        seen.add(entry.file);
+        result.push(entry);
+      }
+    }
+    return result;
+  },
+
   prepareWorkspace(target) {
     const documentUri =
       target && typeof target === 'object'

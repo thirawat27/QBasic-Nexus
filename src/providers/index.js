@@ -30,6 +30,11 @@ const {
   activateDecorators,
 } = require('./decorators');
 const { QBasicTodoProvider } = require('./todoProvider');
+const { QBasicDocumentLinkProvider } = require('./documentLinkProvider');
+const { QBasicWorkspaceSymbolProvider } = require('./workspaceSymbolProvider');
+const { QBasicCodeLensProvider } = require('./codeLensProvider');
+const { QBasicCallHierarchyProvider } = require('./callHierarchyProvider');
+const { QBasicInlayHintsProvider } = require('./inlayHintsProvider');
 
 module.exports = {
   invalidateCache,
@@ -51,4 +56,9 @@ module.exports = {
   QBasicColorProvider,
   activateDecorators,
   QBasicTodoProvider,
+  QBasicDocumentLinkProvider,
+  QBasicWorkspaceSymbolProvider,
+  QBasicCodeLensProvider,
+  QBasicCallHierarchyProvider,
+  QBasicInlayHintsProvider,
 };
